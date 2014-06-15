@@ -7,14 +7,13 @@ import Image
 
 AffineSolver = True
 SimpleSolver = False
-ShutterLatencySolver = False
 AttitudeBiasSolver = False
 YawBiasSolver = False
 
 defaultShutterLatency = 0.67    # measured by the shutter latency solver
-defaultRollBias = -0.40         # measured by the attitude bias solver
-defaultPitchBias = -1.60
-defaultYawBias = -3.55          # measured by the yaw bias solver
+defaultRollBias = -0.8          # measured by the attitude bias solver
+defaultPitchBias = -2.0
+defaultYawBias = -3.9          # measured by the yaw bias solver
 
 def usage():
     print "Usage: " + sys.argv[0] + " <flight_data_dir> <raw_image_dir> <ground_alt_m>"
@@ -63,68 +62,90 @@ ig.computeRefLocation()
 ig.computeKeyPointGeolocation( ground_alt_m )
 print "Global error (start): %.2f" % ig.globalError()
 
-if AffineSolver:
-    for i in xrange(20):
-        ig.affineTransformImages(gain=0.5)
+
+def AffineSolver(steps=10, gain=0.5):
+    for i in xrange(steps):
+        ig.affineTransformImages(gain=gain)
         ig.generate_ac3d(c, ground_alt_m, geotag_dir, ref_image=None, base_name="quick-3d", version=i )
         print "Global error (%d) = %.2f: " % (i, ig.globalError())
 
-if SimpleSolver:
-    for i in xrange(20):
-        ig.rotateImages(gain=0.25)
+def SimpleSolver(steps=10, gain=0.25):
+    for i in xrange(steps):
+        ig.rotateImages(gain=gain)
         ig.computeKeyPointGeolocation( ground_alt_m )
-        ig.shiftImages(gain=0.25)
+        ig.shiftImages(gain=gain)
         ig.generate_ac3d(c, ground_alt_m, geotag_dir, ref_image=None, base_name="quick-3d", version=i )
         print "Global error (%d) = %.2f: " % (i, ig.globalError())
 
-if ShutterLatencySolver:
-    delaystep = 0.01
-    delay = 0.5
-    maxdelay = 0.7
-    while delay <= maxdelay + (delaystep*0.1):
+def ShutterLatencySolver(min, max, stepsize):
+    best_result = None
+    best_value = None
+    value = min
+    while value <= max + (stepsize*0.1):
         # test fit image set with specified parameters
-        ig.computeCamPositions(c, delay=delay,
+        ig.computeCamPositions(c, delay=value,
                                rollbias=defaultRollBias,
                                pitchbias=defaultPitchBias,
                                yawbias=defaultYawBias)
         ig.computeKeyPointGeolocation( ground_alt_m )
-        print "Global error (delay): %.2f %.2f" % (delay, ig.globalError())
-        delay += delaystep
+        error = ig.globalError()
+        print "Global error (delay): %.2f %.2f" % (value, error)
+        if best_result == None or error < best_result:
+            best_result = error
+            best_value = value
+        value += stepsize
+    return best_value
 
-if AttitudeBiasSolver:
-    pitchstep = 0.2
-    minpitch = -3.0
-    maxpitch = -1.0
-
-    rollstep = 0.2
-    minroll = -1.0
-    maxroll = 1.0
-
-    pitchbias = minpitch
-    while pitchbias <= maxpitch + (pitchstep*0.1):
-        rollbias = minroll
-        while rollbias <= maxroll + (rollstep*0.1):
+def AttitudeBiasSolver(rollmin, rollmax, rollstep,
+                       pitchmin, pitchmax, pitchstep):
+    best_result = None
+    best_pitch = None
+    best_roll = None
+    pitchvalue = pitchmin
+    while pitchvalue <= pitchmax + (pitchstep*0.1):
+        rollvalue = rollmin
+        while rollvalue <= rollmax + (rollstep*0.1):
             # test fit image set with specified parameters
             ig.computeCamPositions(c, delay=defaultShutterLatency,
-                                   rollbias=rollbias, pitchbias=pitchbias,
+                                   rollbias=rollvalue, pitchbias=pitchvalue,
                                    yawbias=defaultYawBias )
             ig.computeKeyPointGeolocation( ground_alt_m )
-            print "Global error (attitude): %.2f %.2f %.2f" % (pitchbias, rollbias, ig.globalError())
-            rollbias += rollstep
-        pitchbias += pitchstep
+            error = ig.globalError()
+            print "Global error (attitude): %.2f %.2f %.2f" % (pitchvalue, rollvalue, error)
+            if best_result == None or error < best_result:
+                best_result = error
+                best_pitch = pitchvalue
+                best_roll = rollvalue
+            rollvalue += rollstep
+        pitchvalue += pitchstep
+    return best_roll, best_pitch
 
-if YawBiasSolver:
-    yawstep = 0.1
-    minyaw = -5.0
-    maxyaw = -3.0
-
-    yawbias = minyaw
-    while yawbias <= maxyaw+ (yawstep*0.1):
+def YawBiasSolver(min, max, stepsize):
+    best_result = None
+    best_value = None
+    value = min
+    while value <= max+ (stepsize*0.1):
         # test fit image set with specified parameters
         ig.computeCamPositions(c, delay=defaultShutterLatency,
                                rollbias=defaultRollBias,
                                pitchbias=defaultPitchBias,
-                               yawbias=yawbias )
+                               yawbias=value )
         ig.computeKeyPointGeolocation( ground_alt_m )
-        print "Global error (yaw): %.2f %.2f" % (yawbias, ig.globalError())
-        yawbias += yawstep
+        error = ig.globalError()
+        print "Global error (yaw): %.2f %.2f" % (value, error)
+        if best_result == None or error < best_result:
+            best_result = error
+            best_value = value
+        value += stepsize
+    return best_value
+
+#print "Best shutter latency: " + str(ShutterLatencySolver(0.0, 1.0, 0.1))
+#print "Best shutter latency: " + str(ShutterLatencySolver(0.6, 0.8, 0.01))
+
+#bestroll, bestpitch = AttitudeBiasSolver(-5.0, 5.0, 1.0, -5.0, 5.0, 1.0)
+#bestroll, bestpitch = AttitudeBiasSolver(-2.0, 0.0, 0.1, -3.0, -1.0, 0.1)
+#print "Best roll: %.2f pitch: %.2f" % (bestroll, bestpitch)
+
+#print "Best yaw: " + str(YawBiasSolver(-5, -3, 0.1))
+
+AffineSolver(steps=20)
