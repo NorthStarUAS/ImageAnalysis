@@ -30,8 +30,6 @@ def simple_interp(points, v):
             return points[index][1]
 
 
-
-
 class Correlate():
     def __init__(self, flight_dir="", image_dir=""):
         print "init Correlate"
@@ -194,7 +192,7 @@ class Correlate():
             print "  max error: " + str(max_error)
             print "  skipped pictures: " + str(skipped_picts)
             print "  camera time correction: " + str(cam_time_error)
-            if skipped_picts == 0 and max_error < time_fuzz:
+            if False and skipped_picts == 0 and max_error < time_fuzz:
                 # ideal/best case correlation, let's just stop and celebrate!
                 best_correlation = i
                 best_camera_time_error = cam_time_error
@@ -208,7 +206,11 @@ class Correlate():
                 best_camera_time_error = cam_time_error
                 self.best_matchups = list(matchups)
 
-        print "Best correlation starts at trigger number: " + str(best_correlation-1)
+        print "Best correlation:"
+        print "   Trigger number: %d" % (best_correlation - 1)
+        print "   Skipped pictures: %d" % best_skip
+        print "   Average time error: %.2f" % best_error
+        print "   Camera clock offset: %.2f" % best_camera_time_error
         return best_correlation, best_camera_time_error
 
     def get_match(self, match):

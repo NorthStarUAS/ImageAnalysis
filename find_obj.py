@@ -66,6 +66,7 @@ def explore_match(win, img1, img2, kp_pairs, status = None, H = None):
     vis[:h1, :w1] = img1
     vis[:h2, w1:w1+w2] = img2
     vis = cv2.cvtColor(vis, cv2.COLOR_GRAY2BGR)
+    vis0 = vis.copy()
 
     if H is not None:
         corners = np.float32([[0, 0], [w1, 0], [w1, h1], [0, h1]])
@@ -81,29 +82,40 @@ def explore_match(win, img1, img2, kp_pairs, status = None, H = None):
     red = (0, 0, 255)
     white = (255, 255, 255)
     kp_color = (51, 103, 236)
-    for (x1, y1), (x2, y2), inlier in zip(p1, p2, status):
-        if inlier:
-            col = green
-            cv2.circle(vis, (x1, y1), 2, col, -1)
-            cv2.circle(vis, (x2, y2), 2, col, -1)
-        else:
-            col = red
-            r = 2
-            thickness = 3
-            cv2.line(vis, (x1-r, y1-r), (x1+r, y1+r), col, thickness)
-            cv2.line(vis, (x1-r, y1+r), (x1+r, y1-r), col, thickness)
-            cv2.line(vis, (x2-r, y2-r), (x2+r, y2+r), col, thickness)
-            cv2.line(vis, (x2-r, y2+r), (x2+r, y2-r), col, thickness)
-    vis0 = vis.copy()
-    for (x1, y1), (x2, y2), inlier in zip(p1, p2, status):
-        if inlier:
-            cv2.line(vis, (x1, y1), (x2, y2), green)
-
+    def draw_keypoints(vis):
+        for (x1, y1), (x2, y2), inlier in zip(p1, p2, status):
+            if inlier:
+                col = green
+                cv2.circle(vis, (x1, y1), 2, col, -1)
+                cv2.circle(vis, (x2, y2), 2, col, -1)
+            else:
+                col = red
+                r = 2
+                thickness = 3
+                cv2.line(vis, (x1-r, y1-r), (x1+r, y1+r), col, thickness)
+                cv2.line(vis, (x1-r, y1+r), (x1+r, y1-r), col, thickness)
+                cv2.line(vis, (x2-r, y2-r), (x2+r, y2+r), col, thickness)
+                cv2.line(vis, (x2-r, y2+r), (x2+r, y2-r), col, thickness)
+        for (x1, y1), (x2, y2), inlier in zip(p1, p2, status):
+            if inlier:
+                cv2.line(vis, (x1, y1), (x2, y2), green)
+    draw_keypoints(vis)
     cv2.imshow(win, vis)
+
     def onmouse(event, x, y, flags, param):
-        cur_vis = vis
+        #cur_vis = vis
         if flags & cv2.EVENT_FLAG_LBUTTON:
-            cur_vis = vis0.copy()
+            vis = vis0.copy()
+            r = 8
+            m = (anorm(p1 - (x, y)) < r) | (anorm(p2 - (x, y)) < r)
+            idxs = np.where(m)[0]
+            for i in idxs:
+                status[i] = not status[i]
+            draw_keypoints(vis)
+            cv2.imshow(win, vis)
+
+        if flags & cv2.EVENT_RBUTTONDOWN:
+            vis = vis0.copy()
             r = 8
             m = (anorm(p1 - (x, y)) < r) | (anorm(p2 - (x, y)) < r)
             idxs = np.where(m)[0]
@@ -111,14 +123,14 @@ def explore_match(win, img1, img2, kp_pairs, status = None, H = None):
             for i in idxs:
                  (x1, y1), (x2, y2) = p1[i], p2[i]
                  col = (red, green)[status[i]]
-                 cv2.line(cur_vis, (x1, y1), (x2, y2), col)
+                 cv2.line(vis, (x1, y1), (x2, y2), col)
                  kp1, kp2 = kp_pairs[i]
                  kp1s.append(kp1)
                  kp2s.append(kp2)
-            cur_vis = cv2.drawKeypoints(cur_vis, kp1s, flags=4, color=kp_color)
-            cur_vis[:,w1:] = cv2.drawKeypoints(cur_vis[:,w1:], kp2s, flags=4, color=kp_color)
+            vis = cv2.drawKeypoints(vis, kp1s, flags=4, color=kp_color)
+            vis[:,w1:] = cv2.drawKeypoints(vis[:,w1:], kp2s, flags=4, color=kp_color)
+            cv2.imshow(win, vis)
 
-        cv2.imshow(win, cur_vis)
     cv2.setMouseCallback(win, onmouse)
     return vis
 
