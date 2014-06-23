@@ -648,10 +648,6 @@ class ImageGroup():
         max_value = 0.0
         dist2_sum = 0.0
         for pair in match:
-            if pair[0] < 0:
-                # ignore (-1, -1) deleted pairs
-                print "ignoring (-1, -1) in %s" % i1.name
-                continue
             c1 = coord_list[pair[0]]
             c2 = i2.coord_list[pair[1]]
             dx = c2[0] - c1[0]
@@ -804,7 +800,7 @@ class ImageGroup():
                 #self.showMatch(i1, i2, match)
 
     # sort and review images by worst positional error
-    def reviewImageErrors(self):
+    def reviewImageErrors(self, minError=20.0):
         if len(self.image_list):
             report_list = []
             for image in self.image_list:
@@ -815,7 +811,7 @@ class ImageGroup():
             # show images sorted by largest positional disagreement first
             for line in report_list:
                 print "%.1f %s" % (line[0], line[1])
-                if line[0] > 20.0:
+                if line[0] >= minError:
                     self.matchErrorReport( self.findImageByName(line[1]) )
 
     # try to fit individual images by manipulating various parameters

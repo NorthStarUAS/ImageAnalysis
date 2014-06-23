@@ -6,7 +6,7 @@ import FlightData
 import ImageGroup
 import Solver
 
-EstimateGlobalBias = False
+EstimateGlobalBias = True
 ReviewMatches = False
 
 # values for flight: 2014-06-06-01
@@ -82,7 +82,7 @@ ig.projectKeypoints()
 if ReviewMatches:
     e = ig.globalError()
     print "Global error (start): %.2f" % e
-    ig.reviewImageErrors()
+    ig.reviewImageErrors(minError=10.0)
     ig.saveMatches()
 
 # re-project keypoints after outlier removal
@@ -106,9 +106,9 @@ if EstimateGlobalBias:
     s.estimateParameter("altitude", -20.0, 0.0, 2.0, 3)
     ig.save_project()
 
-#for i in xrange(5):
-#    ig.fitImagesIndividually(gain=0.5)
-#    ig.projectKeypoints()
-#    print "Global error (after individual fit): %.2f" % ig.globalError()
+for i in xrange(5):
+    ig.fitImagesIndividually(gain=0.5)
+    ig.projectKeypoints()
+    print "Global error (after individual fit): %.2f" % ig.globalError()
 
 s.AffineFitter(steps=20, gain=0.5, fullAffine=False)
