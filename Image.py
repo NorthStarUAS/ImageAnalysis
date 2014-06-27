@@ -13,9 +13,11 @@ class Image():
         self.name = None
         self.img = None
         self.kp_list = []
+        self.kp_used = []
         self.des_list = None
         self.match_list = []
-        self.set_pos()
+        self.has_matches = True
+        self.set_location()
         self.yaw_bias = 0.0
         self.roll_bias = 0.0
         self.pitch_bias = 0.0
@@ -25,7 +27,9 @@ class Image():
         if image_file:
             self.load(image_dir, image_file)
 
-    def set_pos(self, lon=0.0, lat=0.0, msl=0.0, roll=0.0, pitch=0.0, yaw=0.0):
+    def set_location(self,
+                     lon=0.0, lat=0.0, msl=0.0,
+                     roll=0.0, pitch=0.0, yaw=0.0):
         self.lon = lon
         self.lat = lat
         self.msl = msl
@@ -61,6 +65,7 @@ class Image():
                 response = float(kp.find('response').text)
                 size = float(kp.find('size').text)
                 self.kp_list.append( cv2.KeyPoint(x, y, size, angle, response, octave, class_id) )
+            self.kp_usage = np.zeros(len(kp_list), np.bool_)
 
     def load_descriptors(self):
         if self.des_list == None and os.path.exists(self.des_file):
@@ -95,6 +100,29 @@ class Image():
                     self.match_list.append( matches )
             # print str(self.match_list)
 
+    def load_location(self):
+        if os.path.exists(self.loc_file):
+            #print "Loading " + self.match_file
+            try:
+                xml = ET.parse(self.loc_file)
+                root = xml.getroot()
+                self.has_matches = bool(root.find('has-matches').text)
+                lon = float(root.find('longitude').text)
+                lat = float(root.find('latitude').text)
+                msl = float(root.find('altitude-msl').text)
+                roll = float(root.find('roll').text)
+                pitch = float(root.find('pitch').text)
+                yaw = float(root.find('yaw').text)
+                self.set_location(lon, lat, msl, roll, pitch, yaw)
+                self.alt_bias = float(root.find('altitude-bias').text)
+                self.roll_bias = float(root.find('roll-bias').text)
+                self.pitch_bias = float(root.find('pitch-bias').text)
+                self.yaw_bias = float(root.find('yaw-bias').text)
+                self.weight = float(root.find('weight').text)
+            except:
+                print self.loc_file + ":\n" + "  load error: " \
+                    + str(sys.exc_info()[1])
+
     def load(self, image_dir, image_file):
         print "Loading " + image_file
         self.name = image_file
@@ -104,11 +132,13 @@ class Image():
         self.keys_file = self.file_root + ".keys"
         self.des_file = self.file_root + ".ppm"
         self.match_file = self.file_root + ".match"
+        self.loc_file = self.file_root + ".loc"
         # lazy load actual image file if/when we need it
         # self.load_image()
         self.load_keys()
         self.load_descriptors()
         self.load_matches()
+        self.load_location()
 
     def save_keys(self):
         root = ET.Element('image')
@@ -162,12 +192,38 @@ class Image():
                 pairs = pairs.replace('[', '')
                 pairs = pairs.replace(']', '')
                 match_node.text = pairs
+
         # write xml file
         try:
             xml.write(self.match_file, encoding="us-ascii",
                       xml_declaration=False, pretty_print=True)
         except:
             print self.match_file + ": error saving file: " \
+                + str(sys.exc_info()[1])
+
+    def save_location(self):
+        root = ET.Element('location')
+        xml = ET.ElementTree(root)
+        ET.SubElement(root, 'has-matches').text = str(self.has_matches)
+        ET.SubElement(root, 'longitude').text = "%.8f" % self.lon
+        ET.SubElement(root, 'latitude').text = "%.8f" % self.lat
+        ET.SubElement(root, 'altitude-msl').text = "%.2f" % self.msl
+        ET.SubElement(root, 'roll').text = "%.2f" % self.roll
+        ET.SubElement(root, 'pitch').text = "%.2f" % self.pitch
+        ET.SubElement(root, 'yaw').text = "%.2f" % self.yaw
+
+        ET.SubElement(root, 'altitude-bias').text = "%.2f" % self.alt_bias
+        ET.SubElement(root, 'roll-bias').text = "%.2f" % self.roll_bias
+        ET.SubElement(root, 'pitch-bias').text = "%.2f" % self.pitch_bias
+        ET.SubElement(root, 'yaw-bias').text = "%.2f" % self.yaw_bias
+        ET.SubElement(root, 'weight').text = "%.2f" % self.weight
+
+        # write xml file
+        try:
+            xml.write(self.loc_file, encoding="us-ascii",
+                      xml_declaration=False, pretty_print=True)
+        except:
+            print self.loc_file + ": error saving file: " \
                 + str(sys.exc_info()[1])
 
     def show_keypoints(self, flags=0):

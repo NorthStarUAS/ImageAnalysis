@@ -40,6 +40,7 @@ class Solver():
                 corner_list = []
                 if param == "shutter-latency":
                     self.ig.shutter_latency = test_value
+                    self.ig.computeCamPositions(self.c, force=True)
                 elif param == "yaw":
                     self.ig.global_yaw_bias = test_value
                 elif param == "roll":
@@ -48,10 +49,14 @@ class Solver():
                     self.ig.global_pitch_bias = test_value
                 elif param == "altitude":
                     self.ig.global_alt_bias = test_value
-                self.ig.computeCamPositions(self.c)
+                elif param == "k1":
+                    self.ig.k1 = test_value
+                elif param == "k2":
+                    self.ig.k2 = test_value
                 self.ig.projectKeypoints()
-                error = self.ig.globalError()
-                print "Test %s error @ %.3f = %.2f" % ( param, test_value, error )
+                error = self.ig.globalError(method="variance")
+                print "Test %s error @ %.5f = %.3f" \
+                    % ( param, test_value, error )
                 if best_error == None or error < best_error:
                     best_error = error
                     best_value = test_value
@@ -60,7 +65,7 @@ class Solver():
             step_size *= 0.2
             min_value = best_value - step_size*5
             max_value = best_value + step_size*5
-        print "Best %s is %.3f (error=%.2f)" % (param, best_value, best_error)
+        print "Best %s is %.5f (error = %.3f)" % (param, best_value, best_error)
         if param == "shutter-latency":
             self.ig.shutter_latency = best_value
         elif param == "yaw":
@@ -71,6 +76,10 @@ class Solver():
             self.ig.global_pitch_bias = best_value
         elif param == "altitude":
             self.ig.global_alt_bias = best_value
+        elif param == "k1":
+            self.ig.k1 = best_value
+        elif param == "k2":
+            self.ig.k2 = best_value
         return best_value
 
 

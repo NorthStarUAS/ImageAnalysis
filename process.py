@@ -6,8 +6,12 @@ import FlightData
 import ImageGroup
 import Solver
 
-EstimateGlobalBias = True
+EstimateGlobalBias = False
+EstimateCameraDistortion = False
 ReviewMatches = False
+
+SpecialReview = []
+# SpecialReview = [ "SAM_0021.JPG", "SAM_0022.JPG", "SAM_0023.JPG", "SAM_0024.JPG", "SAM_0026.JPG", "SAM_0037.JPG", "SAM_0056.JPG", "SAM_0075.JPG", "SAM_0077.JPG", "SAM_0093.JPG", "SAM_0104.JPG", "SAM_0113.JPG", "SAM_0114.JPG", "SAM_0115.JPG", "SAM_0122.JPG" ]
 
 # values for flight: 2014-06-06-01
 #defaultShutterLatency = 0.66    # measured by the shutter latency solver
@@ -69,28 +73,43 @@ best_correlation, best_camera_time_error = c.test_correlations()
 
 # tag each image with the camera position (from the flight data
 # parameters) at the time the image was taken
-ig.computeCamPositions(c)
+ig.computeCamPositions(c, force=False, weight=True)
+
+# weight the images (either automatically by roll/pitch, or force a value)
+ig.computeWeights(force=1.0)
 
 # compute a central lon/lat for the image set.  This will be the (0,0)
 # point in our local X, Y, Z coordinate system
 ig.computeRefLocation()
 
 # initial projection
+ig.k1 = -0.00028
+ig.k2 = 0.0
 ig.projectKeypoints()
 
 # review matches
+if len(SpecialReview):
+    e = ig.globalError()
+    print "Global error (start): %.2f" % e
+    for name in SpecialReview:
+        ig.reviewImageErrors(name, minError=0.001)
+        ig.saveMatches()
+
 if ReviewMatches:
     e = ig.globalError()
     print "Global error (start): %.2f" % e
-    ig.reviewImageErrors(minError=10.0)
+    ig.reviewImageErrors(minError=1.0)
     ig.saveMatches()
+    # re-project keypoints after outlier review
+    ig.projectKeypoints()
 
-# re-project keypoints after outlier removal
-ig.projectKeypoints()
 e = ig.globalError()
+stddev = ig.globalError(method="variance")
 print "Global error (start): %.2f" % e
+print "Global standard deviation (start): %.2f" % stddev
 
 s = Solver.Solver(image_group=ig, correlator=c)
+#s.AffineFitter(steps=1, gain=0.4, fullAffine=False)
 
 if EstimateGlobalBias:
     # parameter estimation can be slow, so save our work after every
@@ -106,9 +125,16 @@ if EstimateGlobalBias:
     s.estimateParameter("altitude", -20.0, 0.0, 2.0, 3)
     ig.save_project()
 
-for i in xrange(5):
+if EstimateCameraDistortion:
+    s.estimateParameter("k1", -0.005, 0.005, 0.001, 3)
+    s.estimateParameter("k2", -0.005, 0.005, 0.001, 3)
+
+for i in xrange(10):
     ig.fitImagesIndividually(gain=0.5)
     ig.projectKeypoints()
-    print "Global error (after individual fit): %.2f" % ig.globalError()
+    e = ig.globalError()
+    stddev = ig.globalError(method="variance")
+    print "Global error (after fit): %.2f" % e
+    print "Global standard deviation (after fit): %.2f" % stddev
 
-s.AffineFitter(steps=20, gain=0.5, fullAffine=False)
+s.AffineFitter(steps=30, gain=0.4, fullAffine=False)
