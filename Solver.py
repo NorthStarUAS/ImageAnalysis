@@ -36,8 +36,6 @@ class Solver():
             best_value = min_value
             test_value = min_value
             while test_value <= max_value + (step_size*0.1):
-                coord_list = []
-                corner_list = []
                 if param == "shutter-latency":
                     self.ig.shutter_latency = test_value
                     self.ig.computeCamPositions(self.c, force=True)

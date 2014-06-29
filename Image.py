@@ -3,6 +3,7 @@
 import cv2
 import lxml.etree as ET
 from matplotlib import pyplot as plt
+import numpy as np
 import os.path
 import sys
 
@@ -12,8 +13,9 @@ class Image():
     def __init__(self, image_dir=None, image_file=None):
         self.name = None
         self.img = None
+        self.img_rgb = None
         self.kp_list = []
-        self.kp_used = []
+        self.kp_usage = []
         self.des_list = None
         self.match_list = []
         self.has_matches = True
@@ -22,8 +24,10 @@ class Image():
         self.roll_bias = 0.0
         self.pitch_bias = 0.0
         self.alt_bias = 0.0
+        self.x_bias = 0.0
+        self.y_bias = 0.0
         self.rotate = 0.0       # depricated?
-        self.shift = (0.0, 0.0) # depricated?
+        self.placed = False
         if image_file:
             self.load(image_dir, image_file)
 
@@ -41,7 +45,8 @@ class Image():
         if self.img == None:
             #print "Loading " + self.image_file
             try:
-                self.img = cv2.imread(self.image_file, 0)
+                self.img_rgb = cv2.imread(self.image_file)
+                self.img = cv2.cvtColor(self.img_rgb, cv2.COLOR_BGR2GRAY)
             except:
                 print self.image_file + ":\n" + "  load error: " \
                     + str(sys.exc_info()[1])
@@ -65,7 +70,6 @@ class Image():
                 response = float(kp.find('response').text)
                 size = float(kp.find('size').text)
                 self.kp_list.append( cv2.KeyPoint(x, y, size, angle, response, octave, class_id) )
-            self.kp_usage = np.zeros(len(kp_list), np.bool_)
 
     def load_descriptors(self):
         if self.des_list == None and os.path.exists(self.des_file):
@@ -100,11 +104,11 @@ class Image():
                     self.match_list.append( matches )
             # print str(self.match_list)
 
-    def load_location(self):
-        if os.path.exists(self.loc_file):
-            #print "Loading " + self.match_file
+    def load_info(self):
+        if os.path.exists(self.info_file):
+            #print "Loading " + self.info_file
             try:
-                xml = ET.parse(self.loc_file)
+                xml = ET.parse(self.info_file)
                 root = xml.getroot()
                 self.has_matches = bool(root.find('has-matches').text)
                 lon = float(root.find('longitude').text)
@@ -118,9 +122,11 @@ class Image():
                 self.roll_bias = float(root.find('roll-bias').text)
                 self.pitch_bias = float(root.find('pitch-bias').text)
                 self.yaw_bias = float(root.find('yaw-bias').text)
+                self.x_bias = float(root.find('x-bias').text)
+                self.y_bias = float(root.find('y-bias').text)
                 self.weight = float(root.find('weight').text)
             except:
-                print self.loc_file + ":\n" + "  load error: " \
+                print self.info_file + ":\n" + "  load error: " \
                     + str(sys.exc_info()[1])
 
     def load(self, image_dir, image_file):
@@ -132,13 +138,13 @@ class Image():
         self.keys_file = self.file_root + ".keys"
         self.des_file = self.file_root + ".ppm"
         self.match_file = self.file_root + ".match"
-        self.loc_file = self.file_root + ".loc"
+        self.info_file = self.file_root + ".info"
         # lazy load actual image file if/when we need it
         # self.load_image()
         self.load_keys()
         self.load_descriptors()
         self.load_matches()
-        self.load_location()
+        self.load_info()
 
     def save_keys(self):
         root = ET.Element('image')
@@ -201,8 +207,8 @@ class Image():
             print self.match_file + ": error saving file: " \
                 + str(sys.exc_info()[1])
 
-    def save_location(self):
-        root = ET.Element('location')
+    def save_info(self):
+        root = ET.Element('information')
         xml = ET.ElementTree(root)
         ET.SubElement(root, 'has-matches').text = str(self.has_matches)
         ET.SubElement(root, 'longitude').text = "%.8f" % self.lon
@@ -216,14 +222,16 @@ class Image():
         ET.SubElement(root, 'roll-bias').text = "%.2f" % self.roll_bias
         ET.SubElement(root, 'pitch-bias').text = "%.2f" % self.pitch_bias
         ET.SubElement(root, 'yaw-bias').text = "%.2f" % self.yaw_bias
+        ET.SubElement(root, 'x-bias').text = "%.2f" % self.x_bias
+        ET.SubElement(root, 'y-bias').text = "%.2f" % self.y_bias
         ET.SubElement(root, 'weight').text = "%.2f" % self.weight
 
         # write xml file
         try:
-            xml.write(self.loc_file, encoding="us-ascii",
+            xml.write(self.info_file, encoding="us-ascii",
                       xml_declaration=False, pretty_print=True)
         except:
-            print self.loc_file + ": error saving file: " \
+            print self.info_file + ": error saving file: " \
                 + str(sys.exc_info()[1])
 
     def show_keypoints(self, flags=0):
@@ -234,3 +242,4 @@ class Image():
         fig1, plt1 = plt.subplots(1)
         plt1 = plt.imshow(res)
         plt.show(block=True) #block=True/Flase
+

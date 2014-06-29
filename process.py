@@ -85,7 +85,7 @@ ig.computeRefLocation()
 # initial projection
 ig.k1 = -0.00028
 ig.k2 = 0.0
-ig.projectKeypoints()
+ig.projectKeypoints(do_grid=True)
 
 # review matches
 if len(SpecialReview):
@@ -129,12 +129,32 @@ if EstimateCameraDistortion:
     s.estimateParameter("k1", -0.005, 0.005, 0.001, 3)
     s.estimateParameter("k2", -0.005, 0.005, 0.001, 3)
 
-for i in xrange(10):
-    ig.fitImagesIndividually(gain=0.5)
-    ig.projectKeypoints()
-    e = ig.globalError()
+for i in xrange(0):
+    # ig.fitImagesIndividually(gain=0.5)
+    ig.shiftImages(gain=0.5)
+    ig.projectKeypoints(do_grid=True)
+    e = ig.globalError(method="average")
     stddev = ig.globalError(method="variance")
     print "Global error (after fit): %.2f" % e
     print "Global standard deviation (after fit): %.2f" % stddev
 
+if True:
+    name = "SAM_0032.JPG"
+    image = ig.findImageByName(name)
+    #ig.render_image(image, cm_per_pixel=15.0, keypoints=True)
+
+    image_list = []
+    image_list.append(name)
+    for i, pairs in enumerate(image.match_list):
+        if len(pairs) < 3:
+            continue
+        image_list.append(ig.image_list[i].name)
+    print str(image_list)
+    for name in image_list:
+        image = ig.findImageByName(name)
+        ig.findImageShift(image, gain=1.0, placing=True)
+        image.placed = True
+    ig.render_image_list(image_list, cm_per_pixel=30.0, keypoints=True)
+
+ig.placeImages()
 s.AffineFitter(steps=30, gain=0.4, fullAffine=False)

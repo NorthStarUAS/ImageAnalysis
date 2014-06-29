@@ -27,8 +27,8 @@ class ImageGroup():
         self.orb = cv2.ORB(nfeatures=self.max_features)
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING) #, crossCheck=True)
         #self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-        self.ac3d_xsteps = 8
-        self.ac3d_ysteps = 8
+        self.ac3d_xsteps = 1
+        self.ac3d_ysteps = 1
         self.shutter_latency = 0.0
         self.global_roll_bias = 0.0
         self.global_pitch_bias = 0.0
@@ -145,7 +145,6 @@ class ImageGroup():
                     img.load_image()
                 # img.kp_list = self.orb.detect(img.img, None)
                 img.kp_list = self.dense_detect(img.img)
-                img.kp_usage = np.zeros(len(kp_list), np.bool_)
                 #img.show_keypoints()
                 img.kp_list, img.des_list \
                     = self.orb.compute(img.img, img.kp_list)
@@ -154,6 +153,24 @@ class ImageGroup():
                 img.save_keys()
                 img.save_descriptors()
             self.image_list.append( img )
+
+    def genKeypointUsageMap(self):
+        # make the keypoint usage map (used so we don't have to
+        # project every keypoint every time)
+        print "Building the keypoint usage map... ",
+        for i1 in self.image_list:
+            i1.kp_usage = np.zeros(len(i1.kp_list), np.bool_)
+        for i, i1 in enumerate(self.image_list):
+            for j, pairs in enumerate(i1.match_list):
+                if len(pairs) == 0:
+                    continue
+                if i == j:
+                    continue
+                i2 = self.image_list[j]
+                for pair in pairs:
+                    i1.kp_usage[pair[0]] = True
+                    i2.kp_usage[pair[1]] = True
+        print "done."
 
     def filterMatches1(self, kp1, kp2, matches):
         mkp1, mkp2 = [], []
@@ -225,8 +242,10 @@ class ImageGroup():
                         explore_match('find_obj', i1.img, i2.img, kp_pairs) #cv2 shows image
                         cv2.waitKey()
                         cv2.destroyAllWindows()
-            #print str(i1.match_list)
             i1.save_matches()
+
+        # now compute the keypoint usage map
+        self.genKeypointUsageMap()
 
     def saveMatches(self):
         for image in self.image_list:
@@ -317,7 +336,7 @@ class ImageGroup():
                 if w < 0.01:
                     w = 0.01
                     image.weight = w
-            image.save_location()
+            image.save_info()
             #print "%s roll=%.1f pitch=%.1f weight=%.2f" % (image.name, roll, pitch, image.weight)
 
     def computeRefLocation(self):
@@ -336,22 +355,20 @@ class ImageGroup():
     # x,y are expected to be normalize (0.0 - 1.0) in image pixel
     # space with 0.5 being the center of image (and hopefully the
     # center of distortion.)
-    def doLensDistortion(self, image, xnorm, ynorm):
-        h, w = image.img.shape
-        ar = float(w)/float(h)  # aspect ratio
-        xd = (xnorm * 2.0 - 1.0) * ar
+    def doLensDistortion(self, aspect_ratio, xnorm, ynorm):
+        xd = (xnorm * 2.0 - 1.0) * aspect_ratio
         yd = ynorm * 2.0 - 1.0
         r = math.sqrt(xd*xd + yd*yd)
-        #print "ar=%.3f xd=%.3f yd=%.3f r=%.2f" % (ar, xd, yd, r)
+        #print "ar=%.3f xd=%.3f yd=%.3f r=%.2f" % (aspect_ratio, xd, yd, r)
         factor = 1.0 + self.k1 * r*r + self.k2 * r*r*r*r
         xu = xd * factor
         yu = yd * factor
-        xnorm_u = (xu / ar + 1.0) / 2.0
+        xnorm_u = (xu / aspect_ratio + 1.0) / 2.0
         ynorm_u = (yu + 1.0) / 2.0
         #print "  (%.3f %.3f) -> (%.3f %.3f)" % (xnorm, ynorm, xnorm_u, ynorm_u)
         return xnorm_u, ynorm_u
 
-    def projectImageKeypoints(self, image,
+    def projectImageKeypoints(self, image, do_grid=False,
                               yaw_bias=0.0, roll_bias=0.0, pitch_bias=0.0,
                               alt_bias=0.0):
         Verbose = False
@@ -360,6 +377,7 @@ class ImageGroup():
         if image.img == None:
             image.load_image()
         h, w = image.img.shape
+        ar = float(w)/float(h)  # aspect ratio
         lon = image.lon
         lat = image.lat
         msl = image.msl + image.alt_bias + self.global_alt_bias + alt_bias
@@ -395,32 +413,35 @@ class ImageGroup():
         # compute the keypoint locations in image space: [0.0,1.0][0.0,1.0]
         coords = ""
         for i, kp in enumerate(image.kp_list):
+            if not image.kp_usage[i]:
+                continue
             x = kp.pt[0]
             y = kp.pt[1]
             #print " project px = %.2f, %.2f" % (x, y)
             xnorm = x / float(w-1)
             ynorm = y / float(h-1)
-            xnorm_u, ynorm_u = self.doLensDistortion(image, xnorm, ynorm)
-            coords += "kp %.5f %.5f\n" % (xnorm_u, ynorm_u)
+            xnorm_u, ynorm_u = self.doLensDistortion(ar, xnorm, ynorm)
+            coords += "%d %.5f %.5f\n" % (i, xnorm_u, ynorm_u)
 
-        # compute the ac3d polygon grid in image space
-        dx = 1.0 / float(self.ac3d_xsteps)
-        dy = 1.0 / float(self.ac3d_ysteps)
-        ynorm = 0.0
-        for j in xrange(self.ac3d_ysteps+1):
-            xnorm = 0.0
-            for i in xrange(self.ac3d_xsteps+1):
-                #print "cc %.2f %.2f" % (x, y)
-                xnorm_u, ynorm_u = self.doLensDistortion(image, xnorm, ynorm)
-                coords += "cc %.3f %.3f\n" % (xnorm_u, ynorm_u)
-                xnorm += dx
-            ynorm += dy
+        if do_grid:
+            # compute the ac3d polygon grid in image space
+            dx = 1.0 / float(self.ac3d_xsteps)
+            dy = 1.0 / float(self.ac3d_ysteps)
+            ynorm = 0.0
+            for j in xrange(self.ac3d_ysteps+1):
+                xnorm = 0.0
+                for i in xrange(self.ac3d_xsteps+1):
+                    #print "cc %.2f %.2f" % (xnorm_u, ynorm_u)
+                    xnorm_u, ynorm_u = self.doLensDistortion(ar, xnorm, ynorm)
+                    coords += "cc %.3f %.3f\n" % (xnorm_u, ynorm_u)
+                    xnorm += dx
+                ynorm += dy
 
         # call the external project code
         result = process.communicate( coords )
 
-        coord_list = []
-        corner_list = []
+        coord_list = [None] * len(image.kp_list)
+        grid_list = []
         if Verbose:
             print image.name
         #f = open( 'junk', 'w' )
@@ -430,25 +451,26 @@ class ImageGroup():
             if len(tokens) != 5 or tokens[0] != "result:":
                 continue
             id = tokens[1]
-            x = float(tokens[2])
-            y = float(tokens[3])
+            x = float(tokens[2]) + image.x_bias
+            y = float(tokens[3]) + image.y_bias
             z = float(tokens[4])
             #print [ x, y, z ]
-            if id == 'kp':
+            if id == 'cc':
+                grid_list.append( [x, y] )
+            else:
                 # print " project map = %.2f, %.2f" % (x, y)
-                coord_list.append( [x, y] )
-            elif id == 'cc':
-                corner_list.append( [x, y] )
+                coord_list[int(id)] = [x, y]
             #f.write("%.2f\t%.2f\n" % (x, y))
         #f.close()
-        return coord_list, corner_list
+        return coord_list, grid_list
 
-    def projectKeypoints(self):
+    def projectKeypoints(self, do_grid=False):
         for image in self.image_list:
-            coord_list, corner_list \
-                = self.projectImageKeypoints(image)
+            coord_list, grid_list \
+                = self.projectImageKeypoints(image, do_grid)
             image.coord_list = coord_list
-            image.corner_list = corner_list
+            if do_grid:
+                image.grid_list = grid_list
 
     # find affine transform between matching i1, i2 keypoints in map
     # space.  fullAffine=True means unconstrained to include best
@@ -543,7 +565,6 @@ class ImageGroup():
         row2 = [ new_sy * sinthe, new_sy * costhe, new_ty ]
         i1.new_affine = np.array( [ row1, row2 ] )
         print str(i1.new_affine)
-        #i1.next_shift = ( 0.0, 0.0 )
         #i1.rotate += 0.0
         print " image shift = %.2f %.2f" % (new_tx, new_ty)
         print " image rotate = %.2f" % (new_rot)
@@ -577,14 +598,16 @@ class ImageGroup():
     def affineTransformImage(self, image, gain):
         # print "Transforming " + str(image.name)
         for i, coord in enumerate(image.coord_list):
+            if not image.kp_usage[i]:
+                continue
             newcoord = image.new_affine.dot([coord[0], coord[1], 1.0])
             diff = newcoord - coord
             image.coord_list[i] += diff * gain
             # print "old %s -> new %s" % (str(coord), str(newcoord))
-        for i, coord in enumerate(image.corner_list):
+        for i, coord in enumerate(image.grid_list):
             newcoord = image.new_affine.dot([coord[0], coord[1], 1.0])
             diff = newcoord - coord
-            image.corner_list[i] += diff * gain
+            image.grid_list[i] += diff * gain
             # print "old %s -> new %s" % (str(coord), str(newcoord))
 
     def affineTransformImages(self, gain=0.1, fullAffine=False):
@@ -649,47 +672,57 @@ class ImageGroup():
         for image in self.image_list:
             print "%s: yaw error = %.2f" % (image.name, image.rotate)
                     
-    def findImageShift(self, i1):
+    def findImagePairShift(self, i1, i2, match):
+        xerror_sum = 0.0
+        yerror_sum = 0.0
+        for pair in match:
+            c1 = i1.coord_list[pair[0]]
+            c2 = i2.coord_list[pair[1]]
+            dx = c2[0] - c1[0]
+            dy = c2[1] - c1[1]
+            xerror_sum += dx
+            yerror_sum += dy
+        # divide by pairs + 1 gives some weight to our own position
+        # (i.e. a zero rotate)
+        xshift = xerror_sum / len(match)
+        yshift = yerror_sum / len(match)
+        print " %s -> %s = (%.2f %.2f)" % (i1.name, i2.name, xshift, yshift)
+        return (xshift, yshift)
+
+    def findImageShift(self, i1, gain=0.10, placing=False):
         xerror_sum = 0.0
         yerror_sum = 0.0
         weight_sum = i1.weight  # give ourselves an appropriate weight
+        print "Shifting %s" % (i1.name)
         for i, match in enumerate(i1.match_list):
-            if len(match) >= 2:
-                i2 = self.image_list[i]
-                print "Matching %s vs %s " % (i1.name, i2.name)
-                for pair in match:
-                    c1 = i1.coord_list[pair[0]]
-                    c2 = i2.coord_list[pair[1]]
-                    dx = (c2[0] + i2.shift[0]) - (c1[0] + i1.shift[0])
-                    dy = (c2[1] + i2.shift[1]) - (c1[1] + i1.shift[1])
-                    xerror_sum += dx * i2.weight
-                    yerror_sum += dy * i2.weight
-                    weight_sum += i2.weight
-                    print str(pair)
-                    print " x = %.2f  dy = %.2f weight = %.2f" % (dx, dy, i2.weight)
-                    #print i1.kp_list[pair[0]].pt
-                    #print i2.kp_list[pair[1]].pt
-                    #print i1.coord_list[pair[0]]
-                    #print i2.coord_list[pair[1]]
-                    #print
-        # divide by pairs + 1 gives some weight to our own position
-        # (i.e. a zero rotate)
-        xupdate = 0.0
-        yupdate = 0.0
-        if weight_sum > 0.0:
-            xupdate = xerror_sum / weight_sum
-            yupdate = yerror_sum / weight_sum
-        i1.next_shift = ( xupdate, yupdate )
-        print "Old Shift " + i1.name + " " + str(i1.next_shift)
+            if len(match) < 3:
+                continue
+            i2 = self.image_list[i]
+            if not i2.placed:
+                continue
+            (xerror, yerror) = self.findImagePairShift( i1, i2, match )
+            xerror_sum += xerror * i2.weight
+            yerror_sum += yerror * i2.weight
+            weight_sum += i2.weight
+        xshift = xerror_sum / weight_sum
+        yshift = yerror_sum / weight_sum
+        print " -> (%.2f %.2f)" % (xshift, yshift)
+        print " %s bias before (%.2f %.2f)" % (i1.name, i1.x_bias, i1.y_bias)
+        i1.x_bias += xshift * gain
+        i1.y_bias += yshift * gain
+        print " %s bias after (%.2f %.2f)" % (i1.name, i1.x_bias, i1.y_bias)
+        i1.save_info()
 
     def shiftImages(self, gain=0.10):
         for image in self.image_list:
-            self.findImageShift(image)
+            self.findImageShift(image, gain)
+
+    def placeImages(self):
         for image in self.image_list:
-            xshift = image.shift[0] + image.next_shift[0] * gain
-            yshift = image.shift[1] + image.next_shift[1] * gain
-            image.shift = ( xshift, yshift )
-            print "%s: shift error = %.1f %.1f" % (image.name, image.shift[0], image.shift[1])
+            image.placed = False
+        for image in self.image_list:
+            self.findImageShift(image, gain=1.0, placing=True)
+            self.placed = True
 
     # compute the error between a pair of images
     def imagePairError(self, i1, alt_coord_list, i2, match, max=False):
@@ -935,21 +968,21 @@ class ImageGroup():
 
             while test_value <= start_value + 5*step_size + (step_size*0.1):
                 coord_list = []
-                corner_list = []
+                grid_list = []
                 if param == "yaw":
-                    coord_list, corner_list \
+                    coord_list, grid_list \
                         = self.projectImageKeypoints(image,
                                                      yaw_bias=test_value)
                 elif param == "roll":
-                    coord_list, corner_list \
+                    coord_list, grid_list \
                         = self.projectImageKeypoints(image,
                                                      roll_bias=test_value)
                 elif param == "pitch":
-                    coord_list, corner_list \
+                    coord_list, grid_list \
                         = self.projectImageKeypoints(image,
                                                      pitch_bias=test_value)
                 elif param == "altitude":
-                    coord_list, corner_list \
+                    coord_list, grid_list \
                         = self.projectImageKeypoints(image,
                                                      alt_bias=test_value)
                 error = self.imageError(image, alt_coord_list=coord_list,
@@ -993,8 +1026,8 @@ class ImageGroup():
         image.roll_bias += roll*gain
         image.pitch_bias += pitch*gain
         image.alt_bias += alt*gain
-        image.save_location()
-        print "Best correction for %s is %.2f %.2f %.2f %.2f (%.3f)" \
+        image.save_info()
+        print "Biases for %s is %.2f %.2f %.2f %.2f (%.3f)" \
             % (image.name, image.yaw_bias, image.roll_bias, image.pitch_bias,
                image.alt_bias, e)
 
@@ -1111,13 +1144,13 @@ class ImageGroup():
             # compute a priority function (higher priority tiles are raised up)
             priority = (1.0-image.weight) - agl/400.0
 
-            #ll = list(image.corner_list[0])
+            #ll = list(image.grid_list[0])
             #ll.append( -priority )
-            #lr = list(image.corner_list[1])
+            #lr = list(image.grid_list[1])
             #lr.append( -priority )
-            #ur = list(image.corner_list[2])
+            #ur = list(image.grid_list[2])
             #ur.append( -priority )
-            #ul = list(image.corner_list[3])
+            #ul = list(image.grid_list[3])
             #ul.append( -priority )
 
             f.write("OBJECT poly\n")
@@ -1126,13 +1159,13 @@ class ImageGroup():
             f.write("loc 0 0 0\n")
 
             f.write("numvert %d\n" % ((self.ac3d_xsteps+1) * (self.ac3d_ysteps+1)))
-            # output the ac3d polygon grid (note the corner list is in
+            # output the ac3d polygon grid (note the grid list is in
             # this specific order because that is how we generated it
             # earlier
             pos = 0
             for j in xrange(self.ac3d_ysteps+1):
                 for i in xrange(self.ac3d_xsteps+1):
-                    v = image.corner_list[pos]
+                    v = image.grid_list[pos]
                     f.write( "%.3f %.3f %.3f\n" % (v[0], v[1], priority) )
                     pos += 1
   
@@ -1179,3 +1212,135 @@ class ImageGroup():
             f.write("kids 0\n")
 
         f.close()
+
+    def render_image_coverage(self, image):
+        if not len(image.grid_list):
+            return (0.0, 0.0, 0.0, 0.0)
+
+        # find the min/max area of the image
+        p0 = image.grid_list[0]
+        minx = p0[0]; maxx = p0[0]; miny = p0[1]; maxy = p0[1]
+        for pt in image.grid_list:
+            if pt[0] < minx:
+                minx = pt[0]
+            if pt[0] > maxx:
+                maxx = pt[0]
+            if pt[1] < miny:
+                miny = pt[1]
+            if pt[1] > maxy:
+                maxy = pt[1]
+        print "Image area coverage: (%.2f %.2f) (%.2f %.2f)" \
+            % (minx, miny, maxx, maxy)
+        return (minx, miny, maxx, maxy)
+
+    def render_image(self, image, cm_per_pixel=15.0, keypoints=False,
+                     bounds=None):
+        if not len(image.grid_list):
+            return
+        if bounds == None:
+            (minx, miny, maxx, maxy) = self.render_image_coverage(image)
+        else:
+            (minx, miny, maxx, maxy) = bounds
+        x = int(100.0 * (maxx - minx) / cm_per_pixel)
+        y = int(100.0 * (maxy - miny) / cm_per_pixel)
+        print "New image dimensions: (%d %d)" % (x, y)
+        #print str(image.grid_list)
+
+        h, w = image.img.shape
+        corners = np.float32([[0,0],[w,0],[0,h],[w,h]])
+        target = np.array([image.grid_list]).astype(np.float32)
+        for i, pt in enumerate(target[0]):
+            #print "i=%d" % i
+            target[0][i][0] = 100.0 * (target[0][i][0] - minx) / cm_per_pixel
+            target[0][i][1] = 100.0 * (maxy - target[0][i][1]) / cm_per_pixel
+        #print str(target)
+        if keypoints:
+            keypoints = []
+            for i, kp in enumerate(image.kp_list):
+                if image.kp_usage[i]:
+                    keypoints.append(kp)
+            src = cv2.drawKeypoints(image.img_rgb, keypoints,
+                                    color=(0,255,0), flags=0)
+        else:
+            src = cv2.drawKeypoints(image.img_rgb, [],
+                                    color=(0,255,0), flags=0)
+        M = cv2.getPerspectiveTransform(corners, target)
+        out = cv2.warpPerspective(src, M, (x,y))
+        #cv2.imshow('output', out)
+        #cv2.waitKey()
+        return x, y, out
+
+    def render_add_to_image(self, base, new):
+        h, w, d = base.shape
+        #print "h=%d w=%d d=%d" % ( h, w, d)
+
+        # combine using masks and add operation (assumes pixel
+        # image data will always be at least a little non-zero
+
+        # create a mask of the current contents and the inverse mask also
+        basegray = cv2.cvtColor(base, cv2.COLOR_BGR2GRAY)  
+        ret, mask = cv2.threshold(basegray, 1, 255, cv2.THRESH_BINARY)
+        mask_inv = cv2.bitwise_not(mask)
+        cv2.imshow('mask', mask)
+        cv2.imshow('mask_inv', mask_inv)
+
+        # Now clip the new imagery against the area already covered
+        new = cv2.add(base, new, mask = mask_inv)
+
+        # And combine ...
+        base = cv2.add(base, new)
+
+        if False:
+            # works but slow
+            for i in xrange(h):
+                for j in xrange(w):
+                    (r0, g0, b0) = base[i][j]
+                    (r1, g1, b1) = new[i][j]
+                    if r0 == 0 and g0 == 0 and b0 == 0:
+                        base[i][j] = new[i][j]
+
+        cv2.imshow('base', base)
+        cv2.waitKey()
+
+        return base
+        
+    def render_image_list(self, image_names, cm_per_pixel=15.0,
+                          keypoints=False):
+        minx = None; maxx = None; miny = None; maxy = None
+        for name in image_names:
+            image = self.findImageByName(name)
+            (x0, y0, x1, y1) = self.render_image_coverage(image)
+            if minx == None or x0 < minx:
+                minx = x0
+            if miny == None or y0 < miny:
+                miny = y0
+            if maxx == None or x1 > maxx:
+                maxx = x1
+            if maxy == None or y1 > maxy:
+                maxy = y1
+        print "Group area coverage: (%.2f %.2f) (%.2f %.2f)" \
+            % (minx, miny, maxx, maxy)
+
+        x = int(100.0 * (maxx - minx) / cm_per_pixel)
+        y = int(100.0 * (maxy - miny) / cm_per_pixel)
+        print "New image dimensions: (%d %d)" % (x, y)
+        base_image = np.zeros((y,x,3), np.uint8)
+
+        for name in image_names:
+            image = self.findImageByName(name)
+            w, h, out = self.render_image(image, cm_per_pixel, keypoints,
+                                          bounds=(minx, miny, maxx, maxy))
+            base_image = self.render_add_to_image(base_image, out)
+            #(x0, y0, x1, y1) = self.render_image_coverage(image)
+            #w0 = int(100.0 * (x0 - minx) / cm_per_pixel)
+            #h0 = int(100.0 * (maxy - y1) / cm_per_pixel)
+            #print "roi (%d:%d %d:%d)" % ( w0, w, h0  , h )
+            #roi = blank_image[h0:h, w0:w]
+            #roi = out
+            #roi = np.ones((h,w,3), np.uint8)
+            cv2.imshow('output', base_image)
+            cv2.waitKey()
+
+        #s_img = cv2.imread("smaller_image.png", -1)
+        #for c in range(0,3):
+        #    l_img[y_offset:y_offset+s_img.shape[0], x_offset:x_offset+s_img.shape[1], c] = s_img[:,:,c] * (s_img[:,:,3]/255.0) +  l_img[y_offset:y_offset+s_img.shape[0], x_offset:x_offset+s_img.shape[1], c] * (1.0 - s_img[:,:,3]/255.0)
