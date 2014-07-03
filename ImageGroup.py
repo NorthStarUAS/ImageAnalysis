@@ -13,6 +13,7 @@ import sys
 
 from getchar import find_getch
 from Image import Image
+import Matcher
 
 
 class ImageGroup():
@@ -23,9 +24,7 @@ class ImageGroup():
         self.detect_grid = detect_grid
         self.file_list = []
         self.image_list = []
-        self.orb = cv2.ORB(nfeatures=self.max_features)
-        self.ac3d_xsteps = 8
-        self.ac3d_ysteps = 8
+        self.ac3d_steps = 8
         self.shutter_latency = 0.0
         self.group_roll_bias = 0.0
         self.group_pitch_bias = 0.0
@@ -33,6 +32,15 @@ class ImageGroup():
         self.group_alt_bias = 0.0
         self.k1 = 0.0
         self.k2 = 0.0
+        self.m = Matcher.Match()
+        detectparams = dict(detector="sift")
+        #detectparams = dict(detector="surf", hessian_threshold=300,
+        #                    dense_detect_grid=1)
+        #detectparams = dict(detector="orb",  orb_max_features=800,
+        #                    dense_detect_grid=4)
+        matcherparams = dict(matcher="flann", match_ratio=0.5)
+        #matcherparams = dict(matcher="bruteforce", match_ratio=0.5)
+        self.m.configure(detectparams, matcherparams)
 
     def setCameraParams(self, horiz_mm=23.5, vert_mm=15.7, focal_len_mm=30.0):
         self.horiz_mm = horiz_mm
@@ -41,33 +49,6 @@ class ImageGroup():
 
     def setWorldParams(self, ground_alt_m=0.0):
         self.ground_alt_m = ground_alt_m
-
-    def dense_detect(self, image):
-        xsteps = self.detect_grid
-        ysteps = self.detect_grid
-        kp_list = []
-        h, w = image.shape
-        dx = 1.0 / float(xsteps)
-        dy = 1.0 / float(ysteps)
-        x = 0.0
-        for i in xrange(xsteps):
-            y = 0.0
-            for j in xrange(ysteps):
-                #print "create mask (%dx%d) %d %d" % (w, h, i, j)
-                #print "  roi = %.2f,%.2f %.2f,%2f" % (y*h,(y+dy)*h-1, x*w,(x+dx)*w-1)
-                mask = np.zeros((h,w,1), np.uint8)
-                mask[y*h:(y+dy)*h-1,x*w:(x+dx)*w-1] = 255
-                kps = self.orb.detect(image, mask)
-                if False:
-                    res = cv2.drawKeypoints(image, kps,
-                                            color=(0,255,0), flags=0)
-                    fig1, plt1 = plt.subplots(1)
-                    plt1 = plt.imshow(res)
-                    plt.show()
-                kp_list.extend( kps )
-                y += dy
-            x += dx
-        return kp_list
 
     def update_work_dir(self, source_dir="", work_dir="", 
                         width=684, height=456):
@@ -138,18 +119,22 @@ class ImageGroup():
         for file_name in self.file_list:
             img = Image(self.work_dir, file_name)
             if len(img.kp_list) == 0 or img.des_list == None:
+                print "  detecting features and computing descriptors"
                 if img.img == None:
                     img.load_image()
-                # img.kp_list = self.orb.detect(img.img, None)
-                img.kp_list = self.dense_detect(img.img)
-                #img.show_keypoints()
+                img.kp_list = self.m.denseDetect(img.img)
                 img.kp_list, img.des_list \
-                    = self.orb.compute(img.img, img.kp_list)
+                    = self.m.computeDescriptors(img.img, img.kp_list)
                 # and because we've messed with keypoints and descriptors
                 img.match_list = []
                 img.save_keys()
                 img.save_descriptors()
+            #if img.img == None:
+            #    img.load_image()
+            #img.show_keypoints()
             self.image_list.append( img )
+        # make sure our matcher gets a copy of the image list
+        self.m.setImageList(self.image_list)
 
     def genKeypointUsageMap(self):
         # make the keypoint usage map (used so we don't have to
@@ -168,35 +153,6 @@ class ImageGroup():
                     i1.kp_usage[pair[0]] = True
                     i2.kp_usage[pair[1]] = True
         print "done."
-
-    def filterMatches1(self, kp1, kp2, matches):
-        mkp1, mkp2 = [], []
-        idx_pairs = []
-        for m in matches:
-            if len(m): #and m[0].distance * self.match_ratio:
-                print "d = %f" % m[0].distance
-                mkp1.append( kp1[m[0].queryIdx] )
-                mkp2.append( kp2[m[0].trainIdx] )
-                idx_pairs.append( (m[0].queryIdx, m[0].trainIdx) )
-        p1 = np.float32([kp.pt for kp in mkp1])
-        p2 = np.float32([kp.pt for kp in mkp2])
-        kp_pairs = zip(mkp1, mkp2)
-        return p1, p2, kp_pairs, idx_pairs
-
-    def filterMatches2(self, kp1, kp2, matches):
-        mkp1, mkp2 = [], []
-        idx_pairs = []
-        for m in matches:
-            if len(m) == 2 and m[0].distance < m[1].distance * self.match_ratio:
-                #print " dist[0] = %d  dist[1] = %d" % (m[0].distance, m[1].distance)
-                m = m[0]
-                mkp1.append( kp1[m.queryIdx] )
-                mkp2.append( kp2[m.trainIdx] )
-                idx_pairs.append( (m.queryIdx, m.trainIdx) )
-        p1 = np.float32([kp.pt for kp in mkp1])
-        p2 = np.float32([kp.pt for kp in mkp2])
-        kp_pairs = zip(mkp1, mkp2)
-        return p1, p2, kp_pairs, idx_pairs
 
     def findImageByName(self, name):
         for i in self.image_list:
@@ -349,12 +305,12 @@ class ImageGroup():
 
         if do_grid:
             # compute the ac3d polygon grid in image space
-            dx = 1.0 / float(self.ac3d_xsteps)
-            dy = 1.0 / float(self.ac3d_ysteps)
+            dx = 1.0 / float(self.ac3d_steps)
+            dy = 1.0 / float(self.ac3d_steps)
             ynorm = 0.0
-            for j in xrange(self.ac3d_ysteps+1):
+            for j in xrange(self.ac3d_steps+1):
                 xnorm = 0.0
-                for i in xrange(self.ac3d_xsteps+1):
+                for i in xrange(self.ac3d_steps+1):
                     #print "cc %.2f %.2f" % (xnorm_u, ynorm_u)
                     xnorm_u, ynorm_u = self.doLensDistortion(ar, xnorm, ynorm)
                     coords += "gr %.3f %.3f\n" % (xnorm_u, ynorm_u)
@@ -1040,26 +996,26 @@ class ImageGroup():
             f.write("texture \"./" + image.name + "\"\n")
             f.write("loc 0 0 0\n")
 
-            f.write("numvert %d\n" % ((self.ac3d_xsteps+1) * (self.ac3d_ysteps+1)))
+            f.write("numvert %d\n" % ((self.ac3d_steps+1) * (self.ac3d_steps+1)))
             # output the ac3d polygon grid (note the grid list is in
             # this specific order because that is how we generated it
             # earlier
             pos = 0
-            for j in xrange(self.ac3d_ysteps+1):
-                for i in xrange(self.ac3d_xsteps+1):
+            for j in xrange(self.ac3d_steps+1):
+                for i in xrange(self.ac3d_steps+1):
                     v = image.grid_list[pos]
                     f.write( "%.3f %.3f %.3f\n" % (v[0], v[1], priority) )
                     pos += 1
   
-            f.write("numsurf %d\n" % (self.ac3d_xsteps * self.ac3d_ysteps))
-            dx = 1.0 / float(self.ac3d_xsteps)
-            dy = 1.0 / float(self.ac3d_ysteps)
+            f.write("numsurf %d\n" % (self.ac3d_steps * self.ac3d_steps))
+            dx = 1.0 / float(self.ac3d_steps)
+            dy = 1.0 / float(self.ac3d_steps)
             y = 1.0
-            for j in xrange(self.ac3d_ysteps):
+            for j in xrange(self.ac3d_steps):
                 x = 0.0
-                for i in xrange(self.ac3d_xsteps):
-                    c = (j * (self.ac3d_ysteps+1)) + i
-                    d = ((j+1) * (self.ac3d_ysteps+1)) + i
+                for i in xrange(self.ac3d_steps):
+                    c = (j * (self.ac3d_steps+1)) + i
+                    d = ((j+1) * (self.ac3d_steps+1)) + i
                     f.write("SURF 0x20\n")
                     f.write("mat 0\n")
                     f.write("refs 4\n")

@@ -12,6 +12,10 @@ USAGE
   Press left mouse button on a feature point to see its matching point.
 '''
 
+# find our custom built opencv first
+import sys
+sys.path.insert(0, "/home/curt/Projects/ComputerVision/lib/python2.7/site-packages/")
+
 import numpy as np
 import cv2
 from common import anorm, getsize
@@ -26,7 +30,7 @@ def init_feature(name):
         detector = cv2.SIFT()
         norm = cv2.NORM_L2
     elif chunks[0] == 'surf':
-        detector = cv2.SURF(800)
+        detector = cv2.SURF(400)
         norm = cv2.NORM_L2
     elif chunks[0] == 'orb':
         detector = cv2.ORB(400)

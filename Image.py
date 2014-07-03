@@ -47,6 +47,9 @@ class Image():
             try:
                 self.img_rgb = cv2.imread(self.image_file)
                 self.img = cv2.cvtColor(self.img_rgb, cv2.COLOR_BGR2GRAY)
+                # self.img = cv2.equalizeHist(gray)
+                #self.img = gray
+                
             except:
                 print self.image_file + ":\n" + "  load error: " \
                     + str(sys.exc_info()[1])
@@ -75,7 +78,7 @@ class Image():
         if self.des_list == None and os.path.exists(self.des_file):
             #print "Loading " + self.des_file
             try:
-                self.des_list = cv2.imread(self.des_file, 0)
+                self.des_list = np.load(self.des_file)
             except:
                 print self.des_file + ":\n" + "  load error: " \
                     + str(sys.exc_info()[1])
@@ -136,7 +139,7 @@ class Image():
         self.file_root = image_dir + "/" + root
         self.image_file = image_dir + "/" + image_file
         self.keys_file = self.file_root + ".keys"
-        self.des_file = self.file_root + ".ppm"
+        self.des_file = self.file_root + ".npy"
         self.match_file = self.file_root + ".match"
         self.info_file = self.file_root + ".info"
         # lazy load actual image file if/when we need it
@@ -180,7 +183,7 @@ class Image():
     def save_descriptors(self):
         # write descriptors as 'ppm image' format
         try:
-            result = cv2.imwrite(self.des_file, self.des_list)
+            result = np.save(self.des_file, self.des_list)
         except:
             print self.des_file + ": error saving file: " \
                 + str(sys.exc_info()[1])

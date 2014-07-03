@@ -7,13 +7,12 @@ sys.path.insert(0, "/home/curt/Projects/ComputerVision/lib/python2.7/site-packag
 
 import FlightData
 import ImageGroup
-import Matcher
 import Solver
 
 ComputeMatches = False
 EstimateGroupBias = False
 EstimateCameraDistortion = False
-ReviewMatches = False
+ReviewMatches = True
 
 SpecialReview = []
 # SpecialReview = [ "SAM_0021.JPG", "SAM_0022.JPG", "SAM_0023.JPG", "SAM_0024.JPG", "SAM_0026.JPG", "SAM_0037.JPG", "SAM_0056.JPG", "SAM_0075.JPG", "SAM_0077.JPG", "SAM_0093.JPG", "SAM_0104.JPG", "SAM_0113.JPG", "SAM_0114.JPG", "SAM_0115.JPG", "SAM_0122.JPG" ]
@@ -67,11 +66,10 @@ ig.update_work_dir(source_dir=image_dir, work_dir=work_dir)
 ig.load()
 
 # compute matches if needed
-m = Matcher.Match(image_group=ig)
 if ComputeMatches:
-    m.computeMatches()
-    m.addInverseMatches()
-    #m.showMatches()
+    ig.m.computeMatches(showpairs=False)
+    ig.m.addInverseMatches()
+    #ig.m.showMatches()
 
 # now compute the keypoint usage map
 ig.genKeypointUsageMap()
@@ -113,8 +111,8 @@ if len(SpecialReview):
 if ReviewMatches:
     e = ig.groupError()
     print "Group error (start): %.2f" % e
-    m.reviewImageErrors(minError=1.0)
-    m.saveMatches()
+    ig.m.reviewImageErrors(minError=1.0)
+    ig.m.saveMatches()
     # re-project keypoints after outlier review
     ig.projectKeypoints()
 
@@ -144,7 +142,7 @@ if EstimateCameraDistortion:
     s.estimateParameter("k1", -0.005, 0.005, 0.001, 3)
     s.estimateParameter("k2", -0.005, 0.005, 0.001, 3)
 
-for i in xrange(0):
+for i in xrange(1):
     # minimize error variance (tends to align image orientation)
     ig.fitImagesIndividually(method="variance", gain=0.2)
     ig.projectKeypoints(do_grid=True)

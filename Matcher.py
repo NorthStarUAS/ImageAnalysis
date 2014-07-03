@@ -1,42 +1,163 @@
 import cv2
 import math
+from matplotlib import pyplot as plt
 import numpy as np
 
 from find_obj import filter_matches,explore_match
 
 class Match():
-    def __init__(self, image_group):
-        self.ig = image_group
-        self.bf = cv2.BFMatcher(cv2.NORM_HAMMING) #, crossCheck=True)
+    def __init__(self):
+        self.image_list = []
+        self.detector = None
+        self.matcher = None
+        self.dense_detect_grid = 1
+        self.match_ratio = 0.75
+        #self.bf = cv2.BFMatcher(cv2.NORM_HAMMING) #, crossCheck=True)
         #self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+
+    def configure(self, dparams={}, mparams={}):
+        FLANN_INDEX_KDTREE = 1  # bug: flann enums are missing
+        FLANN_INDEX_LSH    = 6
+        if "detector" in dparams:
+            if dparams["detector"] == "sift":
+                self.detector = cv2.SIFT()
+                norm = cv2.NORM_L2
+            elif dparams["detector"] == "surf":
+                threshold = dparams["hessian_threshold"]
+                self.detector = cv2.SURF(threshold)
+                norm = cv2.NORM_L2
+            elif dparams["detector"] == "orb":
+                dmax_features = dparams["orb_max_features"]
+                self.detector = cv2.ORB(dmax_features)
+                norm = cv2.NORM_HAMMING
+        if "dense_detect_grid" in dparams:
+            self.dense_detect_grid = dparams["dense_detect_grid"]
+
+        if "matcher" in mparams:
+            if mparams["matcher"] == "flann":
+                if norm == cv2.NORM_L2:
+                    flann_params = dict(algorithm = FLANN_INDEX_KDTREE,
+                                        trees = 5)
+                else:
+                    flann_params = dict(algorithm = FLANN_INDEX_LSH,
+                                        table_number = 6, # 12
+                                        key_size = 12,     # 20
+                                        multi_probe_level = 1) #2
+                self.matcher = cv2.FlannBasedMatcher(flann_params, {}) # bug : need to pass empty dict (#1329)
+            elif mparams["matcher"] == "bruteforce":
+                print "brute force norm = %d" % norm
+                self.matcher = cv2.BFMatcher(norm)
+        if "match_ratio" in mparams:
+            self.match_ratio = mparams["match_ratio"]
+
+    def setImageList(self, image_list):
+        self.image_list = image_list
+
+    def denseDetect(self, image):
+        steps = self.dense_detect_grid
+        kp_list = []
+        h, w = image.shape
+        dx = 1.0 / float(steps)
+        dy = 1.0 / float(steps)
+        x = 0.0
+        for i in xrange(steps):
+            y = 0.0
+            for j in xrange(steps):
+                #print "create mask (%dx%d) %d %d" % (w, h, i, j)
+                #print "  roi = %.2f,%.2f %.2f,%2f" % (y*h,(y+dy)*h-1, x*w,(x+dx)*w-1)
+                mask = np.zeros((h,w,1), np.uint8)
+                mask[y*h:(y+dy)*h-1,x*w:(x+dx)*w-1] = 255
+                kps = self.detector.detect(image, mask)
+                if False:
+                    res = cv2.drawKeypoints(image, kps,
+                                            color=(0,255,0), flags=0)
+                    fig1, plt1 = plt.subplots(1)
+                    plt1 = plt.imshow(res)
+                    plt.show()
+                kp_list.extend( kps )
+                y += dy
+            x += dx
+        return kp_list
+
+    def computeDescriptors(self, image, kp_list):
+        kp_list, des_list = self.detector.compute(image, kp_list)
+        return kp_list, des_list
+ 
+    def filterMatches1(self, kp1, kp2, matches):
+        mkp1, mkp2 = [], []
+        idx_pairs = []
+        for m in matches:
+            if len(m) == 2 and m[0].distance < m[1].distance * self.match_ratio:
+                #print " dist[0] = %d  dist[1] = %d" % (m[0].distance, m[1].distance)
+                m = m[0]
+                mkp1.append( kp1[m.queryIdx] )
+                mkp2.append( kp2[m.trainIdx] )
+                idx_pairs.append( (m.queryIdx, m.trainIdx) )
+        p1 = np.float32([kp.pt for kp in mkp1])
+        p2 = np.float32([kp.pt for kp in mkp2])
+        kp_pairs = zip(mkp1, mkp2)
+        return p1, p2, kp_pairs, idx_pairs
+
+    def filterMatches2(self, kp1, kp2, matches):
+        mkp1, mkp2 = [], []
+        idx_pairs = []
+        used = np.zeros(len(kp2), np.bool_)
+        for m in matches:
+            if len(m) == 2 and m[0].distance < m[1].distance * self.match_ratio:
+                #print " dist[0] = %d  dist[1] = %d" % (m[0].distance, m[1].distance)
+                m = m[0]
+                if not used[m.trainIdx]:
+                    used[m.trainIdx] = True
+                    mkp1.append( kp1[m.queryIdx] )
+                    mkp2.append( kp2[m.trainIdx] )
+                    idx_pairs.append( (m.queryIdx, m.trainIdx) )
+        p1 = np.float32([kp.pt for kp in mkp1])
+        p2 = np.float32([kp.pt for kp in mkp2])
+        kp_pairs = zip(mkp1, mkp2)
+        return p1, p2, kp_pairs, idx_pairs
 
     def computeMatches(self, showpairs=False):
         # O(n,n) compare
-        for i, i1 in enumerate(self.ig.image_list):
+        for i, i1 in enumerate(self.image_list):
             if len(i1.match_list):
                 continue
-            for j, i2 in enumerate(self.ig.image_list):
-                matches = self.ig.bf.knnMatch(i1.des_list, trainDescriptors=i2.des_list, k=2)
-                p1, p2, kp_pairs, idx_pairs = self.ig.filterMatches2(i1.kp_list, i2.kp_list, matches)
-                #print "index pairs:"
-                #print str(idx_pairs)
-                #if i == j:
-                #    continue
-
-                if i != j:
-                    i1.match_list.append( idx_pairs )
+            i1.match_list = [[]] * len(self.image_list)
+            for j, i2 in enumerate(self.image_list):
+                if i == j:
+                    continue
+                matches = self.matcher.knnMatch(i1.des_list, trainDescriptors=i2.des_list, k=2)
+                p1, p2, kp_pairs, idx_pairs = self.filterMatches2(i1.kp_list, i2.kp_list, matches)
+                if len(p1) >= 4:
+                    H, status = cv2.findHomography(p1, p2, cv2.RANSAC, 5.0)
+                    print '%d / %d  inliers/matched' % (np.sum(status), len(status))
+                    # remove outliers
+                    for k, flag in enumerate(status):
+                        if not flag:
+                            print "    deleting: " + str(idx_pairs[k])
+                            idx_pairs[k] = (-1, -1)
+                    for pair in reversed(idx_pairs):
+                        if idx_pairs == (-1, -1):
+                            idx_pairs.remove(pair)
+ 
                 else:
-                    i1.match_list.append( [] )
+                    H, status = None, None
+                    # print '%d matches found, not enough for homography estimation' % len(p1)
+                i1.match_list[j] = idx_pairs
 
                 if len(idx_pairs):
-                    print "Matching " + str(i) + " vs " + str(j) + " = " + str(len(idx_pairs))
+                    print "Matching %s vs %s (%d vs %d) = %d" \
+                        % (i1.name, i2.name, i, j, len(idx_pairs))
 
-                if len(idx_pairs) > 2:
+                if len(idx_pairs) >= 4:
                     if False:
                         # draw only keypoints location,not size and orientation (flags=0)
                         # draw rich keypoints (flags=4)
-                        res1 = cv2.drawKeypoints(img_list[i], kp_list[i], color=(0,255,0), flags=0)
-                        res2 = cv2.drawKeypoints(img_list[j], kp_list[j], color=(0,255,0), flags=0)
+                        if i1.img == None:
+                            i1.load_image()
+                        if i2.img == None:
+                            i2.load_image()
+                        res1 = cv2.drawKeypoints(i1.img, i1.kp_list, color=(0,255,0), flags=0)
+                        res2 = cv2.drawKeypoints(i2.img, i2.kp_list, color=(0,255,0), flags=0)
                         fig1, plt1 = plt.subplots(1)
                         plt1 = plt.imshow(res1)
                         fig2, plt2 = plt.subplots(1)
@@ -48,14 +169,14 @@ class Match():
                             i1.load_image()
                         if i2.img == None:
                             i2.load_image()
-                        explore_match('find_obj', i1.img, i2.img, kp_pairs) #cv2 shows image
+                        explore_match('find_obj', i1.img, i2.img, kp_pairs, status, H) #cv2 shows image
                         cv2.waitKey()
                         cv2.destroyAllWindows()
             i1.save_matches()
 
     def safeAddPair(self, i1, i2, refpair):
-        image1 = self.ig.image_list[i1]
-        image2 = self.ig.image_list[i2]
+        image1 = self.image_list[i1]
+        image2 = self.image_list[i2]
         matches = image1.match_list[i2]
         hasit = False
         for pair in matches:
@@ -70,21 +191,21 @@ class Match():
     # of images in both directions.  This will make sure a found match
     # in one direction also exists in the reciprocol direction.
     def addInverseMatches(self):
-        for i, i1 in enumerate(self.ig.image_list):
+        for i, i1 in enumerate(self.image_list):
             print "add inverse matches for %s" % i1.name
             for j, matches in enumerate(i1.match_list):
                 if i == j:
                     continue
-                i2 = self.ig.image_list[j]
+                i2 = self.image_list[j]
                 for pair in matches:
                     inv_pair = (pair[1], pair[0])
                     self.safeAddPair(j, i, inv_pair)
-        for i1 in self.ig.image_list:
+        for i1 in self.image_list:
             i1.save_matches()
 
 
     def saveMatches(self):
-        for image in self.ig.image_list:
+        for image in self.image_list:
             image.save_matches()
 
     def showMatch(self, i1, i2, idx_pairs, status=None):
@@ -112,7 +233,7 @@ class Match():
         return status
 
     def showMatches(self, i1):
-        for j, i2 in enumerate(self.ig.image_list):
+        for j, i2 in enumerate(self.image_list):
             print str(i1.match_list[j])
             idx_pairs = i1.match_list[j]
             if len(idx_pairs) > 0:
@@ -121,7 +242,7 @@ class Match():
 
     def showAllMatches(self):
         # O(n,n) compare
-        for i, i1 in enumerate(self.ig.image_list):
+        for i, i1 in enumerate(self.image_list):
             showMatches(i1)
 
     # compute the error between a pair of images
@@ -203,7 +324,7 @@ class Match():
         report_list = []
         for i, match in enumerate(i1.match_list):
             if len(match):
-                i2 = self.ig.image_list[i]
+                i2 = self.image_list[i]
                 #print "Matching %s vs %s " % (i1.name, i2.name)
                 e = self.ig.imagePairError(i1, None, i2, match, emax=True)
                 if e > minError:
@@ -226,14 +347,14 @@ class Match():
 
     # sort and review images by worst positional error
     def reviewImageErrors(self, name=None, minError=20.0):
-        if len(self.ig.image_list):
+        if len(self.image_list):
             report_list = []
             if name != None:
                 image = self.ig.findImageByName(name)
                 e = self.ig.imageError(image, None, max=True)
                 report_list.append( (e, image.name) )
             else:
-                for image in self.ig.image_list:
+                for image in self.image_list:
                     e = self.ig.imageError(image, None, max=True)
                     report_list.append( (e, image.name) )
             report_list = sorted(report_list, key=lambda fields: fields[0],
