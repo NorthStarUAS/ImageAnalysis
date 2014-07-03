@@ -14,7 +14,7 @@ class Solver():
         for i in xrange(steps):
             self.ig.affineTransformImages(gain=gain, fullAffine=fullAffine)
             self.ig.generate_ac3d(self.c, ref_image=None, base_name="quick-3d", version=i )
-            print "Global error (%d) = %.2f: " % (i, self.ig.globalError())
+            print "Group error (%d) = %.2f: " % (i, self.ig.groupError())
 
     def SimpleSolver(steps=10, gain=0.25):
         for i in xrange(steps):
@@ -22,7 +22,7 @@ class Solver():
             self.ig.projectKeypoints()
             self.ig.shiftImages(gain=gain)
             self.ig.generate_ac3d(c, ref_image=None, base_name="quick-3d", version=i )
-            print "Global error (%d) = %.2f: " % (i, self.ig.globalError())
+            print "Group error (%d) = %.2f: " % (i, self.ig.groupError())
 
     # try to globally fit image group by manipulating various
     # parameters and testing to see if that produces a better fit
@@ -40,19 +40,19 @@ class Solver():
                     self.ig.shutter_latency = test_value
                     self.ig.computeCamPositions(self.c, force=True)
                 elif param == "yaw":
-                    self.ig.global_yaw_bias = test_value
+                    self.ig.group_yaw_bias = test_value
                 elif param == "roll":
-                    self.ig.global_roll_bias = test_value
+                    self.ig.group_roll_bias = test_value
                 elif param == "pitch":
-                    self.ig.global_pitch_bias = test_value
+                    self.ig.group_pitch_bias = test_value
                 elif param == "altitude":
-                    self.ig.global_alt_bias = test_value
+                    self.ig.group_alt_bias = test_value
                 elif param == "k1":
                     self.ig.k1 = test_value
                 elif param == "k2":
                     self.ig.k2 = test_value
                 self.ig.projectKeypoints()
-                error = self.ig.globalError(method="variance")
+                error = self.ig.groupError(method="variance")
                 print "Test %s error @ %.5f = %.3f" \
                     % ( param, test_value, error )
                 if best_error == None or error < best_error:
@@ -67,13 +67,13 @@ class Solver():
         if param == "shutter-latency":
             self.ig.shutter_latency = best_value
         elif param == "yaw":
-            self.ig.global_yaw_bias = best_value
+            self.ig.group_yaw_bias = best_value
         elif param == "roll":
-            self.ig.global_roll_bias = best_value
+            self.ig.group_roll_bias = best_value
         elif param == "pitch":
-            self.ig.global_pitch_bias = best_value
+            self.ig.group_pitch_bias = best_value
         elif param == "altitude":
-            self.ig.global_alt_bias = best_value
+            self.ig.group_alt_bias = best_value
         elif param == "k1":
             self.ig.k1 = best_value
         elif param == "k2":
@@ -95,6 +95,6 @@ class Solver():
 #    ig.filterStinkers()
 #    ig.fitImagesIndividually(gain=0.25)
 #    ig.projectKeypoints()
-#    print "Global error (after individual fit): %.2f" % ig.globalError()
+#    print "Group error (after individual fit): %.2f" % ig.groupError()
 
 # AffineSolver(steps=20)
