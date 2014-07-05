@@ -9,34 +9,10 @@ import FlightData
 import ImageGroup
 import Solver
 
-ComputeMatches = False
+ComputeMatches = True
 EstimateGroupBias = False
 EstimateCameraDistortion = False
-ReviewMatches = True
-
-SpecialReview = []
-# SpecialReview = [ "SAM_0021.JPG", "SAM_0022.JPG", "SAM_0023.JPG", "SAM_0024.JPG", "SAM_0026.JPG", "SAM_0037.JPG", "SAM_0056.JPG", "SAM_0075.JPG", "SAM_0077.JPG", "SAM_0093.JPG", "SAM_0104.JPG", "SAM_0113.JPG", "SAM_0114.JPG", "SAM_0115.JPG", "SAM_0122.JPG" ]
-
-# values for flight: 2014-06-06-01
-#defaultShutterLatency = 0.66    # measured by the shutter latency solver
-#defaultRollBias = -0.88          # measured by the roll bias solver
-#defaultPitchBias = -1.64         # measured by the pitch bias solver
-#defaultYawBias = -5.5           # measured by the yaw bias solver
-#defaultAltBias = -8.9           # measured by the alt bias solver ...
-
-# values for flight: 2014-06-06-02
-#defaultShutterLatency = 0.63    # measured by the shutter latency solver
-#defaultRollBias = -0.84         # measured by the roll bias solver
-#defaultPitchBias = 0.40         # measured by the pitch bias solver
-#defaultYawBias = 2.84           # measured by the yaw bias solver
-#defaultAltBias = -9.52         # measured by the alt bias solver ...
-
-# values for flight: 2014-05-28
-#defaultShutterLatency = 0.66    # measured by the shutter latency solver
-#defaultRollBias = 0.0          # measured by the roll bias solver
-#defaultPitchBias = 0.0         # measured by the pitch bias solver
-#defaultYawBias = 0.0           # measured by the yaw bias solver
-#defaultAltBias = 0.0           # measured by the alt bias solver ...
+ReviewMatches = False
 
 def usage():
     print "Usage: " + sys.argv[0] + " <flight_data_dir> <raw_image_dir> <ground_alt_m>"
@@ -90,6 +66,7 @@ ig.computeCamPositions(c, force=False, weight=True)
 
 # weight the images (either automatically by roll/pitch, or force a value)
 ig.computeWeights(force=1.0)
+ig.computeConnections()
 
 # compute a central lon/lat for the image set.  This will be the (0,0)
 # point in our local X, Y, Z coordinate system
@@ -101,17 +78,11 @@ ig.k2 = 0.0
 ig.projectKeypoints(do_grid=True)
 
 # review matches
-if len(SpecialReview):
-    e = ig.groupError()
-    print "Group error (start): %.2f" % e
-    for name in SpecialReview:
-        ig.reviewImageErrors(name, minError=0.001)
-        ig.saveMatches()
-
 if ReviewMatches:
-    e = ig.groupError()
+    e = ig.groupError(method="average")
+    stddev = ig.groupError(method="variance")
     print "Group error (start): %.2f" % e
-    ig.m.reviewImageErrors(minError=1.0)
+    ig.m.reviewImageErrors(minError=(e+stddev))
     ig.m.saveMatches()
     # re-project keypoints after outlier review
     ig.projectKeypoints()
@@ -142,7 +113,7 @@ if EstimateCameraDistortion:
     s.estimateParameter("k1", -0.005, 0.005, 0.001, 3)
     s.estimateParameter("k2", -0.005, 0.005, 0.001, 3)
 
-for i in xrange(1):
+for i in xrange(0):
     # minimize error variance (tends to align image orientation)
     ig.fitImagesIndividually(method="variance", gain=0.2)
     ig.projectKeypoints(do_grid=True)
@@ -166,7 +137,7 @@ for i in xrange(1):
     print "  Group standard deviation: %.2f" % stddev
 
     # minimize overall error (without moving camera laterally)
-    ig.fitImagesIndividually(method="direct", gain=0.4)
+    ig.fitImagesIndividually(method="direct", gain=1.0)
     ig.projectKeypoints(do_grid=True)
     e = ig.groupError(method="average")
     stddev = ig.groupError(method="variance")
@@ -187,16 +158,23 @@ if False:
             continue
         image_list.append(ig.image_list[i].name)
 
-if True:
+if False:
+    ig.affinePlaceImages()
+    ig.generate_ac3d(c, ref_image=None, base_name="quick-3d", version=0 )
+    #s.AffineFitter(steps=30, gain=0.4, fullAffine=False)
+
+if False:
     #image_list = [ "SAM_0031.JPG", "SAM_0032.JPG", "SAM_0033.JPG" ] 
     #image_list = [ "SAM_0153.JPG", "SAM_0154.JPG", "SAM_0155.JPG", "SAM_0156.JPG", "SAM_0157.JPG", "SAM_0158.JPG" ] 
-    image_list = [ "SAM_0184.JPG", "SAM_0185.JPG", "SAM_0186.JPG", "SAM_0187.JPG", "SAM_0188.JPG", "SAM_0189.JPG", "SAM_0190.JPG" ] 
+    #image_list = [ "SAM_0184.JPG", "SAM_0185.JPG", "SAM_0186.JPG", "SAM_0187.JPG", "SAM_0188.JPG", "SAM_0189.JPG", "SAM_0190.JPG" ] 
+    #image_list = [ "SAM_0199.JPG", "SAM_0200.JPG", "SAM_0201.JPG", "SAM_0202.JPG", "SAM_0203.JPG", "SAM_0204.JPG", "SAM_0205.JPG" ] 
+    image_list = [ "SAM_0327.JPG", "SAM_0328.JPG" ]
     print str(image_list)
-    for name in image_list:
-        image = ig.findImageByName(name)
-        ig.findImageShift(image, gain=1.0, placing=True)
-        image.placed = True
+    #for name in image_list:
+    #    image = ig.m.findImageByName(name)
+    #    ig.findImageShift(image, gain=1.0, placing=True)
+    #    image.placed = True
     ig.render_image_list(image_list, cm_per_pixel=10.0, keypoints=True)
 
-#ig.placeImages()
-s.AffineFitter(steps=30, gain=0.4, fullAffine=False)
+ig.render_images_over_point(x=0.0, y=-70.0, pad=20.0,
+                            cm_per_pixel=50.0, keypoints=False)

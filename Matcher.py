@@ -12,6 +12,7 @@ class Match():
         self.matcher = None
         self.dense_detect_grid = 1
         self.match_ratio = 0.75
+        self.min_pairs = 5      # minimum number of pairs to consider a match
         #self.bf = cv2.BFMatcher(cv2.NORM_HAMMING) #, crossCheck=True)
         #self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
@@ -136,7 +137,7 @@ class Match():
                             print "    deleting: " + str(idx_pairs[k])
                             idx_pairs[k] = (-1, -1)
                     for pair in reversed(idx_pairs):
-                        if idx_pairs == (-1, -1):
+                        if pair == (-1, -1):
                             idx_pairs.remove(pair)
  
                 else:
@@ -148,7 +149,7 @@ class Match():
                     print "Matching %s vs %s (%d vs %d) = %d" \
                         % (i1.name, i2.name, i, j, len(idx_pairs))
 
-                if len(idx_pairs) >= 4:
+                if len(idx_pairs) >= self.min_pairs:
                     if False:
                         # draw only keypoints location,not size and orientation (flags=0)
                         # draw rich keypoints (flags=4)
@@ -182,7 +183,8 @@ class Match():
         for pair in matches:
             if pair[0] == refpair[0] and pair[1] == refpair[1]:
                 hasit = True
-                print " already exists: %s->%s (%d %d)" % (image1.name, image2.name, refpair[0], refpair[1])
+                # print " already exists: %s->%s (%d %d)" \
+                #    % (image1.name, image2.name, refpair[0], refpair[1])
         if not hasit:
             print "Adding %s->%s (%d %d)" % (image1.name, image2.name, refpair[0], refpair[1])
             matches.append(refpair)
@@ -236,7 +238,7 @@ class Match():
         for j, i2 in enumerate(self.image_list):
             print str(i1.match_list[j])
             idx_pairs = i1.match_list[j]
-            if len(idx_pairs) > 0:
+            if len(idx_pairs) > self.min_pairs:
                 print "Showing matches for image %s and %s" % (i1.name, i2.name)
                 self.showMatch( i1, i2, idx_pairs )
 
@@ -244,6 +246,137 @@ class Match():
         # O(n,n) compare
         for i, i1 in enumerate(self.image_list):
             showMatches(i1)
+
+    # compute the error between a pair of images
+    def imagePairError(self, i1, alt_coord_list, i2, match, emax=False):
+        #print "%s %s" % (i1.name, i2.name)
+        coord_list = i1.coord_list
+        if alt_coord_list != None:
+            coord_list = alt_coord_list
+        emax_value = 0.0
+        dist2_sum = 0.0
+        error_sum = 0.0
+        for pair in match:
+            c1 = coord_list[pair[0]]
+            c2 = i2.coord_list[pair[1]]
+            dx = c2[0] - c1[0]
+            dy = c2[1] - c1[1]
+            dist2 = dx*dx + dy*dy
+            dist2_sum += dist2
+            error = math.sqrt(dist2)
+            if emax_value < error:
+                emax_value = error
+        if emax:
+            return emax_value
+        else:
+            return math.sqrt(dist2_sum / len(match))
+
+    # considers only total distance between points (thanks to Knuth
+    # and Welford)
+    def imagePairVariance1(self, i1, alt_coord_list, i2, match):
+        coord_list = i1.coord_list
+        if alt_coord_list != None:
+            coord_list = alt_coord_list
+        mean = 0.0
+        M2 = 0.0
+        n = 0
+        for pair in match:
+            c1 = coord_list[pair[0]]
+            c2 = i2.coord_list[pair[1]]
+            dx = c2[0] - c1[0]
+            dy = c2[1] - c1[1]
+            n += 1
+            x = math.sqrt(dx*dx + dy*dy)
+            delta = x - mean
+            mean += delta/n
+            M2 = M2 + delta*(x - mean)
+
+        if n < 2:
+            return 0.0
+ 
+        variance = M2/(n - 1)
+        return variance
+
+    # considers x, y errors separated (thanks to Knuth and Welford)
+    def imagePairVariance2(self, i1, alt_coord_list, i2, match):
+        coord_list = i1.coord_list
+        if alt_coord_list != None:
+            coord_list = alt_coord_list
+        xsum = 0.0
+        ysum = 0.0
+        # pass 1, compute x and y means
+        for pair in match:
+            c1 = coord_list[pair[0]]
+            c2 = i2.coord_list[pair[1]]
+            dx = c2[0] - c1[0]
+            dy = c2[1] - c1[1]
+            xsum += dx
+            ysum += dy
+        xmean = xsum / len(match)
+        ymean = ysum / len(match)
+
+        # pass 2, compute average error in x and y
+        xsum2 = 0.0
+        ysum2 = 0.0
+        for pair in match:
+            c1 = coord_list[pair[0]]
+            c2 = i2.coord_list[pair[1]]
+            dx = c2[0] - c1[0]
+            dy = c2[1] - c1[1]
+            ex = xmean - dx
+            ey = ymean - dy
+            xsum2 += ex * ex
+            ysum2 += ey * ey
+        xerror = math.sqrt( xsum2 / len(match) )
+        yerror = math.sqrt( ysum2 / len(match) )
+        return xerror*xerror + yerror*yerror
+
+    # Compute an error metric related to image placement among the
+    # group.  If an alternate coordinate list is provided, that is
+    # used to compute the error metric (useful for doing test fits.)
+    # if max=True then return the maximum pair error, not the weighted
+    # average error
+    def imageError(self, i1, alt_coord_list=None, method="direct", variance=False, max=False):
+        if method == "direct":
+            variance = False
+            emax = False
+        elif method == "variance":
+            variance = True
+            emax = False
+        elif method == "max":
+            variance = False
+            emax = True
+        
+        emax_value = 0.0
+        dist2_sum = 0.0
+        var_sum = 0.0
+        weight_sum = i1.weight  # give ourselves an appropriate weight
+        i1.has_matches = False
+        for i, match in enumerate(i1.match_list):
+            if len(match) >= self.min_pairs:
+                i1.has_matches = True
+                i2 = self.image_list[i]
+                #print "Matching %s vs %s " % (i1.name, i2.name)
+                error = 0.0
+                if variance:
+                    var = self.imagePairVariance2(i1, alt_coord_list, i2,
+                                                 match)
+                    #print "  %s var = %.2f" % (i1.name, var)
+                    var_sum += var * i2.weight
+                else:
+                    error = self.imagePairError(i1, alt_coord_list, i2,
+                                                match, emax)
+                    dist2_sum += error * error * i2.weight
+                weight_sum += i2.weight
+                if emax_value < error:
+                    emax_value = error
+        if emax:
+            return emax_value
+        elif variance:
+            #print "  var_sum = %.2f  weight_sum = %.2f" % (var_sum, weight_sum)
+            return var_sum / weight_sum
+        else:
+            return math.sqrt(dist2_sum / weight_sum)
 
     # compute the error between a pair of images
     def pairErrorReport(self, i1, alt_coord_list, i2, match, minError):
@@ -318,6 +451,12 @@ class Match():
                     match.remove(pair)
             print "after = " + str(match)
 
+    def findImageByName(self, name):
+        for i in self.image_list:
+            if i.name == name:
+                return i
+        return None
+
     # sort and review match pairs by worst positional error
     def matchErrorReport(self, i1, minError=20.0):
         # now for each image, find/show worst individual matches
@@ -326,7 +465,7 @@ class Match():
             if len(match):
                 i2 = self.image_list[i]
                 #print "Matching %s vs %s " % (i1.name, i2.name)
-                e = self.ig.imagePairError(i1, None, i2, match, emax=True)
+                e = self.imagePairError(i1, None, i2, match, emax=True)
                 if e > minError:
                     report_list.append( (e, i1.name, i2.name, i) )
 
@@ -335,8 +474,8 @@ class Match():
                              reverse=True)
 
         for line in report_list:
-            i1 = self.ig.findImageByName(line[1])
-            i2 = self.ig.findImageByName(line[2])
+            i1 = self.findImageByName(line[1])
+            i2 = self.findImageByName(line[2])
             match = i1.match_list[line[3]]
             print "  %.1f %s %s" % (line[0], line[1], line[2])
             if line[0] > minError:
@@ -351,18 +490,18 @@ class Match():
             report_list = []
             if name != None:
                 image = self.ig.findImageByName(name)
-                e = self.ig.imageError(image, None, max=True)
+                e = self.imageError(image, None, max=True)
                 report_list.append( (e, image.name) )
             else:
-                for image in self.image_list:
-                    e = self.ig.imageError(image, None, max=True)
-                    report_list.append( (e, image.name) )
+                for i, image in enumerate(self.image_list):
+                    e = self.imageError(image, None, max=True)
+                    report_list.append( (e, i) )
             report_list = sorted(report_list, key=lambda fields: fields[0],
                                  reverse=True)
             # show images sorted by largest positional disagreement first
             for line in report_list:
                 print "%.1f %s" % (line[0], line[1])
                 if line[0] >= minError:
-                    self.matchErrorReport( self.ig.findImageByName(line[1]),
+                    self.matchErrorReport( self.image_list[ line[1] ],
                                            minError )
 

@@ -26,6 +26,8 @@ class Image():
         self.alt_bias = 0.0
         self.x_bias = 0.0
         self.y_bias = 0.0
+        self.weight = 1.0
+        self.connections = 0.0
         self.rotate = 0.0       # depricated?
         self.placed = False
         if image_file:
@@ -128,6 +130,8 @@ class Image():
                 self.x_bias = float(root.find('x-bias').text)
                 self.y_bias = float(root.find('y-bias').text)
                 self.weight = float(root.find('weight').text)
+                if len(root.find('weight')):
+                    self.connections = float(root.find('weight').text)
             except:
                 print self.info_file + ":\n" + "  load error: " \
                     + str(sys.exc_info()[1])
@@ -196,7 +200,7 @@ class Image():
         for i in xrange(len(self.match_list)):
             match = self.match_list[i]
             match_node = ET.SubElement(root, 'pairs')
-            if len(match):
+            if len(match) >= 4:
                 pairs = str(match)
                 pairs = pairs.replace('[', '')
                 pairs = pairs.replace(']', '')
@@ -228,6 +232,7 @@ class Image():
         ET.SubElement(root, 'x-bias').text = "%.2f" % self.x_bias
         ET.SubElement(root, 'y-bias').text = "%.2f" % self.y_bias
         ET.SubElement(root, 'weight').text = "%.2f" % self.weight
+        ET.SubElement(root, 'connections').text = "%d" % self.connections
 
         # write xml file
         try:

@@ -154,18 +154,12 @@ class ImageGroup():
                     i2.kp_usage[pair[1]] = True
         print "done."
 
-    def findImageByName(self, name):
-        for i in self.image_list:
-            if i.name == name:
-                return i
-        return None
-
     def computeCamPositions(self, correlator, force=False, weight=True):
         # tag each image with the flight data parameters at the time
         # the image was taken
         for match in correlator.best_matchups:
             pict, trig = correlator.get_match(match)
-            image = self.findImageByName(pict[2])
+            image = self.m.findImageByName(pict[2])
             if image != None:
                 if force or (math.fabs(image.lon) < 0.01 and math.fabs(image.lat) < 0.01):
                     # only if we are forcing a new position
@@ -204,6 +198,15 @@ class ImageGroup():
                     image.weight = w
             image.save_info()
             #print "%s roll=%.1f pitch=%.1f weight=%.2f" % (image.name, roll, pitch, image.weight)
+
+    def computeConnections(self, force=None):
+        for image in self.image_list:
+            image.connections = 0
+            for pairs in image.match_list:
+                if len(pairs) >= self.m.min_pairs:
+                    image.connections += 1
+            image.save_info()
+            print "%s connections: %d" % (image.name, image.connections)
 
     def computeRefLocation(self):
         # requires images to have their location computed/loaded
@@ -391,7 +394,7 @@ class ImageGroup():
         rotate_sum = 0.0        # no rotation
         weight_sum = i1.weight  # our own weight
         for i, pairs in enumerate(i1.match_list):
-            if len(pairs) < 3:
+            if len(pairs) < self.m.min_pairs:
                 continue
             i2 = self.image_list[i]
             print "Affine %s vs %s" % (i1.name, i2.name)
@@ -462,7 +465,7 @@ class ImageGroup():
         affine_sum *= i1.weight
         weight_sum = i1.weight  # our own weight
         for i, pairs in enumerate(i1.match_list):
-            if len(pairs) < 3:
+            if len(pairs) < self.m.min_pairs:
                 # skip matchups with < 3 pairs
                 continue
             i2 = self.image_list[i]
@@ -479,17 +482,55 @@ class ImageGroup():
         i1.new_affine = affine_sum / weight_sum
         #print str(i1.new_affine)
     
-    def affineTransformImage(self, image, gain):
+    # compare only against 'placed' images and do not weight ourselves
+    def findImageWeightedAffine3(self, i1, fullAffine=False):
+        # 1. find the affine transform for individual image pairs
+        # 2. find the weighted average of the affine transform matrices
+
+        # initialize sums with the match against ourselves
+        affine_sum = np.array( [ [0.0, 0.0, 0.0 ], [0.0, 0.0, 0.0] ] )
+        weight_sum = 0.0
+        for i, pairs in enumerate(i1.match_list):
+            if len(pairs) < self.m.min_pairs:
+                continue
+            i2 = self.image_list[i]
+            if not i2.placed:
+                continue
+            #print "Affine %s vs %s" % (i1.name, i2.name)
+            affine = self.findAffine(i1, i2, pairs, fullAffine)
+            if affine == None:
+                # it's possible given a degenerate point set, the
+                # affine estimator will return None
+                continue
+            affine_sum += affine * i2.weight
+            weight_sum += i2.weight
+            #self.showMatch(i1, i2, pairs)
+        # weight_sum should always be greater than zero
+        if weight_sum > 0.00001:
+            result = affine_sum / weight_sum
+        else:
+            result = np.array( [ [1.0, 0.0, 0.0 ], [0.0, 1.0, 0.0] ] )
+        return result
+    
+    def affineTransformImage(self, image, gain=1.0, M=None):
+        if M == None:
+            M = image.new_affine
+
         # print "Transforming " + str(image.name)
         for i, coord in enumerate(image.coord_list):
             if not image.kp_usage[i]:
                 continue
-            newcoord = image.new_affine.dot([coord[0], coord[1], 1.0])
+            newcoord = M.dot([coord[0], coord[1], 1.0])
             diff = newcoord - coord
             image.coord_list[i] += diff * gain
             # print "old %s -> new %s" % (str(coord), str(newcoord))
+        for i, coord in enumerate(image.corner_list):
+            newcoord = M.dot([coord[0], coord[1], 1.0])
+            diff = newcoord - coord
+            image.corner_list[i] += diff * gain
+            # print "old %s -> new %s" % (str(coord), str(newcoord))
         for i, coord in enumerate(image.grid_list):
-            newcoord = image.new_affine.dot([coord[0], coord[1], 1.0])
+            newcoord = M.dot([coord[0], coord[1], 1.0])
             diff = newcoord - coord
             image.grid_list[i] += diff * gain
             # print "old %s -> new %s" % (str(coord), str(newcoord))
@@ -500,12 +541,55 @@ class ImageGroup():
         for image in self.image_list:
             self.affineTransformImage(image, gain)
 
+    # return true if this image has a neighbor that is already been placed
+    def hasPlacedNeighbor(self, image):
+        for i, pairs in enumerate(image.match_list):
+             if len(pairs) >= self.m.min_pairs:
+                 i2 = self.image_list[i]
+                 if i2.placed:
+                     return True
+        return False
+        
+    def affinePlaceImages(self, image_list=None, fullAffine=False):
+        if image_list == None:
+            image_list = self.image_list
+
+        # reset the placed flag
+        for image in image_list:
+            image.placed = False
+        done = False
+        while not done:
+            done = True
+            maxcon = None
+            maxidx = None
+            # find an unplaced image with a placed neighbor that has
+            # the most connections to other images
+            for i, image in enumerate(image_list):
+                if not image.placed and self.hasPlacedNeighbor(image) and (maxcon == None or image.connections > maxcon):
+                    maxcon = image.connections
+                    maxidx = i
+                    done = False
+            if maxidx == None:
+                # find an unplaced image that has the most connections
+                # to other images
+                for i, image in enumerate(image_list):
+                    if not image.placed and (maxcon == None or image.connections > maxcon):
+                        maxcon = image.connections
+                        maxidx = i
+                        done = False
+            if maxidx != None:
+                image = image_list[maxidx]
+                print "Placing %s (connections = %d)" % (image.name, maxcon)
+                affine = self.findImageWeightedAffine3(image, fullAffine=fullAffine)
+                self.affineTransformImage(image, gain=1.0, M=affine)
+                image.placed = True
+
     def findImageRotate(self, i1, gain):
         #self.findImageAffine(i1) # temp test
         error_sum = 0.0
         weight_sum = i1.weight  # give ourselves an appropriate weight
         for i, match in enumerate(i1.match_list):
-            if len(match) > 2:
+            if len(match) >= self.m.min_pairs:
                 i2 = self.image_list[i]
                 print "Rotating %s vs %s" % (i1.name, i2.name)
                 for pair in match:
@@ -578,7 +662,7 @@ class ImageGroup():
         yerror_sum = 0.0
         weight_sum = i1.weight  # give ourselves an appropriate weight
         for i, match in enumerate(i1.match_list):
-            if len(match) < 3:
+            if len(match) < self.m.min_pairs:
                 continue
             i2 = self.image_list[i]
             #if not i2.placed:
@@ -607,137 +691,6 @@ class ImageGroup():
             self.findImageShift(image, gain=1.0, placing=True)
             self.placed = True
 
-    # compute the error between a pair of images
-    def imagePairError(self, i1, alt_coord_list, i2, match, emax=False):
-        #print "%s %s" % (i1.name, i2.name)
-        coord_list = i1.coord_list
-        if alt_coord_list != None:
-            coord_list = alt_coord_list
-        emax_value = 0.0
-        dist2_sum = 0.0
-        error_sum = 0.0
-        for pair in match:
-            c1 = coord_list[pair[0]]
-            c2 = i2.coord_list[pair[1]]
-            dx = c2[0] - c1[0]
-            dy = c2[1] - c1[1]
-            dist2 = dx*dx + dy*dy
-            dist2_sum += dist2
-            error = math.sqrt(dist2)
-            if emax_value < error:
-                emax_value = error
-        if emax:
-            return emax_value
-        else:
-            return math.sqrt(dist2_sum / len(match))
-
-    # considers only total distance between points (thanks to Knuth
-    # and Welford)
-    def imagePairVariance1(self, i1, alt_coord_list, i2, match):
-        coord_list = i1.coord_list
-        if alt_coord_list != None:
-            coord_list = alt_coord_list
-        mean = 0.0
-        M2 = 0.0
-        n = 0
-        for pair in match:
-            c1 = coord_list[pair[0]]
-            c2 = i2.coord_list[pair[1]]
-            dx = c2[0] - c1[0]
-            dy = c2[1] - c1[1]
-            n += 1
-            x = math.sqrt(dx*dx + dy*dy)
-            delta = x - mean
-            mean += delta/n
-            M2 = M2 + delta*(x - mean)
-
-        if n < 2:
-            return 0.0
- 
-        variance = M2/(n - 1)
-        return variance
-
-    # considers x, y errors separated (thanks to Knuth and Welford)
-    def imagePairVariance2(self, i1, alt_coord_list, i2, match):
-        coord_list = i1.coord_list
-        if alt_coord_list != None:
-            coord_list = alt_coord_list
-        xsum = 0.0
-        ysum = 0.0
-        # pass 1, compute x and y means
-        for pair in match:
-            c1 = coord_list[pair[0]]
-            c2 = i2.coord_list[pair[1]]
-            dx = c2[0] - c1[0]
-            dy = c2[1] - c1[1]
-            xsum += dx
-            ysum += dy
-        xmean = xsum / len(match)
-        ymean = ysum / len(match)
-
-        # pass 2, compute average error in x and y
-        xsum2 = 0.0
-        ysum2 = 0.0
-        for pair in match:
-            c1 = coord_list[pair[0]]
-            c2 = i2.coord_list[pair[1]]
-            dx = c2[0] - c1[0]
-            dy = c2[1] - c1[1]
-            ex = xmean - dx
-            ey = ymean - dy
-            xsum2 += ex * ex
-            ysum2 += ey * ey
-        xerror = math.sqrt( xsum2 / len(match) )
-        yerror = math.sqrt( ysum2 / len(match) )
-        return xerror*xerror + yerror*yerror
-
-    # Compute an error metric related to image placement among the
-    # group.  If an alternate coordinate list is provided, that is
-    # used to compute the error metric (useful for doing test fits.)
-    # if max=True then return the maximum pair error, not the weighted
-    # average error
-    def imageError(self, i1, alt_coord_list=None, method="direct", variance=False, max=False):
-        if method == "direct":
-            variance = False
-            emax = False
-        elif method == "variance":
-            variance = True
-            emax = False
-        elif method == "max":
-            variance = False
-            emax = True
-        
-        emax_value = 0.0
-        dist2_sum = 0.0
-        var_sum = 0.0
-        weight_sum = i1.weight  # give ourselves an appropriate weight
-        i1.has_matches = False
-        for i, match in enumerate(i1.match_list):
-            if len(match) >= 3:
-                i1.has_matches = True
-                i2 = self.image_list[i]
-                #print "Matching %s vs %s " % (i1.name, i2.name)
-                error = 0.0
-                if variance:
-                    var = self.imagePairVariance2(i1, alt_coord_list, i2,
-                                                 match)
-                    #print "  %s var = %.2f" % (i1.name, var)
-                    var_sum += var * i2.weight
-                else:
-                    error = self.imagePairError(i1, alt_coord_list, i2,
-                                                match, emax)
-                    dist2_sum += error * error * i2.weight
-                weight_sum += i2.weight
-                if emax_value < error:
-                    emax_value = error
-        if emax:
-            return emax_value
-        elif variance:
-            #print "  var_sum = %.2f  weight_sum = %.2f" % (var_sum, weight_sum)
-            return var_sum / weight_sum
-        else:
-            return math.sqrt(dist2_sum / weight_sum)
-
     # method="average": return the weighted average of the errors.
     # method="stddev": return the weighted average of the stddev of the errors.
     # method="max": return the max error of the subcomponents.
@@ -749,11 +702,11 @@ class ImageGroup():
             for image in self.image_list:
                 e = 0.0
                 if method == "average":
-                    e = self.imageError(image)
+                    e = self.m.imageError(image)
                 elif method == "variance":
-                    e = math.sqrt(self.imageError(image, method=method))
+                    e = math.sqrt(self.m.imageError(image, method=method))
                 elif method == "max":
-                    e = self.imageError(image, method)
+                    e = self.m.imageError(image, method)
                 #print "%s error = %.2f" % (image.name, e)
                 error_sum += e*e * image.weight
                 weight_sum += image.weight
@@ -784,7 +737,7 @@ class ImageGroup():
         elif method == "variance":
             var = True
         for i in xrange(refinements):
-            best_error = self.imageError(image, method=method)
+            best_error = self.m.imageError(image, method=method)
             best_value = start_value
             test_value = start_value - 5*step_size
             #print "start value = %.2f error = %.1f" % (best_value, best_error)
@@ -809,7 +762,7 @@ class ImageGroup():
                     coord_list, corner_list, grid_list \
                         = self.projectImageKeypoints(image,
                                                      alt_bias=test_value)
-                error = self.imageError(image, alt_coord_list=coord_list,
+                error = self.m.imageError(image, alt_coord_list=coord_list,
                                         method=method)
                 #print "Test %s error @ %.2f = %.2f" % ( param, test_value, error )
                 if error < best_error:
@@ -858,7 +811,7 @@ class ImageGroup():
         # but don't save the results so we don't bias future elements
         # with moving previous elements
         coord_list, corner_list, grid_list = self.projectImageKeypoints(image)
-        error = self.imageError(image, alt_coord_list=coord_list, method=method)
+        error = self.m.imageError(image, alt_coord_list=coord_list, method=method)
         print "Biases for %s (%s) is %.2f %.2f %.2f %.2f (%.3f)" \
             % (image.name, method,
                image.yaw_bias, image.roll_bias, image.pitch_bias,
@@ -1051,7 +1004,7 @@ class ImageGroup():
 
         f.close()
 
-    def render_image_coverage(self, image):
+    def imageCoverage(self, image):
         if not len(image.corner_list):
             return (0.0, 0.0, 0.0, 0.0)
 
@@ -1067,8 +1020,8 @@ class ImageGroup():
                 miny = pt[1]
             if pt[1] > maxy:
                 maxy = pt[1]
-        print "Image area coverage: (%.2f %.2f) (%.2f %.2f)" \
-            % (minx, miny, maxx, maxy)
+        print "%s coverage: (%.2f %.2f) (%.2f %.2f)" \
+            % (image.name, minx, miny, maxx, maxy)
         return (minx, miny, maxx, maxy)
 
     def render_image(self, image, cm_per_pixel=15.0, keypoints=False,
@@ -1076,7 +1029,7 @@ class ImageGroup():
         if not len(image.corner_list):
             return
         if bounds == None:
-            (minx, miny, maxx, maxy) = self.render_image_coverage(image)
+            (minx, miny, maxx, maxy) = self.imageCoverage(image)
         else:
             (minx, miny, maxx, maxy) = bounds
         x = int(100.0 * (maxx - minx) / cm_per_pixel)
@@ -1117,25 +1070,38 @@ class ImageGroup():
 
         # create a mask of the current contents and the inverse mask also
         basegray = cv2.cvtColor(base, cv2.COLOR_BGR2GRAY)  
-        ret, mask = cv2.threshold(basegray, 1, 255, cv2.THRESH_BINARY)
-        mask_inv = cv2.bitwise_not(mask)
-        cv2.imshow('mask', mask)
-        cv2.imshow('mask_inv', mask_inv)
+        ret, mask_inv = cv2.threshold(basegray, 1, 255, cv2.THRESH_BINARY_INV)
+        mask_blur = cv2.blur(mask_inv, (10,10))
+        #cv2.imshow('mask_inv', mask_inv)
+        #cv2.imshow('mask_blur', mask_blur)
 
-        # Now clip the new imagery against the area already covered
-        new = cv2.add(base, new, mask = mask_inv)
+        fast = False
+        if fast:
+            # Now clip the new imagery against the area already covered
+            new = cv2.add(base, new, mask=mask_blur)
 
-        # And combine ...
-        base = cv2.add(base, new)
+            # And combine ...
+            base = cv2.add(base, new)
 
-        if False:
-            # works but slow
+        else:
+            # alpha blend using the mask as the alpha value, works but
+            # is done the hardway because I can't find a native opencv
+            # way to do this.
             for i in xrange(h):
                 for j in xrange(w):
-                    (r0, g0, b0) = base[i][j]
-                    (r1, g1, b1) = new[i][j]
-                    if r0 == 0 and g0 == 0 and b0 == 0:
-                        base[i][j] = new[i][j]
+                    #(r0, g0, b0) = base[i][j]
+                    #(r1, g1, b1) = new[i][j]
+                    #a = mask_blur[i][j] / 255.0 
+                    #r = r0*(1.0-a) + r1*a
+                    #g = g0*(1.0-a) + g1*a
+                    #b = b0*(1.0-a) + b1*a
+                    #base = (r, g, b)
+                    b = base[i][j]
+                    n = new[i][j]
+                    a = mask_blur[i][j] / 255.0
+                    base[i][j][0] = b[0]*(1.0-a) + n[0]*a
+                    base[i][j][1] = b[1]*(1.0-a) + n[1]*a
+                    base[i][j][2] = b[2]*(1.0-a) + n[2]*a
 
         cv2.imshow('base', base)
         cv2.waitKey()
@@ -1146,8 +1112,8 @@ class ImageGroup():
                           keypoints=False):
         minx = None; maxx = None; miny = None; maxy = None
         for name in image_names:
-            image = self.findImageByName(name)
-            (x0, y0, x1, y1) = self.render_image_coverage(image)
+            image = self.m.findImageByName(name)
+            (x0, y0, x1, y1) = self.imageCoverage(image)
             if minx == None or x0 < minx:
                 minx = x0
             if miny == None or y0 < miny:
@@ -1165,21 +1131,47 @@ class ImageGroup():
         base_image = np.zeros((y,x,3), np.uint8)
 
         for name in image_names:
-            image = self.findImageByName(name)
+            image = self.m.findImageByName(name)
             w, h, out = self.render_image(image, cm_per_pixel, keypoints,
                                           bounds=(minx, miny, maxx, maxy))
             base_image = self.render_add_to_image(base_image, out)
-            #(x0, y0, x1, y1) = self.render_image_coverage(image)
+            #(x0, y0, x1, y1) = self.imageCoverage(image)
             #w0 = int(100.0 * (x0 - minx) / cm_per_pixel)
             #h0 = int(100.0 * (maxy - y1) / cm_per_pixel)
             #print "roi (%d:%d %d:%d)" % ( w0, w, h0  , h )
             #roi = blank_image[h0:h, w0:w]
             #roi = out
             #roi = np.ones((h,w,3), np.uint8)
-            cv2.imshow('output', base_image)
-            cv2.waitKey()
+
+            #cv2.imshow('output', base_image)
+            #cv2.waitKey()
         cv2.imwrite('output.jpg', base_image)
 
         #s_img = cv2.imread("smaller_image.png", -1)
         #for c in range(0,3):
         #    l_img[y_offset:y_offset+s_img.shape[0], x_offset:x_offset+s_img.shape[1], c] = s_img[:,:,c] * (s_img[:,:,3]/255.0) +  l_img[y_offset:y_offset+s_img.shape[0], x_offset:x_offset+s_img.shape[1], c] * (1.0 - s_img[:,:,3]/255.0)
+
+    def render_images_over_point(self, x=0.0, y=0.0, pad=20.0,
+                                 cm_per_pixel=15.0, keypoints=False):
+        # build list of images covering target point
+        coverage_list = []
+        for image in self.image_list:
+            (x0, y0, x1, y1) = self.imageCoverage(image)
+            if x >= x0-pad and x <= x1+pad:
+                if y >= y0-pad and y <= y1+pad:
+                    coverage_list.append(image)
+
+        # sort by # of connections
+        print "presort = %s" % str(coverage_list)
+        coverage_list = sorted(coverage_list,
+                               key=lambda image: image.connections,
+                               reverse=True)
+        print "postsort = %s" % str(coverage_list)
+
+        # build name list
+        name_list = []
+        for image in coverage_list:
+            name_list.append(image.name)
+
+        self.affinePlaceImages(coverage_list)
+        self.render_image_list(name_list, cm_per_pixel=cm_per_pixel, keypoints=keypoints)
