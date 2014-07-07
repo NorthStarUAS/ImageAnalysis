@@ -176,6 +176,6 @@ if False:
     #    image.placed = True
     ig.render_image_list(image_list, cm_per_pixel=10.0, keypoints=True)
 
-ig.render_images_over_point(x=0.0, y=-50.0, pad=50.0,
-                            cm_per_pixel=40.0, blend_cm=500,
+ig.render_images_over_point(x=0.0, y=-40.0, pad=20.0,
+                            cm_per_pixel=2.5, blend_cm=500,
                             keypoints=False)

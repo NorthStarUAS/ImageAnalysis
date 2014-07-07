@@ -119,22 +119,26 @@ class ImageGroup():
                 self.file_list.append(file)
         self.file_list.sort()
         for file_name in self.file_list:
-            img = Image(self.work_dir, file_name)
-            if len(img.kp_list) == 0 or img.des_list == None:
+            image = Image(self.work_dir, file_name)
+            if len(image.kp_list) == 0 or image.des_list == None:
                 print "  detecting features and computing descriptors"
-                if img.img == None:
-                    img.load_image()
-                img.kp_list = self.m.denseDetect(img.img)
-                img.kp_list, img.des_list \
-                    = self.m.computeDescriptors(img.img, img.kp_list)
+                full_name = self.source_dir + "/" + image.name
+                try:
+                    full_image = cv2.imread(full_name)
+                except:
+                    print full_name + ":\n" + "  load error: " \
+                        + str(sys.exc_info()[1])
+                image.kp_list = self.m.denseDetect(full_image)
+                image.kp_list, image.des_list \
+                    = self.m.computeDescriptors(full_image, image.kp_list)
                 # and because we've messed with keypoints and descriptors
-                img.match_list = []
-                img.save_keys()
-                img.save_descriptors()
-            #if img.img == None:
-            #    img.load_image()
-            #img.show_keypoints()
-            self.image_list.append( img )
+                image.match_list = []
+                image.save_keys()
+                image.save_descriptors()
+            #if image.image == None:
+            #    image.load_image()
+            #image.show_keypoints()
+            self.image_list.append( image )
         # make sure our matcher gets a copy of the image list
         self.m.setImageList(self.image_list)
 
@@ -1026,8 +1030,8 @@ class ImageGroup():
             % (image.name, minx, miny, maxx, maxy)
         return (minx, miny, maxx, maxy)
 
-    def render_image(self, image, cm_per_pixel=15.0, keypoints=False,
-                     bounds=None):
+    def render_image(self, image=None,
+                     cm_per_pixel=15.0, keypoints=False, bounds=None):
         if not len(image.corner_list):
             return
         if bounds == None:
@@ -1039,7 +1043,14 @@ class ImageGroup():
         print "New image dimensions: (%d %d)" % (x, y)
         #print str(image.corner_list)
 
-        h, w = image.img.shape
+        full_name = self.source_dir + "/" + image.name
+        try:
+            full_image = cv2.imread(full_name)
+        except:
+            print full_name + ":\n" + "  load error: " \
+                + str(sys.exc_info()[1])
+
+        h, w, d = full_image.shape
         corners = np.float32([[0,0],[w,0],[0,h],[w,h]])
         target = np.array([image.corner_list]).astype(np.float32)
         for i, pt in enumerate(target[0]):
@@ -1052,46 +1063,23 @@ class ImageGroup():
             for i, kp in enumerate(image.kp_list):
                 if image.kp_usage[i]:
                     keypoints.append(kp)
-            src = cv2.drawKeypoints(image.img_rgb, keypoints,
+            src = cv2.drawKeypoints(full_image, keypoints,
                                     color=(0,255,0), flags=0)
         else:
-            src = cv2.drawKeypoints(image.img_rgb, [],
+            src = cv2.drawKeypoints(full_image, [],
                                     color=(0,255,0), flags=0)
         M = cv2.getPerspectiveTransform(corners, target)
         out = cv2.warpPerspective(src, M, (x,y))
+
+        # clean up the edges so we don't have a ring of super dark pixels.
+        ret, mask = cv2.threshold(out, 1, 255, cv2.THRESH_BINARY)
+        kernel3 = np.ones((3,3),'uint8')
+        mask = cv2.erode(mask, kernel3)
+        out_clean = cv2.bitwise_and(out, mask)
+
         #cv2.imshow('output', out)
         #cv2.waitKey()
-        return x, y, out
-
-    def alpha_composite(self, src, dst):
-        '''
-        Return the alpha composite of src and dst.
-
-        Parameters:
-        src -- PIL RGBA Image object
-        dst -- PIL RGBA Image object
-
-        The algorithm comes from http://en.wikipedia.org/wiki/Alpha_compositing
-        '''
-        # http://stackoverflow.com/a/3375291/190597
-        # http://stackoverflow.com/a/9166671/190597
-        src = np.asarray(src)
-        dst = np.asarray(dst)
-        out = np.empty(src.shape, dtype = 'float')
-        alpha = np.index_exp[:, :, 3:]
-        rgb = np.index_exp[:, :, :3]
-        src_a = src[alpha]/255.0
-        dst_a = dst[alpha]/255.0
-        out[alpha] = src_a+dst_a*(1-src_a)
-        old_setting = np.seterr(invalid = 'ignore')
-        out[rgb] = (src[rgb]*src_a + dst[rgb]*dst_a*(1-src_a))/out[alpha]
-        np.seterr(**old_setting)    
-        out[alpha] *= 255
-        np.clip(out,0,255)
-        # astype('uint8') maps np.nan (and np.inf) to 0
-        out = out.astype('uint8')
-        out = Image.fromarray(out, 'RGBA')
-        return out
+        return x, y, out_clean
 
     def render_add_to_image(self, base, new, blend_px=21):
         h, w, d = base.shape
@@ -1123,18 +1111,15 @@ class ImageGroup():
         base_mask_blur_inv = base_mask_blur_inv | new_mask
         #cv2.imshow('base_mask_blur_inv2', base_mask_blur_inv)
 
-        #new[:,:,0] = new[:,:,0] * mask_blur/255.0
-        #new[:,:,1] = cv2.multiply(new[:,:,1], mask_blur/255)
-        #new[:,:,2] = cv2.multiply(new[:,:,2], mask_blur/255)
         new[:,:,0] = new[:,:,0] * (base_mask_blur/255.0)
         new[:,:,1] = new[:,:,1] * (base_mask_blur/255.0)
         new[:,:,2] = new[:,:,2] * (base_mask_blur/255.0)
-        cv2.imshow('new masked', new)
+        #cv2.imshow('new masked', new)
 
         base[:,:,0] = base[:,:,0] * (base_mask_blur_inv/255.0)
         base[:,:,1] = base[:,:,1] * (base_mask_blur_inv/255.0)
         base[:,:,2] = base[:,:,2] * (base_mask_blur_inv/255.0)
-        cv2.imshow('base masked', base)
+        #cv2.imshow('base masked', base)
 
         fast = True
         if fast:
@@ -1166,13 +1151,13 @@ class ImageGroup():
                         base[i][j][1] = b[1]*(1.0-a) + n[1]*a
                         base[i][j][2] = b[2]*(1.0-a) + n[2]*a
 
-        cv2.imshow('base', base)
-        cv2.waitKey()
+        #cv2.imshow('base', base)
+        #cv2.waitKey()
 
         return base
         
-    def render_image_list(self, image_names, cm_per_pixel=15.0,
-                          blend_cm=200, keypoints=False):
+    def render_image_list(self, image_names=[],
+                          cm_per_pixel=15.0, blend_cm=200, keypoints=False):
         # compute blend diameter in consistent pixel units
         blend_px = int(blend_cm/cm_per_pixel)+1
         if blend_px % 2 == 0:
@@ -1200,7 +1185,8 @@ class ImageGroup():
 
         for name in image_names:
             image = self.m.findImageByName(name)
-            w, h, out = self.render_image(image, cm_per_pixel, keypoints,
+            w, h, out = self.render_image(image, cm_per_pixel,
+                                          keypoints,
                                           bounds=(minx, miny, maxx, maxy))
             base_image = self.render_add_to_image(base_image, out, blend_px)
             #(x0, y0, x1, y1) = self.imageCoverage(image)
@@ -1220,8 +1206,7 @@ class ImageGroup():
         #    l_img[y_offset:y_offset+s_img.shape[0], x_offset:x_offset+s_img.shape[1], c] = s_img[:,:,c] * (s_img[:,:,3]/255.0) +  l_img[y_offset:y_offset+s_img.shape[0], x_offset:x_offset+s_img.shape[1], c] * (1.0 - s_img[:,:,3]/255.0)
 
     def render_images_over_point(self, x=0.0, y=0.0, pad=20.0,
-                                 cm_per_pixel=15.0,
-                                 blend_cm=200,
+                                 cm_per_pixel=15.0, blend_cm=200,
                                  keypoints=False):
         # build list of images covering target point
         coverage_list = []
@@ -1244,6 +1229,6 @@ class ImageGroup():
             name_list.append(image.name)
 
         self.affinePlaceImages(coverage_list)
-        self.render_image_list(name_list, cm_per_pixel=cm_per_pixel,
-                               blend_cm=blend_cm,
+        self.render_image_list(name_list,
+                               cm_per_pixel=cm_per_pixel, blend_cm=blend_cm,
                                keypoints=keypoints)
