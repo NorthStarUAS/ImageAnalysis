@@ -11,6 +11,8 @@ import os.path
 import subprocess
 import sys
 
+import PIL                      # test?
+
 from getchar import find_getch
 from Image import Image
 import Matcher
@@ -1061,24 +1063,83 @@ class ImageGroup():
         #cv2.waitKey()
         return x, y, out
 
-    def render_add_to_image(self, base, new):
+    def alpha_composite(self, src, dst):
+        '''
+        Return the alpha composite of src and dst.
+
+        Parameters:
+        src -- PIL RGBA Image object
+        dst -- PIL RGBA Image object
+
+        The algorithm comes from http://en.wikipedia.org/wiki/Alpha_compositing
+        '''
+        # http://stackoverflow.com/a/3375291/190597
+        # http://stackoverflow.com/a/9166671/190597
+        src = np.asarray(src)
+        dst = np.asarray(dst)
+        out = np.empty(src.shape, dtype = 'float')
+        alpha = np.index_exp[:, :, 3:]
+        rgb = np.index_exp[:, :, :3]
+        src_a = src[alpha]/255.0
+        dst_a = dst[alpha]/255.0
+        out[alpha] = src_a+dst_a*(1-src_a)
+        old_setting = np.seterr(invalid = 'ignore')
+        out[rgb] = (src[rgb]*src_a + dst[rgb]*dst_a*(1-src_a))/out[alpha]
+        np.seterr(**old_setting)    
+        out[alpha] *= 255
+        np.clip(out,0,255)
+        # astype('uint8') maps np.nan (and np.inf) to 0
+        out = out.astype('uint8')
+        out = Image.fromarray(out, 'RGBA')
+        return out
+
+    def render_add_to_image(self, base, new, blend_px=21):
         h, w, d = base.shape
         #print "h=%d w=%d d=%d" % ( h, w, d)
 
         # combine using masks and add operation (assumes pixel
         # image data will always be at least a little non-zero
 
-        # create a mask of the current contents and the inverse mask also
+        # create an inverse mask of the current accumulated imagery
         basegray = cv2.cvtColor(base, cv2.COLOR_BGR2GRAY)  
-        ret, mask_inv = cv2.threshold(basegray, 1, 255, cv2.THRESH_BINARY_INV)
-        mask_blur = cv2.blur(mask_inv, (10,10))
-        #cv2.imshow('mask_inv', mask_inv)
-        #cv2.imshow('mask_blur', mask_blur)
+        ret, base_mask_inv = cv2.threshold(basegray, 1, 255,
+                                           cv2.THRESH_BINARY_INV)
+        #cv2.imshow('base_mask_inv', base_mask_inv)
 
-        fast = False
+        # create an inverse mask of the new region to be added
+        newgray = cv2.cvtColor(new, cv2.COLOR_BGR2GRAY)  
+        ret, new_mask = cv2.threshold(newgray, 1, 255, cv2.THRESH_BINARY_INV)
+        #cv2.imshow('new_mask', new_mask)
+
+        blendsize = (blend_px,blend_px)
+        kernel = np.ones(blendsize,'uint8')
+        base_mask_dilate = cv2.dilate(base_mask_inv, kernel)
+        #cv2.imshow('base_mask_dilate', base_mask_dilate)
+        base_mask_blur = cv2.blur(base_mask_dilate, blendsize)
+        #cv2.imshow('base_mask_blur', base_mask_blur)
+
+        base_mask_blur_inv = 255 - base_mask_blur
+        #cv2.imshow('base_mask_blur_inv', base_mask_blur_inv)
+        base_mask_blur_inv = base_mask_blur_inv | new_mask
+        #cv2.imshow('base_mask_blur_inv2', base_mask_blur_inv)
+
+        #new[:,:,0] = new[:,:,0] * mask_blur/255.0
+        #new[:,:,1] = cv2.multiply(new[:,:,1], mask_blur/255)
+        #new[:,:,2] = cv2.multiply(new[:,:,2], mask_blur/255)
+        new[:,:,0] = new[:,:,0] * (base_mask_blur/255.0)
+        new[:,:,1] = new[:,:,1] * (base_mask_blur/255.0)
+        new[:,:,2] = new[:,:,2] * (base_mask_blur/255.0)
+        cv2.imshow('new masked', new)
+
+        base[:,:,0] = base[:,:,0] * (base_mask_blur_inv/255.0)
+        base[:,:,1] = base[:,:,1] * (base_mask_blur_inv/255.0)
+        base[:,:,2] = base[:,:,2] * (base_mask_blur_inv/255.0)
+        cv2.imshow('base masked', base)
+
+        fast = True
         if fast:
             # Now clip the new imagery against the area already covered
-            new = cv2.add(base, new, mask=mask_blur)
+            #new = cv2.add(base, new, mask=mask_inv)
 
             # And combine ...
             base = cv2.add(base, new)
@@ -1087,6 +1148,7 @@ class ImageGroup():
             # alpha blend using the mask as the alpha value, works but
             # is done the hardway because I can't find a native opencv
             # way to do this.
+            mask_blur = cv2.blur(mask_inv, (50,50))
             for i in xrange(h):
                 for j in xrange(w):
                     #(r0, g0, b0) = base[i][j]
@@ -1099,9 +1161,10 @@ class ImageGroup():
                     b = base[i][j]
                     n = new[i][j]
                     a = mask_blur[i][j] / 255.0
-                    base[i][j][0] = b[0]*(1.0-a) + n[0]*a
-                    base[i][j][1] = b[1]*(1.0-a) + n[1]*a
-                    base[i][j][2] = b[2]*(1.0-a) + n[2]*a
+                    if n[0] + n[1] + n[2] > 0:
+                        base[i][j][0] = b[0]*(1.0-a) + n[0]*a
+                        base[i][j][1] = b[1]*(1.0-a) + n[1]*a
+                        base[i][j][2] = b[2]*(1.0-a) + n[2]*a
 
         cv2.imshow('base', base)
         cv2.waitKey()
@@ -1109,7 +1172,12 @@ class ImageGroup():
         return base
         
     def render_image_list(self, image_names, cm_per_pixel=15.0,
-                          keypoints=False):
+                          blend_cm=200, keypoints=False):
+        # compute blend diameter in consistent pixel units
+        blend_px = int(blend_cm/cm_per_pixel)+1
+        if blend_px % 2 == 0:
+            blend_px += 1
+
         minx = None; maxx = None; miny = None; maxy = None
         for name in image_names:
             image = self.m.findImageByName(name)
@@ -1134,7 +1202,7 @@ class ImageGroup():
             image = self.m.findImageByName(name)
             w, h, out = self.render_image(image, cm_per_pixel, keypoints,
                                           bounds=(minx, miny, maxx, maxy))
-            base_image = self.render_add_to_image(base_image, out)
+            base_image = self.render_add_to_image(base_image, out, blend_px)
             #(x0, y0, x1, y1) = self.imageCoverage(image)
             #w0 = int(100.0 * (x0 - minx) / cm_per_pixel)
             #h0 = int(100.0 * (maxy - y1) / cm_per_pixel)
@@ -1152,7 +1220,9 @@ class ImageGroup():
         #    l_img[y_offset:y_offset+s_img.shape[0], x_offset:x_offset+s_img.shape[1], c] = s_img[:,:,c] * (s_img[:,:,3]/255.0) +  l_img[y_offset:y_offset+s_img.shape[0], x_offset:x_offset+s_img.shape[1], c] * (1.0 - s_img[:,:,3]/255.0)
 
     def render_images_over_point(self, x=0.0, y=0.0, pad=20.0,
-                                 cm_per_pixel=15.0, keypoints=False):
+                                 cm_per_pixel=15.0,
+                                 blend_cm=200,
+                                 keypoints=False):
         # build list of images covering target point
         coverage_list = []
         for image in self.image_list:
@@ -1174,4 +1244,6 @@ class ImageGroup():
             name_list.append(image.name)
 
         self.affinePlaceImages(coverage_list)
-        self.render_image_list(name_list, cm_per_pixel=cm_per_pixel, keypoints=keypoints)
+        self.render_image_list(name_list, cm_per_pixel=cm_per_pixel,
+                               blend_cm=blend_cm,
+                               keypoints=keypoints)

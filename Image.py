@@ -130,8 +130,8 @@ class Image():
                 self.x_bias = float(root.find('x-bias').text)
                 self.y_bias = float(root.find('y-bias').text)
                 self.weight = float(root.find('weight').text)
-                if len(root.find('weight')):
-                    self.connections = float(root.find('weight').text)
+                if len(root.find('connections')):
+                    self.connections = float(root.find('connections').text)
             except:
                 print self.info_file + ":\n" + "  load error: " \
                     + str(sys.exc_info()[1])
