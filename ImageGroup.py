@@ -35,7 +35,7 @@ class ImageGroup():
         self.k1 = 0.0
         self.k2 = 0.0
         self.m = Matcher.Match()
-        detectparams = dict(detector="sift", nfeatures=5000)
+        detectparams = dict(detector="sift", nfeatures=4000)
         #detectparams = dict(detector="surf", hessian_threshold=500)
         #detectparams = dict(detector="orb",  orb_max_features=800,
         #                    dense_detect_grid=4)
@@ -726,18 +726,19 @@ class ImageGroup():
 
     # try to fit individual images by manipulating various parameters
     # and testing to see if that produces a better fit metric
-    def estimateParameter(self, image, ground_alt_m, method,
+    def estimateParameter(self, i, ground_alt_m, method,
                           param="", start_value=0.0, step_size=1.0,
                           refinements=3):
+        image = self.image_list[i]
+
         #print "Estimate %s for %s" % (param, image.name)
         var = False
         if method == "direct":
             var = False
         elif method == "variance":
             var = True
-        for i in xrange(refinements):
-            index = self.m.findImageIndex(image)
-            best_error = self.m.imageError(index, method=method)
+        for k in xrange(refinements):
+            best_error = self.m.imageError(i, method=method)
             best_value = start_value
             test_value = start_value - 5*step_size
             #print "start value = %.2f error = %.1f" % (best_value, best_error)
@@ -762,7 +763,7 @@ class ImageGroup():
                     coord_list, corner_list, grid_list \
                         = self.projectImageKeypoints(image,
                                                      alt_bias=test_value)
-                error = self.m.imageError(index, alt_coord_list=coord_list,
+                error = self.m.imageError(i, alt_coord_list=coord_list,
                                           method=method)
                 #print "Test %s error @ %.2f = %.2f" % ( param, test_value, error )
                 if error < best_error:
@@ -777,27 +778,29 @@ class ImageGroup():
 
     # try to fit individual images by manipulating various parameters
     # and testing to see if that produces a better fit metric
-    def fitImage(self, image, method, gain):
+    def fitImage(self, i, method, gain):
         # parameters to manipulate = yaw, roll, pitch
         yaw_step = 2.0
         roll_step = 1.0
         pitch_step = 1.0
         refinements = 3
 
+        image = self.image_list[i]
+
         # start values should be zero because previous values are
         # already included so we are computing a new offset from the
         # past solution.
-        yaw, e = self.estimateParameter(image, self.ground_alt_m, method,
+        yaw, e = self.estimateParameter(i, self.ground_alt_m, method,
                                         "yaw", start_value=0.0,
                                         step_size=1.0, refinements=refinements)
-        roll, e = self.estimateParameter(image, self.ground_alt_m, method,
+        roll, e = self.estimateParameter(i, self.ground_alt_m, method,
                                          "roll", start_value=0.0,
                                          step_size=1.0, refinements=refinements)
-        pitch, e = self.estimateParameter(image, self.ground_alt_m, method,
+        pitch, e = self.estimateParameter(i, self.ground_alt_m, method,
                                           "pitch", start_value=0.0,
                                           step_size=1.0,
                                           refinements=refinements)
-        alt, e = self.estimateParameter(image, self.ground_alt_m, method,
+        alt, e = self.estimateParameter(i, self.ground_alt_m, method,
                                         "altitude", start_value=0.0,
                                         step_size=2.0, refinements=refinements)
         image.yaw_bias += yaw*gain
@@ -811,15 +814,15 @@ class ImageGroup():
         # but don't save the results so we don't bias future elements
         # with moving previous elements
         coord_list, corner_list, grid_list = self.projectImageKeypoints(image)
-        error = self.m.imageError(image, alt_coord_list=coord_list, method=method)
+        error = self.m.imageError(i, alt_coord_list=coord_list, method=method)
         print "Biases for %s (%s) is %.2f %.2f %.2f %.2f (%.3f)" \
             % (image.name, method,
                image.yaw_bias, image.roll_bias, image.pitch_bias,
                image.alt_bias, error)
 
     def fitImagesIndividually(self, method, gain):
-        for image in self.image_list:
-            self.fitImage(image, method, gain)
+        for i, image in enumerate(self.image_list):
+            self.fitImage(i, method, gain)
 
     def geotag_pictures( self, correlator, dir = ".", geotag_dir = "." ):
         ground_sum = 0.0
@@ -1187,7 +1190,8 @@ class ImageGroup():
 
             #cv2.imshow('output', base_image)
             #cv2.waitKey()
-        cv2.imwrite('output.jpg', base_image)
+        output_name = "output.jpg"
+        cv2.imwrite(output_name, base_image)
 
         #s_img = cv2.imread("smaller_image.png", -1)
         #for c in range(0,3):

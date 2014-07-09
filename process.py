@@ -177,5 +177,5 @@ if False:
     ig.render_image_list(image_list, cm_per_pixel=10.0, keypoints=True)
 
 ig.render_images_over_point(x=0.0, y=-40.0, pad=30.0,
-                            cm_per_pixel=5, blend_cm=500,
+                            cm_per_pixel=15, blend_cm=500,
                             keypoints=False)
