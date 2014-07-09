@@ -63,7 +63,7 @@ def filter_matches(kp1, kp2, matches, ratio = 0.75):
     kp_pairs = zip(mkp1, mkp2)
     return p1, p2, kp_pairs
 
-def explore_match(win, img1, img2, kp_pairs, status = None, H = None):
+def explore_match(win, img1, img2, kp_pairs, wscale=1.0, hscale=1.0, status=None, H=None):
     h1, w1 = img1.shape[:2]
     h2, w2 = img2.shape[:2]
     vis = np.zeros((max(h1, h2), w1+w2), np.uint8)
@@ -79,8 +79,14 @@ def explore_match(win, img1, img2, kp_pairs, status = None, H = None):
 
     if status is None:
         status = np.ones(len(kp_pairs), np.bool_)
-    p1 = np.int32([kpp[0].pt for kpp in kp_pairs])
-    p2 = np.int32([kpp[1].pt for kpp in kp_pairs]) + (w1, 0)
+    #p1 = np.int32([kpp[0].pt for kpp in kp_pairs])
+    #p2 = np.int32([kpp[1].pt for kpp in kp_pairs]) + (w1, 0)
+
+    p1 = np.int32([kpp[0].pt for kpp in kp_pairs]) * (wscale, hscale)
+    p2 = np.int32([kpp[1].pt for kpp in kp_pairs]) * (wscale, hscale) + (w1, 0)
+
+    p1 = np.int32(p1)
+    p2 = np.int32(p2)
 
     green = (0, 255, 0)
     red = (0, 0, 255)

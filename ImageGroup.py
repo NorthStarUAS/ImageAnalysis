@@ -35,13 +35,12 @@ class ImageGroup():
         self.k1 = 0.0
         self.k2 = 0.0
         self.m = Matcher.Match()
-        detectparams = dict(detector="sift")
-        #detectparams = dict(detector="surf", hessian_threshold=300,
-        #                    dense_detect_grid=1)
+        detectparams = dict(detector="sift", nfeatures=5000)
+        #detectparams = dict(detector="surf", hessian_threshold=500)
         #detectparams = dict(detector="orb",  orb_max_features=800,
         #                    dense_detect_grid=4)
-        matcherparams = dict(matcher="flann", match_ratio=0.5)
-        #matcherparams = dict(matcher="bruteforce", match_ratio=0.5)
+        matcherparams = dict(matcher="flann", match_ratio=match_ratio)
+        #matcherparams = dict(matcher="bruteforce", match_ratio=match_ratio)
         self.m.configure(detectparams, matcherparams)
 
     def setCameraParams(self, horiz_mm=23.5, vert_mm=15.7, focal_len_mm=30.0):
@@ -122,12 +121,7 @@ class ImageGroup():
             image = Image(self.work_dir, file_name)
             if len(image.kp_list) == 0 or image.des_list == None:
                 print "  detecting features and computing descriptors"
-                full_name = self.source_dir + "/" + image.name
-                try:
-                    full_image = cv2.imread(full_name)
-                except:
-                    print full_name + ":\n" + "  load error: " \
-                        + str(sys.exc_info()[1])
+                full_image = image.load_full_image(self.source_dir)
                 image.kp_list = self.m.denseDetect(full_image)
                 image.kp_list, image.des_list \
                     = self.m.computeDescriptors(full_image, image.kp_list)
@@ -135,9 +129,7 @@ class ImageGroup():
                 image.match_list = []
                 image.save_keys()
                 image.save_descriptors()
-            #if image.image == None:
-            #    image.load_image()
-            #image.show_keypoints()
+                #image.show_keypoints()
             self.image_list.append( image )
         # make sure our matcher gets a copy of the image list
         self.m.setImageList(self.image_list)
@@ -251,7 +243,8 @@ class ImageGroup():
         prog = "/home/curt/Projects/UAS/ugear/build_linux-pc/utils/geo/geolocate"
         if image.img == None:
             image.load_image()
-        h, w = image.img.shape
+        h = image.fullh
+        w = image.fullw
         ar = float(w)/float(h)  # aspect ratio
         lon = image.lon
         lat = image.lat
@@ -705,14 +698,14 @@ class ImageGroup():
         if len(self.image_list):
             error_sum = 0.0
             weight_sum = 0.0
-            for image in self.image_list:
+            for i, image in enumerate(self.image_list):
                 e = 0.0
                 if method == "average":
-                    e = self.m.imageError(image)
+                    e = self.m.imageError(i)
                 elif method == "variance":
-                    e = math.sqrt(self.m.imageError(image, method=method))
+                    e = math.sqrt(self.m.imageError(i, method=method))
                 elif method == "max":
-                    e = self.m.imageError(image, method)
+                    e = self.m.imageError(i, method)
                 #print "%s error = %.2f" % (image.name, e)
                 error_sum += e*e * image.weight
                 weight_sum += image.weight
@@ -743,7 +736,8 @@ class ImageGroup():
         elif method == "variance":
             var = True
         for i in xrange(refinements):
-            best_error = self.m.imageError(image, method=method)
+            index = self.m.findImageIndex(image)
+            best_error = self.m.imageError(index, method=method)
             best_value = start_value
             test_value = start_value - 5*step_size
             #print "start value = %.2f error = %.1f" % (best_value, best_error)
@@ -768,8 +762,8 @@ class ImageGroup():
                     coord_list, corner_list, grid_list \
                         = self.projectImageKeypoints(image,
                                                      alt_bias=test_value)
-                error = self.m.imageError(image, alt_coord_list=coord_list,
-                                        method=method)
+                error = self.m.imageError(index, alt_coord_list=coord_list,
+                                          method=method)
                 #print "Test %s error @ %.2f = %.2f" % ( param, test_value, error )
                 if error < best_error:
                     best_error = error
@@ -1040,16 +1034,10 @@ class ImageGroup():
             (minx, miny, maxx, maxy) = bounds
         x = int(100.0 * (maxx - minx) / cm_per_pixel)
         y = int(100.0 * (maxy - miny) / cm_per_pixel)
-        print "New image dimensions: (%d %d)" % (x, y)
+        print "Drawing %s: (%d %d)" % (image.name, x, y)
         #print str(image.corner_list)
 
-        full_name = self.source_dir + "/" + image.name
-        try:
-            full_image = cv2.imread(full_name)
-        except:
-            print full_name + ":\n" + "  load error: " \
-                + str(sys.exc_info()[1])
-
+        full_image = image.load_full_image(self.source_dir)
         h, w, d = full_image.shape
         corners = np.float32([[0,0],[w,0],[0,h],[w,h]])
         target = np.array([image.corner_list]).astype(np.float32)
@@ -1214,7 +1202,9 @@ class ImageGroup():
             (x0, y0, x1, y1) = self.imageCoverage(image)
             if x >= x0-pad and x <= x1+pad:
                 if y >= y0-pad and y <= y1+pad:
-                    coverage_list.append(image)
+                    if image.connections > 0:
+                        # only add images that connect to other images
+                        coverage_list.append(image)
 
         # sort by # of connections
         print "presort = %s" % str(coverage_list)

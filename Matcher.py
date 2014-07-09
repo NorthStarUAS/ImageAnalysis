@@ -21,7 +21,8 @@ class Match():
         FLANN_INDEX_LSH    = 6
         if "detector" in dparams:
             if dparams["detector"] == "sift":
-                self.detector = cv2.SIFT()
+                nfeatures = dparams["nfeatures"]
+                self.detector = cv2.SIFT(nfeatures=nfeatures)
                 norm = cv2.NORM_L2
             elif dparams["detector"] == "surf":
                 threshold = dparams["hessian_threshold"]
@@ -57,7 +58,7 @@ class Match():
     def denseDetect(self, image):
         steps = self.dense_detect_grid
         kp_list = []
-        h, w = image.shape
+        h, w, d = image.shape
         dx = 1.0 / float(steps)
         dy = 1.0 / float(steps)
         x = 0.0
@@ -223,7 +224,11 @@ class Match():
             i2.load_image()
         if status == None:
             status = np.ones(len(kp_pairs), np.bool_)
-        explore_match('find_obj', i1.img, i2.img, kp_pairs, status) #cv2 shows image
+        h, w = i1.img.shape
+        hscale = float(h) / float(i1.fullh)
+        wscale = float(w) / float(i1.fullw)
+        explore_match('find_obj', i1.img, i2.img, kp_pairs,
+                      hscale=hscale, wscale=wscale, status=status)
         cv2.waitKey()
         # status structure will be correct here and represent
         # in/outlier choices of user
@@ -248,7 +253,9 @@ class Match():
             showMatches(i1)
 
     # compute the error between a pair of images
-    def imagePairError(self, i1, alt_coord_list, i2, match, emax=False):
+    def imagePairError(self, i, alt_coord_list, j, match, emax=False):
+        i1 = self.image_list[i]
+        i2 = self.image_list[j]
         #print "%s %s" % (i1.name, i2.name)
         coord_list = i1.coord_list
         if alt_coord_list != None:
@@ -273,7 +280,9 @@ class Match():
 
     # considers only total distance between points (thanks to Knuth
     # and Welford)
-    def imagePairVariance1(self, i1, alt_coord_list, i2, match):
+    def imagePairVariance1(self, i, alt_coord_list, j, match):
+        i1 = self.image_list[i]
+        i2 = self.image_list[j]
         coord_list = i1.coord_list
         if alt_coord_list != None:
             coord_list = alt_coord_list
@@ -298,7 +307,9 @@ class Match():
         return variance
 
     # considers x, y errors separated (thanks to Knuth and Welford)
-    def imagePairVariance2(self, i1, alt_coord_list, i2, match):
+    def imagePairVariance2(self, i, alt_coord_list, j, match):
+        i1 = self.image_list[i]
+        i2 = self.image_list[j]
         coord_list = i1.coord_list
         if alt_coord_list != None:
             coord_list = alt_coord_list
@@ -336,7 +347,7 @@ class Match():
     # used to compute the error metric (useful for doing test fits.)
     # if max=True then return the maximum pair error, not the weighted
     # average error
-    def imageError(self, i1, alt_coord_list=None, method="direct", variance=False, max=False):
+    def imageError(self, i, alt_coord_list=None, method="direct", variance=False, max=False):
         if method == "direct":
             variance = False
             emax = False
@@ -346,25 +357,26 @@ class Match():
         elif method == "max":
             variance = False
             emax = True
-        
+
+        i1 = self.image_list[i]
         emax_value = 0.0
         dist2_sum = 0.0
         var_sum = 0.0
         weight_sum = i1.weight  # give ourselves an appropriate weight
         i1.has_matches = False
-        for i, match in enumerate(i1.match_list):
-            if len(match) >= self.min_pairs:
+        for j, match in enumerate(i1.match_list):
+            if len(match):
                 i1.has_matches = True
-                i2 = self.image_list[i]
+                i2 = self.image_list[j]
                 #print "Matching %s vs %s " % (i1.name, i2.name)
                 error = 0.0
                 if variance:
-                    var = self.imagePairVariance2(i1, alt_coord_list, i2,
+                    var = self.imagePairVariance2(i, alt_coord_list, j,
                                                  match)
                     #print "  %s var = %.2f" % (i1.name, var)
                     var_sum += var * i2.weight
                 else:
-                    error = self.imagePairError(i1, alt_coord_list, i2,
+                    error = self.imagePairError(i, alt_coord_list, j,
                                                 match, emax)
                     dist2_sum += error * error * i2.weight
                 weight_sum += i2.weight
@@ -378,22 +390,39 @@ class Match():
         else:
             return math.sqrt(dist2_sum / weight_sum)
 
+    # delete the pair (and it's reciprocal if it can be found)
+    # i = image1 index, j = image2 index
+    def deletePair(self, i, j, pair):
+        i1 = self.image_list[i]
+        i2 = self.image_list[j]
+        print "%s v. %s" % (i1.name, i2.name)
+        print "i1 pairs before = %s" % str(i1.match_list[j])
+        i1.match_list[j].remove(pair)
+        print "i1 pairs after = %s" % str(i1.match_list[j])
+        pair_rev = (pair[1], pair[0])
+        print "i2 pairs before = %s" % str(i2.match_list[i])
+        i2.match_list[i].remove(pair_rev)
+        print "i2 pairs after = %s" % str(i2.match_list[i])
+
     # compute the error between a pair of images
-    def pairErrorReport(self, i1, alt_coord_list, i2, match, minError):
-        print "min error = %.3f" % minError
+    def pairErrorReport(self, i, alt_coord_list, j, minError):
+        i1 = self.image_list[i]
+        i2 = self.image_list[j]
+        match = i1.match_list[j]
+        print "pair error report %s v. %s (%d)" % (i1.name, i2.name, len(match))
         report_list = []
         coord_list = i1.coord_list
         if alt_coord_list != None:
             coord_list = alt_coord_list
         error_sum = 0.0
-        for i, pair in enumerate(match):
+        for k, pair in enumerate(match):
             c1 = coord_list[pair[0]]
             c2 = i2.coord_list[pair[1]]
             dx = c2[0] - c1[0]
             dy = c2[1] - c1[1]
             error = math.sqrt(dx*dx + dy*dy)
             error_sum += error
-            report_list.append( (error, i) )
+            report_list.append( (error, k) )
         report_list = sorted(report_list,
                              key=lambda fields: fields[0],
                              reverse=True)
@@ -409,20 +438,24 @@ class Match():
 
         # computers best estimation of valid vs. suspect pairs
         dirty = False
+        if error_avg >= minError:
+            dirty = True
         if minError < 0.1:
             dirty = True
         status = np.ones(len(match), np.bool_)
-        for i, line in enumerate(report_list):
+        for line in report_list:
             if line[0] > 50.0 or line[0] > (error_avg + 2*stddev):
                 status[line[1]] = False
                 dirty = True
 
         if dirty:
             status = self.showMatch(i1, i2, match, status)
-            for i, flag in enumerate(status):
+            delete_list = []
+            for k, flag in enumerate(status):
                 if not flag:
-                    print "    deleting: " + str(match[i])
-                    match[i] = (-1, -1)
+                    print "    deleting: " + str(match[k])
+                    #match[i] = (-1, -1)
+                    delete_list.append(match[k])
 
         if False: # for line in report_list:
             print "    %.1f %s" % (line[0], str(match[line[1]]))
@@ -446,9 +479,11 @@ class Match():
         if dirty:
             # update match list to remove the marked pairs
             print "before = " + str(match)
-            for pair in reversed(match):
-                if pair == (-1, -1):
-                    match.remove(pair)
+            #for pair in reversed(match):
+            #    if pair == (-1, -1):
+            #        match.remove(pair)
+            for pair in delete_list:
+                self.deletePair(i, j, pair)
             print "after = " + str(match)
 
     def findImageByName(self, name):
@@ -457,30 +492,37 @@ class Match():
                 return i
         return None
 
+    def findImageIndex(self, search):
+        for i, image in enumerate(self.image_list):
+            if search == image:
+                return i
+        return None
+
     # sort and review match pairs by worst positional error
-    def matchErrorReport(self, i1, minError=20.0):
+    def matchErrorReport(self, i, minError=20.0):
+        i1 = self.image_list[i]
         # now for each image, find/show worst individual matches
         report_list = []
-        for i, match in enumerate(i1.match_list):
-            if len(match):
-                i2 = self.image_list[i]
+        for j, pairs in enumerate(i1.match_list):
+            if len(pairs):
+                i2 = self.image_list[j]
                 #print "Matching %s vs %s " % (i1.name, i2.name)
-                e = self.imagePairError(i1, None, i2, match, emax=True)
+                e = self.imagePairError(i, None, j, pairs, emax=True)
                 if e > minError:
-                    report_list.append( (e, i1.name, i2.name, i) )
+                    report_list.append( (e, i, j) )
 
         report_list = sorted(report_list,
                              key=lambda fields: fields[0],
                              reverse=True)
 
         for line in report_list:
-            i1 = self.findImageByName(line[1])
-            i2 = self.findImageByName(line[2])
-            match = i1.match_list[line[3]]
-            print "  %.1f %s %s" % (line[0], line[1], line[2])
+            i1 = self.image_list[line[1]]
+            i2 = self.image_list[line[2]]
+            print "min error = %.3f" % minError
+            print "%.1f %s %s" % (line[0], i1.name, i2.name)
             if line[0] > minError:
-                print "  %s" % str(match)
-                self.pairErrorReport(i1, None, i2, match, minError)
+                #print "  %s" % str(pairs)
+                self.pairErrorReport(line[1], None, line[2], minError)
                 #print "  after %s" % str(match)
                 #self.showMatch(i1, i2, match)
 
@@ -494,14 +536,13 @@ class Match():
                 report_list.append( (e, image.name) )
             else:
                 for i, image in enumerate(self.image_list):
-                    e = self.imageError(image, None, max=True)
+                    e = self.imageError(i, None, max=True)
                     report_list.append( (e, i) )
             report_list = sorted(report_list, key=lambda fields: fields[0],
                                  reverse=True)
             # show images sorted by largest positional disagreement first
             for line in report_list:
-                print "%.1f %s" % (line[0], line[1])
+                #print "%.1f %s" % (line[0], line[1])
                 if line[0] >= minError:
-                    self.matchErrorReport( self.image_list[ line[1] ],
-                                           minError )
+                    self.matchErrorReport( line[1], minError )
 

@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import copy
 import cv2
 import lxml.etree as ET
 from matplotlib import pyplot as plt
@@ -14,6 +15,8 @@ class Image():
         self.name = None
         self.img = None
         self.img_rgb = None
+        self.fullh = 0
+        self.fullw = 0
         self.kp_list = []
         self.kp_usage = []
         self.des_list = None
@@ -56,6 +59,19 @@ class Image():
                 print self.image_file + ":\n" + "  load error: " \
                     + str(sys.exc_info()[1])
 
+    def load_full_image(self, source_dir):
+        #print "Loading " + self.image_file
+        full_name = source_dir + "/" + self.name
+        try:
+            full_image = cv2.imread(full_name)
+            self.fullh, self.fullw, self.fulld = full_image.shape
+            return full_image
+
+        except:
+            print full_image + ":\n" + "  load error: " \
+                + str(sys.exc_info()[1])
+            return None
+
     def load_keys(self):
         if len(self.kp_list) == 0 and os.path.exists(self.keys_file):
             #print "Loading " + self.keys_file
@@ -65,8 +81,9 @@ class Image():
                 print self.keys_file + ":\n" + "  load error: " \
                     + str(sys.exc_info()[1])
             root = self.keys_xml.getroot()
-            kp_node = root.find('keypoints')
-            for kp in kp_node.findall('kp'):
+            self.fullw = int(root.find('width').text)
+            self.fullh = int(root.find('height').text)
+            for kp in root.findall('kp'):
                 angle = float(kp.find('angle').text)
                 class_id = int(kp.find('class_id').text)
                 octave = int(kp.find('octave').text)
@@ -154,14 +171,18 @@ class Image():
         self.load_info()
 
     def save_keys(self):
-        root = ET.Element('image')
+        root = ET.Element('keypoints')
         xml = ET.ElementTree(root)
 
+        width = ET.SubElement(root, 'width')
+        width.text = str(self.fullw)
+        height = ET.SubElement(root, 'height')
+        height.text = str(self.fullh)
+
         # generate keypoints xml tree
-        kp_node = ET.SubElement(root, 'keypoints')
         for i in xrange(len(self.kp_list)):
             kp = self.kp_list[i]
-            e = ET.SubElement(kp_node, 'kp')
+            e = ET.SubElement(root, 'kp')
             idx = ET.SubElement(e, 'index')
             idx.text = str(i)
             angle = ET.SubElement(e, 'angle')
@@ -245,7 +266,25 @@ class Image():
     def show_keypoints(self, flags=0):
         # flags=0: draw only keypoints location
         # flags=4: draw rich keypoints
-        res = cv2.drawKeypoints(self.img, self.kp_list,
+        if self.img == None:
+            self.load_image()
+        h, w = self.img.shape
+        hscale = float(h) / float(self.fullh)
+        wscale = float(w) / float(self.fullw)
+        kp_list = []
+        for kp in self.kp_list:
+            angle = kp.angle
+            class_id = kp.class_id
+            octave = kp.octave
+            pt = kp.pt
+            response = kp.response
+            size = kp.size
+            x = pt[0] * wscale
+            y = pt[1] * hscale
+            kp_list.append( cv2.KeyPoint(x, y, size, angle, response,
+                                         octave, class_id) )
+
+        res = cv2.drawKeypoints(self.img_rgb, kp_list,
                                 color=(0,255,0), flags=flags)
         fig1, plt1 = plt.subplots(1)
         plt1 = plt.imshow(res)
