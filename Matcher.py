@@ -221,7 +221,6 @@ class Matcher():
         wscale = float(w) / float(i1.fullw)
         explore_match('find_obj', i1.img, i2.img, kp_pairs,
                       hscale=hscale, wscale=wscale, status=status)
-        cv2.waitKey()
         # status structure will be correct here and represent
         # in/outlier choices of user
         cv2.destroyAllWindows()

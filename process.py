@@ -12,7 +12,7 @@ import Solver
 ComputeMatches = True
 EstimateGroupBias = False
 EstimateCameraDistortion = False
-ReviewMatches = False
+ReviewMatches = True
 
 def usage():
     print "Usage: " + sys.argv[0] + " <flight_data_dir> <raw_image_dir> <ground_alt_m>"
@@ -114,7 +114,7 @@ if EstimateCameraDistortion:
     s.estimateParameter("k1", -0.005, 0.005, 0.001, 3)
     s.estimateParameter("k2", -0.005, 0.005, 0.001, 3)
 
-for i in xrange(0):
+for i in xrange(1):
     # minimize error variance (tends to align image orientation)
     ig.fitImagesIndividually(method="variance", gain=0.2)
     ig.projectKeypoints(do_grid=True)
@@ -178,5 +178,5 @@ if False:
     ig.render_image_list(image_list, cm_per_pixel=10.0, keypoints=True)
 
 ig.render_images_over_point(x=0.0, y=-40.0, pad=30.0,
-                            cm_per_pixel=2.5, blend_cm=200,
+                            cm_per_pixel=10, blend_cm=200,
                             keypoints=False)

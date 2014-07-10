@@ -146,24 +146,27 @@ def explore_match(win, img1, img2, kp_pairs, wscale=1.0, hscale=1.0, status=None
     # keyboard input
     done = False
     while not done:
+        print 'waiting for keyboard input...'
         key = cv2.waitKey()
+        print "received %s (%d)" % (str(key), int(key))
         if key == 27:
             # ESC = restore all pairs and exit
             for i in range(len(status)):
                 status[i] = True
             done = True
-        if key == ' ':
+        elif key == ord(' '):
             # spacebar = accept current selection and exit
             done = True
-        if key == 'y':
+        elif key == ord('y'):
             # set all pairs as valid
              for i in range(len(status)):
                 status[i] = True
-        if key == 'n':
+        elif key == ord('n'):
             # set all pairs as invalid
              for i in range(len(status)):
                 status[i] = False
         # refresh display
+        vis = vis0.copy()
         draw_keypoints(vis)
         cv2.imshow(win, vis)
 
