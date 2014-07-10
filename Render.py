@@ -94,7 +94,51 @@ class Render():
         #cv2.waitKey()
         return x, y, out_clean
 
-    def compositeOverlay(self, base, new, blend_px=21):
+    def compositeOverlayBottomup(self, base, new, blend_px=21):
+        h, w, d = base.shape
+        #print "h=%d w=%d d=%d" % ( h, w, d)
+
+        # combine using masks and add operation (assumes pixel
+        # image data will always be at least a little non-zero
+
+        # create an inverse mask of the new region to be added
+        newgray = cv2.cvtColor(new, cv2.COLOR_BGR2GRAY)  
+        ret, new_mask = cv2.threshold(newgray, 1, 255, cv2.THRESH_BINARY_INV)
+        #cv2.imshow('new_mask', new_mask)
+
+        # dilate the mask (which shrinks the new area)
+        blendsize = (blend_px,blend_px)
+        kernel = np.ones(blendsize,'uint8')
+        new_mask_dilate = cv2.dilate(new_mask, kernel)
+        #cv2.imshow('new_mask_dilate', new_mask_dilate)
+
+        # blur the mask to create a feathered edge
+        new_mask_blur = cv2.blur(new_mask_dilate, blendsize)
+        #cv2.imshow('new_mask_blur', new_mask_blur)
+
+        # invert the blurred mask
+        new_mask_blur_inv = 255 - new_mask_blur
+        #cv2.imshow('new_mask_blur_inv', new_mask_blur_inv)
+
+        new[:,:,0] = new[:,:,0] * (new_mask_blur_inv/255.0)
+        new[:,:,1] = new[:,:,1] * (new_mask_blur_inv/255.0)
+        new[:,:,2] = new[:,:,2] * (new_mask_blur_inv/255.0)
+        cv2.imshow('new masked', new)
+
+        base[:,:,0] = base[:,:,0] * (new_mask_blur/255.0)
+        base[:,:,1] = base[:,:,1] * (new_mask_blur/255.0)
+        base[:,:,2] = base[:,:,2] * (new_mask_blur/255.0)
+        cv2.imshow('base masked', base)
+
+        # And combine ...
+        base = cv2.add(base, new)
+
+        cv2.imshow('base', base)
+        cv2.waitKey()
+
+        return base
+        
+    def compositeOverlayTopdown(self, base, new, blend_px=21):
         h, w, d = base.shape
         #print "h=%d w=%d d=%d" % ( h, w, d)
 
@@ -196,26 +240,15 @@ class Render():
         print "New image dimensions: (%d %d)" % (x, y)
         base_image = np.zeros((y,x,3), np.uint8)
 
-        for image in draw_list:
+        for image in reversed(draw_list):
             w, h, out = self.drawImage(image, source_dir,
                                        cm_per_pixel,
                                        keypoints,
                                        bounds=(minx, miny, maxx, maxy))
-            base_image = self.compositeOverlay(base_image, out, blend_px)
-            #(x0, y0, x1, y1) = self.imageCoverage(image)
-            #w0 = int(100.0 * (x0 - minx) / cm_per_pixel)
-            #h0 = int(100.0 * (maxy - y1) / cm_per_pixel)
-            #print "roi (%d:%d %d:%d)" % ( w0, w, h0  , h )
-            #roi = blank_image[h0:h, w0:w]
-            #roi = out
-            #roi = np.ones((h,w,3), np.uint8)
-
+            base_image = self.compositeOverlayBottomup(base_image, out,
+                                                       blend_px)
             #cv2.imshow('output', base_image)
             #cv2.waitKey()
+
         output_name = "output.jpg"
         cv2.imwrite(output_name, base_image)
-
-        #s_img = cv2.imread("smaller_image.png", -1)
-        #for c in range(0,3):
-        #    l_img[y_offset:y_offset+s_img.shape[0], x_offset:x_offset+s_img.shape[1], c] = s_img[:,:,c] * (s_img[:,:,3]/255.0) +  l_img[y_offset:y_offset+s_img.shape[0], x_offset:x_offset+s_img.shape[1], c] * (1.0 - s_img[:,:,3]/255.0)
-
