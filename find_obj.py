@@ -142,6 +142,31 @@ def explore_match(win, img1, img2, kp_pairs, wscale=1.0, hscale=1.0, status=None
             cv2.imshow(win, vis)
 
     cv2.setMouseCallback(win, onmouse)
+
+    # keyboard input
+    done = False
+    while not done:
+        key = cv2.waitKey()
+        if key == 27:
+            # ESC = restore all pairs and exit
+            for i in range(len(status)):
+                status[i] = True
+            done = True
+        if key == ' ':
+            # spacebar = accept current selection and exit
+            done = True
+        if key == 'y':
+            # set all pairs as valid
+             for i in range(len(status)):
+                status[i] = True
+        if key == 'n':
+            # set all pairs as invalid
+             for i in range(len(status)):
+                status[i] = False
+        # refresh display
+        draw_keypoints(vis)
+        cv2.imshow(win, vis)
+
     return vis
 
 

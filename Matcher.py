@@ -5,7 +5,7 @@ import numpy as np
 
 from find_obj import filter_matches,explore_match
 
-class Match():
+class Matcher():
     def __init__(self):
         self.image_list = []
         self.detector = None
@@ -85,22 +85,7 @@ class Match():
         kp_list, des_list = self.detector.compute(image, kp_list)
         return kp_list, des_list
  
-    def filterMatches1(self, kp1, kp2, matches):
-        mkp1, mkp2 = [], []
-        idx_pairs = []
-        for m in matches:
-            if len(m) == 2 and m[0].distance < m[1].distance * self.match_ratio:
-                #print " dist[0] = %d  dist[1] = %d" % (m[0].distance, m[1].distance)
-                m = m[0]
-                mkp1.append( kp1[m.queryIdx] )
-                mkp2.append( kp2[m.trainIdx] )
-                idx_pairs.append( (m.queryIdx, m.trainIdx) )
-        p1 = np.float32([kp.pt for kp in mkp1])
-        p2 = np.float32([kp.pt for kp in mkp2])
-        kp_pairs = zip(mkp1, mkp2)
-        return p1, p2, kp_pairs, idx_pairs
-
-    def filterMatches2(self, kp1, kp2, matches):
+    def filterMatches(self, kp1, kp2, matches):
         mkp1, mkp2 = [], []
         idx_pairs = []
         used = np.zeros(len(kp2), np.bool_)
@@ -128,7 +113,7 @@ class Match():
                 if i == j:
                     continue
                 matches = self.matcher.knnMatch(i1.des_list, trainDescriptors=i2.des_list, k=2)
-                p1, p2, kp_pairs, idx_pairs = self.filterMatches2(i1.kp_list, i2.kp_list, matches)
+                p1, p2, kp_pairs, idx_pairs = self.filterMatches(i1.kp_list, i2.kp_list, matches)
                 if len(p1) >= 4:
                     H, status = cv2.findHomography(p1, p2, cv2.RANSAC, 5.0)
                     print '%d / %d  inliers/matched' % (np.sum(status), len(status))
@@ -144,13 +129,11 @@ class Match():
                 else:
                     H, status = None, None
                     # print '%d matches found, not enough for homography estimation' % len(p1)
-                i1.match_list[j] = idx_pairs
-
-                if len(idx_pairs):
+                if len(idx_pairs) >= self.min_pairs:
                     print "Matching %s vs %s (%d vs %d) = %d" \
                         % (i1.name, i2.name, i, j, len(idx_pairs))
+                    i1.match_list[j] = idx_pairs
 
-                if len(idx_pairs) >= self.min_pairs:
                     if False:
                         # draw only keypoints location,not size and orientation (flags=0)
                         # draw rich keypoints (flags=4)
@@ -206,6 +189,15 @@ class Match():
         for i1 in self.image_list:
             i1.save_matches()
 
+    # remove any match sets shorter than self.min_pair
+    def cullMatches(self):
+        for i, i1 in enumerate(self.image_list):
+            print "Cull matches for %s" % i1.name
+            for j, matches in enumerate(i1.match_list):
+                if len(matches) < self.min_pairs:
+                    i1.match_list[j] = []
+        for i1 in self.image_list:
+            i1.save_matches()
 
     def saveMatches(self):
         for image in self.image_list:
