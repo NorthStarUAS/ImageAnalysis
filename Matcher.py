@@ -154,8 +154,12 @@ class Matcher():
                             i1.load_image()
                         if i2.img == None:
                             i2.load_image()
-                        explore_match('find_obj', i1.img, i2.img, kp_pairs, status, H) #cv2 shows image
-                        cv2.waitKey()
+                        h, w = i1.img.shape
+                        hscale = float(h) / float(i1.fullh)
+                        wscale = float(w) / float(i1.fullw)
+                        explore_match('find_obj', i1.img, i2.img, kp_pairs,
+                                      hscale=hscale, wscale=wscale,
+                                      status=status, H=H) #cv2 shows image
                         cv2.destroyAllWindows()
             i1.save_matches()
 
@@ -232,7 +236,7 @@ class Matcher():
 
     def showMatches(self, i1):
         for j, i2 in enumerate(self.image_list):
-            print str(i1.match_list[j])
+            #print str(i1.match_list[j])
             idx_pairs = i1.match_list[j]
             if len(idx_pairs) > self.min_pairs:
                 print "Showing matches for image %s and %s" % (i1.name, i2.name)
@@ -386,14 +390,14 @@ class Matcher():
     def deletePair(self, i, j, pair):
         i1 = self.image_list[i]
         i2 = self.image_list[j]
-        print "%s v. %s" % (i1.name, i2.name)
-        print "i1 pairs before = %s" % str(i1.match_list[j])
+        #print "%s v. %s" % (i1.name, i2.name)
+        #print "i1 pairs before = %s" % str(i1.match_list[j])
         i1.match_list[j].remove(pair)
-        print "i1 pairs after = %s" % str(i1.match_list[j])
+        #print "i1 pairs after = %s" % str(i1.match_list[j])
         pair_rev = (pair[1], pair[0])
-        print "i2 pairs before = %s" % str(i2.match_list[i])
+        #print "i2 pairs before = %s" % str(i2.match_list[i])
         i2.match_list[i].remove(pair_rev)
-        print "i2 pairs after = %s" % str(i2.match_list[i])
+        #print "i2 pairs after = %s" % str(i2.match_list[i])
 
     # compute the error between a pair of images
     def pairErrorReport(self, i, alt_coord_list, j, minError):
@@ -469,13 +473,13 @@ class Matcher():
 
         if dirty:
             # update match list to remove the marked pairs
-            print "before = " + str(match)
+            #print "before = " + str(match)
             #for pair in reversed(match):
             #    if pair == (-1, -1):
             #        match.remove(pair)
             for pair in delete_list:
                 self.deletePair(i, j, pair)
-            print "after = " + str(match)
+            #print "after = " + str(match)
 
     def findImageByName(self, name):
         for i in self.image_list:

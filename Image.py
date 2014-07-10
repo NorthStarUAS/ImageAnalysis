@@ -54,6 +54,7 @@ class Image():
                 self.img = cv2.cvtColor(self.img_rgb, cv2.COLOR_BGR2GRAY)
                 # self.img = cv2.equalizeHist(gray)
                 #self.img = gray
+                return self.img_rgb
                 
             except:
                 print self.image_file + ":\n" + "  load error: " \

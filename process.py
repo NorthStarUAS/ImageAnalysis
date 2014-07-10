@@ -12,7 +12,7 @@ import Solver
 ComputeMatches = True
 EstimateGroupBias = False
 EstimateCameraDistortion = False
-ReviewMatches = True
+ReviewMatches = False
 
 def usage():
     print "Usage: " + sys.argv[0] + " <flight_data_dir> <raw_image_dir> <ground_alt_m>"
@@ -44,8 +44,8 @@ ig.load()
 # compute matches if needed
 if ComputeMatches:
     ig.m.computeMatches(showpairs=False)
-    ig.m.addInverseMatches()
     ig.m.cullMatches()
+    ig.m.addInverseMatches()
     #ig.m.showMatches()
 
 # now compute the keypoint usage map
@@ -83,7 +83,7 @@ if ReviewMatches:
     e = ig.groupError(method="average")
     stddev = ig.groupError(method="variance")
     print "Group error (start): %.2f" % e
-    ig.m.reviewImageErrors(minError=(e+stddev))
+    ig.m.reviewImageErrors(minError=(e))
     ig.m.saveMatches()
     # re-project keypoints after outlier review
     ig.projectKeypoints()
@@ -114,7 +114,7 @@ if EstimateCameraDistortion:
     s.estimateParameter("k1", -0.005, 0.005, 0.001, 3)
     s.estimateParameter("k2", -0.005, 0.005, 0.001, 3)
 
-for i in xrange(1):
+for i in xrange(0):
     # minimize error variance (tends to align image orientation)
     ig.fitImagesIndividually(method="variance", gain=0.2)
     ig.projectKeypoints(do_grid=True)
@@ -177,6 +177,8 @@ if False:
     #    image.placed = True
     ig.render_image_list(image_list, cm_per_pixel=10.0, keypoints=True)
 
-ig.render_images_over_point(x=0.0, y=-40.0, pad=30.0,
-                            cm_per_pixel=10, blend_cm=200,
-                            keypoints=False)
+place_list = ig.render.getImagesCoveringPoint(x=.0, y=-40.0, pad=30.0)
+ig.placer.placeImages(place_list)
+ig.render.drawImages(place_list, ig.source_dir,
+                     cm_per_pixel=15, blend_cm=200,
+                     keypoints=False)
