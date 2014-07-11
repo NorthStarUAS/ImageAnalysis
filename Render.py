@@ -1,12 +1,19 @@
 import cv2
+import math
 import numpy as np
 
 class Render():
     def __init__(self):
         self.image_list = []
+        self.ref_lon = 0.0
+        self.ref_lat = 0.0
 
     def setImageList(self, image_list):
         self.image_list = image_list
+
+    def setRefCoord(self, lon, lat):
+        self.ref_lon = lon
+        self.ref_lat = lat
 
     def imageCoverage(self, image):
         if not len(image.corner_list):
@@ -14,19 +21,38 @@ class Render():
 
         # find the min/max area of the image
         p0 = image.corner_list[0]
-        minx = p0[0]; maxx = p0[0]; miny = p0[1]; maxy = p0[1]
+        xmin = p0[0]; xmax = p0[0]; ymin = p0[1]; ymax = p0[1]
         for pt in image.corner_list:
-            if pt[0] < minx:
-                minx = pt[0]
-            if pt[0] > maxx:
-                maxx = pt[0]
-            if pt[1] < miny:
-                miny = pt[1]
-            if pt[1] > maxy:
-                maxy = pt[1]
+            if pt[0] < xmin:
+                xmin = pt[0]
+            if pt[0] > xmax:
+                xmax = pt[0]
+            if pt[1] < ymin:
+                ymin = pt[1]
+            if pt[1] > ymax:
+                ymax = pt[1]
         print "%s coverage: (%.2f %.2f) (%.2f %.2f)" \
-            % (image.name, minx, miny, maxx, maxy)
-        return (minx, miny, maxx, maxy)
+            % (image.name, xmin, ymin, xmax, ymax)
+        return (xmin, ymin, xmax, ymax)
+
+    def groupCoverage(self, image_list=None):
+        if image_list == None:
+            image_list = self.image_list
+
+        xmin = None; xmax = None; ymin = None; ymax = None
+        for image in image_list:
+            (x0, y0, x1, y1) = self.imageCoverage(image)
+            if xmin == None or x0 < xmin:
+                xmin = x0
+            if ymin == None or y0 < ymin:
+                ymin = y0
+            if xmax == None or x1 > xmax:
+                xmax = x1
+            if ymax == None or y1 > ymax:
+                ymax = y1
+        print "Group area coverage: (%.2f %.2f) (%.2f %.2f)" \
+            % (xmin, ymin, xmax, ymax)
+        return (xmin, ymin, xmax, ymax)
 
     # return a list of images that cover the given point within 'pad'
     # or are within 'pad' distance of touching the point.
@@ -54,11 +80,11 @@ class Render():
         if not len(image.corner_list):
             return
         if bounds == None:
-            (minx, miny, maxx, maxy) = self.imageCoverage(image)
+            (xmin, ymin, xmax, ymax) = self.imageCoverage(image)
         else:
-            (minx, miny, maxx, maxy) = bounds
-        x = int(100.0 * (maxx - minx) / cm_per_pixel)
-        y = int(100.0 * (maxy - miny) / cm_per_pixel)
+            (xmin, ymin, xmax, ymax) = bounds
+        x = int(100.0 * (xmax - xmin) / cm_per_pixel)
+        y = int(100.0 * (ymax - ymin) / cm_per_pixel)
         print "Drawing %s: (%d %d)" % (image.name, x, y)
         #print str(image.corner_list)
 
@@ -68,8 +94,8 @@ class Render():
         target = np.array([image.corner_list]).astype(np.float32)
         for i, pt in enumerate(target[0]):
             #print "i=%d" % i
-            target[0][i][0] = 100.0 * (target[0][i][0] - minx) / cm_per_pixel
-            target[0][i][1] = 100.0 * (maxy - target[0][i][1]) / cm_per_pixel
+            target[0][i][0] = 100.0 * (target[0][i][0] - xmin) / cm_per_pixel
+            target[0][i][1] = 100.0 * (ymax - target[0][i][1]) / cm_per_pixel
         #print str(target)
         if keypoints:
             keypoints = []
@@ -123,18 +149,18 @@ class Render():
         new[:,:,0] = new[:,:,0] * (new_mask_blur_inv/255.0)
         new[:,:,1] = new[:,:,1] * (new_mask_blur_inv/255.0)
         new[:,:,2] = new[:,:,2] * (new_mask_blur_inv/255.0)
-        cv2.imshow('new masked', new)
+        #cv2.imshow('new masked', new)
 
         base[:,:,0] = base[:,:,0] * (new_mask_blur/255.0)
         base[:,:,1] = base[:,:,1] * (new_mask_blur/255.0)
         base[:,:,2] = base[:,:,2] * (new_mask_blur/255.0)
-        cv2.imshow('base masked', base)
+        #cv2.imshow('base masked', base)
 
         # And combine ...
         base = cv2.add(base, new)
 
-        cv2.imshow('base', base)
-        cv2.waitKey()
+        #cv2.imshow('base', base)
+        #cv2.waitKey()
 
         return base
         
@@ -215,28 +241,20 @@ class Render():
         
     def drawImages(self, draw_list=[], source_dir=None,
                    cm_per_pixel=15.0, blend_cm=200,
-                   keypoints=False):
+                   bounds=None, file=None, keypoints=False):
+        print "drawImages() bounds = %s" % str(bounds)
         # compute blend diameter in consistent pixel units
         blend_px = int(blend_cm/cm_per_pixel)+1
         if blend_px % 2 == 0:
             blend_px += 1
 
-        minx = None; maxx = None; miny = None; maxy = None
-        for image in draw_list:
-            (x0, y0, x1, y1) = self.imageCoverage(image)
-            if minx == None or x0 < minx:
-                minx = x0
-            if miny == None or y0 < miny:
-                miny = y0
-            if maxx == None or x1 > maxx:
-                maxx = x1
-            if maxy == None or y1 > maxy:
-                maxy = y1
-        print "Group area coverage: (%.2f %.2f) (%.2f %.2f)" \
-            % (minx, miny, maxx, maxy)
+        if bounds == None:
+            (xmin, ymin, xmax, ymax) = groupCoverage(image_list=draw_list)
+        else:
+            (xmin, ymin, xmax, ymax) = bounds
 
-        x = int(100.0 * (maxx - minx) / cm_per_pixel)
-        y = int(100.0 * (maxy - miny) / cm_per_pixel)
+        x = int(100.0 * (xmax - xmin) / cm_per_pixel)
+        y = int(100.0 * (ymax - ymin) / cm_per_pixel)
         print "New image dimensions: (%d %d)" % (x, y)
         base_image = np.zeros((y,x,3), np.uint8)
 
@@ -244,11 +262,80 @@ class Render():
             w, h, out = self.drawImage(image, source_dir,
                                        cm_per_pixel,
                                        keypoints,
-                                       bounds=(minx, miny, maxx, maxy))
+                                       bounds=(xmin, ymin, xmax, ymax))
             base_image = self.compositeOverlayBottomup(base_image, out,
                                                        blend_px)
             #cv2.imshow('output', base_image)
             #cv2.waitKey()
 
-        output_name = "output.jpg"
-        cv2.imwrite(output_name, base_image)
+        cv2.imwrite(file, base_image)
+
+    def drawSquare(self, source_dir=None, cm_per_pixel=15.0, blend_cm=200,
+                   bounds=None, file=None):
+        (xmin, ymin, xmax, ymax) = bounds
+        xcenter = (xmin + xmax) * 0.5
+        ycenter = (ymin + ymax) * 0.5
+        pad = (xmax - xmin) * 0.5
+        draw_list = self.getImagesCoveringPoint(xcenter, ycenter, pad)
+        self.drawImages( draw_list, source_dir=source_dir,
+                         cm_per_pixel=cm_per_pixel, blend_cm=blend_cm,
+                         bounds=bounds, file=file)
+
+    def x2lon(self, x):
+        nm2m = 1852.0
+        x_nm = x / nm2m
+        factor = math.cos(self.ref_lat*math.pi/180.0)
+        x_deg = (x_nm / 60.0) / factor
+        return x_deg + self.ref_lon
+
+    def y2lat(self, y):
+        nm2m = 1852.0
+        y_nm = y / nm2m
+        y_deg = y_nm / 60.0
+        return y_deg + self.ref_lat
+        
+        
+    def drawGrid(self, source_dir=None, cm_per_pixel=15.0, blend_cm=200,
+                 dim=4096):
+        # compute blend diameter in consistent pixel units
+        blend_px = int(blend_cm/cm_per_pixel)+1
+        if blend_px % 2 == 0:
+            blend_px += 1
+
+        (xmin, ymin, xmax, ymax) = self.groupCoverage()
+        grid_m = (dim * cm_per_pixel) / 100.0
+        print "grid square size = (%.2f x %.2f)" % (grid_m, grid_m)
+        #xpixel = (xmax - xmin) * 100.0 / cm_per_pixel
+        #ypixel = (ymax - ymin) * 100.0 / cm_per_pixel
+
+        f = open('gdalscript.sh', 'w')
+        f.write('#!/bin/sh\n\n')
+
+        count = 0
+        y = ymin
+        while y < ymax:
+            x = xmin
+            while x < xmax:
+                print "grid = (%.2f %.2f)" % (x, y)
+                base = "tile%03d" % count
+                jpgfile = base + ".jpg"
+                tifffile = base + ".tif"
+                self.drawSquare( source_dir=source_dir,
+                                 cm_per_pixel=cm_per_pixel,
+                                 blend_cm=blend_cm,
+                                 bounds=(x, y, x+grid_m, y+grid_m),
+                                 file=jpgfile)
+                cmd = 'gdal_translate -a_srs "+proj=latlong +datum=WGS84" '
+                cmd += '-of GTiff -co "INTERLEAVE=PIXEL"vi  '
+                cmd += '-a_ullr %.15f %.15f %.15f %.15f ' % \
+                    ( self.x2lon(x), self.y2lat(y+grid_m),
+                      self.x2lon(x+grid_m), self.y2lat(y) )
+                cmd += '%s %s\n' % (jpgfile, tifffile)
+                f.write(cmd)
+                x += grid_m
+                count += 1
+            y += grid_m
+
+        f.write('gdalwarp -t_srs EPSG:3857 output.tif output_3857.tif\n')
+        f.write('gdal2tiles.py -s_srs=EPSG:3857 -v output_3857.tif output\n')
+        f.close()

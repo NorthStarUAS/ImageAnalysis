@@ -222,6 +222,7 @@ class ImageGroup():
             lat_sum += i.lat
         self.ref_lon = lon_sum / len(self.image_list)
         self.ref_lat = lat_sum / len(self.image_list)
+        self.render.setRefCoord(self.ref_lon, self.ref_lat)
         print "Reference: lon = %.6f lat = %.6f" % (self.ref_lon, self.ref_lat)
 
     # undistort x, y using a simple radial lens distortion model.  (We

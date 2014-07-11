@@ -161,7 +161,7 @@ if False:
         image_list.append(ig.image_list[i].name)
 
 if False:
-    ig.affinePlaceImages()
+    ig.placer.placeImages()
     ig.generate_ac3d(c, ref_image=None, base_name="quick-3d", version=0 )
     #s.AffineFitter(steps=30, gain=0.4, fullAffine=False)
 
@@ -178,8 +178,11 @@ if False:
     #    image.placed = True
     ig.render_image_list(image_list, cm_per_pixel=10.0, keypoints=True)
 
-place_list = ig.render.getImagesCoveringPoint(x=.0, y=-40.0, pad=30.0)
-ig.placer.placeImages(place_list)
-ig.render.drawImages(place_list, ig.source_dir,
-                     cm_per_pixel=30, blend_cm=200,
-                     keypoints=False)
+ig.placer.placeImages()
+ig.render.drawGrid(source_dir=ig.source_dir, cm_per_pixel=5, blend_cm=200 )
+
+#place_list = ig.render.getImagesCoveringPoint(x=.0, y=-40.0, pad=30.0)
+#ig.placer.placeImages(place_list)
+#ig.render.drawImages(place_list, ig.source_dir,
+#                     cm_per_pixel=2.5, blend_cm=200,
+#                     keypoints=False)
