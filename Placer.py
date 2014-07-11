@@ -205,19 +205,21 @@ class Placer():
                 c2 = i2.coord_list[pair[1]]
                 src.append( c1 )
                 dst.append( c2 )
+
         if len(src) < 3:
-            # no placed neighbors, just return the identity matrix
-            return np.identity(3)
-        # find the homography matrix on the communlative set of all
+            # not enough points to compute affine transformation
+            return np.array( [ [1.0, 0.0, 0.0 ], [0.0, 1.0, 0.0] ] )
+
+        # find the affine matrix on the communlative set of all
         # matching coordinates for all matching image pairs
         # simultaneously...
         affine = cv2.estimateRigidTransform(np.array([src]).astype(np.float32),
                                             np.array([dst]).astype(np.float32),
                                             fullAffine)
         if affine == None:
-            # it's possible given a degenerate point set, the
-            # affine estimator will return None
-            result = np.array( [ [1.0, 0.0, 0.0 ], [0.0, 1.0, 0.0] ] )
+            # it's possible given a degenerate point set, the affine
+            # estimator will return None, so return the identity
+            affine = np.array( [ [1.0, 0.0, 0.0 ], [0.0, 1.0, 0.0] ] )
         return affine
     
     # compare against best 'placed' image (averaging transform

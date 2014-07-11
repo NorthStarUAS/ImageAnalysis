@@ -31,8 +31,8 @@ class Render():
                 ymin = pt[1]
             if pt[1] > ymax:
                 ymax = pt[1]
-        print "%s coverage: (%.2f %.2f) (%.2f %.2f)" \
-            % (image.name, xmin, ymin, xmax, ymax)
+        #print "%s coverage: (%.2f %.2f) (%.2f %.2f)" \
+        #    % (image.name, xmin, ymin, xmax, ymax)
         return (xmin, ymin, xmax, ymax)
 
     def groupCoverage(self, image_list=None):
@@ -59,20 +59,25 @@ class Render():
     def getImagesCoveringPoint(self, x=0.0, y=0.0, pad=20.0):
         # build list of images covering target point
         coverage_list = []
+        name_list = []
         for image in self.image_list:
-            (x0, y0, x1, y1) = self.imageCoverage(image)
-            if x >= x0-pad and x <= x1+pad:
-                if y >= y0-pad and y <= y1+pad:
-                    if image.connections > 0:
-                        # only add images that connect to other images
-                        coverage_list.append(image)
-
+            (ax0, ay0, ax1, ay1) = self.imageCoverage(image)
+            bx0 = x-pad
+            by0 = y-pad
+            bx1 = x+pad
+            by1 = y+pad
+            if ax0 <= bx1 and ax1 >= bx0 and ay0 <= by1 and ay1 >= by0:
+                if image.connections > 0:
+                    # only add images that connect to other images
+                    coverage_list.append(image)
+                    name_list.append(image.name)
+        print "Images covering area: %s" % str(name_list)
         # sort by # of connections
-        print "presort = %s" % str(coverage_list)
+        #print "presort = %s" % str(coverage_list)
         coverage_list = sorted(coverage_list,
                                key=lambda image: image.connections,
                                reverse=True)
-        print "postsort = %s" % str(coverage_list)
+        #print "postsort = %s" % str(coverage_list)
         return coverage_list
 
     def drawImage(self, image=None, source_dir=None,
@@ -277,9 +282,11 @@ class Render():
         ycenter = (ymin + ymax) * 0.5
         pad = (xmax - xmin) * 0.5
         draw_list = self.getImagesCoveringPoint(xcenter, ycenter, pad)
-        self.drawImages( draw_list, source_dir=source_dir,
-                         cm_per_pixel=cm_per_pixel, blend_cm=blend_cm,
-                         bounds=bounds, file=file)
+        if len(draw_list):
+            self.drawImages( draw_list, source_dir=source_dir,
+                             cm_per_pixel=cm_per_pixel, blend_cm=blend_cm,
+                             bounds=bounds, file=file)
+        return draw_list
 
     def x2lon(self, x):
         nm2m = 1852.0
@@ -320,22 +327,29 @@ class Render():
                 base = "tile%03d" % count
                 jpgfile = base + ".jpg"
                 tifffile = base + ".tif"
-                self.drawSquare( source_dir=source_dir,
-                                 cm_per_pixel=cm_per_pixel,
-                                 blend_cm=blend_cm,
-                                 bounds=(x, y, x+grid_m, y+grid_m),
-                                 file=jpgfile)
-                cmd = 'gdal_translate -a_srs "+proj=latlong +datum=WGS84" '
-                cmd += '-of GTiff -co "INTERLEAVE=PIXEL"vi  '
-                cmd += '-a_ullr %.15f %.15f %.15f %.15f ' % \
-                    ( self.x2lon(x), self.y2lat(y+grid_m),
-                      self.x2lon(x+grid_m), self.y2lat(y) )
-                cmd += '%s %s\n' % (jpgfile, tifffile)
-                f.write(cmd)
+                images = self.drawSquare( source_dir=source_dir,
+                                          cm_per_pixel=cm_per_pixel,
+                                          blend_cm=blend_cm,
+                                          bounds=(x, y, x+grid_m, y+grid_m),
+                                          file=jpgfile)
+                if len(images):
+                    cmd = 'gdal_translate -a_srs "+proj=latlong +datum=WGS84" '
+                    cmd += '-of GTiff -co "INTERLEAVE=PIXEL" '
+                    cmd += '-a_ullr %.15f %.15f %.15f %.15f ' % \
+                           ( self.x2lon(x), self.y2lat(y+grid_m),
+                             self.x2lon(x+grid_m), self.y2lat(y) )
+                    cmd += '%s %s\n' % (jpgfile, tifffile)
+                    f.write('echo running gdal_translate...\n')
+                    f.write(cmd)
+                    count += 1
                 x += grid_m
-                count += 1
             y += grid_m
-
+        f.write('rm output.tif\n')
+        f.write('echo running gdal_merge\n')
+        f.write('gdal_merge.py -o output.tif tile*.tif\n')
+        f.write('echo running gdalwarp\n')
         f.write('gdalwarp -t_srs EPSG:3857 output.tif output_3857.tif\n')
-        f.write('gdal2tiles.py -s_srs=EPSG:3857 -v output_3857.tif output\n')
+        f.write('echo running gdal2tiles.py\n')
+        f.write('rm -rf output\n')
+        f.write('gdal2tiles.py -z 16-21 -s_srs=EPSG:3857 -v output_3857.tif output\n')
         f.close()

@@ -39,8 +39,8 @@ class ImageGroup():
         self.m = Matcher.Matcher()
         self.placer = Placer.Placer()
         self.render = Render.Render()
-        #detectparams = dict(detector="sift", nfeatures=2000)
-        detectparams = dict(detector="surf", hessian_threshold=600)
+        detectparams = dict(detector="sift", nfeatures=1000)
+        #detectparams = dict(detector="surf", hessian_threshold=600)
         #detectparams = dict(detector="orb",  orb_max_features=2000,
         #                    dense_detect_grid=4)
         matcherparams = dict(matcher="flann", match_ratio=match_ratio)

@@ -12,8 +12,8 @@ import Solver
 ComputeMatches = True
 EstimateGroupBias = False
 EstimateCameraDistortion = False
-ReviewMatches = False
-FitIterations = 0
+ReviewMatches = True
+FitIterations = 2
 
 def usage():
     print "Usage: " + sys.argv[0] + " <flight_data_dir> <raw_image_dir> <ground_alt_m>"
@@ -84,7 +84,7 @@ if ReviewMatches:
     e = ig.groupError(method="average")
     stddev = ig.groupError(method="variance")
     print "Group error (start): %.2f" % e
-    ig.m.reviewImageErrors(minError=(e))
+    ig.m.reviewImageErrors(minError=(e+stddev))
     ig.m.saveMatches()
     # re-project keypoints after outlier review
     ig.projectKeypoints()
