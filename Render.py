@@ -56,27 +56,28 @@ class Render():
 
     # return a list of images that cover the given point within 'pad'
     # or are within 'pad' distance of touching the point.
-    def getImagesCoveringPoint(self, x=0.0, y=0.0, pad=20.0):
+    def getImagesCoveringPoint(self, placed_list, x=0.0, y=0.0, pad=20.0):
         # build list of images covering target point
         coverage_list = []
         name_list = []
-        for image in self.image_list:
+        for image in placed_list:
             (ax0, ay0, ax1, ay1) = self.imageCoverage(image)
             bx0 = x-pad
             by0 = y-pad
             bx1 = x+pad
             by1 = y+pad
             if ax0 <= bx1 and ax1 >= bx0 and ay0 <= by1 and ay1 >= by0:
-                if image.connections > 0:
+                if True: # image.connections > 0:
                     # only add images that connect to other images
                     coverage_list.append(image)
                     name_list.append(image.name)
         print "Images covering area: %s" % str(name_list)
         # sort by # of connections
         #print "presort = %s" % str(coverage_list)
-        coverage_list = sorted(coverage_list,
-                               key=lambda image: image.connections,
-                               reverse=True)
+        # now using original placement order
+        #coverage_list = sorted(coverage_list,
+        #                       key=lambda image: image.connections,
+        #                       reverse=True)
         #print "postsort = %s" % str(coverage_list)
         return coverage_list
 
@@ -275,13 +276,14 @@ class Render():
 
         cv2.imwrite(file, base_image)
 
-    def drawSquare(self, source_dir=None, cm_per_pixel=15.0, blend_cm=200,
-                   bounds=None, file=None):
+    def drawSquare(self, placed_list, source_dir=None,
+                   cm_per_pixel=15.0, blend_cm=200, bounds=None, file=None):
         (xmin, ymin, xmax, ymax) = bounds
         xcenter = (xmin + xmax) * 0.5
         ycenter = (ymin + ymax) * 0.5
         pad = (xmax - xmin) * 0.5
-        draw_list = self.getImagesCoveringPoint(xcenter, ycenter, pad)
+        draw_list = self.getImagesCoveringPoint(placed_list, 
+                                                xcenter, ycenter, pad)
         if len(draw_list):
             self.drawImages( draw_list, source_dir=source_dir,
                              cm_per_pixel=cm_per_pixel, blend_cm=blend_cm,
@@ -302,7 +304,8 @@ class Render():
         return y_deg + self.ref_lat
         
         
-    def drawGrid(self, source_dir=None, cm_per_pixel=15.0, blend_cm=200,
+    def drawGrid(self, placed_list, source_dir=None,
+                 cm_per_pixel=15.0, blend_cm=200,
                  dim=4096):
         # compute blend diameter in consistent pixel units
         blend_px = int(blend_cm/cm_per_pixel)+1
@@ -317,7 +320,7 @@ class Render():
 
         f = open('gdalscript.sh', 'w')
         f.write('#!/bin/sh\n\n')
-
+        f.write('rm -f tile*.tif\n')
         count = 0
         y = ymin
         while y < ymax:
@@ -327,7 +330,7 @@ class Render():
                 base = "tile%03d" % count
                 jpgfile = base + ".jpg"
                 tifffile = base + ".tif"
-                images = self.drawSquare( source_dir=source_dir,
+                images = self.drawSquare( placed_list, source_dir=source_dir,
                                           cm_per_pixel=cm_per_pixel,
                                           blend_cm=blend_cm,
                                           bounds=(x, y, x+grid_m, y+grid_m),
@@ -348,8 +351,9 @@ class Render():
         f.write('echo running gdal_merge\n')
         f.write('gdal_merge.py -o output.tif tile*.tif\n')
         f.write('echo running gdalwarp\n')
+        f.write('rm output_3857.tif\n')
         f.write('gdalwarp -t_srs EPSG:3857 output.tif output_3857.tif\n')
         f.write('echo running gdal2tiles.py\n')
         f.write('rm -rf output\n')
-        f.write('gdal2tiles.py -z 16-21 -s_srs=EPSG:3857 -v output_3857.tif output\n')
+        f.write('gdal2tiles.py -z 16-21 -s_srs=EPSG:3857 output_3857.tif output\n')
         f.close()

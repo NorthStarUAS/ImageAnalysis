@@ -1,4 +1,5 @@
 import cv2
+import math
 import numpy as np
 
 class Placer():
@@ -28,7 +29,30 @@ class Placer():
         #print str(affine)
         return affine
 
-    def findImageWeightedAffine1(self, i1):
+    def decomposeAffine(self, affine):
+        tx = affine[0][2]
+        ty = affine[1][2]
+
+        a = affine[0][0]
+        b = affine[0][1]
+        c = affine[1][0]
+        d = affine[1][1]
+
+        sx = math.sqrt( a*a + b*b )
+        if a < 0.0:
+            sx = -sx
+        sy = math.sqrt( c*c + d*d )
+        if d < 0.0:
+            sy = -sy
+
+        rotate_deg = math.atan2(-b,a) * 180.0/math.pi
+        if rotate_deg < -180.0:
+            rotate_deg += 360.0
+        if rotate_deg > 180.0:
+            rotate_deg -= 360.0
+        return (rotate_deg, tx, ty, sx, sy)
+
+    def findWeightedAffine1(self, i1, fullAffine=False):
         # 1. find the affine transform for individual image pairs
         # 2. decompose the affine matrix into scale, rotation, translation
         # 3. weight the decomposed values
@@ -36,63 +60,56 @@ class Placer():
         #    weighted average of the decomposed elements
 
         # initialize sums with the match against ourselves
-        sx_sum = 1.0 * i1.weight # we are our same size
-        sy_sum = 1.0 * i1.weight # we are our same size
-        tx_sum = 0.0            # no translation
+        sx_sum = 0.0
+        sy_sum = 0.0
+        tx_sum = 0.0
         ty_sum = 0.0
-        rotate_sum = 0.0        # no rotation
-        weight_sum = i1.weight  # our own weight
+        rotate_sum = 0.0        # assume rotations are small and near zero
+        weight_sum = 0.0
         for i, pairs in enumerate(i1.match_list):
             if len(pairs) < 3:
                 # can't compute affine on < 3 points
                 continue
             i2 = self.image_list[i]
+            if not i2.placed:
+                # only match against previously placed images
+                continue
+
+            #weight = i2.weight
+            weight = i2.connections
+
             print "Affine %s vs %s" % (i1.name, i2.name)
-            affine = self.findAffine(i1, i2, pairs, fullAffine=False)
+            affine = self.findAffine(i1, i2, pairs, fullAffine=fullAffine)
             if affine == None:
                 # it's possible given a degenerate point set, the
                 # affine estimator will return None
                 continue
-            # decompose the affine matrix into it's logical components
-            tx = affine[0][2]
-            ty = affine[1][2]
-
-            a = affine[0][0]
-            b = affine[0][1]
-            c = affine[1][0]
-            d = affine[1][1]
-
-            sx = math.sqrt( a*a + b*b )
-            if a < 0.0:
-                sx = -sx
-            sy = math.sqrt( c*c + d*d )
-            if d < 0.0:
-                sy = -sy
-
-            rotate_deg = math.atan2(-b,a) * 180.0/math.pi
-            if rotate_deg < -180.0:
-                rotate_deg += 360.0
-            if rotate_deg > 180.0:
-                rotate_deg -= 360.0
+            (rotate_deg, tx, ty, sx, sy) = self.decomposeAffine(affine)
 
             # update sums
-            sx_sum += sx * i2.weight
-            sy_sum += sy * i2.weight
-            tx_sum += tx * i2.weight
-            ty_sum += ty * i2.weight
-            rotate_sum += rotate_deg * i2.weight
-            weight_sum += i2.weight
+            sx_sum += sx * weight
+            sy_sum += sy * weight
+            tx_sum += tx * weight
+            ty_sum += ty * weight
+            rotate_sum += rotate_deg * weight
+            weight_sum += weight
 
             print "  shift = %.2f %.2f" % (tx, ty)
             print "  scale = %.2f %.2f" % (sx, sy)
             print "  rotate = %.2f" % (rotate_deg)
             #self.showMatch(i1, i2, pairs)
-        # weight_sum should always be greater than zero
-        new_sx = sx_sum / weight_sum
-        new_sy = sy_sum / weight_sum
-        new_tx = tx_sum / weight_sum
-        new_ty = ty_sum / weight_sum
-        new_rot = rotate_sum / weight_sum
+        if weight_sum > 0.00001:
+            new_sx = sx_sum / weight_sum
+            new_sy = sy_sum / weight_sum
+            new_tx = tx_sum / weight_sum
+            new_ty = ty_sum / weight_sum
+            new_rot = rotate_sum / weight_sum
+        else:
+            new_sx = 1.0
+            new_sy = 1.0
+            new_tx = 0.0
+            new_ty = 0.0
+            new_rot = 0.0
 
         # compose a new 'weighted' affine matrix
         rot_rad = new_rot * math.pi / 180.0
@@ -100,12 +117,12 @@ class Placer():
         sinthe = math.sin(rot_rad)
         row1 = [ new_sx * costhe, -new_sx * sinthe, new_tx ]
         row2 = [ new_sy * sinthe, new_sy * costhe, new_ty ]
-        i1.newM = np.array( [ row1, row2 ] )
-        print str(i1.newM)
-        #i1.rotate += 0.0
-        print " image shift = %.2f %.2f" % (new_tx, new_ty)
-        print " image rotate = %.2f" % (new_rot)
-    
+        avg_affine = np.array( [ row1, row2 ] )
+        print str(avg_affine)
+        #print " image shift = %.2f %.2f" % (new_tx, new_ty)
+        #print " image rotate = %.2f" % (new_rot)
+        return avg_affine
+
     def findImageWeightedAffine2(self, i1, fullAffine=False):
         # 1. find the affine transform for individual image pairs
         # 2. find the weighted average of the affine transform matrices
@@ -340,6 +357,7 @@ class Placer():
         # reset the placed flag
         for image in image_list:
             image.placed = False
+        placed_list = []
         done = False
         while not done:
             done = True
@@ -365,6 +383,9 @@ class Placer():
                 print "Placing %s (connections = %d)" % (image.name, maxcon)
                 M = self.findGroupAffine(image, fullAffine=fullAffine)
                 #M = self.findGroupHomography(image)
+                M = self.findWeightedAffine1(image, fullAffine=fullAffine)
                 self.transformImage(image, gain=1.0, M=M)
                 image.placed = True
+                placed_list.append(image)
+        return placed_list
 
