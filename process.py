@@ -12,8 +12,9 @@ import Solver
 ComputeMatches = True
 EstimateGroupBias = False
 EstimateCameraDistortion = False
-ReviewMatches = True
-FitIterations = 2
+ReviewMatches = False
+ReviewPoint = (-81.34096, 27.65065)
+FitIterations = 1
 
 def usage():
     print "Usage: " + sys.argv[0] + " <flight_data_dir> <raw_image_dir> <ground_alt_m>"
@@ -44,7 +45,7 @@ ig.load()
 
 # compute matches if needed
 if ComputeMatches:
-    ig.m.computeMatches(showpairs=False)
+    ig.m.computeGroupMatches(review=False)
     ig.m.cullMatches()
     ig.m.addInverseMatches()
     #ig.m.showMatches()
@@ -82,15 +83,25 @@ ig.projectKeypoints(do_grid=True)
 # review matches
 if ReviewMatches:
     e = ig.groupError(method="average")
-    stddev = ig.groupError(method="variance")
+    stddev = ig.groupError(method="stddev")
     print "Group error (start): %.2f" % e
     ig.m.reviewImageErrors(minError=(e+stddev))
     ig.m.saveMatches()
     # re-project keypoints after outlier review
     ig.projectKeypoints()
 
+#if ReviewPoint != None:
+#    ig.m.reviewPoint( ReviewPoint[0], ReviewPoint[1], ig.ref_lon, ig.ref_lat)
+
+if False:
+    # recompute matches with a bit larger match ratio than default
+    ig.m.match_ratio *= 1.4
+    i1 = ig.m.findImageByName("SAM_0369.JPG")
+    i1.match_list = ig.m.computeImageMatches(i1, review=True)
+    i1.save_matches()
+
 e = ig.groupError(method="average")
-stddev = ig.groupError(method="variance")
+stddev = ig.groupError(method="stddev")
 print "Group error (start): %.2f" % e
 print "Group standard deviation (start): %.2f" % stddev
 
@@ -116,34 +127,34 @@ if EstimateCameraDistortion:
     s.estimateParameter("k2", -0.005, 0.005, 0.001, 3)
 
 for i in xrange(FitIterations):
-    # minimize error variance (tends to align image orientation)
-    ig.fitImagesIndividually(method="variance", gain=0.2)
+    # minimize error stddev (tends to align image orientation)
+    ig.fitImagesIndividually(method="stddev", gain=0.2)
     ig.projectKeypoints(do_grid=True)
     e = ig.groupError(method="average")
-    stddev = ig.groupError(method="variance")
-    print "Variance fit, iteration = %d" % i
+    stddev = ig.groupError(method="stddev")
+    print "Standard deviation fit, iteration = %d" % i
     print "  Group error: %.2f" % e
     print "  Group standard deviation: %.2f" % stddev
 
     # find x & y shift values to minimize placement
 
-    # we already have gain on our variance adjustment so if we
+    # we already have gain on our stddev adjustment so if we
     # multiply gain again here we will walk our x, y shifts very
     # slowly
     ig.shiftImages(gain=1.0)
     ig.projectKeypoints(do_grid=True)
     e = ig.groupError(method="average")
-    stddev = ig.groupError(method="variance")
+    stddev = ig.groupError(method="stddev")
     print "Shift fit, iteration = %d" % i
     print "  Group error: %.2f" % e
     print "  Group standard deviation: %.2f" % stddev
 
     # minimize overall error (without moving camera laterally)
-    ig.fitImagesIndividually(method="direct", gain=1.0)
+    ig.fitImagesIndividually(method="average", gain=1.0)
     ig.projectKeypoints(do_grid=True)
     e = ig.groupError(method="average")
-    stddev = ig.groupError(method="variance")
-    print "Direct fit, iteration = %d" % i
+    stddev = ig.groupError(method="stddev")
+    print "Average error fit, iteration = %d" % i
     print "  Group error: %.2f" % e
     print "  Group standard deviation: %.2f" % stddev
 
@@ -178,8 +189,10 @@ if False:
     #    image.placed = True
     ig.render_image_list(image_list, cm_per_pixel=10.0, keypoints=True)
 
-ig.placer.placeImages()
-ig.render.drawGrid(source_dir=ig.source_dir, cm_per_pixel=5, blend_cm=200 )
+#placed_order = ig.placer.placeImagesByConnections()
+placed_order = ig.placer.placeImagesByScore()
+ig.render.drawGrid(placed_order, source_dir=ig.source_dir,
+                   cm_per_pixel=10, blend_cm=200 )
 
 #place_list = ig.render.getImagesCoveringPoint(x=.0, y=-40.0, pad=30.0)
 #ig.placer.placeImages(place_list)

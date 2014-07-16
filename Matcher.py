@@ -4,6 +4,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 from find_obj import filter_matches,explore_match
+import ImageList
 
 class Matcher():
     def __init__(self):
@@ -103,21 +104,50 @@ class Matcher():
         kp_pairs = zip(mkp1, mkp2)
         return p1, p2, kp_pairs, idx_pairs
 
-    def computeMatches(self, showpairs=False):
-        # O(n,n) compare
-        for i, i1 in enumerate(self.image_list):
-            if len(i1.match_list):
+    def computeImageMatches(self, i1, review=False):
+        match_list = [[]] * len(self.image_list)
+        for j, i2 in enumerate(self.image_list):
+            if i1 == i2:
                 continue
-            i1.match_list = [[]] * len(self.image_list)
-            for j, i2 in enumerate(self.image_list):
-                if i == j:
-                    continue
-                matches = self.matcher.knnMatch(i1.des_list, trainDescriptors=i2.des_list, k=2)
-                p1, p2, kp_pairs, idx_pairs = self.filterMatches(i1.kp_list, i2.kp_list, matches)
-                if len(p1) >= 4:
-                    H, status = cv2.findHomography(p1, p2, cv2.RANSAC, 5.0)
-                    print '%d / %d  inliers/matched' % (np.sum(status), len(status))
-                    # remove outliers
+            matches = self.matcher.knnMatch(i1.des_list, trainDescriptors=i2.des_list, k=2)
+            p1, p2, kp_pairs, idx_pairs = self.filterMatches(i1.kp_list, i2.kp_list, matches)
+            if len(p1) >= 4:
+                H, status = cv2.findHomography(p1, p2, cv2.RANSAC, 5.0)
+                print '%d / %d  inliers/matched' % (np.sum(status), len(status))
+                # remove outliers
+                for k, flag in enumerate(status):
+                    if not flag:
+                        print "    deleting: " + str(idx_pairs[k])
+                        idx_pairs[k] = (-1, -1)
+                for pair in reversed(idx_pairs):
+                    if pair == (-1, -1):
+                        idx_pairs.remove(pair)
+
+            else:
+                H, status = None, None
+                # print '%d matches found, not enough for homography estimation' % len(p1)
+            if len(idx_pairs) >= self.min_pairs:
+                print "Matching %s vs %s = %d" \
+                    % (i1.name, i2.name, len(idx_pairs))
+
+                if False:
+                    # draw only keypoints location,not size and orientation (flags=0)
+                    # draw rich keypoints (flags=4)
+                    if i1.img == None:
+                        i1.load_image()
+                    if i2.img == None:
+                        i2.load_image()
+                    res1 = cv2.drawKeypoints(i1.img, i1.kp_list, color=(0,255,0), flags=0)
+                    res2 = cv2.drawKeypoints(i2.img, i2.kp_list, color=(0,255,0), flags=0)
+                    fig1, plt1 = plt.subplots(1)
+                    plt1 = plt.imshow(res1)
+                    fig2, plt2 = plt.subplots(1)
+                    plt2 = plt.imshow(res2)
+                    plt.show(block=False)
+
+                if review:
+                    status = self.showMatch(i1, i2, idx_pairs)
+                    # remove deselected pairs
                     for k, flag in enumerate(status):
                         if not flag:
                             print "    deleting: " + str(idx_pairs[k])
@@ -125,42 +155,17 @@ class Matcher():
                     for pair in reversed(idx_pairs):
                         if pair == (-1, -1):
                             idx_pairs.remove(pair)
- 
-                else:
-                    H, status = None, None
-                    # print '%d matches found, not enough for homography estimation' % len(p1)
-                if len(idx_pairs) >= self.min_pairs:
-                    print "Matching %s vs %s (%d vs %d) = %d" \
-                        % (i1.name, i2.name, i, j, len(idx_pairs))
-                    i1.match_list[j] = idx_pairs
 
-                    if False:
-                        # draw only keypoints location,not size and orientation (flags=0)
-                        # draw rich keypoints (flags=4)
-                        if i1.img == None:
-                            i1.load_image()
-                        if i2.img == None:
-                            i2.load_image()
-                        res1 = cv2.drawKeypoints(i1.img, i1.kp_list, color=(0,255,0), flags=0)
-                        res2 = cv2.drawKeypoints(i2.img, i2.kp_list, color=(0,255,0), flags=0)
-                        fig1, plt1 = plt.subplots(1)
-                        plt1 = plt.imshow(res1)
-                        fig2, plt2 = plt.subplots(1)
-                        plt2 = plt.imshow(res2)
-                        plt.show(block=False)
+                match_list[j] = idx_pairs
 
-                    if showpairs:
-                        if i1.img == None:
-                            i1.load_image()
-                        if i2.img == None:
-                            i2.load_image()
-                        h, w = i1.img.shape
-                        hscale = float(h) / float(i1.fullh)
-                        wscale = float(w) / float(i1.fullw)
-                        explore_match('find_obj', i1.img, i2.img, kp_pairs,
-                                      hscale=hscale, wscale=wscale,
-                                      status=status, H=H) #cv2 shows image
-                        cv2.destroyAllWindows()
+        return match_list
+
+    def computeGroupMatches(self, review=False):
+        # O(n,n) compare
+        for i, i1 in enumerate(self.image_list):
+            if len(i1.match_list):
+                continue
+            i1.match_list = self.computeImageMatches(i1, review)
             i1.save_matches()
 
     def safeAddPair(self, i1, i2, refpair):
@@ -245,7 +250,7 @@ class Matcher():
     def showAllMatches(self):
         # O(n,n) compare
         for i, i1 in enumerate(self.image_list):
-            showMatches(i1)
+            self.showMatches(i1)
 
     # compute the error between a pair of images
     def imagePairError(self, i, alt_coord_list, j, match, emax=False):
@@ -342,11 +347,12 @@ class Matcher():
     # used to compute the error metric (useful for doing test fits.)
     # if max=True then return the maximum pair error, not the weighted
     # average error
-    def imageError(self, i, alt_coord_list=None, method="direct", variance=False, max=False):
-        if method == "direct":
+    def imageError(self, i, alt_coord_list=None, method="average",
+                   variance=False, max=False):
+        if method == "average":
             variance = False
             emax = False
-        elif method == "variance":
+        elif method == "stddev":
             variance = True
             emax = False
         elif method == "max":
@@ -381,7 +387,7 @@ class Matcher():
             return emax_value
         elif variance:
             #print "  var_sum = %.2f  weight_sum = %.2f" % (var_sum, weight_sum)
-            return var_sum / weight_sum
+            return math.sqrt(var_sum / weight_sum)
         else:
             return math.sqrt(dist2_sum / weight_sum)
 
@@ -409,21 +415,22 @@ class Matcher():
         coord_list = i1.coord_list
         if alt_coord_list != None:
             coord_list = alt_coord_list
-        error_sum = 0.0
+        dist2_sum = 0.0
         for k, pair in enumerate(match):
             c1 = coord_list[pair[0]]
             c2 = i2.coord_list[pair[1]]
             dx = c2[0] - c1[0]
             dy = c2[1] - c1[1]
-            error = math.sqrt(dx*dx + dy*dy)
-            error_sum += error
+            dist2 = dx*dx + dy*dy
+            dist2_sum += dist2
+            error = math.sqrt(dist2)
             report_list.append( (error, k) )
         report_list = sorted(report_list,
                              key=lambda fields: fields[0],
                              reverse=True)
 
         # meta stats on error values
-        error_avg = error_sum / len(match)
+        error_avg = math.sqrt(dist2_sum / len(match))
         stddev_sum = 0.0
         for line in report_list:
             error = line[0]
@@ -502,7 +509,7 @@ class Matcher():
             if len(pairs):
                 i2 = self.image_list[j]
                 #print "Matching %s vs %s " % (i1.name, i2.name)
-                e = self.imagePairError(i, None, j, pairs, emax=True)
+                e = self.imagePairError(i, None, j, pairs)
                 if e > minError:
                     report_list.append( (e, i, j) )
 
@@ -527,11 +534,11 @@ class Matcher():
             report_list = []
             if name != None:
                 image = self.ig.findImageByName(name)
-                e = self.imageError(image, None, max=True)
+                e = self.imageError(image, None)
                 report_list.append( (e, image.name) )
             else:
                 for i, image in enumerate(self.image_list):
-                    e = self.imageError(i, None, max=True)
+                    e = self.imageError(i, None)
                     report_list.append( (e, i) )
             report_list = sorted(report_list, key=lambda fields: fields[0],
                                  reverse=True)
@@ -541,3 +548,21 @@ class Matcher():
                 if line[0] >= minError:
                     self.matchErrorReport( line[1], minError )
 
+    def reviewPoint(self, lon_deg, lat_deg, ref_lon, ref_lat):
+        (x, y) = ImageList.wgs842cart(lon_deg, lat_deg, ref_lon, ref_lat)
+        print "Review images touching %.2f %.2f" % (x, y)
+        review_list = ImageList.getImagesCoveringPoint(self.image_list, x, y, pad=25.0, only_placed=False)
+        #print "  Images = %s" % str(review_list)
+        for image in review_list:
+            print "    %s -> " % image.name,
+            for j, pairs in enumerate(image.match_list):
+                if len(pairs):
+                    print "%s (%d) " % (self.image_list[j].name, len(pairs)),
+            print
+            r2 = image.coverage()
+            p = ImageList.getImagesCoveringRectangle(self.image_list, r2)
+            p_names = []
+            for i in p:
+                p_names.append(i.name)
+            print "      possible matches: %d" % len(p_names)
+                

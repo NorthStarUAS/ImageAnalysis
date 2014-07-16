@@ -350,7 +350,7 @@ class Placer():
                      return True
         return False
         
-    def placeImages(self, image_list=None, fullAffine=False):
+    def placeImagesbyConnections(self, image_list=None, fullAffine=False):
         if image_list == None:
             image_list = self.image_list
 
@@ -381,6 +381,74 @@ class Placer():
             if maxidx != None:
                 image = image_list[maxidx]
                 print "Placing %s (connections = %d)" % (image.name, maxcon)
+                M = self.findGroupAffine(image, fullAffine=fullAffine)
+                #M = self.findGroupHomography(image)
+                M = self.findWeightedAffine1(image, fullAffine=fullAffine)
+                self.transformImage(image, gain=1.0, M=M)
+                image.placed = True
+                placed_list.append(image)
+        return placed_list
+
+    def getImageCenter(self, image):
+        x_sum = 0.0
+        y_sum = 0.0
+        for pt in image.corner_list:
+            x_sum += pt[0]
+            y_sum += pt[1]
+        count = float(len(image.corner_list))
+        return (x_sum/count, y_sum/count)
+
+    def placeImagesByScore(self, image_list=None, fullAffine=False):
+        if image_list == None:
+            image_list = self.image_list
+
+        # reset the placed flag
+        for image in image_list:
+            image.placed = False
+        placed_list = []
+        done = False
+        while not done:
+            done = True
+            minscore = None
+            minidx = None
+
+            # score = distance from center / connections, lowest score wins
+            
+            # find the unplaced image with the lowest score
+            for i, image in enumerate(image_list):
+                if not image.placed and self.hasPlacedNeighbor(image):
+                    (dx, dy) = self.getImageCenter(image)
+                    score = math.sqrt(dx*dx + dy*dy)
+                    if image.connections == 0:
+                        # don't place unconnected images
+                        continue
+                    # more connections = lower score, but what should
+                    # the exact formula be?
+                    #score -= image.connections
+                    if minscore == None or score < minscore:
+                        minscore = score
+                        minidx = i
+                        done = False
+            if minidx == None:
+                # couldn't find an unplaced image with placed
+                # neighbors, jump to the next group
+                for i, image in enumerate(image_list):
+                    if not image.placed:
+                        (dx, dy) = self.getImageCenter(image)
+                        score = math.sqrt(dx*dx + dy*dy)
+                        if image.connections == 0:
+                            # don't place unconnected images
+                            continue
+                        # more connections = lower score, but what should
+                        # the exact formula be?
+                        #score -= image.connections
+                        if minscore == None or score < minscore:
+                            minscore = score
+                            minidx = i
+                            done = False
+            if minidx != None:
+                image = image_list[minidx]
+                print "Placing %s (score = %.3f)" % (image.name, minscore)
                 M = self.findGroupAffine(image, fullAffine=fullAffine)
                 #M = self.findGroupHomography(image)
                 M = self.findWeightedAffine1(image, fullAffine=fullAffine)

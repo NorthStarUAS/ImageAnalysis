@@ -466,13 +466,6 @@ class ImageGroup():
         for image in self.image_list:
             self.findImageShift(image, gain)
 
-    def placeImages(self):
-        for image in self.image_list:
-            image.placed = False
-        for image in self.image_list:
-            self.findImageShift(image, gain=1.0, placing=True)
-            self.placed = True
-
     # method="average": return the weighted average of the errors.
     # method="stddev": return the weighted average of the stddev of the errors.
     # method="max": return the max error of the subcomponents.
@@ -483,12 +476,7 @@ class ImageGroup():
             weight_sum = 0.0
             for i, image in enumerate(self.image_list):
                 e = 0.0
-                if method == "average":
-                    e = self.m.imageError(i)
-                elif method == "variance":
-                    e = math.sqrt(self.m.imageError(i, method=method))
-                elif method == "max":
-                    e = self.m.imageError(i, method)
+                e = self.m.imageError(i, method=method)
                 #print "%s error = %.2f" % (image.name, e)
                 error_sum += e*e * image.weight
                 weight_sum += image.weight
@@ -516,9 +504,9 @@ class ImageGroup():
 
         #print "Estimate %s for %s" % (param, image.name)
         var = False
-        if method == "direct":
+        if method == "average":
             var = False
-        elif method == "variance":
+        elif method == "stddev":
             var = True
         for k in xrange(refinements):
             best_error = self.m.imageError(i, method=method)
@@ -590,7 +578,6 @@ class ImageGroup():
         image.roll_bias += roll*gain
         image.pitch_bias += pitch*gain
         image.alt_bias += alt*gain
-        image.save_info()
         coord_list = []
         corner_list = []
         grid_list = []
@@ -598,10 +585,15 @@ class ImageGroup():
         # with moving previous elements
         coord_list, corner_list, grid_list = self.projectImageKeypoints(image)
         error = self.m.imageError(i, alt_coord_list=coord_list, method=method)
-        print "Biases for %s (%s) is %.2f %.2f %.2f %.2f (%.3f)" \
+        if method == "average":
+            image.error = error
+        elif method == "stddev":
+            image.stddev = error
+        print "Fit %s (%s) is %.2f %.2f %.2f %.2f (avg=%.3f stddev=%.3f)" \
             % (image.name, method,
                image.yaw_bias, image.roll_bias, image.pitch_bias,
-               image.alt_bias, error)
+               image.alt_bias, image.error, image.stddev)
+        image.save_info()
 
     def fitImagesIndividually(self, method, gain):
         for i, image in enumerate(self.image_list):

@@ -52,7 +52,7 @@ class Solver():
                 elif param == "k2":
                     self.ig.k2 = test_value
                 self.ig.projectKeypoints()
-                error = self.ig.groupError(method="variance")
+                error = self.ig.groupError(method="stddev")
                 print "Test %s error @ %.5f = %.3f" \
                     % ( param, test_value, error )
                 if best_error == None or error < best_error:

@@ -2,6 +2,8 @@ import cv2
 import math
 import numpy as np
 
+import ImageList
+
 class Render():
     def __init__(self):
         self.image_list = []
@@ -15,78 +17,12 @@ class Render():
         self.ref_lon = lon
         self.ref_lat = lat
 
-    def imageCoverage(self, image):
-        if not len(image.corner_list):
-            return (0.0, 0.0, 0.0, 0.0)
-
-        # find the min/max area of the image
-        p0 = image.corner_list[0]
-        xmin = p0[0]; xmax = p0[0]; ymin = p0[1]; ymax = p0[1]
-        for pt in image.corner_list:
-            if pt[0] < xmin:
-                xmin = pt[0]
-            if pt[0] > xmax:
-                xmax = pt[0]
-            if pt[1] < ymin:
-                ymin = pt[1]
-            if pt[1] > ymax:
-                ymax = pt[1]
-        #print "%s coverage: (%.2f %.2f) (%.2f %.2f)" \
-        #    % (image.name, xmin, ymin, xmax, ymax)
-        return (xmin, ymin, xmax, ymax)
-
-    def groupCoverage(self, image_list=None):
-        if image_list == None:
-            image_list = self.image_list
-
-        xmin = None; xmax = None; ymin = None; ymax = None
-        for image in image_list:
-            (x0, y0, x1, y1) = self.imageCoverage(image)
-            if xmin == None or x0 < xmin:
-                xmin = x0
-            if ymin == None or y0 < ymin:
-                ymin = y0
-            if xmax == None or x1 > xmax:
-                xmax = x1
-            if ymax == None or y1 > ymax:
-                ymax = y1
-        print "Group area coverage: (%.2f %.2f) (%.2f %.2f)" \
-            % (xmin, ymin, xmax, ymax)
-        return (xmin, ymin, xmax, ymax)
-
-    # return a list of images that cover the given point within 'pad'
-    # or are within 'pad' distance of touching the point.
-    def getImagesCoveringPoint(self, placed_list, x=0.0, y=0.0, pad=20.0):
-        # build list of images covering target point
-        coverage_list = []
-        name_list = []
-        for image in placed_list:
-            (ax0, ay0, ax1, ay1) = self.imageCoverage(image)
-            bx0 = x-pad
-            by0 = y-pad
-            bx1 = x+pad
-            by1 = y+pad
-            if ax0 <= bx1 and ax1 >= bx0 and ay0 <= by1 and ay1 >= by0:
-                if True: # image.connections > 0:
-                    # only add images that connect to other images
-                    coverage_list.append(image)
-                    name_list.append(image.name)
-        print "Images covering area: %s" % str(name_list)
-        # sort by # of connections
-        #print "presort = %s" % str(coverage_list)
-        # now using original placement order
-        #coverage_list = sorted(coverage_list,
-        #                       key=lambda image: image.connections,
-        #                       reverse=True)
-        #print "postsort = %s" % str(coverage_list)
-        return coverage_list
-
     def drawImage(self, image=None, source_dir=None,
                   cm_per_pixel=15.0, keypoints=False, bounds=None):
         if not len(image.corner_list):
             return
         if bounds == None:
-            (xmin, ymin, xmax, ymax) = self.imageCoverage(image)
+            (xmin, ymin, xmax, ymax) = image.coverage()
         else:
             (xmin, ymin, xmax, ymax) = bounds
         x = int(100.0 * (xmax - xmin) / cm_per_pixel)
@@ -255,7 +191,7 @@ class Render():
             blend_px += 1
 
         if bounds == None:
-            (xmin, ymin, xmax, ymax) = groupCoverage(image_list=draw_list)
+            (xmin, ymin, xmax, ymax) = ImageList.coverage(draw_list)
         else:
             (xmin, ymin, xmax, ymax) = bounds
 
@@ -282,8 +218,9 @@ class Render():
         xcenter = (xmin + xmax) * 0.5
         ycenter = (ymin + ymax) * 0.5
         pad = (xmax - xmin) * 0.5
-        draw_list = self.getImagesCoveringPoint(placed_list, 
-                                                xcenter, ycenter, pad)
+        draw_list = ImageList.getImagesCoveringPoint(placed_list, 
+                                                     xcenter, ycenter, pad,
+                                                     only_placed=True)
         if len(draw_list):
             self.drawImages( draw_list, source_dir=source_dir,
                              cm_per_pixel=cm_per_pixel, blend_cm=blend_cm,
@@ -312,7 +249,7 @@ class Render():
         if blend_px % 2 == 0:
             blend_px += 1
 
-        (xmin, ymin, xmax, ymax) = self.groupCoverage()
+        (xmin, ymin, xmax, ymax) = ImageList.coverage(self.image_list)
         grid_m = (dim * cm_per_pixel) / 100.0
         print "grid square size = (%.2f x %.2f)" % (grid_m, grid_m)
         #xpixel = (xmax - xmin) * 100.0 / cm_per_pixel
@@ -336,11 +273,16 @@ class Render():
                                           bounds=(x, y, x+grid_m, y+grid_m),
                                           file=jpgfile)
                 if len(images):
+                    (ul_lon, ul_lat) = ImageList.cart2wgs84(x, y+grid_m,
+                                                            self.ref_lon,
+                                                            self.ref_lat)
+                    (lr_lon, lr_lat) = ImageList.cart2wgs84(x+grid_m, y,
+                                                            self.ref_lon,
+                                                            self.ref_lat)
                     cmd = 'gdal_translate -a_srs "+proj=latlong +datum=WGS84" '
                     cmd += '-of GTiff -co "INTERLEAVE=PIXEL" '
                     cmd += '-a_ullr %.15f %.15f %.15f %.15f ' % \
-                           ( self.x2lon(x), self.y2lat(y+grid_m),
-                             self.x2lon(x+grid_m), self.y2lat(y) )
+                           ( ul_lon, ul_lat, lr_lon, lr_lat )
                     cmd += '%s %s\n' % (jpgfile, tifffile)
                     f.write('echo running gdal_translate...\n')
                     f.write(cmd)

@@ -31,6 +31,8 @@ class Image():
         self.y_bias = 0.0
         self.weight = 1.0
         self.connections = 0.0
+        self.error = 0.0
+        self.stddev = 0.0
         self.rotate = 0.0       # depricated?
         self.placed = False
         if image_file:
@@ -148,8 +150,12 @@ class Image():
                 self.x_bias = float(root.find('x-bias').text)
                 self.y_bias = float(root.find('y-bias').text)
                 self.weight = float(root.find('weight').text)
-                if len(root.find('connections')):
+                if root.find('connections') is not None:
                     self.connections = float(root.find('connections').text)
+                if root.find('error') is not None:
+                    self.error = float(root.find('error').text)
+                if root.find('stddev') is not None:
+                    self.stddev = float(root.find('stddev').text)
             except:
                 print self.info_file + ":\n" + "  load error: " \
                     + str(sys.exc_info()[1])
@@ -255,6 +261,8 @@ class Image():
         ET.SubElement(root, 'y-bias').text = "%.2f" % self.y_bias
         ET.SubElement(root, 'weight').text = "%.2f" % self.weight
         ET.SubElement(root, 'connections').text = "%d" % self.connections
+        ET.SubElement(root, 'error').text = "%.3f" % self.error
+        ET.SubElement(root, 'stddev').text = "%.3f" % self.stddev
 
         # write xml file
         try:
@@ -290,4 +298,24 @@ class Image():
         fig1, plt1 = plt.subplots(1)
         plt1 = plt.imshow(res)
         plt.show(block=True) #block=True/Flase
+
+    def coverage(self):
+        if not len(self.corner_list):
+            return (0.0, 0.0, 0.0, 0.0)
+
+        # find the min/max area of the image
+        p0 = self.corner_list[0]
+        xmin = p0[0]; xmax = p0[0]; ymin = p0[1]; ymax = p0[1]
+        for pt in self.corner_list:
+            if pt[0] < xmin:
+                xmin = pt[0]
+            if pt[0] > xmax:
+                xmax = pt[0]
+            if pt[1] < ymin:
+                ymin = pt[1]
+            if pt[1] > ymax:
+                ymax = pt[1]
+        #print "%s coverage: (%.2f %.2f) (%.2f %.2f)" \
+        #    % (self.name, xmin, ymin, xmax, ymax)
+        return (xmin, ymin, xmax, ymax)
 
