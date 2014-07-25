@@ -12,7 +12,7 @@ class Matcher():
         self.detector = None
         self.matcher = None
         self.dense_detect_grid = 1
-        self.match_ratio = 0.75
+        self.match_ratio = 0.70
         self.min_pairs = 5      # minimum number of pairs to consider a match
         #self.bf = cv2.BFMatcher(cv2.NORM_HAMMING) #, crossCheck=True)
         #self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)

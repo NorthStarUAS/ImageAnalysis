@@ -78,7 +78,7 @@ class Placer():
             #weight = i2.weight
             weight = i2.connections
 
-            print "Affine %s vs %s" % (i1.name, i2.name)
+            #print "Affine %s vs %s" % (i1.name, i2.name)
             affine = self.findAffine(i1, i2, pairs, fullAffine=fullAffine)
             if affine == None:
                 # it's possible given a degenerate point set, the
@@ -94,9 +94,9 @@ class Placer():
             rotate_sum += rotate_deg * weight
             weight_sum += weight
 
-            print "  shift = %.2f %.2f" % (tx, ty)
-            print "  scale = %.2f %.2f" % (sx, sy)
-            print "  rotate = %.2f" % (rotate_deg)
+            #print "  shift = %.2f %.2f" % (tx, ty)
+            #print "  scale = %.2f %.2f" % (sx, sy)
+            #print "  rotate = %.2f" % (rotate_deg)
             #self.showMatch(i1, i2, pairs)
         if weight_sum > 0.00001:
             new_sx = sx_sum / weight_sum
@@ -118,7 +118,7 @@ class Placer():
         row1 = [ new_sx * costhe, -new_sx * sinthe, new_tx ]
         row2 = [ new_sy * sinthe, new_sy * costhe, new_ty ]
         avg_affine = np.array( [ row1, row2 ] )
-        print str(avg_affine)
+        #print str(avg_affine)
         #print " image shift = %.2f %.2f" % (new_tx, new_ty)
         #print " image rotate = %.2f" % (new_rot)
         return avg_affine

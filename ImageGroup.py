@@ -14,10 +14,12 @@ import sys
 import PIL                      # test?
 
 from getchar import find_getch
-from Image import Image
+import Image
+import ImageList
 import Matcher
 import Placer
 import Render
+import transformations
 
 
 class ImageGroup():
@@ -122,7 +124,7 @@ class ImageGroup():
                 self.file_list.append(file)
         self.file_list.sort()
         for file_name in self.file_list:
-            image = Image(self.work_dir, file_name)
+            image = Image.Image(self.work_dir, file_name)
             if len(image.kp_list) == 0 or image.des_list == None:
                 print "  detecting features and computing descriptors"
                 full_image = image.load_full_image(self.source_dir)
@@ -230,7 +232,7 @@ class ImageGroup():
     # x,y are expected to be normalize (0.0 - 1.0) in image pixel
     # space with 0.5 being the center of image (and hopefully the
     # center of distortion.)
-    def doLensDistortion(self, aspect_ratio, xnorm, ynorm):
+    def doLensUndistort(self, aspect_ratio, xnorm, ynorm):
         xd = (xnorm * 2.0 - 1.0) * aspect_ratio
         yd = ynorm * 2.0 - 1.0
         r = math.sqrt(xd*xd + yd*yd)
@@ -243,9 +245,9 @@ class ImageGroup():
         #print "  (%.3f %.3f) -> (%.3f %.3f)" % (xnorm, ynorm, xnorm_u, ynorm_u)
         return xnorm_u, ynorm_u
 
-    def projectImageKeypoints(self, image, do_grid=False,
-                              yaw_bias=0.0, roll_bias=0.0, pitch_bias=0.0,
-                              alt_bias=0.0):
+    def projectImageKeypointsExternal(self, image, do_grid=False,
+                                      yaw_bias=0.0, roll_bias=0.0,
+                                      pitch_bias=0.0, alt_bias=0.0):
         Verbose = False
 
         prog = "/home/curt/Projects/UAS/ugear/build_linux-pc/utils/geo/geolocate"
@@ -296,7 +298,7 @@ class ImageGroup():
             #print " project px = %.2f, %.2f" % (x, y)
             xnorm = x / float(w-1)
             ynorm = y / float(h-1)
-            xnorm_u, ynorm_u = self.doLensDistortion(ar, xnorm, ynorm)
+            xnorm_u, ynorm_u = self.doLensUndistort(ar, xnorm, ynorm)
             coords += "%d %.5f %.5f\n" % (i, xnorm_u, ynorm_u)
 
         if True:
@@ -308,7 +310,7 @@ class ImageGroup():
                 xnorm = 0.0
                 for i in xrange(2):
                     #print "cc %.2f %.2f" % (xnorm_u, ynorm_u)
-                    xnorm_u, ynorm_u = self.doLensDistortion(ar, xnorm, ynorm)
+                    xnorm_u, ynorm_u = self.doLensUndistort(ar, xnorm, ynorm)
                     coords += "cc %.3f %.3f\n" % (xnorm_u, ynorm_u)
                     xnorm += dx
                 ynorm += dy
@@ -322,7 +324,7 @@ class ImageGroup():
                 xnorm = 0.0
                 for i in xrange(self.ac3d_steps+1):
                     #print "cc %.2f %.2f" % (xnorm_u, ynorm_u)
-                    xnorm_u, ynorm_u = self.doLensDistortion(ar, xnorm, ynorm)
+                    xnorm_u, ynorm_u = self.doLensUndistort(ar, xnorm, ynorm)
                     coords += "gr %.3f %.3f\n" % (xnorm_u, ynorm_u)
                     xnorm += dx
                 ynorm += dy
@@ -357,10 +359,138 @@ class ImageGroup():
         #f.close()
         return coord_list, corner_list, grid_list
 
+    def projectPoint(self, image, q, pt, z_m, horiz_mm, vert_mm, focal_len_mm):
+        h = image.fullh
+        w = image.fullw
+        ar = float(w)/float(h)  # aspect ratio
+
+        # normalized pixel coordinates to [0.0, 1.0]
+        xnorm = pt[0] / float(w-1)
+        ynorm = pt[1] / float(h-1)
+
+        # lens un-distortion
+        xnorm_u, ynorm_u = self.doLensUndistort(ar, xnorm, ynorm)
+
+        # compute pixel coordinate in sensor coordinate space (mm
+        # units) with (0mm, 0mm) being the center of the image.
+        x_mm = (xnorm_u * 2.0 - 1.0) * (horiz_mm * 0.5)
+        y_mm = -1.0 * (ynorm_u * 2.0 - 1.0) * (vert_mm * 0.5)
+        camvec = [y_mm, x_mm, focal_len_mm]
+        camvec = transformations.unit_vector(camvec) # normalize
+        #print "%.3f %.3f %.3f" % (camvec[0], camvec[1], camvec[2])
+
+        # transform camera vector (in body reference frame) to ned
+        # reference frame
+        ned = transformations.quaternion_backTransform(q, camvec)
+        #print "%.3f %.3f %.3f" % (ned[0], ned[1], ned[2])
+        
+        # solve projection
+        if ned[2] <= 0.0:
+            # no interseciton
+            return None
+        factor = z_m / ned[2]
+        x_proj = ned[0] * factor
+        y_proj = ned[1] * factor
+        #print "proj dist = %.2f" % math.sqrt(x_proj*x_proj + y_proj*y_proj)
+        return [x_proj, y_proj]
+
+    def projectImageKeypointsNative(self, image, do_grid=False,
+                                    yaw_bias=0.0, roll_bias=0.0, pitch_bias=0.0,
+                                    alt_bias=0.0):
+        Verbose = False
+
+        if image.img == None:
+            image.load_image()
+        h = image.fullh
+        w = image.fullw
+        ar = float(w)/float(h)  # aspect ratio
+        lon = image.lon
+        lat = image.lat
+        msl = image.msl + image.alt_bias + self.group_alt_bias + alt_bias
+        roll = -(image.roll + image.roll_bias + self.group_roll_bias + roll_bias)
+        pitch = -(image.pitch + image.pitch_bias + self.group_pitch_bias + pitch_bias)
+        yaw = image.yaw + image.yaw_bias + self.group_yaw_bias + yaw_bias
+        yaw += image.rotate # from simple fit procedure (depricated?)
+        yaw += 180.0        # camera is mounted backwards
+        while yaw > 360.0:
+            yaw -= 360.0
+        while yaw < -360.0:
+            yaw += 360.0
+        #print "%s %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f" % (image.name, image.roll, image.roll_bias, image.pitch, image.pitch_bias, image.yaw, image.yaw_bias, image.msl, image.alt_bias)
+
+        if False:
+            prog = "/home/curt/Projects/UAS/ugear/build_linux-pc/utils/geo/geolocate"
+            for arg in [prog, str(lon), str(lat), str(msl), \
+                        str(self.ground_alt_m), str(roll), str(pitch), \
+                        str(yaw), str(self.horiz_mm), str(self.vert_mm), \
+                        str(self.focal_len_mm), str(self.ref_lon), \
+                        str(self.ref_lat)]:
+                print arg,
+            print
+
+        deg2rad = math.pi / 180.0
+        #roll = 0.0; pitch = 0.0; yaw = 45.0
+        #print "roll = %.2f pitch = %.2f yaw = %.2f" % ( roll, pitch, yaw )
+        q = transformations.quaternion_from_euler(yaw*deg2rad,
+                                                  pitch*deg2rad,
+                                                  roll*deg2rad,
+                                                  'rzyx')
+        (x_m, y_m) = ImageList.wgs842cart(lon, lat, self.ref_lon, self.ref_lat)
+        z_m = msl - self.ground_alt_m
+        #print "ref offset = %.2f %.2f" % (x_m, y_m)
+
+        coord_list = [None] * len(image.kp_list)
+        corner_list = []
+        grid_list = []
+
+        # project the paired keypoints into world space
+        for i, kp in enumerate(image.kp_list):
+            if not image.kp_usage[i]:
+                continue
+            proj = self.projectPoint(image, q, kp.pt, z_m,
+                                     self.horiz_mm, self.vert_mm,
+                                     self.focal_len_mm)
+            coord_list[i] = [proj[1] + image.x_bias + x_m,
+                             proj[0] + image.y_bias + y_m]
+
+        # compute the corners (2x2 polygon grid) in image space
+        dx = image.fullw - 1
+        dy = image.fullh - 1
+        y = 0.0
+        for j in xrange(2):
+            x = 0.0
+            for i in xrange(2):
+                #print "corner %.2f %.2f" % (x, y)
+                proj = self.projectPoint(image, q, [x, y], z_m,
+                                         self.horiz_mm, self.vert_mm,
+                                         self.focal_len_mm)
+                corner_list.append( [proj[1] + image.x_bias + x_m,
+                                     proj[0] + image.y_bias + y_m] )
+                x += dx
+            y += dy
+
+        # compute the ac3d polygon grid in image space
+        dx = image.fullw / float(self.ac3d_steps)
+        dy = image.fullh / float(self.ac3d_steps)
+        y = 0.0
+        for j in xrange(self.ac3d_steps+1):
+            x = 0.0
+            for i in xrange(self.ac3d_steps+1):
+                #print "grid %.2f %.2f" % (xnorm_u, ynorm_u)
+                proj = self.projectPoint(image, q, [x, y], z_m,
+                                         self.horiz_mm, self.vert_mm,
+                                         self.focal_len_mm)
+                grid_list.append( [proj[1] + image.x_bias + x_m,
+                                   proj[0] + image.y_bias + y_m] )
+                x += dx
+            y += dy
+
+        return coord_list, corner_list, grid_list
+
     def projectKeypoints(self, do_grid=False):
         for image in self.image_list:
             coord_list, corner_list, grid_list \
-                = self.projectImageKeypoints(image, do_grid)
+                = self.projectImageKeypointsNative(image, do_grid)
             image.coord_list = coord_list
             image.corner_list = corner_list
             if do_grid:
@@ -520,19 +650,19 @@ class ImageGroup():
                 grid_list = []
                 if param == "yaw":
                     coord_list, corner_list, grid_list \
-                        = self.projectImageKeypoints(image,
+                        = self.projectImageKeypointsNative(image,
                                                      yaw_bias=test_value)
                 elif param == "roll":
                     coord_list, corner_list, grid_list \
-                        = self.projectImageKeypoints(image,
+                        = self.projectImageKeypointsNative(image,
                                                      roll_bias=test_value)
                 elif param == "pitch":
                     coord_list, corner_list, grid_list \
-                        = self.projectImageKeypoints(image,
+                        = self.projectImageKeypointsNative(image,
                                                      pitch_bias=test_value)
                 elif param == "altitude":
                     coord_list, corner_list, grid_list \
-                        = self.projectImageKeypoints(image,
+                        = self.projectImageKeypointsNative(image,
                                                      alt_bias=test_value)
                 error = self.m.imageError(i, alt_coord_list=coord_list,
                                           method=method)
@@ -583,7 +713,7 @@ class ImageGroup():
         grid_list = []
         # but don't save the results so we don't bias future elements
         # with moving previous elements
-        coord_list, corner_list, grid_list = self.projectImageKeypoints(image)
+        coord_list, corner_list, grid_list = self.projectImageKeypointsNative(image)
         error = self.m.imageError(i, alt_coord_list=coord_list, method=method)
         if method == "average":
             image.error = error

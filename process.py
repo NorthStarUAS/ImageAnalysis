@@ -12,9 +12,9 @@ import Solver
 ComputeMatches = True
 EstimateGroupBias = False
 EstimateCameraDistortion = False
-ReviewMatches = False
+ReviewMatches = True
 ReviewPoint = (-81.34096, 27.65065)
-FitIterations = 1
+FitIterations = 2
 
 def usage():
     print "Usage: " + sys.argv[0] + " <flight_data_dir> <raw_image_dir> <ground_alt_m>"
@@ -31,7 +31,7 @@ ground_alt_m = float(sys.argv[3])
 work_dir = image_dir + "-work"
 
 # create the image group
-ig = ImageGroup.ImageGroup( max_features=800, detect_grid=4, match_ratio=0.5 )
+ig = ImageGroup.ImageGroup( max_features=800, detect_grid=4, match_ratio=0.7 )
 
 # set up Samsung NX210 parameters
 ig.setCameraParams(horiz_mm=23.5, vert_mm=15.7, focal_len_mm=30.0)
