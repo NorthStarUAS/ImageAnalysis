@@ -12,7 +12,7 @@ import Solver
 ComputeMatches = True
 EstimateGroupBias = False
 EstimateCameraDistortion = False
-ReviewMatches = True
+ReviewMatches = False
 ReviewPoint = (-81.34096, 27.65065)
 FitIterations = 2
 
@@ -79,6 +79,9 @@ ig.computeRefLocation()
 ig.k1 = -0.00028
 ig.k2 = 0.0
 ig.projectKeypoints(do_grid=True)
+
+#ig.sfm_test()
+ig.pnp_test()
 
 # review matches
 if ReviewMatches:

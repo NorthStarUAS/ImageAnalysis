@@ -684,7 +684,7 @@ class ImageGroup():
         yaw_step = 2.0
         roll_step = 1.0
         pitch_step = 1.0
-        refinements = 3
+        refinements = 4
 
         image = self.image_list[i]
 
@@ -725,9 +725,72 @@ class ImageGroup():
                image.alt_bias, image.error, image.stddev)
         image.save_info()
 
+    # try to fit individual images by manipulating various parameters
+    # and testing to see if that produces a better fit metric
+    def fitImageAffine3d(self, i, method, gain):
+        i1 = self.image_list[i]
+        angles_sum = [0.0, 0.0, 0.0]
+        weight_sum = i1.weight
+        for j, pairs in enumerate(i1.match_list):
+            if len(pairs) < self.m.min_pairs:
+                continue
+            i2 = self.image_list[j]
+            src = [[], [], []]
+            dst = [[], [], []]
+            for pair in pairs:
+                c1 = i1.coord_list[pair[0]]
+                c2 = i2.coord_list[pair[1]] 
+                src[0].append(c1[0])
+                src[1].append(c1[1])
+                src[2].append(0.0)
+                dst[0].append(c2[0])
+                dst[1].append(c2[1])
+                dst[2].append(0.0)
+            Aff3D = transformations.superimposition_matrix(src, dst)
+            scale, shear, angles, trans, persp = transformations.decompose_matrix(Aff3D)
+            print "%s vs. %s" % (i1.name, i2.name)
+            #print "  scale = %s" % str(scale)
+            #print "  shear = %s" % str(shear)
+            print "  angles = %s" % str(angles)
+            #print "  trans = %s" % str(trans)
+            #print "  persp = %s" % str(persp)
+
+            # this is all based around the assumption that our angle
+            # differences area relatively small
+            for k in range(3):
+                a = angles[k]
+                if a < -180.0:
+                    a += 360.0
+                if a > 180.0:
+                    a -= 360.0
+                angles_sum[k] += a
+            weight_sum += i2.weight
+        angles = [ angles_sum[0] / weight_sum,
+                   angles_sum[1] / weight_sum,
+                   angles_sum[2] / weight_sum ]
+        print "average angles = %s" % str(angles)
+
+        rad2deg = 180.0 / math.pi
+        i1.roll_bias += angles[0] * rad2deg * gain
+        i1.pitch_bias += angles[1] * rad2deg * gain
+        i1.yaw_bias += angles[2] * rad2deg * gain
+
+        coord_list = []
+        corner_list = []
+        grid_list = []
+        # but don't save the results so we don't bias future elements
+        # with moving previous elements
+        coord_list, corner_list, grid_list = self.projectImageKeypointsNative(i1)
+        error = self.m.imageError(i, alt_coord_list=coord_list, method="average")
+        stddev = self.m.imageError(i, alt_coord_list=coord_list, method="stddev")
+        print "average error = %.3f" % error
+        print "average stddev = %.3f" % stddev
+        i1.save_info()
+
     def fitImagesIndividually(self, method, gain):
         for i, image in enumerate(self.image_list):
             self.fitImage(i, method, gain)
+            #self.fitImageAffine3d(i, method, gain)
 
     def geotag_pictures( self, correlator, dir = ".", geotag_dir = "." ):
         ground_sum = 0.0
@@ -912,3 +975,101 @@ class ImageGroup():
 
         f.close()
 
+    def draw_epilines(self, img1, img2, lines, pts1, pts2):
+        ''' img1 - image on which we draw the epilines for the points in img2
+            lines - corresponding epilines '''
+        r,c,d = img1.shape
+        print img1.shape
+        for r,pt1,pt2 in zip(lines,pts1,pts2):
+            color = tuple(np.random.randint(0,255,3).tolist())
+            x0,y0 = map(int, [0, -r[2]/r[1] ])
+            x1,y1 = map(int, [c, -(r[2]+r[0]*c)/r[1] ])
+            cv2.line(img1, (x0,y0), (x1,y1), color,1)
+            cv2.circle(img1,tuple(pt1),5,color,-1)
+            cv2.circle(img2,tuple(pt2),5,color,-1)
+        return img1,img2
+
+    def sfm_test(self):
+        for i, i1 in enumerate(self.image_list):
+            for j, pairs in enumerate(i1.match_list):
+                if i == j:
+                    continue
+                if len(pairs) < 8:
+                    # 8+ pairs are required to compute the fundamental matrix
+                    continue
+                i2 = self.image_list[j]
+                pts1 = []
+                pts2 = []
+                for pair in pairs:
+                    p1 = i1.kp_list[pair[0]].pt
+                    p2 = i2.kp_list[pair[1]].pt
+                    pts1.append( p1 )
+                    pts2.append( p2 )
+                pts1 = np.float32(pts1)
+                pts2 = np.float32(pts2)
+                print "pts1 = %s" % str(pts1)
+                print "pts2 = %s" % str(pts2)
+                F, mask = cv2.findFundamentalMat(pts1, pts2, cv2.FM_LMEDS)
+
+                print "loading full res images ..."
+                img1 = i1.load_full_image(self.source_dir)
+                img2 = i2.load_full_image(self.source_dir)
+
+                # Find epilines corresponding to points in right image
+                # (second image) and drawing its lines on left image
+                lines1 = cv2.computeCorrespondEpilines(pts2.reshape(-1,1,2), 2, F)
+                lines1 = lines1.reshape(-1,3)
+                img5,img6 = self.draw_epilines(img1,img2,lines1,pts1,pts2)
+
+                # Find epilines corresponding to points in left image (first image) and
+                # drawing its lines on right image
+                lines2 = cv2.computeCorrespondEpilines(pts1.reshape(-1,1,2), 1,F)
+                lines2 = lines2.reshape(-1,3)
+                img3,img4 = self.draw_epilines(img2,img1,lines2,pts2,pts1)
+
+                plt.subplot(121),plt.imshow(img5)
+                plt.subplot(122),plt.imshow(img3)
+                plt.show()
+
+    def pnp_test(self):
+        for i, i1 in enumerate(self.image_list):
+            print "pnp for %s" % i1.name
+            fx = (self.focal_len_mm/self.horiz_mm) * float(i1.fullw)
+            fy = (self.focal_len_mm/self.vert_mm) * float(i1.fullh)
+            cx = i1.fullw * 0.5
+            cy = i1.fullh * 0.5
+            cam = np.array( [ [fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0] ] )
+            tvec_sum = [0.0, 0.0, 0.0]
+            for j, pairs in enumerate(i1.match_list):
+                if i == j:
+                    continue
+                if len(pairs) < 8:
+                    # start with only well correlated pairs
+                    continue
+                i2 = self.image_list[j]
+                img_pts = []
+                obj_pts = []
+                for pair in pairs:
+                    p1 = i1.kp_list[pair[0]].pt
+                    p2 = i2.coord_list[pair[1]]
+                    img_pts.append( p1 )
+                    obj_pts.append( [p2[0], p2[1], 0.0] )
+                img_pts = np.float32(img_pts)
+                obj_pts = np.float32(obj_pts)
+                #print "img_pts = %s" % str(img_pts)
+                #print "obj_pts = %s" % str(obj_pts)
+                (result, rvec, tvec) = cv2.solvePnP(obj_pts, img_pts, cam, None)
+                print "  result = %s, rvec = %s, tvec = %s" \
+                    % (result, rvec, tvec)
+                R, jac = cv2.Rodrigues(rvec)
+                print "  R = %s" % str(R)
+                (yaw, pitch, roll) = transformations.euler_from_matrix(R, 'rzyx')
+                deg2rad = math.pi / 180.0
+                yaw_deg = 180 - yaw/deg2rad
+                pitch_deg = pitch/deg2rad
+                print "  euler = %.2f %.2f %.2f" % (yaw/deg2rad,
+                                                    pitch/deg2rad,
+                                                    roll/deg2rad)
+                print "  est = %.2f %.2f %.2f" % (i1.yaw + i1.yaw_bias + self.group_yaw_bias,
+                                                  i1.pitch + i1.pitch_bias + self.group_pitch_bias,
+                                                  i1.roll + i1.roll_bias + self.group_roll_bias)

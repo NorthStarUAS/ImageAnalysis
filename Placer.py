@@ -350,7 +350,7 @@ class Placer():
                      return True
         return False
         
-    def placeImagesbyConnections(self, image_list=None, fullAffine=False):
+    def placeImagesByConnections(self, image_list=None, fullAffine=False):
         if image_list == None:
             image_list = self.image_list
 

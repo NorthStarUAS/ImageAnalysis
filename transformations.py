@@ -923,6 +923,9 @@ def affine_matrix_from_points(v0, v1, shear=True, scale=True, usesvd=True):
     v0 = numpy.array(v0, dtype=numpy.float64, copy=True)
     v1 = numpy.array(v1, dtype=numpy.float64, copy=True)
 
+    #print( "v0.shape = %s" % str(v0.shape))
+    #print( "v1.shape = %s" % str(v1.shape))
+    #print( "v0.shape[1] = %s" % str(v0.shape[1]))
     ndims = v0.shape[0]
     if ndims < 2 or v0.shape[1] < ndims or v0.shape != v1.shape:
         raise ValueError("input arrays are of wrong shape or type")
