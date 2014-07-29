@@ -168,7 +168,7 @@ class ImageGroup():
             pict, trig = correlator.get_match(match)
             image = self.m.findImageByName(pict[2])
             if image != None:
-                if force or (math.fabs(image.lon) < 0.01 and math.fabs(image.lat) < 0.01):
+                if force or (math.fabs(image.aircraft_lon) < 0.01 and math.fabs(image.aircraft_lat) < 0.01):
                     # only if we are forcing a new position
                     # calculation or the position is not already set
                     # from a save file.
@@ -192,8 +192,8 @@ class ImageGroup():
         # tag each image with the flight data parameters at the time
         # the image was taken
         for image in self.image_list:
-            roll = image.roll + image.roll_bias
-            pitch = image.pitch + image.pitch_bias
+            roll = image.aircraft_roll + image.roll_bias
+            pitch = image.aircraft_pitch + image.pitch_bias
             if force != None:
                 image.weight = force
             else:
@@ -220,8 +220,8 @@ class ImageGroup():
         lon_sum = 0.0
         lat_sum = 0.0
         for i in self.image_list:
-            lon_sum += i.lon
-            lat_sum += i.lat
+            lon_sum += i.aircraft_lon
+            lat_sum += i.aircraft_lat
         self.ref_lon = lon_sum / len(self.image_list)
         self.ref_lat = lat_sum / len(self.image_list)
         self.render.setRefCoord(self.ref_lon, self.ref_lat)
@@ -256,19 +256,18 @@ class ImageGroup():
         h = image.fullh
         w = image.fullw
         ar = float(w)/float(h)  # aspect ratio
-        lon = image.lon
-        lat = image.lat
-        msl = image.msl + image.alt_bias + self.group_alt_bias + alt_bias
-        roll = -(image.roll + image.roll_bias + self.group_roll_bias + roll_bias)
-        pitch = -(image.pitch + image.pitch_bias + self.group_pitch_bias + pitch_bias)
-        yaw = image.yaw + image.yaw_bias + self.group_yaw_bias + yaw_bias
-        yaw += image.rotate # from simple fit procedure (depricated?)
+        lon = image.aircraft_lon
+        lat = image.aircraft_lat
+        msl = image.aircraft_msl + image.alt_bias + self.group_alt_bias + alt_bias
+        roll = -(image.aircraft_roll + image.roll_bias + self.group_roll_bias + roll_bias)
+        pitch = -(image.aircraft_pitch + image.pitch_bias + self.group_pitch_bias + pitch_bias)
+        yaw = image.aircraft_yaw + image.yaw_bias + self.group_yaw_bias + yaw_bias
         yaw += 180.0        # camera is mounted backwards
         while yaw > 360.0:
             yaw -= 360.0
         while yaw < -360.0:
             yaw += 360.0
-        #print "%s %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f" % (image.name, image.roll, image.roll_bias, image.pitch, image.pitch_bias, image.yaw, image.yaw_bias, image.msl, image.alt_bias)
+        #print "%s %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f" % (image.name, image.aircraft_roll, image.roll_bias, image.aircraft_pitch, image.pitch_bias, image.aircraft_yaw, image.yaw_bias, image.msl, image.alt_bias)
         if Verbose:
             for arg in [prog, str(lon), str(lat), str(msl), \
                         str(self.ground_alt_m), str(roll), str(pitch), \
@@ -404,19 +403,18 @@ class ImageGroup():
         h = image.fullh
         w = image.fullw
         ar = float(w)/float(h)  # aspect ratio
-        lon = image.lon
-        lat = image.lat
-        msl = image.msl + image.alt_bias + self.group_alt_bias + alt_bias
-        roll = -(image.roll + image.roll_bias + self.group_roll_bias + roll_bias)
-        pitch = -(image.pitch + image.pitch_bias + self.group_pitch_bias + pitch_bias)
-        yaw = image.yaw + image.yaw_bias + self.group_yaw_bias + yaw_bias
-        yaw += image.rotate # from simple fit procedure (depricated?)
+        lon = image.aircraft_lon
+        lat = image.aircraft_lat
+        msl = image.aircraft_msl + image.alt_bias + self.group_alt_bias + alt_bias
+        roll = -(image.aircraft_roll + image.roll_bias + self.group_roll_bias + roll_bias)
+        pitch = -(image.aircraft_pitch + image.pitch_bias + self.group_pitch_bias + pitch_bias)
+        yaw = image.aircraft_yaw + image.yaw_bias + self.group_yaw_bias + yaw_bias
         yaw += 180.0        # camera is mounted backwards
         while yaw > 360.0:
             yaw -= 360.0
         while yaw < -360.0:
             yaw += 360.0
-        #print "%s %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f" % (image.name, image.roll, image.roll_bias, image.pitch, image.pitch_bias, image.yaw, image.yaw_bias, image.msl, image.alt_bias)
+        #print "%s %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f" % (image.name, image.aircraft_roll, image.roll_bias, image.aircraft_pitch, image.pitch_bias, image.aircraft_yaw, image.yaw_bias, image.msl, image.alt_bias)
 
         if False:
             prog = "/home/curt/Projects/UAS/ugear/build_linux-pc/utils/geo/geolocate"
@@ -536,13 +534,13 @@ class ImageGroup():
         h = image.fullh
         w = image.fullw
         ar = float(w)/float(h)  # aspect ratio
-        lon = image.lon
-        lat = image.lat
-        msl = image.msl + image.alt_bias + self.group_alt_bias + alt_bias
-        body_roll = -(image.roll + image.roll_bias + roll_bias)
-        body_pitch = -(image.pitch + image.pitch_bias + pitch_bias)
-        body_yaw = image.yaw + image.yaw_bias + yaw_bias
-        #print "%s %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f" % (image.name, image.roll, image.roll_bias, image.pitch, image.pitch_bias, image.yaw, image.yaw_bias, image.msl, image.alt_bias)
+        lon = image.aircraft_lon
+        lat = image.aircraft_lat
+        msl = image.aircraft_msl + image.alt_bias + self.group_alt_bias + alt_bias
+        body_roll = -(image.aircraft_roll + image.roll_bias + roll_bias)
+        body_pitch = -(image.aircraft_pitch + image.pitch_bias + pitch_bias)
+        body_yaw = image.aircraft_yaw + image.yaw_bias + yaw_bias
+        #print "%s %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f" % (image.name, image.aircraft_roll, image.roll_bias, image.aircraft_pitch, image.pitch_bias, image.aircraft_yaw, image.yaw_bias, image.msl, image.alt_bias)
 
         deg2rad = math.pi / 180.0
         #body_yaw = 45.0; body_pitch = 0.0; body_roll = 10.0
@@ -567,6 +565,15 @@ class ImageGroup():
         (x_m, y_m) = ImageList.wgs842cart(lon, lat, self.ref_lon, self.ref_lat)
         z_m = msl - self.ground_alt_m
         #print "ref offset = %.2f %.2f" % (x_m, y_m)
+
+        # save the camera pose
+        image.camera_yaw = yaw / deg2rad
+        image.camera_pitch = pitch / deg2rad
+        image.camera_roll = roll / deg2rad
+        image.camera_x = x_m
+        image.camera_y = y_m
+        image.camera_z = z_m
+        image.save_info()
 
         coord_list = [None] * len(image.kp_list)
         corner_list = []
@@ -992,7 +999,8 @@ class ImageGroup():
     def generate_camera_location_report(self):
         for image in self.image_list:
             print "%s\t%.10f\t%.10f\t%.2f" \
-                % (image.name, image.lon, image.lat, image.msl)
+                % (image.name, image.aircraft_lon, image.aircraft_lat,
+                   image.aircraft_msl)
 
     def generate_ac3d(self, correlator, ref_image = False, base_name="quick", version=None ):
         max_roll = 30.0
@@ -1008,9 +1016,9 @@ class ImageGroup():
         if ref_image:
             match_count += 1
         for image in self.image_list:
-            msl = image.msl
-            roll = -image.roll
-            pitch = -image.pitch
+            msl = image.aircraft_msl
+            roll = -image.aircraft_roll
+            pitch = -image.aircraft_pitch
             agl = msl - self.ground_alt_m
             if image.has_matches and math.fabs(roll) <= max_roll and math.fabs(pitch) <= max_pitch and agl >= min_agl:
                 match_count += 1
@@ -1030,9 +1038,9 @@ class ImageGroup():
         f.write("kids " + str(match_count) + "\n")
 
         for image in self.image_list:
-            msl = image.msl
-            roll = -image.roll
-            pitch = -image.pitch
+            msl = image.aircraft_msl
+            roll = -image.aircraft_roll
+            pitch = -image.aircraft_pitch
             agl = msl - self.ground_alt_m
             if not image.has_matches or math.fabs(roll) > max_roll or math.fabs(pitch) > max_pitch or agl < min_agl:
                 continue
@@ -1204,6 +1212,6 @@ class ImageGroup():
                 print "  euler = %.2f %.2f %.2f" % (yaw/deg2rad,
                                                     pitch/deg2rad,
                                                     roll/deg2rad)
-                print "  est = %.2f %.2f %.2f" % (i1.yaw + i1.yaw_bias + self.group_yaw_bias,
-                                                  i1.pitch + i1.pitch_bias + self.group_pitch_bias,
-                                                  i1.roll + i1.roll_bias + self.group_roll_bias)
+                print "  est = %.2f %.2f %.2f" % (i1.aircraft_yaw + i1.yaw_bias + self.group_yaw_bias,
+                                                  i1.aircraft_pitch + i1.pitch_bias + self.group_pitch_bias,
+                                                  i1.aircraft_roll + i1.roll_bias + self.group_roll_bias)

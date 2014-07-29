@@ -22,31 +22,46 @@ class Image():
         self.des_list = None
         self.match_list = []
         self.has_matches = True
-        self.set_location()
+
+        self.aircraft_yaw = 0.0
+        self.aircraft_pitch = 0.0
+        self.aircraft_roll = 0.
+        self.aircraft_lon = 0.0
+        self.aircraft_lat = 0.0
+        self.aircraft_msl = 0.0
+
+        self.camera_yaw = 0.0
+        self.camera_pitch = 0.0
+        self.camera_roll = 0.0
+        self.camera_x = 0.0
+        self.camera_y = 0.0
+        self.camera_z = 0.0
+
         self.yaw_bias = 0.0
         self.roll_bias = 0.0
         self.pitch_bias = 0.0
         self.alt_bias = 0.0
         self.x_bias = 0.0
         self.y_bias = 0.0
+
         self.weight = 1.0
         self.connections = 0.0
         self.error = 0.0
         self.stddev = 0.0
-        self.rotate = 0.0       # depricated?
         self.placed = False
+
         if image_file:
             self.load(image_dir, image_file)
 
     def set_location(self,
                      lon=0.0, lat=0.0, msl=0.0,
                      roll=0.0, pitch=0.0, yaw=0.0):
-        self.lon = lon
-        self.lat = lat
-        self.msl = msl
-        self.roll = roll
-        self.pitch = pitch
-        self.yaw = yaw
+        self.aircraft_lon = lon
+        self.aircraft_lat = lat
+        self.aircraft_msl = msl
+        self.aircraft_roll = roll
+        self.aircraft_pitch = pitch
+        self.aircraft_yaw = yaw
 
     def load_image(self):
         if self.img == None:
@@ -136,12 +151,30 @@ class Image():
                 xml = ET.parse(self.info_file)
                 root = xml.getroot()
                 self.has_matches = bool(root.find('has-matches').text)
-                lon = float(root.find('longitude').text)
-                lat = float(root.find('latitude').text)
-                msl = float(root.find('altitude-msl').text)
-                roll = float(root.find('roll').text)
-                pitch = float(root.find('pitch').text)
-                yaw = float(root.find('yaw').text)
+                if root.find('longitude') is not None:
+                    lon = float(root.find('longitude').text)
+                else:
+                    lon = float(root.find('aircraft-longitude').text)
+                if root.find('latitude') is not None:
+                    lat = float(root.find('latitude').text)
+                else:
+                    lat = float(root.find('aircraft-latitude').text)
+                if root.find('altitude-msl') is not None:
+                    msl = float(root.find('altitude-msl').text)
+                else:
+                    msl = float(root.find('aircraft-msl').text)
+                if root.find('roll') is not None:
+                    roll = float(root.find('roll').text)
+                else:
+                    roll = float(root.find('aircraft-roll').text)
+                if root.find('pitch') is not None:
+                    pitch = float(root.find('pitch').text)
+                else:
+                    pitch = float(root.find('aircraft-pitch').text)
+                if root.find('yaw') is not None:
+                    yaw = float(root.find('yaw').text)
+                else:
+                    yaw = float(root.find('aircraft-yaw').text)
                 self.set_location(lon, lat, msl, roll, pitch, yaw)
                 self.alt_bias = float(root.find('altitude-bias').text)
                 self.roll_bias = float(root.find('roll-bias').text)
@@ -150,12 +183,21 @@ class Image():
                 self.x_bias = float(root.find('x-bias').text)
                 self.y_bias = float(root.find('y-bias').text)
                 self.weight = float(root.find('weight').text)
-                if root.find('connections') is not None:
-                    self.connections = float(root.find('connections').text)
-                if root.find('error') is not None:
-                    self.error = float(root.find('error').text)
-                if root.find('stddev') is not None:
-                    self.stddev = float(root.find('stddev').text)
+                self.connections = float(root.find('connections').text)
+                self.error = float(root.find('error').text)
+                self.stddev = float(root.find('stddev').text)
+                if root.find('camera-yaw') is not None:
+                    self.camera_yaw = float(root.find('camera-yaw').text)
+                if root.find('camera-pitch') is not None:
+                    self.camera_pitch = float(root.find('camera-pitch').text)
+                if root.find('camera-roll') is not None:
+                    self.camera_roll = float(root.find('camera-roll').text)
+                if root.find('camera-x') is not None:
+                    self.camera_x = float(root.find('camera-x').text)
+                if root.find('camera-y') is not None:
+                    self.camera_y = float(root.find('camera-y').text)
+                if root.find('camera-z') is not None:
+                    self.camera_z = float(root.find('camera-z').text)
             except:
                 print self.info_file + ":\n" + "  load error: " \
                     + str(sys.exc_info()[1])
@@ -246,13 +288,12 @@ class Image():
         root = ET.Element('information')
         xml = ET.ElementTree(root)
         ET.SubElement(root, 'has-matches').text = str(self.has_matches)
-        ET.SubElement(root, 'longitude').text = "%.8f" % self.lon
-        ET.SubElement(root, 'latitude').text = "%.8f" % self.lat
-        ET.SubElement(root, 'altitude-msl').text = "%.2f" % self.msl
-        ET.SubElement(root, 'roll').text = "%.2f" % self.roll
-        ET.SubElement(root, 'pitch').text = "%.2f" % self.pitch
-        ET.SubElement(root, 'yaw').text = "%.2f" % self.yaw
-
+        ET.SubElement(root, 'aircraft-longitude').text = "%.8f" % self.aircraft_lon
+        ET.SubElement(root, 'aircraft-latitude').text = "%.8f" % self.aircraft_lat
+        ET.SubElement(root, 'aircraft-msl').text = "%.2f" % self.aircraft_msl
+        ET.SubElement(root, 'aircraft-yaw').text = "%.2f" % self.aircraft_yaw
+        ET.SubElement(root, 'aircraft-pitch').text = "%.2f" % self.aircraft_pitch
+        ET.SubElement(root, 'aircraft-roll').text = "%.2f" % self.aircraft_roll
         ET.SubElement(root, 'altitude-bias').text = "%.2f" % self.alt_bias
         ET.SubElement(root, 'roll-bias').text = "%.2f" % self.roll_bias
         ET.SubElement(root, 'pitch-bias').text = "%.2f" % self.pitch_bias
@@ -263,6 +304,12 @@ class Image():
         ET.SubElement(root, 'connections').text = "%d" % self.connections
         ET.SubElement(root, 'error').text = "%.3f" % self.error
         ET.SubElement(root, 'stddev').text = "%.3f" % self.stddev
+        ET.SubElement(root, 'camera-yaw').text = "%.3f" % self.camera_yaw
+        ET.SubElement(root, 'camera-pitch').text = "%.3f" % self.camera_pitch
+        ET.SubElement(root, 'camera-roll').text = "%.3f" % self.camera_roll
+        ET.SubElement(root, 'camera-x').text = "%.3f" % self.camera_x
+        ET.SubElement(root, 'camera-y').text = "%.3f" % self.camera_y
+        ET.SubElement(root, 'camera-z').text = "%.3f" % self.camera_z
 
         # write xml file
         try:

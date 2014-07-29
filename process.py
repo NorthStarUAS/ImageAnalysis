@@ -14,7 +14,7 @@ EstimateGroupBias = False
 EstimateCameraDistortion = False
 ReviewMatches = False
 ReviewPoint = (-81.34096, 27.65065)
-FitIterations = 2
+FitIterations = 5
 
 def usage():
     print "Usage: " + sys.argv[0] + " <flight_data_dir> <raw_image_dir> <ground_alt_m>"
