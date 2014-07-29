@@ -64,16 +64,16 @@ best_correlation, best_camera_time_error = c.test_correlations()
 
 # tag each image with the camera position (from the flight data
 # parameters) at the time the image was taken
-ig.computeCamPositions(c, force=False, weight=True)
+ig.interpolateCamPositions(c, force=False, weight=True)
 #ig.generate_camera_location_report()
-
-# weight the images (either automatically by roll/pitch, or force a value)
-ig.computeWeights(force=1.0)
-ig.computeConnections()
 
 # compute a central lon/lat for the image set.  This will be the (0,0)
 # point in our local X, Y, Z coordinate system
 ig.computeRefLocation()
+
+# weight the images (either automatically by roll/pitch, or force a value)
+ig.computeWeights(force=1.0)
+ig.computeConnections()
 
 # initial projection
 ig.k1 = -0.00028
