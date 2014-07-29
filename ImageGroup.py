@@ -1181,7 +1181,9 @@ class ImageGroup():
             cx = i1.fullw * 0.5
             cy = i1.fullh * 0.5
             cam = np.array( [ [fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0] ] )
-            tvec_sum = [0.0, 0.0, 0.0]
+            att_sum = [ [0.0, 0.0], [0.0, 0.0], [0.0, 0.0] ]
+            pos_sum = [0.0, 0.0, 0.0]
+            weight_sum = i1.weight
             for j, pairs in enumerate(i1.match_list):
                 if i == j:
                     continue
@@ -1204,14 +1206,77 @@ class ImageGroup():
                 print "  result = %s, rvec = %s, tvec = %s" \
                     % (result, rvec, tvec)
                 R, jac = cv2.Rodrigues(rvec)
-                print "  R = %s" % str(R)
-                (yaw, pitch, roll) = transformations.euler_from_matrix(R, 'rzyx')
+                print "  R =\n%s" % str(R)
+                # googled how to derive the position in object
+                # coordinates from solvePNP()
+                pos = -np.matrix(R).T * np.matrix(tvec)
+                for k in range(0,3):
+                    pos_sum[k] += pos[k]
+                print "  pos = %s" % str(pos)
+                # Remap the R matrix to match our coordinate system
+                # (by inspection...)
+                # [ [a, b, c], [d,  e,  f], [g, h,  i] ] =>
+                # [ [h, b, a], [g, -e, -d], [i, c, -f] ]
+                # this will be tedius code ...
+                #Rconv[:3, 0] = R[:3, 2] # swap col 0 <=> col 2
+                #Rconv[:3, 2] = R[:3, 0]
+                #Rconv[1, :3] *= -1.0    # negate the middle row
+                Rconv = R.copy()
+                Rconv[0,0] = R[2,1]
+                Rconv[0,1] = R[0,1]
+                Rconv[0,2] = R[0,0]
+                Rconv[1,0] = R[2,0]
+                Rconv[1,1] = -R[1,1]
+                Rconv[1,2] = -R[1,0]
+                Rconv[2,0] = R[2,2]
+                Rconv[2,1] = R[0,2]
+                Rconv[2,2] = -R[1,2]
+                print "Rconv =\n%s" % str(Rconv)
+                (yaw, pitch, roll) = transformations.euler_from_matrix(Rconv, 'rzyx')
+                att_sum[0][0] += math.cos(yaw)
+                att_sum[0][1] += math.sin(yaw)
+                att_sum[1][0] += math.cos(pitch)
+                att_sum[1][1] += math.sin(pitch)
+                att_sum[2][0] += math.cos(roll)
+                att_sum[2][1] += math.sin(roll)
+                weight_sum += i2.weight
+
                 deg2rad = math.pi / 180.0
                 yaw_deg = 180 - yaw/deg2rad
                 pitch_deg = pitch/deg2rad
                 print "  euler = %.2f %.2f %.2f" % (yaw/deg2rad,
                                                     pitch/deg2rad,
                                                     roll/deg2rad)
-                print "  est = %.2f %.2f %.2f" % (i1.aircraft_yaw + i1.yaw_bias + self.group_yaw_bias,
-                                                  i1.aircraft_pitch + i1.pitch_bias + self.group_pitch_bias,
-                                                  i1.aircraft_roll + i1.roll_bias + self.group_roll_bias)
+                print "  est = %.2f %.2f %.2f" % (i1.camera_yaw,
+                                                  i1.camera_pitch,
+                                                  i1.camera_roll)
+
+                Rcam = transformations.euler_matrix(i1.camera_yaw*deg2rad,
+                                                    i1.camera_pitch*deg2rad,
+                                                    i1.camera_roll*deg2rad,
+                                                    'rzyx')
+
+                print "solvePNP =\n%s" % str(Rconv)
+                print "my FIT =\n%s" % str(Rcam)
+
+                v = np.array( [1.0, 0.0, 0.0] )
+                vh = np.array( [1.0, 0.0, 0.0, 1.0] )
+                print "  v = %s" % str(v)
+                print "  Rconv * v = %s" % str(np.dot(Rconv, v))
+                print "  Rcam * v = %s" % str(np.dot(Rcam, vh))
+            print "Camera pose for image %s:" % i1.name
+            print "  pos = %.2f %.2f %.2f" % (pos_sum[0]/weight_sum,
+                                              pos_sum[1]/weight_sum,
+                                              pos_sum[2]/weight_sum)
+            yaw_avg = math.atan2(att_sum[0][1]/weight_sum,
+                                 att_sum[0][0]/weight_sum)
+            pitch_avg = math.atan2(att_sum[1][1]/weight_sum,
+                                   att_sum[1][0]/weight_sum)
+            roll_avg =  math.atan2(att_sum[2][1]/weight_sum,
+                                   att_sum[2][0]/weight_sum)
+            print "  att = %.2f %.2f %.2f" % ( yaw_avg / deg2rad,
+                                               pitch_avg / deg2rad,
+                                               roll_avg / deg2rad )
+            print "  fit est = %.2f %.2f %.2f" % (i1.camera_yaw,
+                                                  i1.camera_pitch,
+                                                  i1.camera_roll)
