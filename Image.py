@@ -288,12 +288,14 @@ class Image():
         root = ET.Element('information')
         xml = ET.ElementTree(root)
         ET.SubElement(root, 'has-matches').text = str(self.has_matches)
-        ET.SubElement(root, 'aircraft-longitude').text = "%.8f" % self.aircraft_lon
-        ET.SubElement(root, 'aircraft-latitude').text = "%.8f" % self.aircraft_lat
+        ET.SubElement(root, 'aircraft-longitude').text = "%.10f" % self.aircraft_lon
+        ET.SubElement(root, 'aircraft-latitude').text = "%.10f" % self.aircraft_lat
         ET.SubElement(root, 'aircraft-msl').text = "%.2f" % self.aircraft_msl
         ET.SubElement(root, 'aircraft-yaw').text = "%.2f" % self.aircraft_yaw
         ET.SubElement(root, 'aircraft-pitch').text = "%.2f" % self.aircraft_pitch
         ET.SubElement(root, 'aircraft-roll').text = "%.2f" % self.aircraft_roll
+        ET.SubElement(root, 'aircraft-x').text = "%.3f" % self.aircraft_x
+        ET.SubElement(root, 'aircraft-y').text = "%.3f" % self.aircraft_y
         ET.SubElement(root, 'altitude-bias').text = "%.2f" % self.alt_bias
         ET.SubElement(root, 'roll-bias').text = "%.2f" % self.roll_bias
         ET.SubElement(root, 'pitch-bias').text = "%.2f" % self.pitch_bias
