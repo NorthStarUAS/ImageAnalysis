@@ -31,6 +31,8 @@ class ImageGroup():
         self.file_list = []
         self.image_list = []
         self.ac3d_steps = 8
+        self.ref_lon = None
+        self.ref_lat = None
         self.shutter_latency = 0.0
         self.group_roll_bias = 0.0
         self.group_pitch_bias = 0.0
@@ -101,6 +103,8 @@ class ImageGroup():
         project_file = self.work_dir + "/project.xml"
         root = ET.Element('project')
         xml = ET.ElementTree(root)
+        ET.SubElement(root, 'reference-longitude').text = "%.10f" % self.ref_lon
+        ET.SubElement(root, 'reference-latitude').text = "%.10f" % self.ref_lat
         ET.SubElement(root, 'shutter-latency').text = "%.2f" % self.shutter_latency
         ET.SubElement(root, 'roll-bias').text = "%.2f" % self.group_roll_bias
         ET.SubElement(root, 'pitch-bias').text = "%.2f" % self.group_pitch_bias
@@ -215,17 +219,29 @@ class ImageGroup():
             image.save_info()
             print "%s connections: %d" % (image.name, image.connections)
 
+    # compute a center reference location (lon, lat) for the group of
+    # images, then compute the x, y offset for each image relative to
+    # the reference position.
     def computeRefLocation(self):
         # requires images to have their location computed/loaded
         lon_sum = 0.0
         lat_sum = 0.0
-        for i in self.image_list:
-            lon_sum += i.aircraft_lon
-            lat_sum += i.aircraft_lat
+        for image in self.image_list:
+            lon_sum += image.aircraft_lon
+            lat_sum += image.aircraft_lat
         self.ref_lon = lon_sum / len(self.image_list)
         self.ref_lat = lat_sum / len(self.image_list)
         self.render.setRefCoord(self.ref_lon, self.ref_lat)
+        self.save_project()
         print "Reference: lon = %.6f lat = %.6f" % (self.ref_lon, self.ref_lat)
+        for image in self.image_list:
+            (x, y) = ImageList.wgs842cart(image.aircraft_lon,
+                                          image.aircraft_lat,
+                                          self.ref_lon, self.ref_lat)
+            image.aircraft_x = x
+            image.aircraft_y = y
+            image.save_info()
+
 
     # undistort x, y using a simple radial lens distortion model.  (We
     # call the original image values the 'distorted' values.)  Input
@@ -358,133 +374,6 @@ class ImageGroup():
         #f.close()
         return coord_list, corner_list, grid_list
 
-    def projectPoint1(self, image, q, pt, z_m, horiz_mm, vert_mm, focal_len_mm):
-        h = image.fullh
-        w = image.fullw
-        ar = float(w)/float(h)  # aspect ratio
-
-        # normalized pixel coordinates to [0.0, 1.0]
-        xnorm = pt[0] / float(w-1)
-        ynorm = pt[1] / float(h-1)
-
-        # lens un-distortion
-        xnorm_u, ynorm_u = self.doLensUndistort(ar, xnorm, ynorm)
-
-        # compute pixel coordinate in sensor coordinate space (mm
-        # units) with (0mm, 0mm) being the center of the image.
-        x_mm = (xnorm_u * 2.0 - 1.0) * (horiz_mm * 0.5)
-        y_mm = -1.0 * (ynorm_u * 2.0 - 1.0) * (vert_mm * 0.5)
-        camvec = [y_mm, x_mm, focal_len_mm]
-        camvec = transformations.unit_vector(camvec) # normalize
-        #print "%.3f %.3f %.3f" % (camvec[0], camvec[1], camvec[2])
-
-        # transform camera vector (in body reference frame) to ned
-        # reference frame
-        ned = transformations.quaternion_backTransform(q, camvec)
-        #print "%.3f %.3f %.3f" % (ned[0], ned[1], ned[2])
-        
-        # solve projection
-        if ned[2] <= 0.0:
-            # no interseciton
-            return None
-        factor = z_m / ned[2]
-        x_proj = ned[0] * factor
-        y_proj = ned[1] * factor
-        #print "proj dist = %.2f" % math.sqrt(x_proj*x_proj + y_proj*y_proj)
-        return [x_proj, y_proj]
-
-    def projectImageKeypointsNative1(self, image, do_grid=False,
-                                    yaw_bias=0.0, roll_bias=0.0, pitch_bias=0.0,
-                                    alt_bias=0.0):
-        Verbose = False
-
-        if image.img == None:
-            image.load_image()
-        h = image.fullh
-        w = image.fullw
-        ar = float(w)/float(h)  # aspect ratio
-        lon = image.aircraft_lon
-        lat = image.aircraft_lat
-        msl = image.aircraft_msl + image.alt_bias + self.group_alt_bias + alt_bias
-        roll = -(image.aircraft_roll + image.roll_bias + self.group_roll_bias + roll_bias)
-        pitch = -(image.aircraft_pitch + image.pitch_bias + self.group_pitch_bias + pitch_bias)
-        yaw = image.aircraft_yaw + image.yaw_bias + self.group_yaw_bias + yaw_bias
-        yaw += 180.0        # camera is mounted backwards
-        while yaw > 360.0:
-            yaw -= 360.0
-        while yaw < -360.0:
-            yaw += 360.0
-        #print "%s %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f" % (image.name, image.aircraft_roll, image.roll_bias, image.aircraft_pitch, image.pitch_bias, image.aircraft_yaw, image.yaw_bias, image.msl, image.alt_bias)
-
-        if False:
-            prog = "/home/curt/Projects/UAS/ugear/build_linux-pc/utils/geo/geolocate"
-            for arg in [prog, str(lon), str(lat), str(msl), \
-                        str(self.ground_alt_m), str(roll), str(pitch), \
-                        str(yaw), str(self.horiz_mm), str(self.vert_mm), \
-                        str(self.focal_len_mm), str(self.ref_lon), \
-                        str(self.ref_lat)]:
-                print arg,
-            print
-
-        deg2rad = math.pi / 180.0
-        #roll = 0.0; pitch = 0.0; yaw = 45.0
-        #print "(1) total yaw = %.2f pitch = %.2f roll = %.2f" % ( yaw, pitch, roll )
-        q = transformations.quaternion_from_euler(yaw*deg2rad,
-                                                  pitch*deg2rad,
-                                                  roll*deg2rad,
-                                                  'rzyx')
-        (x_m, y_m) = ImageList.wgs842cart(lon, lat, self.ref_lon, self.ref_lat)
-        z_m = msl - self.ground_alt_m
-        #print "ref offset = %.2f %.2f" % (x_m, y_m)
-
-        coord_list = [None] * len(image.kp_list)
-        corner_list = []
-        grid_list = []
-
-        # project the paired keypoints into world space
-        for i, kp in enumerate(image.kp_list):
-            if not image.kp_usage[i]:
-                continue
-            proj = self.projectPoint1(image, q, kp.pt, z_m,
-                                     self.horiz_mm, self.vert_mm,
-                                     self.focal_len_mm)
-            coord_list[i] = [proj[1] + image.x_bias + x_m,
-                             proj[0] + image.y_bias + y_m]
-
-        # compute the corners (2x2 polygon grid) in image space
-        dx = image.fullw - 1
-        dy = image.fullh - 1
-        y = 0.0
-        for j in xrange(2):
-            x = 0.0
-            for i in xrange(2):
-                #print "corner %.2f %.2f" % (x, y)
-                proj = self.projectPoint1(image, q, [x, y], z_m,
-                                         self.horiz_mm, self.vert_mm,
-                                         self.focal_len_mm)
-                corner_list.append( [proj[1] + image.x_bias + x_m,
-                                     proj[0] + image.y_bias + y_m] )
-                x += dx
-            y += dy
-
-        # compute the ac3d polygon grid in image space
-        dx = image.fullw / float(self.ac3d_steps)
-        dy = image.fullh / float(self.ac3d_steps)
-        y = 0.0
-        for j in xrange(self.ac3d_steps+1):
-            x = 0.0
-            for i in xrange(self.ac3d_steps+1):
-                #print "grid %.2f %.2f" % (xnorm_u, ynorm_u)
-                proj = self.projectPoint1(image, q, [x, y], z_m,
-                                         self.horiz_mm, self.vert_mm,
-                                         self.focal_len_mm)
-                grid_list.append( [proj[1] + image.x_bias + x_m,
-                                   proj[0] + image.y_bias + y_m] )
-                x += dx
-            y += dy
-
-        return coord_list, corner_list, grid_list
-
     def projectPoint2(self, image, q, pt, z_m, horiz_mm, vert_mm, focal_len_mm):
         h = image.fullh
         w = image.fullw
@@ -526,7 +415,109 @@ class ImageGroup():
         #print "proj dist = %.2f" % math.sqrt(x_proj*x_proj + y_proj*y_proj)
         return [x_proj, y_proj]
 
+    # project keypoints based on body reference system + body biases
+    # transformed by camera mounting + camera mounting biases
     def projectImageKeypointsNative2(self, image, do_grid=False,
+                                    yaw_bias=0.0, roll_bias=0.0, pitch_bias=0.0,
+                                    alt_bias=0.0):
+        if image.img == None:
+            image.load_image()
+        h = image.fullh
+        w = image.fullw
+        ar = float(w)/float(h)  # aspect ratio
+        lon = image.aircraft_lon
+        lat = image.aircraft_lat
+        msl = image.aircraft_msl + image.alt_bias + self.group_alt_bias + alt_bias
+        body_roll = -(image.aircraft_roll + image.roll_bias + roll_bias)
+        body_pitch = -(image.aircraft_pitch + image.pitch_bias + pitch_bias)
+        body_yaw = image.aircraft_yaw + image.yaw_bias + yaw_bias
+        #print "%s %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f" % (image.name, image.aircraft_roll, image.roll_bias, image.aircraft_pitch, image.pitch_bias, image.aircraft_yaw, image.yaw_bias, image.msl, image.alt_bias)
+
+        deg2rad = math.pi / 180.0
+        #body_yaw = 45.0; body_pitch = 0.0; body_roll = 10.0
+        #print "body yaw = %.2f pitch = %.2f roll = %.2f" % ( body_yaw, body_pitch, body_roll )
+        ned2body = transformations.quaternion_from_euler(body_yaw * deg2rad,
+                                                         body_pitch * deg2rad,
+                                                         body_roll * deg2rad,
+                                                         'rzyx')
+        yaw_cam = 180.0 + self.group_yaw_bias
+        pitch_cam = -(-90.0 + self.group_pitch_bias)
+        roll_cam = -(self.group_roll_bias)
+        #yaw_cam = 0.0; pitch_cam = 10.0; roll_cam = 0.0
+        #print "cam yaw = %.2f pitch = %.2f roll = %.2f" % ( yaw_cam, pitch_cam, roll_cam )
+        body2cam = transformations.quaternion_from_euler(yaw_cam * deg2rad,
+                                                         pitch_cam * deg2rad,
+                                                         roll_cam * deg2rad,
+                                                         'rzyx')
+        q = transformations.quaternion_multiply(ned2body, body2cam)
+        #q = transformations.quaternion_multiply(body2cam, ned2body)
+        (yaw, pitch, roll) = transformations.euler_from_quaternion(q, 'rzyx')
+        #print "total yaw = %.2f pitch = %.2f roll = %.2f" % ( yaw/deg2rad, pitch/deg2rad, roll/deg2rad )
+        (x_m, y_m) = ImageList.wgs842cart(lon, lat, self.ref_lon, self.ref_lat)
+        z_m = msl - self.ground_alt_m
+        #print "ref offset = %.2f %.2f" % (x_m, y_m)
+
+        # save the camera pose
+        image.camera_yaw = yaw / deg2rad
+        image.camera_pitch = pitch / deg2rad
+        image.camera_roll = roll / deg2rad
+        image.camera_x = x_m
+        image.camera_y = y_m
+        image.camera_z = z_m
+        image.save_info()
+
+        coord_list = [None] * len(image.kp_list)
+        corner_list = []
+        grid_list = []
+
+        # project the paired keypoints into world space
+        for i, kp in enumerate(image.kp_list):
+            if not image.kp_usage[i]:
+                continue
+            proj = self.projectPoint2(image, q, kp.pt, z_m,
+                                     self.horiz_mm, self.vert_mm,
+                                     self.focal_len_mm)
+            coord_list[i] = [proj[1] + image.x_bias + x_m,
+                             proj[0] + image.y_bias + y_m]
+
+        # compute the corners (2x2 polygon grid) in image space
+        dx = image.fullw - 1
+        dy = image.fullh - 1
+        y = 0.0
+        for j in xrange(2):
+            x = 0.0
+            for i in xrange(2):
+                #print "corner %.2f %.2f" % (x, y)
+                proj = self.projectPoint2(image, q, [x, y], z_m,
+                                         self.horiz_mm, self.vert_mm,
+                                         self.focal_len_mm)
+                corner_list.append( [proj[1] + image.x_bias + x_m,
+                                     proj[0] + image.y_bias + y_m] )
+                x += dx
+            y += dy
+
+        # compute the ac3d polygon grid in image space
+        dx = image.fullw / float(self.ac3d_steps)
+        dy = image.fullh / float(self.ac3d_steps)
+        y = 0.0
+        for j in xrange(self.ac3d_steps+1):
+            x = 0.0
+            for i in xrange(self.ac3d_steps+1):
+                #print "grid %.2f %.2f" % (xnorm_u, ynorm_u)
+                proj = self.projectPoint2(image, q, [x, y], z_m,
+                                         self.horiz_mm, self.vert_mm,
+                                         self.focal_len_mm)
+                grid_list.append( [proj[1] + image.x_bias + x_m,
+                                   proj[0] + image.y_bias + y_m] )
+                x += dx
+            y += dy
+
+        return coord_list, corner_list, grid_list
+
+    # project keypoints based on cumulative camera pose (probably
+    # computed from solvePNP() or an average of solvePNP() pair
+    # solutions.)
+    def projectImageKeypointsNative3(self, image, do_grid=False,
                                     yaw_bias=0.0, roll_bias=0.0, pitch_bias=0.0,
                                     alt_bias=0.0):
         if image.img == None:
@@ -1183,7 +1174,7 @@ class ImageGroup():
             cam = np.array( [ [fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0] ] )
             att_sum = [ [0.0, 0.0], [0.0, 0.0], [0.0, 0.0] ]
             pos_sum = [0.0, 0.0, 0.0]
-            weight_sum = i1.weight
+            weight_sum = 0.0
             for j, pairs in enumerate(i1.match_list):
                 if i == j:
                     continue
@@ -1212,7 +1203,8 @@ class ImageGroup():
                 pos = -np.matrix(R).T * np.matrix(tvec)
                 for k in range(0,3):
                     pos_sum[k] += pos[k]
-                print "  pos = %s" % str(pos)
+                print "  PNP pos = %s" % str(pos)
+
                 # Remap the R matrix to match our coordinate system
                 # (by inspection...)
                 # [ [a, b, c], [d,  e,  f], [g, h,  i] ] =>
@@ -1264,19 +1256,22 @@ class ImageGroup():
                 print "  v = %s" % str(v)
                 print "  Rconv * v = %s" % str(np.dot(Rconv, v))
                 print "  Rcam * v = %s" % str(np.dot(Rcam, vh))
+            if weight_sum < 0.0001:
+                continue
             print "Camera pose for image %s:" % i1.name
-            print "  pos = %.2f %.2f %.2f" % (pos_sum[0]/weight_sum,
+            print "  PNP pos = %.2f %.2f %.2f" % (pos_sum[0]/weight_sum,
                                               pos_sum[1]/weight_sum,
                                               pos_sum[2]/weight_sum)
+            print "  Fit pos = %s" % str((i1.camera_x, i1.camera_y, i1.camera_z))            
             yaw_avg = math.atan2(att_sum[0][1]/weight_sum,
                                  att_sum[0][0]/weight_sum)
             pitch_avg = math.atan2(att_sum[1][1]/weight_sum,
                                    att_sum[1][0]/weight_sum)
             roll_avg =  math.atan2(att_sum[2][1]/weight_sum,
                                    att_sum[2][0]/weight_sum)
-            print "  att = %.2f %.2f %.2f" % ( yaw_avg / deg2rad,
+            print "  PNP att = %.2f %.2f %.2f" % ( yaw_avg / deg2rad,
                                                pitch_avg / deg2rad,
                                                roll_avg / deg2rad )
-            print "  fit est = %.2f %.2f %.2f" % (i1.camera_yaw,
+            print "  Fit att = %.2f %.2f %.2f" % (i1.camera_yaw,
                                                   i1.camera_pitch,
                                                   i1.camera_roll)
