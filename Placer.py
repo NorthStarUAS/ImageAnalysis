@@ -21,8 +21,8 @@ class Placer():
             c2 = i2.coord_list[pair[1]]
             src.append( c1 )
             dst.append( c2 )
-        #print str(src)
-        #print str(dst)
+        #print "src = %s" % str(src)
+        #print "dst = %s" % str(dst)
         affine = cv2.estimateRigidTransform(np.array([src]).astype(np.float32),
                                             np.array([dst]).astype(np.float32),
                                             fullAffine)
@@ -350,7 +350,7 @@ class Placer():
                      return True
         return False
         
-    def placeImagesByConnections(self, image_list=None, fullAffine=False):
+    def placeImagesByConnections(self, image_list=None, affine=""):
         if image_list == None:
             image_list = self.image_list
 
@@ -381,10 +381,12 @@ class Placer():
             if maxidx != None:
                 image = image_list[maxidx]
                 print "Placing %s (connections = %d)" % (image.name, maxcon)
-                M = self.findGroupAffine(image, fullAffine=fullAffine)
-                #M = self.findGroupHomography(image)
-                M = self.findWeightedAffine1(image, fullAffine=fullAffine)
-                self.transformImage(image, gain=1.0, M=M)
+                if affine == "rigid" or affine == "full":
+                    fullAffine = (affine == "full")
+                    #M = self.findGroupAffine(image, fullAffine=fullAffine)
+                    #M = self.findGroupHomography(image)
+                    M = self.findWeightedAffine1(image, fullAffine=fullAffine)
+                    self.transformImage(image, gain=1.0, M=M)
                 image.placed = True
                 placed_list.append(image)
         return placed_list
@@ -398,7 +400,7 @@ class Placer():
         count = float(len(image.corner_list))
         return (x_sum/count, y_sum/count)
 
-    def placeImagesByScore(self, image_list=None, fullAffine=False):
+    def placeImagesByScore(self, image_list=None, affine=""):
         if image_list == None:
             image_list = self.image_list
 
@@ -449,10 +451,12 @@ class Placer():
             if minidx != None:
                 image = image_list[minidx]
                 print "Placing %s (score = %.3f)" % (image.name, minscore)
-                M = self.findGroupAffine(image, fullAffine=fullAffine)
-                #M = self.findGroupHomography(image)
-                M = self.findWeightedAffine1(image, fullAffine=fullAffine)
-                self.transformImage(image, gain=1.0, M=M)
+                if affine == "rigid" or affine == "full":
+                    fullAffine = (affine == "full")
+                    #M = self.findGroupAffine(image, fullAffine=fullAffine)
+                    #M = self.findGroupHomography(image)
+                    M = self.findWeightedAffine1(image, fullAffine=fullAffine)
+                    self.transformImage(image, gain=1.0, M=M)
                 image.placed = True
                 placed_list.append(image)
         return placed_list

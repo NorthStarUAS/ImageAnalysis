@@ -38,7 +38,7 @@ class Solver():
             while test_value <= max_value + (step_size*0.1):
                 if param == "shutter-latency":
                     self.ig.shutter_latency = test_value
-                    self.ig.interpolateCamPositions(self.c, force=True)
+                    self.ig.interpolateAircraftPositions(self.c, force=True)
                 elif param == "yaw":
                     self.ig.group_yaw_bias = test_value
                 elif param == "roll":

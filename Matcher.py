@@ -13,7 +13,7 @@ class Matcher():
         self.matcher = None
         self.dense_detect_grid = 1
         self.match_ratio = 0.70
-        self.min_pairs = 5      # minimum number of pairs to consider a match
+        self.min_pairs = 8      # minimum number of pairs to consider a match
         #self.bf = cv2.BFMatcher(cv2.NORM_HAMMING) #, crossCheck=True)
         #self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
@@ -104,7 +104,7 @@ class Matcher():
         kp_pairs = zip(mkp1, mkp2)
         return p1, p2, kp_pairs, idx_pairs
 
-    def computeImageMatches(self, i1, review=False):
+    def computeImageMatches1(self, i1, review=False):
         match_list = [[]] * len(self.image_list)
         for j, i2 in enumerate(self.image_list):
             if i1 == i2:
@@ -160,12 +160,107 @@ class Matcher():
 
         return match_list
 
+    def basicImageMatches(self, i1, review=False):
+        match_list = [[]] * len(self.image_list)
+        for j, i2 in enumerate(self.image_list):
+            if i1 == i2:
+                continue
+            matches = self.matcher.knnMatch(i1.des_list, trainDescriptors=i2.des_list, k=2)
+            p1, p2, kp_pairs, idx_pairs = self.filterMatches(i1.kp_list, i2.kp_list, matches)
+            if len(idx_pairs) >= self.min_pairs:
+                print "Matching %s vs %s = %d" \
+                    % (i1.name, i2.name, len(idx_pairs))
+
+                if review:
+                    status = self.showMatch(i1, i2, idx_pairs)
+                    # remove deselected pairs
+                    for k, flag in enumerate(status):
+                        if not flag:
+                            print "    deleting: " + str(idx_pairs[k])
+                            idx_pairs[k] = (-1, -1)
+                    for pair in reversed(idx_pairs):
+                        if pair == (-1, -1):
+                            idx_pairs.remove(pair)
+
+                match_list[j] = idx_pairs
+
+        return match_list
+
     def computeGroupMatches(self, review=False):
         # O(n,n) compare
         for i, i1 in enumerate(self.image_list):
             if len(i1.match_list):
                 continue
-            i1.match_list = self.computeImageMatches(i1, review)
+            i1.match_list = self.computeImageMatches1(i1, review)
+            i1.save_matches()
+
+    def robustGroupMatches(self, method="", review=False):
+        # Find basic matches that satisfy NN > 2 and ratio test
+        for i, i1 in enumerate(self.image_list):
+            if len(i1.match_list):
+                continue
+            i1.match_list = self.basicImageMatches(i1, review)
+
+        # Cull non-symmetrical matches
+        for i, i1 in enumerate(self.image_list):
+            for j, matches1 in enumerate(i1.match_list):
+                if i == j:
+                    continue
+                i2 = self.image_list[j]
+                for k, pair1 in enumerate(matches1):
+                    matches2 = i2.match_list[i]
+                    hasit = False
+                    for pair2 in matches2:
+                        if pair1[0] == pair2[1] and pair1[1] == pair2[0]:
+                            hasit = True
+                    if not hasit:
+                        matches1[k] = (-1, -1)
+                #print "before %s" % str(i1.match_list[j])
+                for pair in reversed(matches1):
+                    if pair == (-1, -1):
+                        matches1.remove(pair)
+                #print "after %s" % str(i1.match_list[j])
+
+        # Further filter against a Homography or Fundametal matrix constraint
+        for i, i1 in enumerate(self.image_list):
+            # rejection range in pixels
+            tol = float(i1.fullw) / 400.0
+            for j, matches in enumerate(i1.match_list):
+                if i == j:
+                    continue
+                if len(matches) < 8:
+                    i1.match_list[j] = []
+                    continue
+                i2 = self.image_list[j]
+                p1 = []
+                p2 = []
+                for k, pair in enumerate(matches):
+                    p1.append( i1.kp_list[pair[0]].pt )
+                    p2.append( i2.kp_list[pair[1]].pt )
+
+                p1 = np.float32(p1)
+                p2 = np.float32(p2)
+                #print "p1 = %s" % str(p1)
+                #print "p2 = %s" % str(p2)
+                if method == "homography":
+                    M, status = cv2.findHomography(p1, p2, cv2.RANSAC, tol)
+                elif method == "fundamental":
+                    M, status = cv2.findFundamentalMat(p1, p2, cv2.RANSAC, tol)
+                else:
+                    # fail
+                    M, status = None, None
+                print '%s vs %s: %d / %d  inliers/matched' \
+                    % (i1.name, i2.name, np.sum(status), len(status))
+                # remove outliers
+                for k, flag in enumerate(status):
+                    if not flag:
+                        print "    deleting: " + str(matches[k])
+                        matches[k] = (-1, -1)
+                for pair in reversed(matches):
+                    if pair == (-1, -1):
+                        matches.remove(pair)
+
+        for i1 in self.image_list:
             i1.save_matches()
 
     def safeAddPair(self, i1, i2, refpair):
