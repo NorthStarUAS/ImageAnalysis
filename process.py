@@ -12,9 +12,9 @@ import Solver
 ComputeMatches = True
 EstimateGroupBias = False
 EstimateCameraDistortion = False
-ReviewMatches = True
+ReviewMatches = False
 ReviewPoint = (-81.34096, 27.65065)
-FitIterations = 100
+FitIterations = 1
 
 def usage():
     print "Usage: " + sys.argv[0] + " <flight_data_dir> <raw_image_dir> <ground_alt_m>"
@@ -31,7 +31,7 @@ ground_alt_m = float(sys.argv[3])
 work_dir = image_dir + "-work"
 
 # create the image group
-ig = ImageGroup.ImageGroup( max_features=800, detect_grid=4, match_ratio=0.7 )
+ig = ImageGroup.ImageGroup( max_features=800, detect_grid=4, match_ratio=0.75 )
 
 # set up Samsung NX210 parameters
 ig.setCameraParams(horiz_mm=23.5, vert_mm=15.7, focal_len_mm=30.0)
@@ -40,7 +40,7 @@ ig.setCameraParams(horiz_mm=23.5, vert_mm=15.7, focal_len_mm=30.0)
 ig.setWorldParams(ground_alt_m=ground_alt_m)
 
 # load images, keypoints, descriptors, matches, etc.
-ig.update_work_dir(source_dir=image_dir, work_dir=work_dir)
+ig.update_work_dir(source_dir=image_dir, work_dir=work_dir, scale=0.20)
 ig.load()
 
 # compute matches if needed
@@ -82,6 +82,7 @@ ig.computeConnections()
 # initial projection
 ig.k1 = -0.00028
 ig.k2 = 0.0
+#ig.recomputeWidthHeight()
 ig.projectKeypoints(do_grid=True)
 
 #ig.sfm_test()
@@ -92,7 +93,7 @@ if ReviewMatches:
     e = ig.groupError(method="average")
     stddev = ig.groupError(method="stddev")
     print "Group error (start): %.2f" % e
-    ig.m.reviewImageErrors(minError=e)
+    ig.m.reviewImageErrors(minError=(e+stddev))
     ig.m.saveMatches()
     # re-project keypoints after outlier review
     ig.projectKeypoints()
@@ -211,9 +212,13 @@ if False:
     ig.render_image_list(image_list, cm_per_pixel=10.0, keypoints=True)
 
 #placed_order = ig.placer.placeImagesByConnections()
-placed_order = ig.placer.placeImagesByScore(image_list=None, affine="")
-ig.render.drawGrid(placed_order, source_dir=ig.source_dir,
-                   cm_per_pixel=5, blend_cm=200 )
+group_list = ig.placer.groupByConnections()
+placed_list = []
+for group in group_list:
+    ordered = ig.placer.placeImagesByScore(image_list=group, affine="")
+    placed_list = placed_list + ordered
+ig.render.drawGrid(placed_list, source_dir=ig.source_dir,
+                   cm_per_pixel=10, blend_cm=200, dim=2048 )
 
 #place_list = ig.render.getImagesCoveringPoint(x=.0, y=-40.0, pad=30.0)
 #ig.placer.placeImages(place_list)

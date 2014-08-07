@@ -68,6 +68,7 @@ class Image():
             #print "Loading " + self.image_file
             try:
                 self.img_rgb = cv2.imread(self.image_file)
+                self.fullh, self.fullw, self.fulld = self.img_rgb.shape
                 self.img = cv2.cvtColor(self.img_rgb, cv2.COLOR_BGR2GRAY)
                 # self.img = cv2.equalizeHist(gray)
                 #self.img = gray
@@ -76,13 +77,14 @@ class Image():
             except:
                 print self.image_file + ":\n" + "  load error: " \
                     + str(sys.exc_info()[1])
+        else:
+            self.fullh, self.fullw, self.fulld = self.img_rgb.shape
 
     def load_full_image(self, source_dir):
         #print "Loading " + self.image_file
         full_name = source_dir + "/" + self.name
         try:
             full_image = cv2.imread(full_name)
-            self.fullh, self.fullw, self.fulld = full_image.shape
             return full_image
 
         except:

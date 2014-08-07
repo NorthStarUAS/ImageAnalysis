@@ -350,6 +350,55 @@ class Placer():
                      return True
         return False
         
+    def groupByConnections(self, image_list=None, affine=""):
+        if image_list == None:
+            image_list = self.image_list
+
+        # reset the placed flag
+        for image in image_list:
+            image.placed = False
+        self.group_list = []
+        group = []
+        done = False
+        while not done:
+            done = True
+            maxcon = None
+            maxidx = None
+            # find an unplaced image with a placed neighbor that has
+            # the most connections to other images
+            for i, image in enumerate(image_list):
+                if not image.placed and self.hasPlacedNeighbor(image) and (maxcon == None or image.connections > maxcon):
+                    maxcon = image.connections
+                    maxidx = i
+                    done = False
+            if maxidx == None:
+                if len(group):
+                    # commit the previous group (if it exists)
+                    self.group_list.append(group)
+                    # and start a new group
+                    group = []
+                # now find an unplaced image that has the most connections
+                # to other images
+                for i, image in enumerate(image_list):
+                    if not image.placed and (maxcon == None or image.connections > maxcon):
+                        maxcon = image.connections
+                        maxidx = i
+                        done = False
+            if maxidx != None:
+                image = image_list[maxidx]
+                #print "Adding %s (connections = %d)" % (image.name, maxcon)
+                image.placed = True
+                group.append(image)
+
+        print "Group (cycles) report:"
+        for group in self.group_list:
+            print "  group:",
+            for image in group:
+                print " %s" % image.name,
+            print ""
+
+        return self.group_list
+
     def placeImagesByConnections(self, image_list=None, affine=""):
         if image_list == None:
             image_list = self.image_list

@@ -23,7 +23,7 @@ import transformations
 
 
 class ImageGroup():
-    def __init__(self, max_features=100, detect_grid=8, match_ratio=0.5):
+    def __init__(self, max_features=100, detect_grid=8, match_ratio=0.75):
         cells = detect_grid * detect_grid
         self.max_features = int(max_features / cells)
         self.match_ratio = match_ratio
@@ -43,7 +43,7 @@ class ImageGroup():
         self.m = Matcher.Matcher()
         self.placer = Placer.Placer()
         self.render = Render.Render()
-        detectparams = dict(detector="sift", nfeatures=1000)
+        detectparams = dict(detector="sift", nfeatures=2000)
         #detectparams = dict(detector="surf", hessian_threshold=600)
         #detectparams = dict(detector="orb",  orb_max_features=2000,
         #                    dense_detect_grid=4)
@@ -59,8 +59,7 @@ class ImageGroup():
     def setWorldParams(self, ground_alt_m=0.0):
         self.ground_alt_m = ground_alt_m
 
-    def update_work_dir(self, source_dir="", work_dir="", 
-                        width=684, height=456):
+    def update_work_dir(self, source_dir="", work_dir="", scale=0.25):
         self.source_dir=source_dir
         self.work_dir=work_dir
         # double check work dir exists and make it if not
@@ -78,10 +77,13 @@ class ImageGroup():
             name_in = self.source_dir + "/" + file
             name_out = self.work_dir + "/" + file
             if not os.path.isfile(name_out):
-                command = "convert -geometry 684x456 %s %s" \
-                          % (name_in, name_out)
-                print command
-                commands.getstatusoutput( command )
+                src = cv2.imread(name_in)
+                method = cv2.INTER_AREA
+                #method = cv2.INTER_LANCZOS4
+                dst = cv2.resize(src, (0,0), fx=scale, fy=scale,
+                                 interpolation=method)
+                cv2.imwrite(name_out, dst)
+                print "Downsizing %s by %s%%" % (file, (scale*100.0))
 
     def load_project(self):
         project_file = self.work_dir + "/project.xml"
@@ -131,10 +133,15 @@ class ImageGroup():
             image = Image.Image(self.work_dir, file_name)
             if len(image.kp_list) == 0 or image.des_list == None:
                 print "  detecting features and computing descriptors"
-                full_image = image.load_full_image(self.source_dir)
-                image.kp_list = self.m.denseDetect(full_image)
+                FullImage = False
+                if FullImage:
+                    image_rgb = image.load_full_image(self.source_dir)
+                else:
+                    if image.img_rgb == None:
+                        image_rgb = image.load_image()
+                image.kp_list = self.m.denseDetect(image_rgb)
                 image.kp_list, image.des_list \
-                    = self.m.computeDescriptors(full_image, image.kp_list)
+                    = self.m.computeDescriptors(image_rgb, image.kp_list)
                 # and because we've messed with keypoints and descriptors
                 image.match_list = []
                 image.save_keys()
@@ -198,12 +205,13 @@ class ImageGroup():
     def computeCameraPoseFromAircraft(self, image, force=False,
                                       yaw_bias=0.0, roll_bias=0.0,
                                       pitch_bias=0.0, alt_bias=0.0):
-        if not force and math.fabs(image.camera_yaw) > 0.001 \
-           or math.fabs(image.camera_pitch) > 0.001 \
-           or math.fabs(image.camera_roll) > 0.001 \
-           or math.fabs(image.camera_x) > 0.001 \
-           or math.fabs(image.camera_y) > 0.001 \
-           or math.fabs(image.camera_z) > 0.001:
+        if not force and \
+           (math.fabs(image.camera_yaw) > 0.001 \
+            or math.fabs(image.camera_pitch) > 0.001 \
+            or math.fabs(image.camera_roll) > 0.001 \
+            or math.fabs(image.camera_x) > 0.001 \
+            or math.fabs(image.camera_y) > 0.001 \
+            or math.fabs(image.camera_z) > 0.001):
             return
         
         lon = image.aircraft_lon
@@ -1466,3 +1474,11 @@ class ImageGroup():
             print "  Fit att = %.2f %.2f %.2f" % (i1.camera_yaw,
                                                   i1.camera_pitch,
                                                   i1.camera_roll)
+
+    # should reset the fullw, fullh values in the keys files
+    def recomputeWidthHeight(self):
+        for image in self.image_list:
+            if image.img == None:
+                image.load_keys()
+                image.load_image()
+                image.save_keys()
