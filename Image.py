@@ -29,6 +29,8 @@ class Image():
         self.aircraft_lon = 0.0
         self.aircraft_lat = 0.0
         self.aircraft_msl = 0.0
+        self.aircraft_x = 0.0
+        self.aircraft_y = 0.0
 
         self.camera_yaw = 0.0
         self.camera_pitch = 0.0

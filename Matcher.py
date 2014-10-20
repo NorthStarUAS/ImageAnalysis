@@ -493,6 +493,7 @@ class Matcher():
         i2 = self.image_list[j]
         #print "%s v. %s" % (i1.name, i2.name)
         #print "i1 pairs before = %s" % str(i1.match_list[j])
+        #print "pair = %s" % str(pair)
         i1.match_list[j].remove(pair)
         #print "i1 pairs after = %s" % str(i1.match_list[j])
         pair_rev = (pair[1], pair[0])
@@ -594,6 +595,136 @@ class Matcher():
             if search == image:
                 return i
         return None
+
+    # fuzz factor increases (decreases) the ransac tolerance and is in
+    # pixel units so it makes sense to bump this up or down in integer
+    # increments.
+    def reviewFundamentalErrors(self, fuzz_factor=1.0):
+        # Test fundametal matrix constraint
+        for i, i1 in enumerate(self.image_list):
+            # rejection range in pixels
+            tol = float(i1.fullw) / 400.0 + fuzz_factor
+            if tol < 0.0:
+                tol = 0.0
+            for j, matches in enumerate(i1.match_list):
+                if i == j:
+                    continue
+                if len(matches) < 8:
+                    i1.match_list[j] = []
+                    continue
+                i2 = self.image_list[j]
+                p1 = []
+                p2 = []
+                for k, pair in enumerate(matches):
+                    p1.append( i1.kp_list[pair[0]].pt )
+                    p2.append( i2.kp_list[pair[1]].pt )
+
+                p1 = np.float32(p1)
+                p2 = np.float32(p2)
+                #print "p1 = %s" % str(p1)
+                #print "p2 = %s" % str(p2)
+                M, status = cv2.findFundamentalMat(p1, p2, cv2.RANSAC, tol)
+
+                size = len(status)
+                inliers = np.sum(status)
+                print '%s vs %s: %d / %d  inliers/matched' \
+                    % (i1.name, i2.name, inliers, size)
+
+                if inliers < size:
+                    status = self.showMatch(i1, i2, matches, status)
+
+                    delete_list = []
+                    for k, flag in enumerate(status):
+                        if not flag:
+                            print "    deleting: " + str(matches[k])
+                            #match[i] = (-1, -1)
+                            delete_list.append(matches[k])
+
+                    for pair in delete_list:
+                        self.deletePair(i, j, pair)
+
+    # return true if point set is pretty close to linear
+    def isLinear(self, points, threshold=20.0):
+        x = []
+        y = []
+        for pt in points:
+            x.append(pt[0])
+            y.append(pt[1])
+        z = np.polyfit(x, y, 1) 
+        p = np.poly1d(z)
+        sum = 0.0
+        for pt in points:
+            e = pt[1] - p(pt[0])
+            sum += e*e
+        return math.sqrt(sum) <= threshold
+
+    # look for linear/degenerate match sets
+    def reviewLinearSets(self, threshold=20.0):
+        # Test fundametal matrix constraint
+        for i, i1 in enumerate(self.image_list):
+            for j, matches in enumerate(i1.match_list):
+                if i == j:
+                    continue
+                if len(matches) < 8:
+                    i1.match_list[j] = []
+                    continue
+                i2 = self.image_list[j]
+                pts = []
+                status = []
+                for k, pair in enumerate(matches):
+                    pts.append( i1.kp_list[pair[0]].pt )
+                    status.append(False)
+
+                # check for degenerate case of all matches being
+                # pretty close to a straight line
+                if self.isLinear(pts, threshold):
+                    print "%s vs %s is a linear match, probably should discard" % (i1.name, i2.name)
+                    
+                    status = self.showMatch(i1, i2, matches, status)
+
+                    delete_list = []
+                    for k, flag in enumerate(status):
+                        if not flag:
+                            print "    deleting: " + str(matches[k])
+                            #match[i] = (-1, -1)
+                            delete_list.append(matches[k])
+
+                    for pair in delete_list:
+                        self.deletePair(i, j, pair)
+
+    # Review matches by fewest pairs of keypoints.  The fewer
+    # keypoints that join a pair of images, the greater the chance
+    # that we could have stumbled on a degenerate or incorrect set.
+    def reviewByFewestPairs(self, maxpairs=8):
+        print "Review matches by fewest number of pairs"
+        if len(self.image_list):
+            report_list = []
+            for i, image in enumerate(self.image_list):
+                for j, pairs in enumerate(image.match_list):
+                    e = len(pairs)
+                    if e > 0 and e <= maxpairs:
+                        report_list.append( (e, i, j) )
+            report_list = sorted(report_list, key=lambda fields: fields[0],
+                                 reverse=False)
+            # show images sorted by largest positional disagreement first
+            for line in report_list:
+                i1 = self.image_list[line[1]]
+                i2 = self.image_list[line[2]]
+                pairs = i1.match_list[line[2]]
+                if len(pairs) == 0:
+                    # probably already deleted by the other match order
+                    continue
+                print "showing %s vs %s: %d pairs" \
+                    % (i1.name, i2.name, len(pairs))
+                status = self.showMatch(i1, i2, pairs)
+                delete_list = []
+                for k, flag in enumerate(status):
+                    if not flag:
+                        print "    deleting: " + str(pairs[k])
+                        #match[i] = (-1, -1)
+                        delete_list.append(pairs[k])
+                for pair in delete_list:
+                    self.deletePair(line[1], line[2], pair)
 
     # sort and review match pairs by worst positional error
     def matchErrorReport(self, i, minError=20.0):

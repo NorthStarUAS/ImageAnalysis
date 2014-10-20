@@ -14,7 +14,7 @@ EstimateGroupBias = False
 EstimateCameraDistortion = False
 ReviewMatches = False
 ReviewPoint = (-81.34096, 27.65065)
-FitIterations = 1
+FitIterations = 10
 
 def usage():
     print "Usage: " + sys.argv[0] + " <flight_data_dir> <raw_image_dir> <ground_alt_m>"
@@ -83,19 +83,35 @@ ig.computeConnections()
 ig.k1 = -0.00028
 ig.k2 = 0.0
 #ig.recomputeWidthHeight()
-ig.projectKeypoints(do_grid=True)
+ig.projectKeypoints()
 
 #ig.sfm_test()
 #ig.pnp_test()
 
+ig.save_geojson( path="mymap", cm_per_pixel=2.5 )
+
 # review matches
 if ReviewMatches:
+    e = ig.m.reviewLinearSets(threshold=40.0)
+    ig.m.saveMatches()
+    ig.projectKeypoints()
+
+    #e = ig.groupError(method="average")
+    #stddev = ig.groupError(method="stddev")
+    #print "Group error/stddev (start): %.2f, %.2f" % (e, stddev)
+    #ig.m.reviewFundamentalErrors(fuzz_factor=15.0)
+    #ig.m.saveMatches()
+    #ig.projectKeypoints()
+
+    #e = ig.m.reviewByFewestPairs(maxpairs=8)
+    #ig.m.saveMatches()
+    #ig.projectKeypoints()
+
     e = ig.groupError(method="average")
     stddev = ig.groupError(method="stddev")
-    print "Group error (start): %.2f" % e
+    print "Group error/stddev (start): %.2f, %.2f" % (e, stddev)
     ig.m.reviewImageErrors(minError=(e+stddev))
     ig.m.saveMatches()
-    # re-project keypoints after outlier review
     ig.projectKeypoints()
 
 #if ReviewPoint != None:
@@ -108,10 +124,9 @@ if False:
     i1.match_list = ig.m.computeImageMatches(i1, review=True)
     i1.save_matches()
 
-e = ig.groupError(method="average")
-stddev = ig.groupError(method="stddev")
-print "Group error (start): %.2f" % e
-print "Group standard deviation (start): %.2f" % stddev
+print "Group error (at start):"
+print "  error average: %.2f" % ig.groupError(method="average")
+print "  error stddev: %.2f" % ig.groupError(method="stddev")
 
 s = Solver.Solver(image_group=ig, correlator=c)
 #s.AffineFitter(steps=1, gain=0.4, fullAffine=False)
@@ -141,7 +156,7 @@ if OldFit:
     for i in xrange(FitIterations):
         # minimize error stddev (tends to align image orientation)
         ig.fitImagesIndividually(method="stddev", gain=0.2)
-        ig.projectKeypoints(do_grid=True)
+        ig.projectKeypoints()
         e = ig.groupError(method="average")
         stddev = ig.groupError(method="stddev")
         print "Standard deviation fit, iteration = %d" % i
@@ -154,7 +169,7 @@ if OldFit:
         # multiply gain again here we will walk our x, y shifts very
         # slowly
         ig.shiftImages(gain=1.0)
-        ig.projectKeypoints(do_grid=True)
+        ig.projectKeypoints()
         e = ig.groupError(method="average")
         stddev = ig.groupError(method="stddev")
         print "Shift fit, iteration = %d" % i
@@ -163,7 +178,7 @@ if OldFit:
 
         # minimize overall error (without moving camera laterally)
         ig.fitImagesIndividually(method="average", gain=1.0)
-        ig.projectKeypoints(do_grid=True)
+        ig.projectKeypoints()
         e = ig.groupError(method="average")
         stddev = ig.groupError(method="stddev")
         print "Average error fit, iteration = %d" % i
@@ -174,12 +189,10 @@ if OldFit:
 # averaging the results
 for i in range(0,FitIterations):
     ig.fitImagesWithSolvePnP2()
-    ig.projectKeypoints(do_grid=True)
-    e = ig.groupError(method="average")
-    stddev = ig.groupError(method="stddev")
-    print "Average error fit, iteration = %d" % i
-    print "  Group error: %.2f" % e
-    print "  Group standard deviation: %.2f" % stddev
+    ig.projectKeypoints()
+    print "Group error (fit iteration = %d):" % i
+    print "  error average: %.2f" % ig.groupError(method="average")
+    print "  error stddev: %.2f" % ig.groupError(method="stddev")
 
 if False:
     name = "SAM_0032.JPG"
