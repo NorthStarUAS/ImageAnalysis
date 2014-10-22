@@ -205,6 +205,9 @@ class Image():
             except:
                 print self.info_file + ":\n" + "  load error: " \
                     + str(sys.exc_info()[1])
+        else:
+            # no info file, create a new file
+            self.save_info()
 
     def load(self, image_dir, image_file):
         print "Loading " + image_file
@@ -216,12 +219,10 @@ class Image():
         self.des_file = self.file_root + ".npy"
         self.match_file = self.file_root + ".match"
         self.info_file = self.file_root + ".info"
-        # lazy load actual image file if/when we need it
-        # self.load_image()
-        self.load_keys()
-        self.load_descriptors()
-        self.load_matches()
         self.load_info()
+        #self.load_keys()
+        #self.load_descriptors()
+        #self.load_matches()
 
     def save_keys(self):
         root = ET.Element('keypoints')

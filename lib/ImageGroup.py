@@ -60,13 +60,15 @@ class ImageGroup():
     def setWorldParams(self, ground_alt_m=0.0):
         self.ground_alt_m = ground_alt_m
 
-    def update_work_dir(self, source_dir="", work_dir="", scale=0.25):
+    def set_dirs(self, source_dir="", work_dir=""):
         self.source_dir=source_dir
         self.work_dir=work_dir
         # double check work dir exists and make it if not
         if not os.path.exists(self.work_dir):
             os.makedirs(self.work_dir)
 
+    def update_work_dir(self, scale=0.25):
+        print "source dir = " + self.source_dir
         files = []
         for file in os.listdir(self.source_dir):
             if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
@@ -77,16 +79,24 @@ class ImageGroup():
             # create resized working copy if needed
             name_in = self.source_dir + "/" + file
             name_out = self.work_dir + "/" + file
-            if not os.path.isfile(name_out):
+            use_opencv = False
+            if use_opencv:
+                # opencv is fast, but doesn't copy the metadata
                 src = cv2.imread(name_in)
                 method = cv2.INTER_AREA
                 #method = cv2.INTER_LANCZOS4
                 dst = cv2.resize(src, (0,0), fx=scale, fy=scale,
                                  interpolation=method)
                 cv2.imwrite(name_out, dst)
-                print "Downsizing %s by %s%%" % (file, (scale*100.0))
+                print "Downsizing %s to %s%%" % (file, (scale*100.0))
+            else:
+                command = "convert -resize %d%% %s %s" % ( int(scale*100.0), name_in, name_out )
+                print command
+                commands.getstatusoutput( command )
+            #image = Image.Image(self.work_dir, file)
+            #image.save_info()
 
-    def load_project(self):
+    def load_project_depricated(self):
         project_file = self.work_dir + "/project.xml"
         if os.path.exists(project_file):
             print "Loading " + project_file
@@ -102,7 +112,7 @@ class ImageGroup():
                 print project_file + ":\n" + "  load error: " \
                     + str(sys.exc_info()[1])
 
-    def save_project(self):
+    def save_project_depricated(self):
         project_file = self.work_dir + "/project.xml"
         root = ET.Element('project')
         xml = ET.ElementTree(root)
@@ -121,17 +131,27 @@ class ImageGroup():
             print project_file + ": error saving file: " \
                 + str(sys.exc_info()[1])
 
-    def load(self):
+    def load_info(self):
         # load project wide values
-        self.load_project()
+        # self.load_project()
 
         self.file_list = []
         for file in os.listdir(self.work_dir):
             if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
                 self.file_list.append(file)
         self.file_list.sort()
+
         for file_name in self.file_list:
             image = Image.Image(self.work_dir, file_name)
+            self.image_list.append( image )
+
+        # make sure our matcher gets a copy of the image list
+        self.m.setImageList(self.image_list)
+        self.placer.setImageList(self.image_list)
+        self.render.setImageList(self.image_list)
+
+    def load_otherstuff(self):
+        for image in self.image_list:
             if len(image.kp_list) == 0 or image.des_list == None:
                 print "  detecting features and computing descriptors"
                 FullImage = False
@@ -300,7 +320,7 @@ class ImageGroup():
         self.ref_lon = lon_sum / len(self.image_list)
         self.ref_lat = lat_sum / len(self.image_list)
         self.render.setRefCoord(self.ref_lon, self.ref_lat)
-        self.save_project()
+        #self.save_project()
         print "Reference: lon = %.6f lat = %.6f" % (self.ref_lon, self.ref_lat)
         for image in self.image_list:
             (x, y) = ImageList.wgs842cart(image.aircraft_lon,

@@ -31,10 +31,7 @@ def simple_interp(points, v):
 
 
 class Correlate():
-    def __init__(self, flight_dir="", image_dir=""):
-        print "init Correlate"
-        self.flight_dir = flight_dir
-        self.image_dir = image_dir
+    def __init__(self):
         self.triggers = []
         self.pictures = []
         self.best_matchups = []
@@ -45,6 +42,10 @@ class Correlate():
         self.filter_pitch = []
         self.filter_yaw = []
         self.master_time_offset = 0.0
+
+    def load_all(self, flight_dir="", image_dir=""):
+        self.flight_dir = flight_dir
+        self.image_dir = image_dir
         self.load_gps()
         self.load_filter()
         self.load_events()
@@ -52,6 +53,7 @@ class Correlate():
 
     def load_gps(self):
         path = self.flight_dir + "/gps.txt"
+        print path
         f = fileinput.input(path)
         count = 0
         sum = 0.0
@@ -111,6 +113,7 @@ class Correlate():
         interval = 0
         for f in files:
             name = path + "/" + f
+            print name
             exif = pyexiv2.ImageMetadata(name)
             exif.read()
             #print exif.exif_keys

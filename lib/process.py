@@ -40,7 +40,8 @@ ig.setCameraParams(horiz_mm=23.5, vert_mm=15.7, focal_len_mm=30.0)
 ig.setWorldParams(ground_alt_m=ground_alt_m)
 
 # load images, keypoints, descriptors, matches, etc.
-ig.update_work_dir(source_dir=image_dir, work_dir=work_dir, scale=0.20)
+ig.set_dirs(source_dir=image_dir, work_dir=work_dir)
+ig.update_work_dir(scale=0.20)
 ig.load()
 
 # compute matches if needed
@@ -59,7 +60,8 @@ ig.genKeypointUsageMap()
 # correlate shutter time with trigger time (based on interval
 # comaparison of trigger events from the flightdata vs. image time
 # stamps.)
-c = FlightData.Correlate( flight_dir, image_dir )
+c = FlightData.Correlate()
+c.load_all(flight_dir, image_dir)
 best_correlation, best_camera_time_error = c.test_correlations()
 
 # compute the aircraft position (from the flight data parameters) at
