@@ -21,15 +21,15 @@ class Matcher():
         FLANN_INDEX_KDTREE = 1  # bug: flann enums are missing
         FLANN_INDEX_LSH    = 6
         if "detector" in dparams:
-            if dparams["detector"] == "sift":
+            if dparams["detector"] == "SIFT":
                 nfeatures = dparams["nfeatures"]
                 self.detector = cv2.SIFT(nfeatures=nfeatures)
                 norm = cv2.NORM_L2
-            elif dparams["detector"] == "surf":
+            elif dparams["detector"] == "SURF":
                 threshold = dparams["hessian_threshold"]
                 self.detector = cv2.SURF(threshold)
                 norm = cv2.NORM_L2
-            elif dparams["detector"] == "orb":
+            elif dparams["detector"] == "ORB":
                 dmax_features = dparams["orb_max_features"]
                 self.detector = cv2.ORB(dmax_features)
                 norm = cv2.NORM_HAMMING
@@ -37,7 +37,7 @@ class Matcher():
             self.dense_detect_grid = dparams["dense_detect_grid"]
 
         if "matcher" in mparams:
-            if mparams["matcher"] == "flann":
+            if mparams["matcher"] == "FLANN":
                 if norm == cv2.NORM_L2:
                     flann_params = dict(algorithm = FLANN_INDEX_KDTREE,
                                         trees = 5)
@@ -47,7 +47,7 @@ class Matcher():
                                         key_size = 12,     # 20
                                         multi_probe_level = 1) #2
                 self.matcher = cv2.FlannBasedMatcher(flann_params, {}) # bug : need to pass empty dict (#1329)
-            elif mparams["matcher"] == "bruteforce":
+            elif mparams["matcher"] == "Brute Force":
                 print "brute force norm = %d" % norm
                 self.matcher = cv2.BFMatcher(norm)
         if "match_ratio" in mparams:
@@ -201,30 +201,11 @@ class Matcher():
                 continue
             i1.match_list = self.basicImageMatches(i1, review)
 
-        # Cull non-symmetrical matches
-        for i, i1 in enumerate(self.image_list):
-            for j, matches1 in enumerate(i1.match_list):
-                if i == j:
-                    continue
-                i2 = self.image_list[j]
-                for k, pair1 in enumerate(matches1):
-                    matches2 = i2.match_list[i]
-                    hasit = False
-                    for pair2 in matches2:
-                        if pair1[0] == pair2[1] and pair1[1] == pair2[0]:
-                            hasit = True
-                    if not hasit:
-                        matches1[k] = (-1, -1)
-                #print "before %s" % str(i1.match_list[j])
-                for pair in reversed(matches1):
-                    if pair == (-1, -1):
-                        matches1.remove(pair)
-                #print "after %s" % str(i1.match_list[j])
-
         # Further filter against a Homography or Fundametal matrix constraint
         for i, i1 in enumerate(self.image_list):
             # rejection range in pixels
             tol = float(i1.fullw) / 400.0
+            print "tol = %.4f" % tol
             for j, matches in enumerate(i1.match_list):
                 if i == j:
                     continue
@@ -260,6 +241,28 @@ class Matcher():
                     if pair == (-1, -1):
                         matches.remove(pair)
 
+        if False:
+            # leave this out for now ...
+            # Cull non-symmetrical matches
+            for i, i1 in enumerate(self.image_list):
+                for j, matches1 in enumerate(i1.match_list):
+                    if i == j:
+                        continue
+                    i2 = self.image_list[j]
+                    for k, pair1 in enumerate(matches1):
+                        matches2 = i2.match_list[i]
+                        hasit = False
+                        for pair2 in matches2:
+                            if pair1[0] == pair2[1] and pair1[1] == pair2[0]:
+                                hasit = True
+                        if not hasit:
+                            matches1[k] = (-1, -1)
+                    #print "before %s" % str(i1.match_list[j])
+                    for pair in reversed(matches1):
+                        if pair == (-1, -1):
+                            matches1.remove(pair)
+                    #print "after %s" % str(i1.match_list[j])
+
         for i1 in self.image_list:
             i1.save_matches()
 
@@ -294,7 +297,7 @@ class Matcher():
             i1.save_matches()
 
     # remove any match sets shorter than self.min_pair
-    def cullMatches(self):
+    def cullShortMatches(self):
         for i, i1 in enumerate(self.image_list):
             print "Cull matches for %s" % i1.name
             for j, matches in enumerate(i1.match_list):
@@ -604,6 +607,7 @@ class Matcher():
         for i, i1 in enumerate(self.image_list):
             # rejection range in pixels
             tol = float(i1.fullw) / 400.0 + fuzz_factor
+            print "tol = %.4f" % tol
             if tol < 0.0:
                 tol = 0.0
             for j, matches in enumerate(i1.match_list):

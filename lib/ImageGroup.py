@@ -44,12 +44,12 @@ class ImageGroup():
         self.m = Matcher.Matcher()
         self.placer = Placer.Placer()
         self.render = Render.Render()
-        detectparams = dict(detector="sift", nfeatures=2000)
-        #detectparams = dict(detector="surf", hessian_threshold=600)
-        #detectparams = dict(detector="orb",  orb_max_features=2000,
+        detectparams = dict(detector="SIFT", nfeatures=2000)
+        #detectparams = dict(detector="SURF", hessian_threshold=600)
+        #detectparams = dict(detector="ORB",  orb_max_features=2000,
         #                    dense_detect_grid=4)
-        matcherparams = dict(matcher="flann", match_ratio=match_ratio)
-        #matcherparams = dict(matcher="bruteforce", match_ratio=match_ratio)
+        matcherparams = dict(matcher="FLANN", match_ratio=match_ratio)
+        #matcherparams = dict(matcher="Brute Force", match_ratio=match_ratio)
         self.m.configure(detectparams, matcherparams)
 
     def setCameraParams(self, horiz_mm=23.5, vert_mm=15.7, focal_len_mm=30.0):
@@ -61,11 +61,13 @@ class ImageGroup():
         self.ground_alt_m = ground_alt_m
 
     def set_dirs(self, source_dir="", work_dir=""):
-        self.source_dir=source_dir
-        self.work_dir=work_dir
-        # double check work dir exists and make it if not
-        if not os.path.exists(self.work_dir):
-            os.makedirs(self.work_dir)
+        if source_dir:
+            self.source_dir=source_dir
+        if work_dir:
+            self.work_dir=work_dir
+            # double check work dir exists and make it if not
+            if not os.path.exists(self.work_dir):
+                os.makedirs(self.work_dir)
 
     def update_work_dir(self, scale=0.25):
         print "source dir = " + self.source_dir
@@ -150,29 +152,47 @@ class ImageGroup():
         self.placer.setImageList(self.image_list)
         self.render.setImageList(self.image_list)
 
-    def load_otherstuff(self):
+    def load_features(self):
+        for image in self.image_list:
+            print "Loading keypoints and descriptors: " + image.name
+            image.load_keys()
+            image.load_descriptors()
+
+    def load_matches(self):
+        print "Loading pair matches"
+        for image in self.image_list:
+            image.load_matches()
+
+    def load_otherstuff_depricated(self):
         for image in self.image_list:
             if len(image.kp_list) == 0 or image.des_list == None:
                 print "  detecting features and computing descriptors"
-                FullImage = False
-                if FullImage:
-                    image_rgb = image.load_full_image(self.source_dir)
-                else:
-                    if image.img_rgb == None:
-                        image_rgb = image.load_image()
-                image.kp_list = self.m.denseDetect(image_rgb)
+                if image.img_rgb == None:
+                    image.load_image()
+                image.kp_list = self.m.denseDetect(image.img_rgb)
                 image.kp_list, image.des_list \
-                    = self.m.computeDescriptors(image_rgb, image.kp_list)
+                    = self.m.computeDescriptors(image.img_rgb, image.kp_list)
                 # and because we've messed with keypoints and descriptors
                 image.match_list = []
                 image.save_keys()
                 image.save_descriptors()
                 #image.show_keypoints()
-            self.image_list.append( image )
-        # make sure our matcher gets a copy of the image list
-        self.m.setImageList(self.image_list)
-        self.placer.setImageList(self.image_list)
-        self.render.setImageList(self.image_list)
+
+    def detect_features(self, force=True):
+        for image in self.image_list:
+            if force or len(image.kp_list) == 0 or image.des_list == None:
+                print "detecting features and computing descriptors: " + image.name
+                if image.img_rgb == None:
+                    image.load_image()
+                image.kp_list = self.m.denseDetect(image.img_rgb)
+                image.kp_list, image.des_list \
+                    = self.m.computeDescriptors(image.img_rgb, image.kp_list)
+                # wipe matches because we've messed with keypoints and
+                # descriptors
+                image.match_list = []
+                image.save_keys()
+                image.save_descriptors()
+                #image.show_keypoints()
 
     def genKeypointUsageMap(self):
         # make the keypoint usage map (used so we don't have to

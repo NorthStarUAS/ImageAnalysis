@@ -47,7 +47,7 @@ ig.load()
 # compute matches if needed
 if ComputeMatches:
     ig.m.robustGroupMatches(method="fundamental", review=False)
-    ig.m.cullMatches()
+    ig.m.cullShortMatches()
     ig.m.addInverseMatches()
     #ig.m.showMatches()
 
