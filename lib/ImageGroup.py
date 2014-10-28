@@ -143,6 +143,8 @@ class ImageGroup():
                 self.file_list.append(file)
         self.file_list.sort()
 
+        # wipe image list (so we don't double load)
+        self.image_list = []
         for file_name in self.file_list:
             image = Image.Image(self.work_dir, file_name)
             self.image_list.append( image )
