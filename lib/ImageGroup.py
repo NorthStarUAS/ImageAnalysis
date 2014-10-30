@@ -38,7 +38,7 @@ class ImageGroup():
         self.group_roll_bias = 0.0
         self.group_pitch_bias = 0.0
         self.group_yaw_bias = 0.0
-        self.group_alt_bias = 0.0
+        #self.group_alt_bias = 0.0
         self.k1 = 0.0
         self.k2 = 0.0
         self.m = Matcher.Matcher()
@@ -57,8 +57,15 @@ class ImageGroup():
         self.vert_mm = vert_mm
         self.focal_len_mm = focal_len_mm
 
-    def setWorldParams(self, ground_alt_m=0.0):
+    def setWorldParams(self, ground_alt_m=0.0, shutter_latency=0.0,
+                       yaw_bias=0.0, roll_bias=0.0, pitch_bias=0.0):
+        print "Setting ground=%.1f shutter=%.2f yaw=%.2f roll=%.2f pitch=%.2f"\
+            % (ground_alt_m, shutter_latency, yaw_bias, roll_bias, pitch_bias)
         self.ground_alt_m = ground_alt_m
+        self.shutter_latency = shutter_latency
+        self.group_yaw_bias = yaw_bias
+        self.group_roll_bias = roll_bias
+        self.group_pitch_bias = pitch_bias
 
     def set_dirs(self, source_dir="", work_dir=""):
         if source_dir:
@@ -180,6 +187,10 @@ class ImageGroup():
                 image.save_descriptors()
                 #image.show_keypoints()
 
+    def save_info(self):
+        for image in self.image_list:
+            image.save_info()
+
     def detect_features(self, force=True):
         for image in self.image_list:
             if force or len(image.kp_list) == 0 or image.des_list == None:
@@ -250,24 +261,26 @@ class ImageGroup():
                                       pitch_bias=0.0, alt_bias=0.0):
         lon = image.aircraft_lon
         lat = image.aircraft_lat
-        msl = image.aircraft_msl + image.alt_bias \
-              + self.group_alt_bias + alt_bias
+        msl = image.aircraft_msl + image.alt_bias + alt_bias
 
         # aircraft orientation includes our per camera bias
         # (representing the aircraft attitude estimate error
-        body_roll = -(image.aircraft_roll + image.roll_bias + roll_bias)
-        body_pitch = -(image.aircraft_pitch + image.pitch_bias + pitch_bias)
-        body_yaw = image.aircraft_yaw + image.yaw_bias + yaw_bias
+        body_roll = -(image.aircraft_roll + image.roll_bias + self.group_roll_bias)
+        body_pitch = -(image.aircraft_pitch + image.pitch_bias + self.group_pitch_bias)
+        body_yaw = image.aircraft_yaw + image.yaw_bias + self.group_yaw_bias
 
         # camera orientation includes our group biases
         # (representing the estimated mounting alignment error of
         # the camera relative to the aircraft)
-        camera_yaw = 180.0 + self.group_yaw_bias
-        camera_pitch = -(-90.0 + self.group_pitch_bias)
-        camera_roll = -(self.group_roll_bias)
+        cam_yaw_bias = 0.0
+        cam_pitch_bias = 0.0
+        cam_roll_bias = 0.0
+        camera_yaw = 180.0 + cam_yaw_bias
+        camera_pitch = -(-90.0 + cam_pitch_bias)
+        camera_roll = -(cam_roll_bias)
 
         ned2cam = self.computeNed2Cam(body_yaw, body_pitch, body_roll,
-                                      camera_yaw, camera_pitch,camera_roll);
+                                      camera_yaw, camera_pitch, camera_roll)
         (yaw, pitch, roll) = transformations.euler_from_quaternion(ned2cam,
                                                                    'rzyx')
         (x, y) = ImageList.wgs842cart(lon, lat, self.ref_lon, self.ref_lat)
@@ -300,7 +313,6 @@ class ImageGroup():
             image.camera_x = pose[3]
             image.camera_y = pose[4]
             image.camera_z = pose[5]
-            image.save_info()
 
     def computeWeights(self, force=None):
         # tag each image with the flight data parameters at the time

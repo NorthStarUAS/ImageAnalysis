@@ -46,13 +46,16 @@ class Solver():
                 elif param == "pitch":
                     self.ig.group_pitch_bias = test_value
                 elif param == "altitude":
-                    self.ig.group_alt_bias = test_value
+                    self.ig.ground_alt_m = test_value
                 elif param == "k1":
                     self.ig.k1 = test_value
                 elif param == "k2":
                     self.ig.k2 = test_value
+
+                self.ig.estimateCameraPoses(force=True)
                 self.ig.projectKeypoints()
-                error = self.ig.groupError(method="stddev")
+
+                error = self.ig.groupError(method="average")
                 print "Test %s error @ %.5f = %.3f" \
                     % ( param, test_value, error )
                 if best_error == None or error < best_error:
@@ -73,7 +76,7 @@ class Solver():
         elif param == "pitch":
             self.ig.group_pitch_bias = best_value
         elif param == "altitude":
-            self.ig.group_alt_bias = best_value
+            self.ig.ground_alt_m = best_value
         elif param == "k1":
             self.ig.k1 = best_value
         elif param == "k2":

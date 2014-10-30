@@ -68,6 +68,12 @@ class Correlate():
         print "Average offset = " + str(self.master_time_offset)
 
     def load_filter(self):
+        self.filter_lat = []
+        self.filter_lon = []
+        self.filter_msl = []
+        self.filter_roll = []
+        self.filter_pitch = []
+        self.filter_yaw = []
         path = self.flight_dir + "/filter.txt"
         f = fileinput.input(path)
         for line in f:
@@ -82,6 +88,7 @@ class Correlate():
             #print str(field[0]) + " " + str(field[9])
 
     def load_events(self):
+        self.triggers = []
         path = self.flight_dir + "/events.dat"
         f = fileinput.input(path)
         last_trigger = 0.0
@@ -103,8 +110,9 @@ class Correlate():
         print "number of triggers = " + str(len(self.triggers))
 
     def load_images(self):
-        path = self.image_dir
         files = []
+        self.pictures = []
+        path = self.image_dir
         for file in os.listdir(path):
             if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
                 files.append(file)
