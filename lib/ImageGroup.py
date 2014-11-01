@@ -464,7 +464,7 @@ class ImageGroup():
         ar = float(w)/float(h)  # aspect ratio
 
         pose = self.computeCameraPoseFromAircraft(image)
-        print "Computed new image pose for %s = %s" % (image.name, str(pose))
+        #print "Computed new image pose for %s = %s" % (image.name, str(pose))
 
         # save the computed camera pose
         image.camera_yaw = pose[0]
@@ -494,13 +494,13 @@ class ImageGroup():
         ar = float(w)/float(h)  # aspect ratio
 
         deg2rad = math.pi / 180.0
-        ned2cam = transformations.quaternion_from_euler(pose[0]*deg2rad,
-                                                        pose[1]*deg2rad,
-                                                        pose[2]*deg2rad,
+        ned2cam = transformations.quaternion_from_euler((pose[0]+yaw_bias)*deg2rad,
+                                                        (pose[1]+pitch_bias)*deg2rad,
+                                                        (pose[2]+roll_bias)*deg2rad,
                                                         'rzyx')
         x_m = pose[3]
         y_m = pose[4]
-        z_m = pose[5]
+        z_m = pose[5] + alt_bias
         #print "ref offset = %.2f %.2f" % (x_m, y_m)
 
         coord_list = [None] * len(image.kp_list)
@@ -703,6 +703,9 @@ class ImageGroup():
                           refinements=3):
         image = self.image_list[i]
 
+        pose = (image.camera_yaw, image.camera_pitch, image.camera_roll,
+                image.camera_x, image.camera_y, image.camera_z)
+
         #print "Estimate %s for %s" % (param, image.name)
         var = False
         if method == "average":
@@ -721,20 +724,20 @@ class ImageGroup():
                 grid_list = []
                 if param == "yaw":
                     coord_list, corner_list, grid_list \
-                        = self.projectImageKeypointsNative2(image,
-                                                     yaw_bias=test_value)
+                        = self.projectImageKeypointsNative3(image, pose,
+                                                            yaw_bias=test_value)
                 elif param == "roll":
                     coord_list, corner_list, grid_list \
-                        = self.projectImageKeypointsNative2(image,
-                                                     roll_bias=test_value)
+                        = self.projectImageKeypointsNative3(image, pose,
+                                                            roll_bias=test_value)
                 elif param == "pitch":
                     coord_list, corner_list, grid_list \
-                        = self.projectImageKeypointsNative2(image,
-                                                     pitch_bias=test_value)
+                        = self.projectImageKeypointsNative3(image, pose,
+                                                            pitch_bias=test_value)
                 elif param == "altitude":
                     coord_list, corner_list, grid_list \
-                        = self.projectImageKeypointsNative2(image,
-                                                     alt_bias=test_value)
+                        = self.projectImageKeypointsNative3(image, pose,
+                                                            alt_bias=test_value)
                 error = self.m.imageError(i, alt_coord_list=coord_list,
                                           method=method)
                 #print "Test %s error @ %.2f = %.2f" % ( param, test_value, error )
@@ -775,10 +778,10 @@ class ImageGroup():
         alt, e = self.estimateParameter(i, self.ground_alt_m, method,
                                         "altitude", start_value=0.0,
                                         step_size=2.0, refinements=refinements)
-        image.yaw_bias += yaw*gain
-        image.roll_bias += roll*gain
-        image.pitch_bias += pitch*gain
-        image.alt_bias += alt*gain
+        image.camera_yaw += yaw*gain
+        image.camera_roll += roll*gain
+        image.camera_pitch += pitch*gain
+        image.camera_z += alt*gain
         coord_list = []
         corner_list = []
         grid_list = []
@@ -792,8 +795,8 @@ class ImageGroup():
             image.stddev = error
         print "Fit %s (%s) is %.2f %.2f %.2f %.2f (avg=%.3f stddev=%.3f)" \
             % (image.name, method,
-               image.yaw_bias, image.roll_bias, image.pitch_bias,
-               image.alt_bias, image.error, image.stddev)
+               image.camera_yaw, image.camera_roll, image.camera_pitch,
+               image.camera_z, image.error, image.stddev)
         image.save_info()
 
     # try to fit individual images by manipulating various parameters

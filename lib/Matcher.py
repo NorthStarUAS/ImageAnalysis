@@ -602,7 +602,9 @@ class Matcher():
     # fuzz factor increases (decreases) the ransac tolerance and is in
     # pixel units so it makes sense to bump this up or down in integer
     # increments.
-    def reviewFundamentalErrors(self, fuzz_factor=1.0):
+    def reviewFundamentalErrors(self, fuzz_factor=1.0, interactive=True):
+        total_removed = 0
+
         # Test fundametal matrix constraint
         for i, i1 in enumerate(self.image_list):
             # rejection range in pixels
@@ -635,7 +637,9 @@ class Matcher():
                     % (i1.name, i2.name, inliers, size)
 
                 if inliers < size:
-                    status = self.showMatch(i1, i2, matches, status)
+                    total_removed += (size - inliers)
+                    if interactive:
+                        status = self.showMatch(i1, i2, matches, status)
 
                     delete_list = []
                     for k, flag in enumerate(status):
@@ -646,6 +650,7 @@ class Matcher():
 
                     for pair in delete_list:
                         self.deletePair(i, j, pair)
+        return total_removed
 
     # return true if point set is pretty close to linear
     def isLinear(self, points, threshold=20.0):

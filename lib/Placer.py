@@ -78,7 +78,7 @@ class Placer():
             #weight = i2.weight
             weight = i2.connections
 
-            #print "Affine %s vs %s" % (i1.name, i2.name)
+            #print "Affine %s vs %s, pairs = %s" % (i1.name, i2.name, str(pairs))
             affine = self.findAffine(i1, i2, pairs, fullAffine=fullAffine)
             if affine == None:
                 # it's possible given a degenerate point set, the
