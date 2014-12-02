@@ -399,7 +399,7 @@ class Placer():
 
         return self.group_list
 
-    def placeImagesByConnections(self, image_list=None, affine=""):
+    def placeImagesByConnections(self, image_list=None, affine="", skip=0):
         if image_list == None:
             image_list = self.image_list
 
@@ -415,7 +415,7 @@ class Placer():
             # find an unplaced image with a placed neighbor that has
             # the most connections to other images
             for i, image in enumerate(image_list):
-                if not image.placed and self.hasPlacedNeighbor(image) and (maxcon == None or image.connections > maxcon):
+                if not image.placed and self.hasPlacedNeighbor(image) and (maxcon == None or image.connections > maxcon) and i > skip and image.connections > 0:
                     maxcon = image.connections
                     maxidx = i
                     done = False
@@ -423,7 +423,7 @@ class Placer():
                 # find an unplaced image that has the most connections
                 # to other images
                 for i, image in enumerate(image_list):
-                    if not image.placed and (maxcon == None or image.connections > maxcon):
+                    if not image.placed and (maxcon == None or image.connections > maxcon) and i > skip and image.connections > 0:
                         maxcon = image.connections
                         maxidx = i
                         done = False
