@@ -763,25 +763,34 @@ class Matcher():
                 #print "  after %s" % str(match)
                 #self.showMatch(i1, i2, match)
 
-    # sort and review images by worst positional error
-    def reviewImageErrors(self, name=None, minError=20.0):
-        if len(self.image_list):
-            report_list = []
-            if name != None:
-                image = self.ig.findImageByName(name)
-                e = self.imageError(image, None)
-                report_list.append( (e, image.name) )
-            else:
-                for i, image in enumerate(self.image_list):
-                    e = self.imageError(i, None)
-                    report_list.append( (e, i) )
-            report_list = sorted(report_list, key=lambda fields: fields[0],
-                                 reverse=True)
-            # show images sorted by largest positional disagreement first
-            for line in report_list:
-                #print "%.1f %s" % (line[0], line[1])
-                if line[0] >= minError:
-                    self.matchErrorReport( line[1], minError )
+    # sort and review all match pairs by worst positional error
+    def fullMatchErrorReport(self, minError=20.0):
+        report_list = []
+        for i, image in enumerate(self.image_list):
+            i1 = self.image_list[i]
+            # now for each image, find/show worst individual matches
+            for j, pairs in enumerate(i1.match_list):
+                if len(pairs):
+                    i2 = self.image_list[j]
+                    #print "Matching %s vs %s " % (i1.name, i2.name)
+                    e = self.imagePairError(i, None, j, pairs)
+                    if e > minError:
+                        report_list.append( (e, i, j) )
+
+        report_list = sorted(report_list,
+                             key=lambda fields: fields[0],
+                             reverse=True)
+
+        for line in report_list:
+            i1 = self.image_list[line[1]]
+            i2 = self.image_list[line[2]]
+            print "min error = %.3f" % minError
+            print "%.1f %s %s" % (line[0], i1.name, i2.name)
+            if line[0] > minError:
+                #print "  %s" % str(pairs)
+                self.pairErrorReport(line[1], None, line[2], minError)
+                #print "  after %s" % str(match)
+                #self.showMatch(i1, i2, match)
 
     def reviewPoint(self, lon_deg, lat_deg, ref_lon, ref_lat):
         (x, y) = ImageList.wgs842cart(lon_deg, lat_deg, ref_lon, ref_lat)
