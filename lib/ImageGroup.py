@@ -2,6 +2,7 @@
 
 import commands
 import cv2
+import fileinput
 import fnmatch
 import lxml.etree as ET
 import math
@@ -56,6 +57,11 @@ class ImageGroup():
         self.horiz_mm = horiz_mm
         self.vert_mm = vert_mm
         self.focal_len_mm = focal_len_mm
+
+    def setCameraOffsets(self, roll_deg=0.0, pitch_deg=-90, yaw_deg=0.0):
+        self.offset_roll_deg = roll_deg
+        self.offset_pitch_deg = pitch_deg
+        self.offset_yaw_deg = yaw_deg
 
     def setWorldParams(self, ground_alt_m=0.0, shutter_latency=0.0,
                        yaw_bias=0.0, roll_bias=0.0, pitch_bias=0.0):
@@ -254,6 +260,38 @@ class ImageGroup():
                     image.save_info()
                     #print "%s roll=%.1f pitch=%.1f weight=%.2f" % (image.name, roll, pitch, image.weight)
 
+    # from Sentera meta data file
+    def setAircraftPositions(self, meta_file="", force=False, weight=True):
+        f = fileinput.input(meta_file)
+        for line in f:
+            line.strip()
+            field = line.split(',')
+            name = field[0]
+            lat = float(field[1])
+            lon = float(field[2])
+            msl = float(field[3])
+            yaw = float(field[4])
+            pitch = float(field[5])
+            roll = float(field[6])
+            
+            image = self.m.findImageByName(name)
+            if image != None:
+                if force or (math.fabs(image.aircraft_lon) < 0.01 and math.fabs(image.aircraft_lat) < 0.01):
+                    image.set_location( lon, lat, msl, roll, pitch, yaw )
+                    if weight:
+                        # presumes a pitch/roll distance of 10, 10 gives a
+                        # zero weight
+                        w = 1.0 - (roll*roll + pitch*pitch)/200.0
+                        if w < 0.01:
+                            w = 0.01
+                        image.weight = w
+                    else:
+                        image.weight = 1.0
+                    image.save_info()
+                    print "%s roll=%.1f pitch=%.1f weight=%.2f" % (image.name, roll, pitch, image.weight)
+
+
+
     # assuming the aircraft body pose has already been determined,
     # compute the camera pose as a new set of euler angles and NED.
     def computeCameraPoseFromAircraft(self, image,
@@ -275,9 +313,9 @@ class ImageGroup():
         cam_yaw_bias = 0.0
         cam_pitch_bias = 0.0
         cam_roll_bias = 0.0
-        camera_yaw = 180.0 + cam_yaw_bias
-        camera_pitch = -(-90.0 + cam_pitch_bias)
-        camera_roll = -(cam_roll_bias)
+        camera_yaw = self.offset_yaw_deg + cam_yaw_bias
+        camera_pitch = -(self.offset_pitch_deg + cam_pitch_bias)
+        camera_roll = -(self.offset_roll_deg + cam_roll_bias)
 
         ned2cam = self.computeNed2Cam(body_yaw, body_pitch, body_roll,
                                       camera_yaw, camera_pitch, camera_roll)
@@ -935,7 +973,7 @@ class ImageGroup():
                 % (image.name, image.aircraft_lon, image.aircraft_lat,
                    image.aircraft_msl)
 
-    def generate_ac3d(self, correlator, ref_image = False, base_name="quick", version=None ):
+    def generate_ac3d(self, ref_image = False, base_name="quick", version=None ):
         max_roll = 30.0
         max_pitch = 30.0
         min_agl = 50.0
