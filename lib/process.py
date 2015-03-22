@@ -112,7 +112,7 @@ if ReviewMatches:
     e = ig.groupError(method="average")
     stddev = ig.groupError(method="stddev")
     print "Group error/stddev (start): %.2f, %.2f" % (e, stddev)
-    ig.m.reviewImageErrors(minError=(e+stddev))
+    ig.m.fullMatchErrorReport(minError=(e+stddev))
     ig.m.saveMatches()
     ig.projectKeypoints()
 
