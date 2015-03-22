@@ -147,7 +147,7 @@ def explore_match(win, img1, img2, kp_pairs, wscale=1.0, hscale=1.0, status=None
     done = False
     while not done:
         print 'waiting for keyboard input...'
-        key = cv2.waitKey()
+        key = cv2.waitKey() & 0xff
         print "received %s (%d)" % (str(key), int(key))
         if key == 27:
             # ESC = restore all pairs and exit
