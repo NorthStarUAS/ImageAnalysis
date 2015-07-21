@@ -21,7 +21,7 @@ class Image():
         self.kp_usage = []
         self.des_list = None
         self.match_list = []
-        self.has_matches = True
+        self.num_matches = 0
 
         self.aircraft_yaw = 0.0
         self.aircraft_pitch = 0.0
@@ -52,6 +52,10 @@ class Image():
         self.stddev = 0.0
         self.placed = False
 
+        self.coord_list = []
+        self.corner_list = []
+        self.grid_list = []
+        
         if image_file:
             self.load(image_dir, image_file)
 
@@ -154,7 +158,7 @@ class Image():
             try:
                 xml = ET.parse(self.info_file)
                 root = xml.getroot()
-                self.has_matches = bool(root.find('has-matches').text)
+                self.num_matches = int(root.find('num-matches').text)
                 if root.find('longitude') is not None:
                     lon = float(root.find('longitude').text)
                 else:
@@ -292,7 +296,7 @@ class Image():
     def save_info(self):
         root = ET.Element('information')
         xml = ET.ElementTree(root)
-        ET.SubElement(root, 'has-matches').text = str(self.has_matches)
+        ET.SubElement(root, 'num-matches').text = str(self.num_matches)
         ET.SubElement(root, 'aircraft-longitude').text = "%.10f" % self.aircraft_lon
         ET.SubElement(root, 'aircraft-latitude').text = "%.10f" % self.aircraft_lat
         ET.SubElement(root, 'aircraft-msl').text = "%.2f" % self.aircraft_msl

@@ -111,41 +111,6 @@ class ImageGroup():
             #image = Image.Image(self.work_dir, file)
             #image.save_info()
 
-    def load_project_depricated(self):
-        project_file = self.work_dir + "/project.xml"
-        if os.path.exists(project_file):
-            print "Loading " + project_file
-            try:
-                xml = ET.parse(project_file)
-                root = xml.getroot()
-                self.shutter_latency = float(root.find('shutter-latency').text)
-                self.group_roll_bias = float(root.find('roll-bias').text)
-                self.group_pitch_bias = float(root.find('pitch-bias').text)
-                self.group_yaw_bias = float(root.find('yaw-bias').text)
-                self.group_alt_bias = float(root.find('altitude-bias').text)
-            except:
-                print project_file + ":\n" + "  load error: " \
-                    + str(sys.exc_info()[1])
-
-    def save_project_depricated(self):
-        project_file = self.work_dir + "/project.xml"
-        root = ET.Element('project')
-        xml = ET.ElementTree(root)
-        ET.SubElement(root, 'reference-longitude').text = "%.10f" % self.ref_lon
-        ET.SubElement(root, 'reference-latitude').text = "%.10f" % self.ref_lat
-        ET.SubElement(root, 'shutter-latency').text = "%.2f" % self.shutter_latency
-        ET.SubElement(root, 'roll-bias').text = "%.2f" % self.group_roll_bias
-        ET.SubElement(root, 'pitch-bias').text = "%.2f" % self.group_pitch_bias
-        ET.SubElement(root, 'yaw-bias').text = "%.2f" % self.group_yaw_bias
-        ET.SubElement(root, 'altitude-bias').text = "%.2f" % self.group_alt_bias
-        # write xml file
-        try:
-            xml.write(project_file, encoding="us-ascii",
-                      xml_declaration=False, pretty_print=True)
-        except:
-            print project_file + ": error saving file: " \
-                + str(sys.exc_info()[1])
-
     def load_info(self):
         # load project wide values
         # self.load_project()
@@ -177,21 +142,6 @@ class ImageGroup():
         print "Loading pair matches"
         for image in self.image_list:
             image.load_matches()
-
-    def load_otherstuff_depricated(self):
-        for image in self.image_list:
-            if len(image.kp_list) == 0 or image.des_list == None:
-                print "  detecting features and computing descriptors"
-                if image.img_rgb == None:
-                    image.load_image()
-                image.kp_list = self.m.denseDetect(image.img_rgb)
-                image.kp_list, image.des_list \
-                    = self.m.computeDescriptors(image.img_rgb, image.kp_list)
-                # and because we've messed with keypoints and descriptors
-                image.match_list = []
-                image.save_keys()
-                image.save_descriptors()
-                #image.show_keypoints()
 
     def save_info(self):
         for image in self.image_list:
@@ -523,7 +473,8 @@ class ImageGroup():
     # pose = (yaw_deg, pitch_deg, roll_deg, x_m, y_m, z_m)
     def projectImageKeypointsNative3(self, image, pose,
                                      yaw_bias=0.0, roll_bias=0.0,
-                                     pitch_bias=0.0, alt_bias=0.0):
+                                     pitch_bias=0.0, alt_bias=0.0,
+                                     all_keypoints=False):
         #print "Project3 for %s" % image.name
         if image.img == None:
             image.load_image()
@@ -547,7 +498,7 @@ class ImageGroup():
 
         # project the paired keypoints into world space
         for i, kp in enumerate(image.kp_list):
-            if not image.kp_usage[i]:
+            if not all_keypoints and not image.kp_usage[i]:
                 continue
             # print "ned2cam = %s" % str(ned2cam)
             proj = self.projectPoint2(image, ned2cam, kp.pt, z_m,
@@ -589,13 +540,14 @@ class ImageGroup():
 
         return coord_list, corner_list, grid_list
 
-    def projectKeypoints(self):
+    def projectKeypoints(self, all_keypoints=False):
         for image in self.image_list:
             pose = (image.camera_yaw, image.camera_pitch, image.camera_roll,
                     image.camera_x, image.camera_y, image.camera_z)
             # print "project from pose = %s" % str(pose)
             coord_list, corner_list, grid_list \
-                = self.projectImageKeypointsNative3(image, pose)
+                = self.projectImageKeypointsNative3(image, pose,
+                                                    all_keypoints=all_keypoints)
             image.coord_list = coord_list
             image.corner_list = corner_list
             image.grid_list = grid_list
@@ -991,7 +943,8 @@ class ImageGroup():
             roll = -image.aircraft_roll
             pitch = -image.aircraft_pitch
             agl = msl - self.ground_alt_m
-            if image.has_matches and math.fabs(roll) <= max_roll and math.fabs(pitch) <= max_pitch and agl >= min_agl:
+            if image.num_matches >= 0 and math.fabs(roll) <= max_roll and math.fabs(pitch) <= max_pitch and agl >= min_agl:
+                print image.name
                 match_count += 1
 
         # write AC3D header
@@ -1013,7 +966,7 @@ class ImageGroup():
             roll = -image.aircraft_roll
             pitch = -image.aircraft_pitch
             agl = msl - self.ground_alt_m
-            if not image.has_matches or math.fabs(roll) > max_roll or math.fabs(pitch) > max_pitch or agl < min_agl:
+            if not image.num_matches >= 0 or math.fabs(roll) > max_roll or math.fabs(pitch) > max_pitch or agl < min_agl:
                 continue
 
             # compute a priority function (higher priority tiles are raised up)

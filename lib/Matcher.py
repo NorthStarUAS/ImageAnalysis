@@ -86,19 +86,33 @@ class Matcher():
         kp_list, des_list = self.detector.compute(image, kp_list)
         return kp_list, des_list
  
-    def filterMatches(self, kp1, kp2, matches):
+    def filterMatches(self, i1, i2, filter, matches):
+        kp1 = i1.kp_list
+        kp2 = i2.kp_list
         mkp1, mkp2 = [], []
         idx_pairs = []
         used = np.zeros(len(kp2), np.bool_)
         for m in matches:
-            if len(m) == 2 and m[0].distance < m[1].distance * self.match_ratio:
-                #print " dist[0] = %d  dist[1] = %d" % (m[0].distance, m[1].distance)
-                m = m[0]
-                if not used[m.trainIdx]:
-                    used[m.trainIdx] = True
-                    mkp1.append( kp1[m.queryIdx] )
-                    mkp2.append( kp2[m.trainIdx] )
-                    idx_pairs.append( (m.queryIdx, m.trainIdx) )
+            if len(m) != 2:
+                # we asked for the two best matches
+                continue
+            if m[0].distance > m[1].distance * self.match_ratio:
+                # must pass the feature vector distance ratio test
+                continue
+            m = m[0]
+            c1 = i1.coord_list[m.queryIdx]
+            c2 = i2.coord_list[m.trainIdx]
+            dx = c2[0] - c1[0]
+            dy = c2[1] - c1[1]
+            dist = math.sqrt(dx*dx + dy*dy)
+            if dist > 20:
+                # must be in physical proximity
+                continue
+            if not used[m.trainIdx]:
+                used[m.trainIdx] = True
+                mkp1.append( kp1[m.queryIdx] )
+                mkp2.append( kp2[m.trainIdx] )
+                idx_pairs.append( (m.queryIdx, m.trainIdx) )
         p1 = np.float32([kp.pt for kp in mkp1])
         p2 = np.float32([kp.pt for kp in mkp2])
         kp_pairs = zip(mkp1, mkp2)
@@ -110,7 +124,7 @@ class Matcher():
             if i1 == i2:
                 continue
             matches = self.matcher.knnMatch(i1.des_list, trainDescriptors=i2.des_list, k=2)
-            p1, p2, kp_pairs, idx_pairs = self.filterMatches(i1.kp_list, i2.kp_list, matches)
+            p1, p2, kp_pairs, idx_pairs = self.filterMatches(i1, i2, 'ratio', matches)
             if len(p1) >= 4:
                 H, status = cv2.findHomography(p1, p2, cv2.RANSAC, 5.0)
                 print '%d / %d  inliers/matched' % (np.sum(status), len(status))
@@ -160,17 +174,16 @@ class Matcher():
 
         return match_list
 
-    def basicImageMatches(self, i1, review=False):
+    def basicImageMatches(self, i1, filter, review=False):
         match_list = [[]] * len(self.image_list)
         for j, i2 in enumerate(self.image_list):
             if i1 == i2:
                 continue
+            print "Matching %s vs %s" % (i1.name, i2.name)
             matches = self.matcher.knnMatch(i1.des_list, trainDescriptors=i2.des_list, k=2)
-            p1, p2, kp_pairs, idx_pairs = self.filterMatches(i1.kp_list, i2.kp_list, matches)
+            p1, p2, kp_pairs, idx_pairs = self.filterMatches(i1, i2, filter, matches)
             if len(idx_pairs) >= self.min_pairs:
-                print "Matching %s vs %s = %d" \
-                    % (i1.name, i2.name, len(idx_pairs))
-
+                print "  pairs = ", len(idx_pairs)
                 if review:
                     status = self.showMatch(i1, i2, idx_pairs)
                     # remove deselected pairs
@@ -194,12 +207,12 @@ class Matcher():
             i1.match_list = self.computeImageMatches1(i1, review)
             i1.save_matches()
 
-    def robustGroupMatches(self, method="", review=False):
+    def robustGroupMatches(self, filter1="ratio", filter2="fundamental", review=False):
         # Find basic matches that satisfy NN > 2 and ratio test
         for i, i1 in enumerate(self.image_list):
             if len(i1.match_list):
                 continue
-            i1.match_list = self.basicImageMatches(i1, review)
+            i1.match_list = self.basicImageMatches(i1, filter1, review)
 
         # Further filter against a Homography or Fundametal matrix constraint
         for i, i1 in enumerate(self.image_list):
@@ -223,9 +236,9 @@ class Matcher():
                 p2 = np.float32(p2)
                 #print "p1 = %s" % str(p1)
                 #print "p2 = %s" % str(p2)
-                if method == "homography":
+                if filter2 == "homography":
                     M, status = cv2.findHomography(p1, p2, cv2.RANSAC, tol)
-                elif method == "fundamental":
+                elif filter2 == "fundamental":
                     M, status = cv2.findFundamentalMat(p1, p2, cv2.RANSAC, tol)
                 else:
                     # fail
@@ -462,10 +475,10 @@ class Matcher():
         dist2_sum = 0.0
         var_sum = 0.0
         weight_sum = i1.weight  # give ourselves an appropriate weight
-        i1.has_matches = False
+        i1.num_matches = 0
         for j, match in enumerate(i1.match_list):
             if len(match):
-                i1.has_matches = True
+                i1.num_matches += 1
                 i2 = self.image_list[j]
                 #print "Matching %s vs %s " % (i1.name, i2.name)
                 error = 0.0
@@ -510,6 +523,8 @@ class Matcher():
         i2 = self.image_list[j]
         match = i1.match_list[j]
         print "pair error report %s v. %s (%d)" % (i1.name, i2.name, len(match))
+        if len(match) == 0:
+            return
         report_list = []
         coord_list = i1.coord_list
         if alt_coord_list != None:
