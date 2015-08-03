@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, "/home/curt/Projects/ComputerVision/lib/python2.7/site-packages/")
 
 import FlightData
-import ImageGroup
+import ProjectMgr
 import Solver
 
 ComputeMatches = True
@@ -31,7 +31,7 @@ ground_alt_m = float(sys.argv[3])
 work_dir = image_dir + "-work"
 
 # create the image group
-ig = ImageGroup.ImageGroup( max_features=800, detect_grid=4, match_ratio=0.75 )
+ig = ProjectMgr.ProjectMgr( max_features=800, detect_grid=4, match_ratio=0.75 )
 
 # set up Samsung NX210 parameters
 ig.setCameraParams(horiz_mm=23.5, vert_mm=15.7, focal_len_mm=30.0)

@@ -4,7 +4,7 @@ import commands
 import cv2
 import fileinput
 import fnmatch
-import lxml.etree as ET
+import json
 import math
 from matplotlib import pyplot as plt
 import numpy as np
@@ -13,7 +13,6 @@ import subprocess
 import sys
 
 import geojson
-#import PIL                      # test?
 
 from getchar import find_getch
 import Image
@@ -24,8 +23,16 @@ import Render
 import transformations
 
 
-class ImageGroup():
-    def __init__(self, max_features=100, detect_grid=8, match_ratio=0.75):
+class ProjectMgr():
+    def __init__(self, project_dir=None, max_features=100, detect_grid=8, match_ratio=0.75):
+        # directories
+        self.project_dir = None  # project working directory
+        self.source_dir = None   # original images
+        self.image_dir = None    # working set of images
+        
+        # the following member variables need to be reviewed/organized
+
+        self.flight_data = None  # flight data
         cells = detect_grid * detect_grid
         self.max_features = int(max_features / cells)
         self.match_ratio = match_ratio
@@ -52,6 +59,134 @@ class ImageGroup():
         matcherparams = dict(matcher="FLANN", match_ratio=match_ratio)
         #matcherparams = dict(matcher="Brute Force", match_ratio=match_ratio)
         self.m.configure(detectparams, matcherparams)
+        
+        if project_dir != None:
+            self.load( project_dir )
+
+    # project_dir is a new folder for all derived files
+    def set_project_dir(self, project_dir, create_if_needed=True):
+        self.project_dir = project_dir
+        
+        if not os.path.exists(self.project_dir):
+            if create_if_needed:
+                print "Notice: creating project directory =", self.project_dir
+                os.makedirs(self.project_dir)
+            else:
+                print "Error: project dir doesn't exist =", self.project_dir
+                return False
+
+        # and make children directories
+        self.image_dir = project_dir + "/" + "Images"
+        if not os.path.exists(self.image_dir):
+            if create_if_needed:
+                print "Notice: creating image directory =", self.image_dir
+                os.makedirs(self.image_dir)
+            else:
+                print "Error: image dir doesn't exist =", self.image_dir
+                return False
+            
+        # all is good
+        return True
+
+    # source_dir is the folder containing all the raw/original images.
+    # The expected work flow is that we will import/scale all the
+    # original images into our project folder leaving the original
+    # image set completely untouched.
+    def set_source_dir(self, source_dir):
+        if source_dir == self.project_dir:
+            print "Error: image source and project dirs must be different."
+            return
+
+        if not os.path.exists(source_dir):
+            print "Error: image source path does not exist =", source_path
+            
+        self.source_dir = source_dir
+
+    def save(self):
+        # create a dictionary and write it out as json
+        if not os.path.exists(self.project_dir):
+            print "Error: project doesn't exist =", self.project_dir
+            return
+
+        dirs = {}
+        dirs['source'] = self.source_dir
+        dirs['image'] = self.image_dir
+        project_dict = {}
+        project_dict['directories'] = dirs
+        project_file = self.project_dir + "/Project.json"
+        try:
+            f = open(project_file, 'w')
+            json.dump(project_dict, f, indent=4)
+            f.close()
+        except IOError as e:
+            print "Save project(): I/O error({0}): {1}".format(e.errno, e.strerror)
+            return
+        except:
+            raise
+
+    def load(self, project_dir, create_if_needed=True):
+        if not self.set_project_dir( project_dir ):
+            return
+
+        project_file = self.project_dir + "/Project.json"
+        try:
+            f = open(project_file, 'r')
+            project_dict = json.load(f)
+            f.close()
+            
+            dirs = project_dict['directories']
+            self.source_dir = dirs['source']
+            self.image_dir = dirs['image']
+        except:
+            print "Error: unable to read =", project_file
+            print "Continuing with an empty project configuration"
+
+    # import an image set into the project directory, possibly scaling them
+    # to a lower resolution for faster processing.
+    def import_images(self, scale=0.25, converter='imagemagick'):
+        if self.source_dir == None:
+            print "Error: source_dir not defined."
+            return
+
+        if self.image_dir == None:
+            print "Error: project's image_dir not defined."
+            return
+        
+        if self.source_dir == self.image_dir:
+            print "Error: source and destination directories must be different."
+            return
+
+        if not os.path.exists(self.source_dir):
+            print "Error: source directory not found =", self.source_dir
+            return
+
+        if not os.path.exists(self.image_dir):
+            print "Error: destination directory not found =", self.image_dir
+            return
+
+        files = []
+        for file in os.listdir(self.source_dir):
+            if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
+                files.append(file)
+        files.sort()
+
+        for file in files:
+            name_in = self.source_dir + "/" + file
+            name_out = self.image_dir + "/" + file
+            if converter == 'imagemagick':
+                command = "convert -resize %d%% %s %s" % ( int(scale*100.0), name_in, name_out )
+                print command
+                commands.getstatusoutput( command )
+            elif converter == 'opencv':
+                src = cv2.imread(name_in)
+                #method = cv2.INTER_AREA
+                method = cv2.INTER_LANCZOS4
+                dst = cv2.resize(src, (0,0), fx=scale, fy=scale,
+                                 interpolation=method)
+                cv2.imwrite(name_out, dst)
+                print "Scaling (%.1f%%) %s to %s" % ((scale*100.0), name_in, name_out)
+            else:
+                print "Error: unknown converter =", converter
 
     def setCameraParams(self, horiz_mm=23.5, vert_mm=15.7, focal_len_mm=30.0):
         self.horiz_mm = horiz_mm
@@ -73,50 +208,9 @@ class ImageGroup():
         self.group_roll_bias = roll_bias
         self.group_pitch_bias = pitch_bias
 
-    def set_dirs(self, source_dir="", work_dir=""):
-        if source_dir:
-            self.source_dir=source_dir
-        if work_dir:
-            self.work_dir=work_dir
-            # double check work dir exists and make it if not
-            if not os.path.exists(self.work_dir):
-                os.makedirs(self.work_dir)
-
-    def update_work_dir(self, scale=0.25):
-        print "source dir = " + self.source_dir
-        files = []
-        for file in os.listdir(self.source_dir):
-            if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
-                files.append(file)
-        files.sort()
-
-        for file in files:
-            # create resized working copy if needed
-            name_in = self.source_dir + "/" + file
-            name_out = self.work_dir + "/" + file
-            use_opencv = False
-            if use_opencv:
-                # opencv is fast, but doesn't copy the metadata
-                src = cv2.imread(name_in)
-                method = cv2.INTER_AREA
-                #method = cv2.INTER_LANCZOS4
-                dst = cv2.resize(src, (0,0), fx=scale, fy=scale,
-                                 interpolation=method)
-                cv2.imwrite(name_out, dst)
-                print "Downsizing %s to %s%%" % (file, (scale*100.0))
-            else:
-                command = "convert -resize %d%% %s %s" % ( int(scale*100.0), name_in, name_out )
-                print command
-                commands.getstatusoutput( command )
-            #image = Image.Image(self.work_dir, file)
-            #image.save_info()
-
     def load_info(self):
-        # load project wide values
-        # self.load_project()
-
         self.file_list = []
-        for file in os.listdir(self.work_dir):
+        for file in os.listdir(self.image_dir):
             if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
                 self.file_list.append(file)
         self.file_list.sort()
@@ -124,7 +218,7 @@ class ImageGroup():
         # wipe image list (so we don't double load)
         self.image_list = []
         for file_name in self.file_list:
-            image = Image.Image(self.work_dir, file_name)
+            image = Image.Image(self.image_dir, file_name)
             self.image_list.append( image )
 
         # make sure our matcher gets a copy of the image list
@@ -342,7 +436,6 @@ class ImageGroup():
         self.ref_lon = lon_sum / len(self.image_list)
         self.ref_lat = lat_sum / len(self.image_list)
         self.render.setRefCoord(self.ref_lon, self.ref_lat)
-        #self.save_project()
         print "Reference: lon = %.6f lat = %.6f" % (self.ref_lon, self.ref_lat)
         for image in self.image_list:
             (x, y) = ImageList.wgs842cart(image.aircraft_lon,
@@ -948,7 +1041,7 @@ class ImageGroup():
                 match_count += 1
 
         # write AC3D header
-        name = self.work_dir
+        name = self.image_dir
         name += "/"
         name += base_name
         if version:
@@ -1099,7 +1192,7 @@ class ImageGroup():
 
     # this really doesn't work right because the euler pose angles derived
     # might be correct, but aren't all consistent apparently ... the back
-    # sovler to extract angles from an arbitrary rotation matrix doesn't seem
+    # solver to extract angles from an arbitrary rotation matrix doesn't seem
     # always be consistant. (this probably should be depricated at some point)
     def fitImagesWithSolvePnP1(self):
         for i, i1 in enumerate(self.image_list):
@@ -1338,7 +1431,9 @@ class ImageGroup():
     # averaging points in cartesian space is much easier than trying
     # to figure out how to average euler angles.
     #
-    # Problem ... too many pairwise matches are unstable for solvePnP() because of clustered or linear data leading to a whole lot of nonsense
+    # Problem ... too many pairwise matches are unstable for
+    # solvePnP() because of clustered or linear data leading to a
+    # whole lot of nonsense
     def fitImagesWithSolvePnP3(self):
         for i, i1 in enumerate(self.image_list):
             print "solvePnP() (3) for %s" % i1.name
@@ -1696,7 +1791,7 @@ class ImageGroup():
             # group
             gc = geojson.GeometryCollection( [cam, poly] )
             source = "%s/%s" % (self.source_dir, image.name)
-            work = "%s/%s" % (self.work_dir, image.name)
+            work = "%s/%s" % (self.image_dir, image.name)
             f = geojson.Feature(geometry=gc, id=i,
                                 properties={"name": image.name,
                                             "source": source,

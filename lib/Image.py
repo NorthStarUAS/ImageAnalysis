@@ -1,14 +1,13 @@
 #!/usr/bin/python
 
-import copy
+# Image.py - manage all the data scructures associated with an image
+
 import cv2
 import lxml.etree as ET
 from matplotlib import pyplot as plt
 import numpy as np
 import os.path
 import sys
-
-from find_obj import filter_matches,explore_match
 
 class Image():
     def __init__(self, image_dir=None, image_file=None):
