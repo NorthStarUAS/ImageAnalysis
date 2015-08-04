@@ -9,7 +9,6 @@ import ImageList
 class Matcher():
     def __init__(self):
         self.image_list = []
-        self.detector = None
         self.matcher = None
         self.dense_detect_grid = 1
         self.match_ratio = 0.75
@@ -17,7 +16,7 @@ class Matcher():
         #self.bf = cv2.BFMatcher(cv2.NORM_HAMMING) #, crossCheck=True)
         #self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
-    def configure(self, dparams={}, mparams={}):
+    def configure(self, mparams={}):
         FLANN_INDEX_KDTREE = 1  # bug: flann enums are missing
         FLANN_INDEX_LSH    = 6
         if "detector" in dparams:
@@ -55,32 +54,6 @@ class Matcher():
 
     def setImageList(self, image_list):
         self.image_list = image_list
-
-    def denseDetect(self, image):
-        steps = self.dense_detect_grid
-        kp_list = []
-        h, w, d = image.shape
-        dx = 1.0 / float(steps)
-        dy = 1.0 / float(steps)
-        x = 0.0
-        for i in xrange(steps):
-            y = 0.0
-            for j in xrange(steps):
-                #print "create mask (%dx%d) %d %d" % (w, h, i, j)
-                #print "  roi = %.2f,%.2f %.2f,%2f" % (y*h,(y+dy)*h-1, x*w,(x+dx)*w-1)
-                mask = np.zeros((h,w,1), np.uint8)
-                mask[y*h:(y+dy)*h-1,x*w:(x+dx)*w-1] = 255
-                kps = self.detector.detect(image, mask)
-                if False:
-                    res = cv2.drawKeypoints(image, kps,
-                                            color=(0,255,0), flags=0)
-                    fig1, plt1 = plt.subplots(1)
-                    plt1 = plt.imshow(res)
-                    plt.show()
-                kp_list.extend( kps )
-                y += dy
-            x += dx
-        return kp_list
 
     def computeDescriptors(self, image, kp_list):
         kp_list, des_list = self.detector.compute(image, kp_list)
@@ -148,9 +121,9 @@ class Matcher():
                     # draw only keypoints location,not size and orientation (flags=0)
                     # draw rich keypoints (flags=4)
                     if i1.img == None:
-                        i1.load_image()
+                        i1.load_rgb()
                     if i2.img == None:
-                        i2.load_image()
+                        i2.load_rgb()
                     res1 = cv2.drawKeypoints(i1.img, i1.kp_list, color=(0,255,0), flags=0)
                     res2 = cv2.drawKeypoints(i2.img, i2.kp_list, color=(0,255,0), flags=0)
                     fig1, plt1 = plt.subplots(1)
@@ -331,9 +304,9 @@ class Matcher():
             kp2 = i2.kp_list[p[1]]
             kp_pairs.append( (kp1, kp2) )
         if i1.img == None:
-            i1.load_image()
+            i1.load_rgb()
         if i2.img == None:
-            i2.load_image()
+            i2.load_rgb()
         if status == None:
             status = np.ones(len(kp_pairs), np.bool_)
         h, w = i1.img.shape

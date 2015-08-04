@@ -30,7 +30,7 @@ class Render():
         print "Drawing %s: (%d %d)" % (image.name, x, y)
         #print str(image.corner_list)
 
-        full_image = image.load_full_image(source_dir)
+        full_image = image.load_source_rgb(source_dir)
         h, w, d = full_image.shape
         corners = np.float32([[0,0],[w,0],[0,h],[w,h]])
         target = np.array([image.corner_list]).astype(np.float32)

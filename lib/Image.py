@@ -3,6 +3,7 @@
 # Image.py - manage all the data scructures associated with an image
 
 import cv2
+import json
 import lxml.etree as ET
 from matplotlib import pyplot as plt
 import numpy as np
@@ -68,7 +69,7 @@ class Image():
         self.aircraft_pitch = pitch
         self.aircraft_yaw = yaw
 
-    def load_image(self):
+    def load_rgb(self):
         if self.img == None:
             #print "Loading " + self.image_file
             try:
@@ -76,7 +77,7 @@ class Image():
                 self.fullh, self.fullw, self.fulld = self.img_rgb.shape
                 self.img = cv2.cvtColor(self.img_rgb, cv2.COLOR_BGR2GRAY)
                 # self.img = cv2.equalizeHist(gray)
-                #self.img = gray
+                # self.img = gray
                 return self.img_rgb
                 
             except:
@@ -85,15 +86,15 @@ class Image():
         else:
             self.fullh, self.fullw, self.fulld = self.img_rgb.shape
 
-    def load_full_image(self, source_dir):
+    def load_source_rgb(self, source_dir):
         #print "Loading " + self.image_file
-        full_name = source_dir + "/" + self.name
+        source_name = source_dir + "/" + self.name
         try:
-            full_image = cv2.imread(full_name)
-            return full_image
+            source_image = cv2.imread(source_name)
+            return source_image
 
         except:
-            print full_image + ":\n" + "  load error: " \
+            print source_image + ":\n" + "  load error: " \
                 + str(sys.exc_info()[1])
             return None
 
@@ -152,80 +153,60 @@ class Image():
             # print str(self.match_list)
 
     def load_info(self):
-        if os.path.exists(self.info_file):
-            #print "Loading " + self.info_file
-            try:
-                xml = ET.parse(self.info_file)
-                root = xml.getroot()
-                self.num_matches = int(root.find('num-matches').text)
-                if root.find('longitude') is not None:
-                    lon = float(root.find('longitude').text)
-                else:
-                    lon = float(root.find('aircraft-longitude').text)
-                if root.find('latitude') is not None:
-                    lat = float(root.find('latitude').text)
-                else:
-                    lat = float(root.find('aircraft-latitude').text)
-                if root.find('altitude-msl') is not None:
-                    msl = float(root.find('altitude-msl').text)
-                else:
-                    msl = float(root.find('aircraft-msl').text)
-                if root.find('roll') is not None:
-                    roll = float(root.find('roll').text)
-                else:
-                    roll = float(root.find('aircraft-roll').text)
-                if root.find('pitch') is not None:
-                    pitch = float(root.find('pitch').text)
-                else:
-                    pitch = float(root.find('aircraft-pitch').text)
-                if root.find('yaw') is not None:
-                    yaw = float(root.find('yaw').text)
-                else:
-                    yaw = float(root.find('aircraft-yaw').text)
-                self.set_location(lon, lat, msl, roll, pitch, yaw)
-                self.alt_bias = float(root.find('altitude-bias').text)
-                self.roll_bias = float(root.find('roll-bias').text)
-                self.pitch_bias = float(root.find('pitch-bias').text)
-                self.yaw_bias = float(root.find('yaw-bias').text)
-                self.x_bias = float(root.find('x-bias').text)
-                self.y_bias = float(root.find('y-bias').text)
-                self.weight = float(root.find('weight').text)
-                self.connections = float(root.find('connections').text)
-                self.error = float(root.find('error').text)
-                self.stddev = float(root.find('stddev').text)
-                if root.find('camera-yaw') is not None:
-                    self.camera_yaw = float(root.find('camera-yaw').text)
-                if root.find('camera-pitch') is not None:
-                    self.camera_pitch = float(root.find('camera-pitch').text)
-                if root.find('camera-roll') is not None:
-                    self.camera_roll = float(root.find('camera-roll').text)
-                if root.find('camera-x') is not None:
-                    self.camera_x = float(root.find('camera-x').text)
-                if root.find('camera-y') is not None:
-                    self.camera_y = float(root.find('camera-y').text)
-                if root.find('camera-z') is not None:
-                    self.camera_z = float(root.find('camera-z').text)
-            except:
-                print self.info_file + ":\n" + "  load error: " \
-                    + str(sys.exc_info()[1])
-        else:
+        if not os.path.exists(self.info_file):
             # no info file, create a new file
             self.save_info()
+            return
+        
+        try:
+            f = open(self.info_file, 'r')
+            image_dict = json.load(f)
+            f.close()
+            self.num_matches = image_dict['num-matches']
+            lon = image_dict['aircraft-longitude']
+            lat = image_dict['aircraft-latitude']
+            msl = image_dict['aircraft-msl']
+            roll = image_dict['aircraft-roll']
+            pitch = image_dict['aircraft-pitch']
+            yaw = image_dict['aircraft-yaw']
+            self.set_location(lon, lat, msl, roll, pitch, yaw)
+            self.alt_bias = image_dict['altitude-bias']
+            self.roll_bias = image_dict['roll-bias']
+            self.pitch_bias = image_dict['pitch-bias']
+            self.yaw_bias = image_dict['yaw-bias']
+            self.x_bias = image_dict['x-bias']
+            self.y_bias = image_dict['y-bias']
+            self.weight = image_dict['weight']
+            self.connections = image_dict['connections']
+            self.error = image_dict['error']
+            self.stddev = image_dict['stddev']
+            if 'camera-yaw' in image_dict:
+                self.camera_yaw = image_dict['camera-yaw']
+            if 'camera-pitch' in image_dict:
+                self.camera_pitch = image_dict['camera-pitch']
+            if 'camera-roll' in image_dict:
+                self.camera_roll = image_dict['camera-roll']
+            if 'camera-x' in image_dict:
+                self.camera_x = image_dict['camera-x']
+            if 'camera-y' in image_dict:
+                self.camera_y = image_dict['camera-y']
+            if 'camera-z' in image_dict:
+                self.camera_z = image_dict['camera-z']
+        except:
+            print self.info_file + ":\n" + "  load error: " \
+                + str(sys.exc_info()[1])
 
     def load(self, image_dir, image_file):
         print "Loading " + image_file
         self.name = image_file
         root, ext = os.path.splitext(image_file)
-        self.file_root = image_dir + "/" + root
+        file_root = image_dir + "/" + root
         self.image_file = image_dir + "/" + image_file
-        self.keys_file = self.file_root + ".keys"
-        self.des_file = self.file_root + ".npy"
-        self.match_file = self.file_root + ".match"
-        self.info_file = self.file_root + ".info"
+        self.keys_file = file_root + ".keys"
+        self.des_file = file_root + ".npy"
+        self.match_file = file_root + ".match"
+        self.info_file = file_root + ".info"
         self.load_info()
-        #self.load_keys()
-        #self.load_descriptors()
-        #self.load_matches()
 
     def save_keys(self):
         root = ET.Element('keypoints')
@@ -293,47 +274,88 @@ class Image():
                 + str(sys.exc_info()[1])
 
     def save_info(self):
-        root = ET.Element('information')
-        xml = ET.ElementTree(root)
-        ET.SubElement(root, 'num-matches').text = str(self.num_matches)
-        ET.SubElement(root, 'aircraft-longitude').text = "%.10f" % self.aircraft_lon
-        ET.SubElement(root, 'aircraft-latitude').text = "%.10f" % self.aircraft_lat
-        ET.SubElement(root, 'aircraft-msl').text = "%.2f" % self.aircraft_msl
-        ET.SubElement(root, 'aircraft-yaw').text = "%.2f" % self.aircraft_yaw
-        ET.SubElement(root, 'aircraft-pitch').text = "%.2f" % self.aircraft_pitch
-        ET.SubElement(root, 'aircraft-roll').text = "%.2f" % self.aircraft_roll
-        ET.SubElement(root, 'aircraft-x').text = "%.3f" % self.aircraft_x
-        ET.SubElement(root, 'aircraft-y').text = "%.3f" % self.aircraft_y
-        ET.SubElement(root, 'altitude-bias').text = "%.2f" % self.alt_bias
-        ET.SubElement(root, 'roll-bias').text = "%.2f" % self.roll_bias
-        ET.SubElement(root, 'pitch-bias').text = "%.2f" % self.pitch_bias
-        ET.SubElement(root, 'yaw-bias').text = "%.2f" % self.yaw_bias
-        ET.SubElement(root, 'x-bias').text = "%.2f" % self.x_bias
-        ET.SubElement(root, 'y-bias').text = "%.2f" % self.y_bias
-        ET.SubElement(root, 'weight').text = "%.2f" % self.weight
-        ET.SubElement(root, 'connections').text = "%d" % self.connections
-        ET.SubElement(root, 'error').text = "%.3f" % self.error
-        ET.SubElement(root, 'stddev').text = "%.3f" % self.stddev
-        ET.SubElement(root, 'camera-yaw').text = "%.3f" % self.camera_yaw
-        ET.SubElement(root, 'camera-pitch').text = "%.3f" % self.camera_pitch
-        ET.SubElement(root, 'camera-roll').text = "%.3f" % self.camera_roll
-        ET.SubElement(root, 'camera-x').text = "%.3f" % self.camera_x
-        ET.SubElement(root, 'camera-y').text = "%.3f" % self.camera_y
-        ET.SubElement(root, 'camera-z').text = "%.3f" % self.camera_z
+        image_dict = {}
+        image_dict['num-matches'] = self.num_matches
+        image_dict['aircraft-longitude'] = self.aircraft_lon
+        image_dict['aircraft-latitude'] = self.aircraft_lat
+        image_dict['aircraft-msl'] = self.aircraft_msl
+        image_dict['aircraft-yaw'] = self.aircraft_yaw
+        image_dict['aircraft-pitch'] = self.aircraft_pitch
+        image_dict['aircraft-roll'] = self.aircraft_roll
+        image_dict['aircraft-x'] = self.aircraft_x
+        image_dict['aircraft-y'] = self.aircraft_y
+        image_dict['altitude-bias'] = self.alt_bias
+        image_dict['roll-bias'] = self.roll_bias
+        image_dict['pitch-bias'] = self.pitch_bias
+        image_dict['yaw-bias'] = self.yaw_bias
+        image_dict['x-bias'] = self.x_bias
+        image_dict['y-bias'] = self.y_bias
+        image_dict['weight'] = self.weight
+        image_dict['connections'] = self.connections
+        image_dict['error'] = self.error
+        image_dict['stddev'] = self.stddev
+        image_dict['camera-yaw'] = self.camera_yaw
+        image_dict['camera-pitch'] = self.camera_pitch
+        image_dict['camera-roll'] = self.camera_roll
+        image_dict['camera-x'] = self.camera_x
+        image_dict['camera-y'] = self.camera_y
+        image_dict['camera-z'] = self.camera_z
 
-        # write xml file
         try:
-            xml.write(self.info_file, encoding="us-ascii",
-                      xml_declaration=False, pretty_print=True)
-        except:
+            f = open(self.info_file, 'w')
+            json.dump(image_dict, f, indent=4, sort_keys=True)
+            f.close()
+        except IOError as e:
             print self.info_file + ": error saving file: " \
                 + str(sys.exc_info()[1])
+            return
+        except:
+            raise
 
+    def make_detector(self, detector, dparams):
+        detector = None
+        if detector == 'SIFT':
+            nfeatures = dparams['nfeatures']
+            detector = cv2.SIFT(nfeatures=nfeatures)
+            #norm = cv2.NORM_L2
+        elif detector == 'SURF':
+            threshold = dparams['hessian_threshold']
+            detector = cv2.SURF(threshold)
+            #norm = cv2.NORM_L2
+        elif detector == 'ORB':
+            dmax_features = dparams['nfeatures']
+            detector = cv2.ORB(dmax_features)
+            #norm = cv2.NORM_HAMMING
+        
+        #if 'dense_detect_grid' in dparams:
+        #    self.dense_detect_grid = dparams['dense_detect_grid']
+        return detector
+
+    def denseDetect(self, grid_size):
+        steps = grid_size
+        kp_list = []
+        h, w, d = image.shape
+        dx = 1.0 / float(steps)
+        dy = 1.0 / float(steps)
+        x = 0.0
+        for i in xrange(steps):
+            y = 0.0
+            for j in xrange(steps):
+                #print "create mask (%dx%d) %d %d" % (w, h, i, j)
+                #print "  roi = %.2f,%.2f %.2f,%2f" % (y*h,(y+dy)*h-1, x*w,(x+dx)*w-1)
+                mask = np.zeros((h,w,1), np.uint8)
+                mask[y*h:(y+dy)*h-1,x*w:(x+dx)*w-1] = 255
+                kps = self.detector.detect(image, mask)
+                kp_list.extend( kps )
+                y += dy
+            x += dx
+        return kp_list
+        
     def show_keypoints(self, flags=0):
         # flags=0: draw only keypoints location
         # flags=4: draw rich keypoints
         if self.img == None:
-            self.load_image()
+            self.load_rgb()
         h, w = self.img.shape
         hscale = float(h) / float(self.fullh)
         wscale = float(w) / float(self.fullw)

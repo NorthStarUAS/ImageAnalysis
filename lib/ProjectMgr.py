@@ -29,7 +29,14 @@ class ProjectMgr():
         self.project_dir = None  # project working directory
         self.source_dir = None   # original images
         self.image_dir = None    # working set of images
-        
+
+        self.image_list = []
+
+        self.detector = 'SIFT'  # one of SIFT, SURF, or ORB
+        detector_params = { 'nfeatures': 2000 } # SIFT
+        #detector_params = { 'hessian_threshold': 600 } # SURF
+        #detector_params = { 'nfeatures': 2000, 'dense_detect_grid': 4 } # ORB
+
         # the following member variables need to be reviewed/organized
 
         self.flight_data = None  # flight data
@@ -37,8 +44,6 @@ class ProjectMgr():
         self.max_features = int(max_features / cells)
         self.match_ratio = match_ratio
         self.detect_grid = detect_grid
-        self.file_list = []
-        self.image_list = []
         self.ac3d_steps = 8
         self.ref_lon = None
         self.ref_lat = None
@@ -52,12 +57,8 @@ class ProjectMgr():
         self.m = Matcher.Matcher()
         self.placer = Placer.Placer()
         self.render = Render.Render()
-        detectparams = dict(detector="SIFT", nfeatures=2000)
-        #detectparams = dict(detector="SURF", hessian_threshold=600)
-        #detectparams = dict(detector="ORB",  orb_max_features=2000,
-        #                    dense_detect_grid=4)
-        matcherparams = dict(matcher="FLANN", match_ratio=match_ratio)
-        #matcherparams = dict(matcher="Brute Force", match_ratio=match_ratio)
+        matcherparams = { 'matcher': 'FLANN', 'match_ratio': match_ratio }
+        matcherparams = { 'matcher': 'Brute Force', 'match_ratio': match_ratio }
         self.m.configure(detectparams, matcherparams)
         
         if project_dir != None:
@@ -116,7 +117,7 @@ class ProjectMgr():
         project_file = self.project_dir + "/Project.json"
         try:
             f = open(project_file, 'w')
-            json.dump(project_dict, f, indent=4)
+            json.dump(project_dict, f, indent=4, sort_keys=True)
             f.close()
         except IOError as e:
             print "Save project(): I/O error({0}): {1}".format(e.errno, e.strerror)
@@ -188,36 +189,16 @@ class ProjectMgr():
             else:
                 print "Error: unknown converter =", converter
 
-    def setCameraParams(self, horiz_mm=23.5, vert_mm=15.7, focal_len_mm=30.0):
-        self.horiz_mm = horiz_mm
-        self.vert_mm = vert_mm
-        self.focal_len_mm = focal_len_mm
-
-    def setCameraOffsets(self, roll_deg=0.0, pitch_deg=-90, yaw_deg=0.0):
-        self.offset_roll_deg = roll_deg
-        self.offset_pitch_deg = pitch_deg
-        self.offset_yaw_deg = yaw_deg
-
-    def setWorldParams(self, ground_alt_m=0.0, shutter_latency=0.0,
-                       yaw_bias=0.0, roll_bias=0.0, pitch_bias=0.0):
-        print "Setting ground=%.1f shutter=%.2f yaw=%.2f roll=%.2f pitch=%.2f"\
-            % (ground_alt_m, shutter_latency, yaw_bias, roll_bias, pitch_bias)
-        self.ground_alt_m = ground_alt_m
-        self.shutter_latency = shutter_latency
-        self.group_yaw_bias = yaw_bias
-        self.group_roll_bias = roll_bias
-        self.group_pitch_bias = pitch_bias
-
-    def load_info(self):
-        self.file_list = []
+    def load_image_info(self):
+        file_list = []
         for file in os.listdir(self.image_dir):
             if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
-                self.file_list.append(file)
-        self.file_list.sort()
+                file_list.append(file)
+        file_list.sort()
 
         # wipe image list (so we don't double load)
         self.image_list = []
-        for file_name in self.file_list:
+        for file_name in file_list:
             image = Image.Image(self.image_dir, file_name)
             self.image_list.append( image )
 
@@ -246,7 +227,7 @@ class ProjectMgr():
             if force or len(image.kp_list) == 0 or image.des_list == None:
                 print "detecting features and computing descriptors: " + image.name
                 if image.img_rgb == None:
-                    image.load_image()
+                    image.load_rgb()
                 image.kp_list = self.m.denseDetect(image.img_rgb)
                 image.kp_list, image.des_list \
                     = self.m.computeDescriptors(image.img_rgb, image.kp_list)
@@ -256,6 +237,26 @@ class ProjectMgr():
                 image.save_keys()
                 image.save_descriptors()
                 #image.show_keypoints()
+
+    def setCameraParams(self, horiz_mm=23.5, vert_mm=15.7, focal_len_mm=30.0):
+        self.horiz_mm = horiz_mm
+        self.vert_mm = vert_mm
+        self.focal_len_mm = focal_len_mm
+
+    def setCameraOffsets(self, roll_deg=0.0, pitch_deg=-90, yaw_deg=0.0):
+        self.offset_roll_deg = roll_deg
+        self.offset_pitch_deg = pitch_deg
+        self.offset_yaw_deg = yaw_deg
+
+    def setWorldParams(self, ground_alt_m=0.0, shutter_latency=0.0,
+                       yaw_bias=0.0, roll_bias=0.0, pitch_bias=0.0):
+        print "Setting ground=%.1f shutter=%.2f yaw=%.2f roll=%.2f pitch=%.2f"\
+            % (ground_alt_m, shutter_latency, yaw_bias, roll_bias, pitch_bias)
+        self.ground_alt_m = ground_alt_m
+        self.shutter_latency = shutter_latency
+        self.group_yaw_bias = yaw_bias
+        self.group_roll_bias = roll_bias
+        self.group_pitch_bias = pitch_bias
 
     def genKeypointUsageMap(self):
         # make the keypoint usage map (used so we don't have to
@@ -539,7 +540,7 @@ class ProjectMgr():
                                      roll_bias=0.0, pitch_bias=0.0,
                                      alt_bias=0.0):
         if image.img == None:
-            image.load_image()
+            image.load_rgb()
         h = image.fullh
         w = image.fullw
         ar = float(w)/float(h)  # aspect ratio
@@ -570,7 +571,7 @@ class ProjectMgr():
                                      all_keypoints=False):
         #print "Project3 for %s" % image.name
         if image.img == None:
-            image.load_image()
+            image.load_rgb()
         h = image.fullh
         w = image.fullw
         ar = float(w)/float(h)  # aspect ratio
@@ -1171,8 +1172,8 @@ class ProjectMgr():
                 F, mask = cv2.findFundamentalMat(pts1, pts2, cv2.FM_LMEDS)
 
                 print "loading full res images ..."
-                img1 = i1.load_full_image(self.source_dir)
-                img2 = i2.load_full_image(self.source_dir)
+                img1 = i1.load_source_rgb(self.source_dir)
+                img2 = i2.load_source_rgb(self.source_dir)
 
                 # Find epilines corresponding to points in right image
                 # (second image) and drawing its lines on left image
@@ -1762,7 +1763,7 @@ class ProjectMgr():
         for image in self.image_list:
             if image.img == None:
                 image.load_keys()
-                image.load_image()
+                image.load_rgb()
                 image.save_keys()
 
     # write out the camera positions as geojson
