@@ -98,26 +98,31 @@ class Image():
                 + str(sys.exc_info()[1])
             return None
 
-    def load_keys(self):
-        if len(self.kp_list) == 0 and os.path.exists(self.keys_file):
-            #print "Loading " + self.keys_file
+    def load_features(self):
+        if len(self.kp_list) == 0 and os.path.exists(self.features_file):
+            #print "Loading " + self.features_file
             try:
-                self.keys_xml = ET.parse(self.keys_file)
+                f = open(self.features_file, 'r')
+                feature_dict = json.load(f)
+                f.close()
             except:
-                print self.keys_file + ":\n" + "  load error: " \
-                    + str(sys.exc_info()[1])
-            root = self.keys_xml.getroot()
-            self.fullw = int(root.find('width').text)
-            self.fullh = int(root.find('height').text)
-            for kp in root.findall('kp'):
-                angle = float(kp.find('angle').text)
-                class_id = int(kp.find('class_id').text)
-                octave = int(kp.find('octave').text)
-                pt = kp.find('pt').text
-                x, y = map( float, str(pt).split() )
-                response = float(kp.find('response').text)
-                size = float(kp.find('size').text)
-                self.kp_list.append( cv2.KeyPoint(x, y, size, angle, response, octave, class_id) )
+                print self.features_file + ":\n" + "  load error: " \
+                    + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1])
+                return
+            
+            self.fullw = feature_dict['width']
+            self.fullh = feature_dict['height']
+            feature_list = feature_dict['features']
+            for i, kp_dict in enumerate(feature_list):
+                angle = kp_dict['angle']
+                class_id = kp_dict['class-id']
+                octave = kp_dict['octave']
+                pt = kp_dict['pt']
+                response = kp_dict['response']
+                size = kp_dict['size']
+                self.kp_list.append( cv2.KeyPoint(pt[0], pt[1], size,
+                                                  angle, response, octave,
+                                                  class_id) )
 
     def load_descriptors(self):
         if self.des_list == None and os.path.exists(self.des_file):
@@ -202,46 +207,35 @@ class Image():
         root, ext = os.path.splitext(image_file)
         file_root = image_dir + "/" + root
         self.image_file = image_dir + "/" + image_file
-        self.keys_file = file_root + ".keys"
+        self.features_file = file_root + ".feat"
         self.des_file = file_root + ".npy"
         self.match_file = file_root + ".match"
         self.info_file = file_root + ".info"
         self.load_info()
 
-    def save_keys(self):
-        root = ET.Element('keypoints')
-        xml = ET.ElementTree(root)
-
-        width = ET.SubElement(root, 'width')
-        width.text = str(self.fullw)
-        height = ET.SubElement(root, 'height')
-        height.text = str(self.fullh)
-
-        # generate keypoints xml tree
-        for i in xrange(len(self.kp_list)):
-            kp = self.kp_list[i]
-            e = ET.SubElement(root, 'kp')
-            idx = ET.SubElement(e, 'index')
-            idx.text = str(i)
-            angle = ET.SubElement(e, 'angle')
-            angle.text = str(kp.angle)
-            class_id = ET.SubElement(e, 'class_id')
-            class_id.text = str(kp.class_id)
-            octave = ET.SubElement(e, 'octave')
-            octave.text = str(kp.octave)
-            pt = ET.SubElement(e, 'pt')
-            pt.text = str(kp.pt[0]) + " " + str(kp.pt[1])
-            response = ET.SubElement(e, 'response')
-            response.text = str(kp.response)
-            size = ET.SubElement(e, 'size')
-            size.text = str(kp.size)
-        # write xml file
+    def save_features(self):
+        # convert from native opencv kp class to a dictionary
+        feature_list = []
+        feature_dict = { 'width': self.fullw,
+                         'height': self.fullh,
+                         'features': feature_list }
+        for i, kp in enumerate(self.kp_list):
+            kp_dict = { 'angle': kp.angle,
+                        'class-id': kp.class_id,
+                        'octave': kp.octave,
+                        'pt': kp.pt,
+                        'response': kp.response,
+                        'size': kp.size }
+            feature_list.append( kp_dict)
         try:
-            xml.write(self.keys_file, encoding="us-ascii",
-                      xml_declaration=False, pretty_print=True)
+            f = open(self.features_file, 'w')
+            json.dump(feature_dict, f, indent=2, sort_keys=True)
+            f.close()
+        except IOError as e:
+            print "save_features(): I/O error({0}): {1}".format(e.errno, e.strerror)
+            return
         except:
-            print self.keys_file + ": error saving file: " \
-                + str(sys.exc_info()[1])
+            raise
 
     def save_descriptors(self):
         # write descriptors as 'ppm image' format
@@ -312,46 +306,15 @@ class Image():
         except:
             raise
 
-    def make_detector(self, detector, dparams):
-        detector = None
-        if detector == 'SIFT':
-            nfeatures = dparams['nfeatures']
-            detector = cv2.SIFT(nfeatures=nfeatures)
-            #norm = cv2.NORM_L2
-        elif detector == 'SURF':
-            threshold = dparams['hessian_threshold']
-            detector = cv2.SURF(threshold)
-            #norm = cv2.NORM_L2
-        elif detector == 'ORB':
-            dmax_features = dparams['nfeatures']
-            detector = cv2.ORB(dmax_features)
-            #norm = cv2.NORM_HAMMING
-        
-        #if 'dense_detect_grid' in dparams:
-        #    self.dense_detect_grid = dparams['dense_detect_grid']
-        return detector
+    def detect_features(self, dparams):
+        self.kp_list = detect_features(self.img, dparams)
+        # wipe descriptos and matches because we've touched the keypoints
+        self.des_list = []
+        self.match_list = []
 
-    def denseDetect(self, grid_size):
-        steps = grid_size
-        kp_list = []
-        h, w, d = image.shape
-        dx = 1.0 / float(steps)
-        dy = 1.0 / float(steps)
-        x = 0.0
-        for i in xrange(steps):
-            y = 0.0
-            for j in xrange(steps):
-                #print "create mask (%dx%d) %d %d" % (w, h, i, j)
-                #print "  roi = %.2f,%.2f %.2f,%2f" % (y*h,(y+dy)*h-1, x*w,(x+dx)*w-1)
-                mask = np.zeros((h,w,1), np.uint8)
-                mask[y*h:(y+dy)*h-1,x*w:(x+dx)*w-1] = 255
-                kps = self.detector.detect(image, mask)
-                kp_list.extend( kps )
-                y += dy
-            x += dx
-        return kp_list
-        
-    def show_keypoints(self, flags=0):
+    # Displays the image in a window and waits for a keystroke and
+    # then destroys the window.  Returns the value of the keystroke.
+    def show_features(self, flags=0):
         # flags=0: draw only keypoints location
         # flags=4: draw rich keypoints
         if self.img == None:
@@ -374,9 +337,11 @@ class Image():
 
         res = cv2.drawKeypoints(self.img_rgb, kp_list,
                                 color=(0,255,0), flags=flags)
-        fig1, plt1 = plt.subplots(1)
-        plt1 = plt.imshow(res)
-        plt.show(block=True) #block=True/Flase
+        cv2.imshow(self.name, res)
+        print 'waiting for keyboard input...'
+        key = cv2.waitKey() & 0xff
+        cv2.destroyWindow(self.name)
+        return key
 
     def coverage(self):
         if not len(self.corner_list):
@@ -397,4 +362,52 @@ class Image():
         #print "%s coverage: (%.2f %.2f) (%.2f %.2f)" \
         #    % (self.name, xmin, ymin, xmax, ymax)
         return (xmin, ymin, xmax, ymax)
+
+def make_detector(dparams):
+    detector = None
+    if dparams['detector'] == 'SIFT':
+        max_features = int(dparams['sift-max-features'])
+        detector = cv2.SIFT(nfeatures=max_features)
+        #norm = cv2.NORM_L2
+    elif dparams['detector'] == 'SURF':
+        threshold = float(dparams['surf-hessian-threshold'])
+        detector = cv2.SURF(threshold)
+        #norm = cv2.NORM_L2
+    elif dparams['detector'] == 'ORB':
+        max_features = int(dparams['orb-max-features'])
+        grid_size = int(dparams['grid-detect'])
+        cells = grid_size * grid_size
+        max_cell_features = int(max_features / cells)
+        detector = cv2.ORB(max_cell_features)
+        #norm = cv2.NORM_HAMMING
+    return detector
+
+def orb_grid_detect(detector, image, grid_size):
+    steps = grid_size
+    kp_list = []
+    h, w = image.shape
+    dx = 1.0 / float(steps)
+    dy = 1.0 / float(steps)
+    x = 0.0
+    for i in xrange(steps):
+        y = 0.0
+        for j in xrange(steps):
+            #print "create mask (%dx%d) %d %d" % (w, h, i, j)
+            #print "  roi = %.2f,%.2f %.2f,%2f" % (y*h,(y+dy)*h-1, x*w,(x+dx)*w-1)
+            mask = np.zeros((h,w,1), np.uint8)
+            mask[y*h:(y+dy)*h-1,x*w:(x+dx)*w-1] = 255
+            kps = detector.detect(image, mask)
+            kp_list.extend( kps )
+            y += dy
+        x += dx
+    return kp_list
+
+def detect_features(image, dparams):
+    detector = make_detector(dparams)
+    grid_size = int(dparams['grid-detect'])
+    if dparams['detector'] == 'ORB' and grid_size > 1:
+        kp_list = orb_grid_detect(detector, image, grid_size)
+    else:
+        kp_list = detector.detect(image)
+    return kp_list
 

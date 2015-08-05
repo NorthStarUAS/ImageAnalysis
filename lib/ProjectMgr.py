@@ -24,7 +24,7 @@ import transformations
 
 
 class ProjectMgr():
-    def __init__(self, project_dir=None, max_features=100, detect_grid=8, match_ratio=0.75):
+    def __init__(self, project_dir=None, match_ratio=0.75):
         # directories
         self.project_dir = None  # project working directory
         self.source_dir = None   # original images
@@ -32,18 +32,16 @@ class ProjectMgr():
 
         self.image_list = []
 
-        self.detector = 'SIFT'  # one of SIFT, SURF, or ORB
-        detector_params = { 'nfeatures': 2000 } # SIFT
-        #detector_params = { 'hessian_threshold': 600 } # SURF
-        #detector_params = { 'nfeatures': 2000, 'dense_detect_grid': 4 } # ORB
+        self.detector_params = { 'detector': 'SIFT', # { SIFT, SURF, or ORB }
+                                 'grid-detect': 1,
+                                 'sift-max-features': 2000,
+                                 'surf-hessian-threshold': 600,
+                                 'orb-max-features': 2000 }
 
         # the following member variables need to be reviewed/organized
 
         self.flight_data = None  # flight data
-        cells = detect_grid * detect_grid
-        self.max_features = int(max_features / cells)
         self.match_ratio = match_ratio
-        self.detect_grid = detect_grid
         self.ac3d_steps = 8
         self.ref_lon = None
         self.ref_lat = None
@@ -59,7 +57,7 @@ class ProjectMgr():
         self.render = Render.Render()
         matcherparams = { 'matcher': 'FLANN', 'match_ratio': match_ratio }
         matcherparams = { 'matcher': 'Brute Force', 'match_ratio': match_ratio }
-        self.m.configure(detectparams, matcherparams)
+        self.m.configure(matcherparams)
         
         if project_dir != None:
             self.load( project_dir )
@@ -139,7 +137,7 @@ class ProjectMgr():
             self.source_dir = dirs['source']
             self.image_dir = dirs['image']
         except:
-            print "Error: unable to read =", project_file
+            print "Notice: unable to read =", project_file
             print "Continuing with an empty project configuration"
 
     # import an image set into the project directory, possibly scaling them
@@ -180,7 +178,7 @@ class ProjectMgr():
                 commands.getstatusoutput( command )
             elif converter == 'opencv':
                 src = cv2.imread(name_in)
-                #method = cv2.INTER_AREA
+               #method = cv2.INTER_AREA
                 method = cv2.INTER_LANCZOS4
                 dst = cv2.resize(src, (0,0), fx=scale, fy=scale,
                                  interpolation=method)
@@ -210,7 +208,7 @@ class ProjectMgr():
     def load_features(self):
         for image in self.image_list:
             print "Loading keypoints and descriptors: " + image.name
-            image.load_keys()
+            image.load_features()
             image.load_descriptors()
 
     def load_matches(self):
@@ -222,21 +220,31 @@ class ProjectMgr():
         for image in self.image_list:
             image.save_info()
 
-    def detect_features(self, force=True):
+    def set_detector_params(self, dparams):
+        self.detector_params = dparams
+        
+    def detect_features(self, force=True, show=False):
         for image in self.image_list:
             if force or len(image.kp_list) == 0 or image.des_list == None:
                 print "detecting features and computing descriptors: " + image.name
                 if image.img_rgb == None:
                     image.load_rgb()
-                image.kp_list = self.m.denseDetect(image.img_rgb)
-                image.kp_list, image.des_list \
-                    = self.m.computeDescriptors(image.img_rgb, image.kp_list)
-                # wipe matches because we've messed with keypoints and
-                # descriptors
-                image.match_list = []
-                image.save_keys()
+                image.detect_features(self.detector_params)
+                image.save_features()
                 image.save_descriptors()
-                #image.show_keypoints()
+                image.save_matches()
+                if show:
+                    result = image.show_features()
+                    if result == 27 or result == ord('q'):
+                        break
+
+    def show_features(self):
+        for image in self.image_list:
+            if image.img_rgb == None:
+                image.load_rgb()
+                result = image.show_features()
+                if result == 27 or result == ord('q'):
+                    break
 
     def setCameraParams(self, horiz_mm=23.5, vert_mm=15.7, focal_len_mm=30.0):
         self.horiz_mm = horiz_mm
@@ -1762,7 +1770,7 @@ class ProjectMgr():
     def recomputeWidthHeight(self):
         for image in self.image_list:
             if image.img == None:
-                image.load_keys()
+                image.load_features()
                 image.load_rgb()
                 image.save_keys()
 

@@ -16,25 +16,16 @@ class Matcher():
         #self.bf = cv2.BFMatcher(cv2.NORM_HAMMING) #, crossCheck=True)
         #self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
-    def configure(self, mparams={}):
+    def configure(self, detector=None, mparams={}):
+        if detector == 'SIFT':
+            norm = cv2.NORM_L2
+        elif detector == 'SURF':
+            norm = cv2.NORM_L2
+        elif detector == 'ORB':
+            norm = cv2.NORM_HAMMING
+
         FLANN_INDEX_KDTREE = 1  # bug: flann enums are missing
         FLANN_INDEX_LSH    = 6
-        if "detector" in dparams:
-            if dparams["detector"] == "SIFT":
-                nfeatures = dparams["nfeatures"]
-                self.detector = cv2.SIFT(nfeatures=nfeatures)
-                norm = cv2.NORM_L2
-            elif dparams["detector"] == "SURF":
-                threshold = dparams["hessian_threshold"]
-                self.detector = cv2.SURF(threshold)
-                norm = cv2.NORM_L2
-            elif dparams["detector"] == "ORB":
-                dmax_features = dparams["orb_max_features"]
-                self.detector = cv2.ORB(dmax_features)
-                norm = cv2.NORM_HAMMING
-        if "dense_detect_grid" in dparams:
-            self.dense_detect_grid = dparams["dense_detect_grid"]
-
         if "matcher" in mparams:
             if mparams["matcher"] == "FLANN":
                 if norm == cv2.NORM_L2:
