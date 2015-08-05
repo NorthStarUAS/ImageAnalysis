@@ -14,6 +14,8 @@ import ProjectMgr
 
 # for all the images in the project image_dir, load the image meta data
 
+# this script produces nothing other than loading some data and quitting.
+
 parser = argparse.ArgumentParser(description='Load the project\'s images.')
 parser.add_argument('--project', required=True, help='project directory')
 

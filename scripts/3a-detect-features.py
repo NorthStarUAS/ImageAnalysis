@@ -33,7 +33,6 @@ parser.add_argument('--show', action='store_true',
                     help='show features as we detect them')
 
 args = parser.parse_args()
-print args
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()

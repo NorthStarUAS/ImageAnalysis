@@ -25,7 +25,7 @@ import ProjectMgr
 parser = argparse.ArgumentParser(description='Import a directory of images into a project.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--source', required=True, help='image source directory')
-parser.add_argument('--scale', default=0.25, help='scale factor')
+parser.add_argument('--scale', type=float, default=0.25, help='scale factor')
 parser.add_argument('--converter', default='imagemagick',
                     choices=['imagemagick', 'opencv'])
 
