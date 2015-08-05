@@ -216,9 +216,9 @@ class ProjectMgr():
         for image in self.image_list:
             image.load_matches()
 
-    def save_info(self):
+    def save_images_meta(self):
         for image in self.image_list:
-            image.save_info()
+            image.save_meta()
 
     def set_detector_params(self, dparams):
         self.detector_params = dparams
@@ -245,6 +245,10 @@ class ProjectMgr():
                 result = image.show_features()
                 if result == 27 or result == ord('q'):
                     break
+
+#
+# Below this point all the code needs to be reviewed/refactored
+#
 
     def setCameraParams(self, horiz_mm=23.5, vert_mm=15.7, focal_len_mm=30.0):
         self.horiz_mm = horiz_mm
@@ -310,7 +314,7 @@ class ProjectMgr():
                         image.weight = w
                     else:
                         image.weight = 1.0
-                    image.save_info()
+                    image.save_meta()
                     #print "%s roll=%.1f pitch=%.1f weight=%.2f" % (image.name, roll, pitch, image.weight)
 
     # from Sentera meta data file
@@ -340,7 +344,7 @@ class ProjectMgr():
                         image.weight = w
                     else:
                         image.weight = 1.0
-                    image.save_info()
+                    image.save_meta()
                     print "%s roll=%.1f pitch=%.1f weight=%.2f" % (image.name, roll, pitch, image.weight)
 
 
@@ -420,7 +424,7 @@ class ProjectMgr():
                 if w < 0.01:
                     w = 0.01
                     image.weight = w
-            image.save_info()
+            image.save_meta()
             #print "%s roll=%.1f pitch=%.1f weight=%.2f" % (image.name, roll, pitch, image.weight)
 
     def computeConnections(self, force=None):
@@ -429,7 +433,7 @@ class ProjectMgr():
             for pairs in image.match_list:
                 if len(pairs) >= self.m.min_pairs:
                     image.connections += 1
-            image.save_info()
+            image.save_meta()
             print "%s connections: %d" % (image.name, image.connections)
 
     # compute a center reference location (lon, lat) for the group of
@@ -452,7 +456,7 @@ class ProjectMgr():
                                           self.ref_lon, self.ref_lat)
             image.aircraft_x = x
             image.aircraft_y = y
-            image.save_info()
+            image.save_meta()
 
 
     # undistort x, y using a simple radial lens distortion model.  (We
@@ -563,7 +567,7 @@ class ProjectMgr():
         image.camera_x = pose[3]
         image.camera_y = pose[4]
         image.camera_z = pose[5]
-        image.save_info()
+        image.save_meta()
 
         (coord_list, corner_list, grid_list) = \
             self.projectImageKeypointsNative3(image, pose, yaw_bias, roll_bias,
@@ -753,7 +757,7 @@ class ProjectMgr():
         i1.x_bias += xshift * gain
         i1.y_bias += yshift * gain
         #print " %s bias after (%.2f %.2f)" % (i1.name, i1.x_bias, i1.y_bias)
-        i1.save_info()
+        i1.save_meta()
 
     def shiftImages(self, gain=0.10):
         for image in self.image_list:
@@ -786,7 +790,7 @@ class ProjectMgr():
             image.alt_bias = 0.0
             image.x_bias = 0.0
             image.y_bias = 0.0
-            image.save_info()
+            image.save_meta()
 
     # try to fit individual images by manipulating various parameters
     # and testing to see if that produces a better fit metric
@@ -889,7 +893,7 @@ class ProjectMgr():
             % (image.name, method,
                image.camera_yaw, image.camera_roll, image.camera_pitch,
                image.camera_z, image.error, image.stddev)
-        image.save_info()
+        image.save_meta()
 
     # try to fit individual images by manipulating various parameters
     # and testing to see if that produces a better fit metric
@@ -951,7 +955,7 @@ class ProjectMgr():
         stddev = self.m.imageError(i, alt_coord_list=coord_list, method="stddev")
         print "average error = %.3f" % error
         print "average stddev = %.3f" % stddev
-        i1.save_info()
+        i1.save_meta()
 
     def fitImagesIndividually(self, method, gain):
         for i, image in enumerate(self.image_list):
@@ -1318,7 +1322,7 @@ class ProjectMgr():
             print "  PNP att = %.2f %.2f %.2f" % (i1.camera_yaw,
                                                   i1.camera_pitch,
                                                   i1.camera_roll)
-            i1.save_info()
+            i1.save_meta()
 
     # call solvePnP() on all the matching pairs from all the matching
     # images simultaneously.  This works, but inherently weights the
@@ -1429,7 +1433,7 @@ class ProjectMgr():
             i1.camera_x = pos.item(0)
             i1.camera_y = pos.item(1)
             i1.camera_z = pos.item(2)
-            i1.save_info()
+            i1.save_meta()
             print "New cam pose %s %.2f %.2f %.2f  %.2f %.2f %.2f" \
                 % (i1.name, i1.camera_yaw, i1.camera_pitch, i1.camera_roll,
                    i1.camera_x, i1.camera_y, i1.camera_z)
@@ -1628,7 +1632,7 @@ class ProjectMgr():
             i1.camera_x = pos.item(0)
             i1.camera_y = pos.item(1)
             i1.camera_z = pos.item(2)
-            i1.save_info()
+            i1.save_meta()
             print "New cam pose %s %.2f %.2f %.2f  %.2f %.2f %.2f" \
                 % (i1.name, i1.camera_yaw, i1.camera_pitch, i1.camera_roll,
                    i1.camera_x, i1.camera_y, i1.camera_z)

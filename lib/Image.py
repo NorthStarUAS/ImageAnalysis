@@ -21,8 +21,7 @@ class Image():
         self.kp_usage = []
         self.des_list = None
         self.match_list = []
-        self.num_matches = 0
-
+        
         self.aircraft_yaw = 0.0
         self.aircraft_pitch = 0.0
         self.aircraft_roll = 0.
@@ -46,8 +45,13 @@ class Image():
         self.x_bias = 0.0
         self.y_bias = 0.0
 
-        self.weight = 1.0
+        # fixme: num_matches and connections appear to be the same
+        # idea computed and used in different places.  We should be
+        # able to collapse this into a single consistent value.
+        self.num_matches = 0
         self.connections = 0.0
+        self.weight = 1.0
+
         self.error = 0.0
         self.stddev = 0.0
         self.placed = False
@@ -58,16 +62,62 @@ class Image():
         
         if image_file:
             self.load(image_dir, image_file)
-
-    def set_location(self,
-                     lon=0.0, lat=0.0, msl=0.0,
-                     roll=0.0, pitch=0.0, yaw=0.0):
-        self.aircraft_lon = lon
-        self.aircraft_lat = lat
-        self.aircraft_msl = msl
-        self.aircraft_roll = roll
-        self.aircraft_pitch = pitch
-        self.aircraft_yaw = yaw
+            self.name = image_file
+            root, ext = os.path.splitext(image_file)
+            file_root = image_dir + "/" + root
+            self.image_file = image_dir + "/" + image_file
+            self.features_file = file_root + ".feat"
+            self.des_file = file_root + ".desc"
+            self.match_file = file_root + ".match"
+            self.info_file = file_root + ".info"
+            # only load meta data when instance is created, other
+            # items will be loaded 'just in time' depending on the
+            # task to be performed later on
+            self.load_meta()
+            
+    def load_meta(self):
+        if not os.path.exists(self.info_file):
+            # no info file, create a new file
+            self.save_meta()
+            return
+        
+        try:
+            f = open(self.info_file, 'r')
+            image_dict = json.load(f)
+            f.close()
+            self.num_matches = image_dict['num-matches']
+            lon = image_dict['aircraft-longitude']
+            lat = image_dict['aircraft-latitude']
+            msl = image_dict['aircraft-msl']
+            roll = image_dict['aircraft-roll']
+            pitch = image_dict['aircraft-pitch']
+            yaw = image_dict['aircraft-yaw']
+            self.set_location(lon, lat, msl, roll, pitch, yaw)
+            self.alt_bias = image_dict['altitude-bias']
+            self.roll_bias = image_dict['roll-bias']
+            self.pitch_bias = image_dict['pitch-bias']
+            self.yaw_bias = image_dict['yaw-bias']
+            self.x_bias = image_dict['x-bias']
+            self.y_bias = image_dict['y-bias']
+            self.weight = image_dict['weight']
+            self.connections = image_dict['connections']
+            self.error = image_dict['error']
+            self.stddev = image_dict['stddev']
+            if 'camera-yaw' in image_dict:
+                self.camera_yaw = image_dict['camera-yaw']
+            if 'camera-pitch' in image_dict:
+                self.camera_pitch = image_dict['camera-pitch']
+            if 'camera-roll' in image_dict:
+                self.camera_roll = image_dict['camera-roll']
+            if 'camera-x' in image_dict:
+                self.camera_x = image_dict['camera-x']
+            if 'camera-y' in image_dict:
+                self.camera_y = image_dict['camera-y']
+            if 'camera-z' in image_dict:
+                self.camera_z = image_dict['camera-z']
+        except:
+            print self.info_file + ":\n" + "  load error: " \
+                + str(sys.exc_info()[1])
 
     def load_rgb(self):
         if self.img == None:
@@ -157,62 +207,6 @@ class Image():
                     self.match_list.append( matches )
             # print str(self.match_list)
 
-    def load_info(self):
-        if not os.path.exists(self.info_file):
-            # no info file, create a new file
-            self.save_info()
-            return
-        
-        try:
-            f = open(self.info_file, 'r')
-            image_dict = json.load(f)
-            f.close()
-            self.num_matches = image_dict['num-matches']
-            lon = image_dict['aircraft-longitude']
-            lat = image_dict['aircraft-latitude']
-            msl = image_dict['aircraft-msl']
-            roll = image_dict['aircraft-roll']
-            pitch = image_dict['aircraft-pitch']
-            yaw = image_dict['aircraft-yaw']
-            self.set_location(lon, lat, msl, roll, pitch, yaw)
-            self.alt_bias = image_dict['altitude-bias']
-            self.roll_bias = image_dict['roll-bias']
-            self.pitch_bias = image_dict['pitch-bias']
-            self.yaw_bias = image_dict['yaw-bias']
-            self.x_bias = image_dict['x-bias']
-            self.y_bias = image_dict['y-bias']
-            self.weight = image_dict['weight']
-            self.connections = image_dict['connections']
-            self.error = image_dict['error']
-            self.stddev = image_dict['stddev']
-            if 'camera-yaw' in image_dict:
-                self.camera_yaw = image_dict['camera-yaw']
-            if 'camera-pitch' in image_dict:
-                self.camera_pitch = image_dict['camera-pitch']
-            if 'camera-roll' in image_dict:
-                self.camera_roll = image_dict['camera-roll']
-            if 'camera-x' in image_dict:
-                self.camera_x = image_dict['camera-x']
-            if 'camera-y' in image_dict:
-                self.camera_y = image_dict['camera-y']
-            if 'camera-z' in image_dict:
-                self.camera_z = image_dict['camera-z']
-        except:
-            print self.info_file + ":\n" + "  load error: " \
-                + str(sys.exc_info()[1])
-
-    def load(self, image_dir, image_file):
-        print "Loading " + image_file
-        self.name = image_file
-        root, ext = os.path.splitext(image_file)
-        file_root = image_dir + "/" + root
-        self.image_file = image_dir + "/" + image_file
-        self.features_file = file_root + ".feat"
-        self.des_file = file_root + ".desc"
-        self.match_file = file_root + ".match"
-        self.info_file = file_root + ".info"
-        self.load_info()
-
     def save_features(self):
         # convert from native opencv kp class to a dictionary
         feature_list = []
@@ -267,7 +261,7 @@ class Image():
             print self.match_file + ": error saving file: " \
                 + str(sys.exc_info()[1])
 
-    def save_info(self):
+    def save_meta(self):
         image_dict = {}
         image_dict['num-matches'] = self.num_matches
         image_dict['aircraft-longitude'] = self.aircraft_lon
@@ -306,11 +300,50 @@ class Image():
         except:
             raise
 
+    def make_detector(self, dparams):
+        detector = None
+        if dparams['detector'] == 'SIFT':
+            max_features = int(dparams['sift-max-features'])
+            detector = cv2.SIFT(nfeatures=max_features)
+            #norm = cv2.NORM_L2
+        elif dparams['detector'] == 'SURF':
+            threshold = float(dparams['surf-hessian-threshold'])
+            detector = cv2.SURF(threshold)
+            #norm = cv2.NORM_L2
+        elif dparams['detector'] == 'ORB':
+            max_features = int(dparams['orb-max-features'])
+            grid_size = int(dparams['grid-detect'])
+            cells = grid_size * grid_size
+            max_cell_features = int(max_features / cells)
+            detector = cv2.ORB(max_cell_features)
+            #norm = cv2.NORM_HAMMING
+        return detector
+
+    def orb_grid_detect(self, detector, image, grid_size):
+        steps = grid_size
+        kp_list = []
+        h, w = image.shape
+        dx = 1.0 / float(steps)
+        dy = 1.0 / float(steps)
+        x = 0.0
+        for i in xrange(steps):
+            y = 0.0
+            for j in xrange(steps):
+                #print "create mask (%dx%d) %d %d" % (w, h, i, j)
+                #print "  roi = %.2f,%.2f %.2f,%2f" % (y*h,(y+dy)*h-1, x*w,(x+dx)*w-1)
+                mask = np.zeros((h,w,1), np.uint8)
+                mask[y*h:(y+dy)*h-1,x*w:(x+dx)*w-1] = 255
+                kps = detector.detect(image, mask)
+                kp_list.extend( kps )
+                y += dy
+            x += dx
+        return kp_list
+
     def detect_features(self, dparams):
-        detector = make_detector(dparams)
+        detector = self.make_detector(dparams)
         grid_size = int(dparams['grid-detect'])
         if dparams['detector'] == 'ORB' and grid_size > 1:
-            kp_list = orb_grid_detect(detector, self.img, grid_size)
+            kp_list = self.orb_grid_detect(detector, self.img, grid_size)
         else:
             kp_list = detector.detect(self.img)
 
@@ -373,42 +406,14 @@ class Image():
         #    % (self.name, xmin, ymin, xmax, ymax)
         return (xmin, ymin, xmax, ymax)
 
-def make_detector(dparams):
-    detector = None
-    if dparams['detector'] == 'SIFT':
-        max_features = int(dparams['sift-max-features'])
-        detector = cv2.SIFT(nfeatures=max_features)
-        #norm = cv2.NORM_L2
-    elif dparams['detector'] == 'SURF':
-        threshold = float(dparams['surf-hessian-threshold'])
-        detector = cv2.SURF(threshold)
-        #norm = cv2.NORM_L2
-    elif dparams['detector'] == 'ORB':
-        max_features = int(dparams['orb-max-features'])
-        grid_size = int(dparams['grid-detect'])
-        cells = grid_size * grid_size
-        max_cell_features = int(max_features / cells)
-        detector = cv2.ORB(max_cell_features)
-        #norm = cv2.NORM_HAMMING
-    return detector
-
-def orb_grid_detect(detector, image, grid_size):
-    steps = grid_size
-    kp_list = []
-    h, w = image.shape
-    dx = 1.0 / float(steps)
-    dy = 1.0 / float(steps)
-    x = 0.0
-    for i in xrange(steps):
-        y = 0.0
-        for j in xrange(steps):
-            #print "create mask (%dx%d) %d %d" % (w, h, i, j)
-            #print "  roi = %.2f,%.2f %.2f,%2f" % (y*h,(y+dy)*h-1, x*w,(x+dx)*w-1)
-            mask = np.zeros((h,w,1), np.uint8)
-            mask[y*h:(y+dy)*h-1,x*w:(x+dx)*w-1] = 255
-            kps = detector.detect(image, mask)
-            kp_list.extend( kps )
-            y += dy
-        x += dx
-    return kp_list
+    
+    def set_location(self,
+                     lon=0.0, lat=0.0, msl=0.0,
+                     roll=0.0, pitch=0.0, yaw=0.0):
+        self.aircraft_lon = lon
+        self.aircraft_lat = lat
+        self.aircraft_msl = msl
+        self.aircraft_roll = roll
+        self.aircraft_pitch = pitch
+        self.aircraft_yaw = yaw
 
