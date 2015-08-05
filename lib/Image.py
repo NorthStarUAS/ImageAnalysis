@@ -208,7 +208,7 @@ class Image():
         file_root = image_dir + "/" + root
         self.image_file = image_dir + "/" + image_file
         self.features_file = file_root + ".feat"
-        self.des_file = file_root + ".npy"
+        self.des_file = file_root + ".desc"
         self.match_file = file_root + ".match"
         self.info_file = file_root + ".info"
         self.load_info()
@@ -307,9 +307,19 @@ class Image():
             raise
 
     def detect_features(self, dparams):
-        self.kp_list = detect_features(self.img, dparams)
-        # wipe descriptos and matches because we've touched the keypoints
-        self.des_list = []
+        detector = make_detector(dparams)
+        grid_size = int(dparams['grid-detect'])
+        if dparams['detector'] == 'ORB' and grid_size > 1:
+            kp_list = orb_grid_detect(detector, self.img, grid_size)
+        else:
+            kp_list = detector.detect(self.img)
+
+        # compute() could potential add/remove keypoints so we want to
+        # save the returned keypoint list, not our original detected
+        # keypoint list
+        self.kp_list, self.des_list = detector.compute(self.img, kp_list)
+        
+        # wipe matches because we've touched the keypoints
         self.match_list = []
 
     # Displays the image in a window and waits for a keystroke and
@@ -400,14 +410,5 @@ def orb_grid_detect(detector, image, grid_size):
             kp_list.extend( kps )
             y += dy
         x += dx
-    return kp_list
-
-def detect_features(image, dparams):
-    detector = make_detector(dparams)
-    grid_size = int(dparams['grid-detect'])
-    if dparams['detector'] == 'ORB' and grid_size > 1:
-        kp_list = orb_grid_detect(detector, image, grid_size)
-    else:
-        kp_list = detector.detect(image)
     return kp_list
 

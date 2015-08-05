@@ -10,7 +10,6 @@ class Matcher():
     def __init__(self):
         self.image_list = []
         self.matcher = None
-        self.dense_detect_grid = 1
         self.match_ratio = 0.75
         self.min_pairs = 8      # minimum number of pairs to consider a match
         #self.bf = cv2.BFMatcher(cv2.NORM_HAMMING) #, crossCheck=True)
@@ -46,10 +45,6 @@ class Matcher():
     def setImageList(self, image_list):
         self.image_list = image_list
 
-    def computeDescriptors(self, image, kp_list):
-        kp_list, des_list = self.detector.compute(image, kp_list)
-        return kp_list, des_list
- 
     def filterMatches(self, i1, i2, filter, matches):
         kp1 = i1.kp_list
         kp2 = i2.kp_list
