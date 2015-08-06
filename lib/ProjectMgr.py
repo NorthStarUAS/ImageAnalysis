@@ -258,16 +258,6 @@ class ProjectMgr():
 # Below this point all the code needs to be reviewed/refactored
 #
 
-    def setCameraParams(self, horiz_mm=23.5, vert_mm=15.7, focal_len_mm=30.0):
-        self.horiz_mm = horiz_mm
-        self.vert_mm = vert_mm
-        self.focal_len_mm = focal_len_mm
-
-    def setCameraOffsets(self, roll_deg=0.0, pitch_deg=-90, yaw_deg=0.0):
-        self.offset_roll_deg = roll_deg
-        self.offset_pitch_deg = pitch_deg
-        self.offset_yaw_deg = yaw_deg
-
     def setWorldParams(self, ground_alt_m=0.0, shutter_latency=0.0,
                        yaw_bias=0.0, roll_bias=0.0, pitch_bias=0.0):
         print "Setting ground=%.1f shutter=%.2f yaw=%.2f roll=%.2f pitch=%.2f"\
@@ -354,7 +344,6 @@ class ProjectMgr():
                         image.weight = 1.0
                     image.save_meta()
                     print "%s roll=%.1f pitch=%.1f weight=%.2f" % (image.name, roll, pitch, image.weight)
-
 
 
     # assuming the aircraft body pose has already been determined,
