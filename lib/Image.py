@@ -15,8 +15,8 @@ class Image():
         self.name = None
         self.img = None
         self.img_rgb = None
-        self.fullh = 0
-        self.fullw = 0
+        self.height = 0
+        self.width = 0
         self.kp_list = []
         self.kp_usage = []
         self.des_list = None
@@ -61,7 +61,6 @@ class Image():
         self.grid_list = []
         
         if image_file:
-            self.load(image_dir, image_file)
             self.name = image_file
             root, ext = os.path.splitext(image_file)
             file_root = image_dir + "/" + root
@@ -124,7 +123,7 @@ class Image():
             #print "Loading " + self.image_file
             try:
                 self.img_rgb = cv2.imread(self.image_file)
-                self.fullh, self.fullw, self.fulld = self.img_rgb.shape
+                self.height, self.width, self.fulld = self.img_rgb.shape
                 self.img = cv2.cvtColor(self.img_rgb, cv2.COLOR_BGR2GRAY)
                 # self.img = cv2.equalizeHist(gray)
                 # self.img = gray
@@ -134,7 +133,7 @@ class Image():
                 print self.image_file + ":\n" + "  load error: " \
                     + str(sys.exc_info()[1])
         else:
-            self.fullh, self.fullw, self.fulld = self.img_rgb.shape
+            self.height, self.width, self.fulld = self.img_rgb.shape
 
     def load_source_rgb(self, source_dir):
         #print "Loading " + self.image_file
@@ -160,8 +159,8 @@ class Image():
                     + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1])
                 return
             
-            self.fullw = feature_dict['width']
-            self.fullh = feature_dict['height']
+            self.width = feature_dict['width']
+            self.height = feature_dict['height']
             feature_list = feature_dict['features']
             for i, kp_dict in enumerate(feature_list):
                 angle = kp_dict['angle']
@@ -210,8 +209,8 @@ class Image():
     def save_features(self):
         # convert from native opencv kp class to a dictionary
         feature_list = []
-        feature_dict = { 'width': self.fullw,
-                         'height': self.fullh,
+        feature_dict = { 'width': self.width,
+                         'height': self.height,
                          'features': feature_list }
         for i, kp in enumerate(self.kp_list):
             kp_dict = { 'angle': kp.angle,
@@ -363,8 +362,8 @@ class Image():
         if self.img == None:
             self.load_rgb()
         h, w = self.img.shape
-        hscale = float(h) / float(self.fullh)
-        wscale = float(w) / float(self.fullw)
+        hscale = float(h) / float(self.height)
+        wscale = float(w) / float(self.width)
         kp_list = []
         for kp in self.kp_list:
             angle = kp.angle

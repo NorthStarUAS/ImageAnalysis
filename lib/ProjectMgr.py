@@ -18,7 +18,6 @@ from getchar import find_getch
 import Camera
 import Image
 
-
 import ImageList
 import Matcher
 import Placer
@@ -486,9 +485,10 @@ class ProjectMgr():
         #print "  (%.3f %.3f) -> (%.3f %.3f)" % (xnorm, ynorm, xnorm_u, ynorm_u)
         return xnorm_u, ynorm_u
 
-    def projectPoint2(self, image, q, pt, z_m, horiz_mm, vert_mm, focal_len_mm):
-        h = image.fullh
-        w = image.fullw
+    def projectPoint2(self, image, q, pt, z_m):
+        horiz_mm, vert_mm, focal_len_mm = self.cam.get_lens_params()
+        h = image.height
+        w = image.width
         ar = float(w)/float(h)  # aspect ratio
 
         # normalized pixel coordinates to [0.0, 1.0]
@@ -562,8 +562,8 @@ class ProjectMgr():
                                      alt_bias=0.0):
         if image.img == None:
             image.load_rgb()
-        h = image.fullh
-        w = image.fullw
+        h = image.height
+        w = image.width
         ar = float(w)/float(h)  # aspect ratio
 
         pose = self.computeCameraPoseFromAircraft(image)
@@ -593,8 +593,8 @@ class ProjectMgr():
         #print "Project3 for %s" % image.name
         if image.img == None:
             image.load_rgb()
-        h = image.fullh
-        w = image.fullw
+        h = image.height
+        w = image.width
         ar = float(w)/float(h)  # aspect ratio
 
         deg2rad = math.pi / 180.0
@@ -616,39 +616,33 @@ class ProjectMgr():
             if not all_keypoints and not image.kp_usage[i]:
                 continue
             # print "ned2cam = %s" % str(ned2cam)
-            proj = self.projectPoint2(image, ned2cam, kp.pt, z_m,
-                                      self.horiz_mm, self.vert_mm,
-                                      self.focal_len_mm)
+            proj = self.projectPoint2(image, ned2cam, kp.pt, z_m)
             #print "project3: kp=%s proj=%s" %(str(kp.pt), str(proj))
             coord_list[i] = [proj[1] + x_m, proj[0] + y_m]
         #print "coord_list = %s" % str(coord_list)
 
         # compute the corners (2x2 polygon grid) in image space
-        dx = image.fullw - 1
-        dy = image.fullh - 1
+        dx = image.width - 1
+        dy = image.height - 1
         y = 0.0
         for j in xrange(2):
             x = 0.0
             for i in xrange(2):
                 #print "corner %.2f %.2f" % (x, y)
-                proj = self.projectPoint2(image, ned2cam, [x, y], z_m,
-                                          self.horiz_mm, self.vert_mm,
-                                          self.focal_len_mm)
+                proj = self.projectPoint2(image, ned2cam, [x, y], z_m)
                 corner_list.append( [proj[1] + x_m, proj[0] + y_m] )
                 x += dx
             y += dy
 
         # compute the ac3d polygon grid in image space
-        dx = image.fullw / float(self.ac3d_steps)
-        dy = image.fullh / float(self.ac3d_steps)
+        dx = image.width / float(self.ac3d_steps)
+        dy = image.height / float(self.ac3d_steps)
         y = 0.0
         for j in xrange(self.ac3d_steps+1):
             x = 0.0
             for i in xrange(self.ac3d_steps+1):
                 #print "grid %.2f %.2f" % (xnorm_u, ynorm_u)
-                proj = self.projectPoint2(image, ned2cam, [x, y], z_m,
-                                          self.horiz_mm, self.vert_mm,
-                                          self.focal_len_mm)
+                proj = self.projectPoint2(image, ned2cam, [x, y], z_m)
                 grid_list.append( [proj[1] + x_m, proj[0] + y_m] )
                 x += dx
             y += dy
@@ -1219,11 +1213,7 @@ class ProjectMgr():
     def fitImagesWithSolvePnP1(self):
         for i, i1 in enumerate(self.image_list):
             #print "sovelPNP() for %s" % i1.name
-            fx = (self.focal_len_mm/self.horiz_mm) * float(i1.fullw)
-            fy = (self.focal_len_mm/self.vert_mm) * float(i1.fullh)
-            cx = i1.fullw * 0.5
-            cy = i1.fullh * 0.5
-            cam = np.array( [ [fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0] ] )
+            K = self.cam.get_K()
             att_sum = [ [0.0, 0.0], [0.0, 0.0], [0.0, 0.0] ]
             pos_sum = [0.0, 0.0, 0.0]
             weight_sum = 0.0
@@ -1245,7 +1235,7 @@ class ProjectMgr():
                 obj_pts = np.float32(obj_pts)
                 #print "img_pts = %s" % str(img_pts)
                 #print "obj_pts = %s" % str(obj_pts)
-                (result, rvec, tvec) = cv2.solvePnP(obj_pts, img_pts, cam, None)
+                (result, rvec, tvec) = cv2.solvePnP(obj_pts, img_pts, K, None)
                 #print "  result = %s, rvec = %s, tvec = %s" \
                 #    % (result, rvec, tvec)
                 print "  rvec = %.2f %.2f %.2f" % (rvec[0], rvec[1], rvec[2])
@@ -1342,11 +1332,7 @@ class ProjectMgr():
     def fitImagesWithSolvePnP2(self):
         for i, i1 in enumerate(self.image_list):
             #print "sovlePNP() for %s" % i1.name
-            fx = (self.focal_len_mm/self.horiz_mm) * float(i1.fullw)
-            fy = (self.focal_len_mm/self.vert_mm) * float(i1.fullh)
-            cx = i1.fullw * 0.5
-            cy = i1.fullh * 0.5
-            cam = np.array( [ [fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0] ] )
+            K = self.cam.get_K()
             img_pts = []
             obj_pts = []
             for j, pairs in enumerate(i1.match_list):
@@ -1379,13 +1365,13 @@ class ProjectMgr():
             #(result, rvec, tvec) = cv2.solvePnP(obj_pts, img_pts, cam, None)
             if hasattr(i1, 'rvec'):
                 (result, i1.rvec, i1.tvec) \
-                    = cv2.solvePnP(obj_pts, img_pts, cam, None,
-                                         i1.rvec, i1.tvec,
-                                         useExtrinsicGuess=True)
+                    = cv2.solvePnP(obj_pts, img_pts, K, None,
+                                   i1.rvec, i1.tvec,
+                                   useExtrinsicGuess=True)
             else:
                 # first time
                 (result, i1.rvec, i1.tvec) \
-                    = cv2.solvePnP(obj_pts, img_pts, cam, None)
+                    = cv2.solvePnP(obj_pts, img_pts, K, None)
 
             #print "  result = %s, rvec = %s, tvec = %s" \
             #    % (result, i1.rvec, i1.tvec)
@@ -1464,12 +1450,7 @@ class ProjectMgr():
                 print "  ... no connections, skipping ..."
                 continue
 
-            fx = (self.focal_len_mm/self.horiz_mm) * float(i1.fullw)
-            fy = (self.focal_len_mm/self.vert_mm) * float(i1.fullh)
-            cx = i1.fullw * 0.5
-            cy = i1.fullh * 0.5
-            cam = np.array( [ [fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0] ] )
-
+            K = self.cam.get_K()
             master_list = []
             master_list.append(i1.coord_list) # weight ourselves in the mix
 
@@ -1495,9 +1476,9 @@ class ProjectMgr():
                 img_pts = np.float32(img_pts)
                 obj_pts = np.float32(obj_pts)
                 #(result, rvec, tvec) \
-                #    = cv2.solvePnP(obj_pts, img_pts, cam, None)
+                #    = cv2.solvePnP(obj_pts, img_pts, K, None)
                 (rvec, tvec, status) \
-                    = cv2.solvePnPRansac(obj_pts, img_pts, cam, None)
+                    = cv2.solvePnPRansac(obj_pts, img_pts, K, None)
                 size = len(status)
                 inliers = np.sum(status)
                 if inliers < size: 
@@ -1649,11 +1630,7 @@ class ProjectMgr():
     def triangulate_test(self):
         for i, i1 in enumerate(self.image_list):
             print "pnp for %s" % i1.name
-            fx = (self.focal_len_mm/self.horiz_mm) * float(i1.fullw)
-            fy = (self.focal_len_mm/self.vert_mm) * float(i1.fullh)
-            cx = i1.fullw * 0.5
-            cy = i1.fullh * 0.5
-            cam = np.array( [ [fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0] ] )
+            K = self.cam.get_K()
             att_sum = [ [0.0, 0.0], [0.0, 0.0], [0.0, 0.0] ]
             pos_sum = [0.0, 0.0, 0.0]
             weight_sum = 0.0
@@ -1672,11 +1649,7 @@ class ProjectMgr():
     def pnp_test(self):
         for i, i1 in enumerate(self.image_list):
             print "pnp for %s" % i1.name
-            fx = (self.focal_len_mm/self.horiz_mm) * float(i1.fullw)
-            fy = (self.focal_len_mm/self.vert_mm) * float(i1.fullh)
-            cx = i1.fullw * 0.5
-            cy = i1.fullh * 0.5
-            cam = np.array( [ [fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0] ] )
+            K = self.cam.get_K()
             att_sum = [ [0.0, 0.0], [0.0, 0.0], [0.0, 0.0] ]
             pos_sum = [0.0, 0.0, 0.0]
             weight_sum = 0.0
@@ -1698,7 +1671,7 @@ class ProjectMgr():
                 obj_pts = np.float32(obj_pts)
                 #print "img_pts = %s" % str(img_pts)
                 #print "obj_pts = %s" % str(obj_pts)
-                (result, rvec, tvec) = cv2.solvePnP(obj_pts, img_pts, cam, None)
+                (result, rvec, tvec) = cv2.solvePnP(obj_pts, img_pts, K, None)
                 print "  result = %s, rvec = %s, tvec = %s" \
                     % (result, rvec, tvec)
                 R, jac = cv2.Rodrigues(rvec)
@@ -1779,7 +1752,7 @@ class ProjectMgr():
                                                   i1.camera_pitch,
                                                   i1.camera_roll)
 
-    # should reset the fullw, fullh values in the keys files
+    # should reset the width, height values in the keys files
     def recomputeWidthHeight(self):
         for image in self.image_list:
             if image.img == None:

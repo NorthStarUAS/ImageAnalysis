@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import json
+import numpy as np
 import os.path
 
 class Camera():
@@ -12,9 +13,9 @@ class Camera():
         cd = self.camera_dict
 
         # camera lens parameters
-        cd['horiz_mm'] = 0.0
-        cd['vert_mm'] = 0.0
-        cd['focal_len_mm'] = 0.0
+        cd['horiz-mm'] = 0.0
+        cd['vert-mm'] = 0.0
+        cd['focal-len-mm'] = 0.0
 
         # camera calibration parameters
         cd['fx'] = 0.0
@@ -24,23 +25,23 @@ class Camera():
         cd['kcoeffs'] = [0.0]*5
         cd['skew'] = 0.0
 
-        cd['fx_std'] = 0.0
-        cd['fy_std'] = 0.0
-        cd['cu_std'] = 0.0
-        cd['cv_std'] = 0.0
-        cd['kcoeffs_std'] = [0.0]*5
-        cd['skew_std'] = 0.0
+        cd['fx-std'] = 0.0
+        cd['fy-std'] = 0.0
+        cd['cu-std'] = 0.0
+        cd['cv-std'] = 0.0
+        cd['kcoeffs-std'] = [0.0]*5
+        cd['skew-std'] = 0.0
 
         # full size of camera image (these values may be needed for
         # sentera images processed through their rolling shutter
         # corrector that are not full width/height.
-        cd['width_px'] = 0
-        cd['height_px'] = 0
+        cd['width-px'] = 0
+        cd['height-px'] = 0
 
         # camera mount parameters: these are offsets from the aircraft body
-        cd['yaw_deg'] = 0.0
-        cd['pitch_deg'] = 0.0
-        cd['roll_deg'] = 0.0
+        cd['yaw-deg'] = 0.0
+        cd['pitch-deg'] = 0.0
+        cd['roll-deg'] = 0.0
 
     def save(self, project_dir):
         # create a dictionary and write it out as json
@@ -70,15 +71,15 @@ class Camera():
             print "Continuing with an empty camera configuration"
 
     def set_lens_params(self, horiz_mm, vert_mm, focal_len_mm):
-        self.camera_dict['horiz_mm'] = horiz_mm
-        self.camera_dict['vert_mm'] = vert_mm
-        self.camera_dict['focal_len_mm'] = focal_len_mm
+        self.camera_dict['horiz-mm'] = horiz_mm
+        self.camera_dict['vert-mm'] = vert_mm
+        self.camera_dict['focal-len-mm'] = focal_len_mm
         
     def get_lens_params(self):
         return \
-            self.camera_dict['horiz_mm'], \
-            self.camera_dict['vert_mm'], \
-            self.camera_dict['focal_len_mm']
+            self.camera_dict['horiz-mm'], \
+            self.camera_dict['vert-mm'], \
+            self.camera_dict['focal-len-mm']
 
     # kcoeffs = array[5]
     def set_calibration_params(self, fx, fy, cu, cv, kcoeffs, skew):
@@ -100,18 +101,53 @@ class Camera():
         
     def set_calibration_std(self, fx_std, fy_std, cu_std, cv_std,
                             kcoeffs_std, skew_std):
-        self.camera_dict['fx_std'] = fx_std
-        self.camera_dict['fy_std'] = fy_std
-        self.camera_dict['cu_std'] = cu_std
-        self.camera_dict['cv_std'] = cv_std
-        self.camera_dict['kcoeffs_std'] = kcoeffs_std
-        self.camera_dict['skew_std'] = skew_std
+        self.camera_dict['fx-std'] = fx_std
+        self.camera_dict['fy-std'] = fy_std
+        self.camera_dict['cu-std'] = cu_std
+        self.camera_dict['cv-std'] = cv_std
+        self.camera_dict['kcoeffs-std'] = kcoeffs_std
+        self.camera_dict['skew-std'] = skew_std
 
     def get_calibration_std(self):
         return \
-            self.camera_dict['fx_std'], \
-            self.camera_dict['fy_std'], \
-            self.camera_dict['cu_std'], \
-            self.camera_dict['cv_std'], \
-            self.camera_dict['kcoeffs_std'], \
-            self.camera_dict['skew_std']
+            self.camera_dict['fx-std'], \
+            self.camera_dict['fy-std'], \
+            self.camera_dict['cu-std'], \
+            self.camera_dict['cv-std'], \
+            self.camera_dict['kcoeffs-std'], \
+            self.camera_dict['skew-std']
+    
+    def set_image_params(self, width_px, height_px):
+        self.camera_dict['width-px'] = width_px
+        self.camera_dict['height-px'] = height_px
+        
+    def get_image_params(self):
+        return \
+            self.camera_dict['width-px'], \
+            self.camera_dict['height-px']
+
+    def set_mount_params(self, yaw_deg, pitch_deg, roll_deg):
+        self.camera_dict['yaw-deg'] = yaw_deg
+        self.camera_dict['pitch-deg'] = pitch_deg
+        self.camera_dict['roll-deg'] = roll_deg
+       
+    def get_mount_params(self):
+        return \
+            self.camera_dict['yaw-deg'], \
+            self.camera_dict['pitch-deg'], \
+            self.camera_dict['roll-deg']
+
+    def get_K(self):
+        """
+        Form camera calibration matrix K using 5 parameters of 
+        Finite Projective Camera model.
+
+        See Eqn (6.10) in:
+        R.I. Hartley & A. Zisserman, Multiview Geometry in Computer Vision,
+        Cambridge University Press, 2004.
+        """
+        fx, fy, cu, cv, kcoeffs, skew = self.get_calibration_params()
+        K = np.array([ [fx, skew, cu],
+                       [ 0,   fy, cv],
+                       [ 0,    0,  1] ], dtype=float)
+        return K

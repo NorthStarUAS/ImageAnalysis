@@ -176,7 +176,7 @@ class Matcher():
         # Further filter against a Homography or Fundametal matrix constraint
         for i, i1 in enumerate(self.image_list):
             # rejection range in pixels
-            tol = float(i1.fullw) / 400.0
+            tol = float(i1.width) / 400.0
             print "tol = %.4f" % tol
             for j, matches in enumerate(i1.match_list):
                 if i == j:
@@ -296,8 +296,8 @@ class Matcher():
         if status == None:
             status = np.ones(len(kp_pairs), np.bool_)
         h, w = i1.img.shape
-        hscale = float(h) / float(i1.fullh)
-        wscale = float(w) / float(i1.fullw)
+        hscale = float(h) / float(i1.height)
+        wscale = float(w) / float(i1.width)
         explore_match('find_obj', i1.img, i2.img, kp_pairs,
                       hscale=hscale, wscale=wscale, status=status)
         # status structure will be correct here and represent
@@ -582,7 +582,7 @@ class Matcher():
         # Test fundametal matrix constraint
         for i, i1 in enumerate(self.image_list):
             # rejection range in pixels
-            tol = float(i1.fullw) / 400.0 + fuzz_factor
+            tol = float(i1.width) / 400.0 + fuzz_factor
             print "tol = %.4f" % tol
             if tol < 0.0:
                 tol = 0.0
