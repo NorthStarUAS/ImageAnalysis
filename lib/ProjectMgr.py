@@ -15,7 +15,10 @@ import sys
 import geojson
 
 from getchar import find_getch
+import Camera
 import Image
+
+
 import ImageList
 import Matcher
 import Placer
@@ -30,6 +33,8 @@ class ProjectMgr():
         self.source_dir = None   # original images
         self.image_dir = None    # working set of images
 
+        self.cam = Camera.Camera()
+        
         self.image_list = []
 
         self.detector_params = { 'detector': 'SIFT', # { SIFT, SURF, or ORB }
@@ -40,7 +45,6 @@ class ProjectMgr():
 
         # the following member variables need to be reviewed/organized
 
-        self.flight_data = None  # flight data
         self.match_ratio = match_ratio
         self.ac3d_steps = 8
         self.ref_lon = None
@@ -102,14 +106,13 @@ class ProjectMgr():
         self.source_dir = source_dir
 
     def save(self):
-        # create a dictionary and write it out as json
+        # create a project dictionary and write it out as json
         if not os.path.exists(self.project_dir):
             print "Error: project doesn't exist =", self.project_dir
             return
 
         dirs = {}
-        dirs['source'] = self.source_dir
-        dirs['image'] = self.image_dir
+        dirs['images-source'] = self.source_dir
         project_dict = {}
         project_dict['directories'] = dirs
         project_file = self.project_dir + "/Project.json"
@@ -123,10 +126,14 @@ class ProjectMgr():
         except:
             raise
 
+        # save camera configuration
+        self.cam.save(self.project_dir)
+
     def load(self, project_dir, create_if_needed=True):
         if not self.set_project_dir( project_dir ):
             return
 
+        # load project configuration
         project_file = self.project_dir + "/Project.json"
         try:
             f = open(project_file, 'r')
@@ -134,11 +141,13 @@ class ProjectMgr():
             f.close()
             
             dirs = project_dict['directories']
-            self.source_dir = dirs['source']
-            self.image_dir = dirs['image']
+            self.source_dir = dirs['images-source']
         except:
             print "Notice: unable to read =", project_file
             print "Continuing with an empty project configuration"
+            
+        # load camera configuration
+        self.cam.load(self.project_dir)
 
     # import an image set into the project directory, possibly scaling them
     # to a lower resolution for faster processing.
