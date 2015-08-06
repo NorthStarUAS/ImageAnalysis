@@ -122,7 +122,7 @@ if ReviewMatches:
 if False:
     # recompute matches with a bit larger match ratio than default
     ig.m.match_ratio *= 1.4
-    i1 = ig.m.findImageByName("SAM_0369.JPG")
+    i1 = ig.findImageByName("SAM_0369.JPG")
     i1.match_list = ig.m.computeImageMatches(i1, review=True)
     i1.save_matches()
 
@@ -221,7 +221,7 @@ if False:
     image_list = [ "SAM_0327.JPG", "SAM_0328.JPG" ]
     print str(image_list)
     #for name in image_list:
-    #    image = ig.m.findImageByName(name)
+    #    image = ig.findImageByName(name)
     #    ig.findImageShift(image, gain=1.0, placing=True)
     #    image.placed = True
     ig.render_image_list(image_list, cm_per_pixel=10.0, keypoints=True)

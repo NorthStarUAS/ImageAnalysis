@@ -21,15 +21,8 @@ class Image():
         self.kp_usage = []
         self.des_list = None
         self.match_list = []
-        
-        self.aircraft_yaw = 0.0
-        self.aircraft_pitch = 0.0
-        self.aircraft_roll = 0.
-        self.aircraft_lon = 0.0
-        self.aircraft_lat = 0.0
-        self.aircraft_msl = 0.0
-        self.aircraft_x = 0.0
-        self.aircraft_y = 0.0
+
+        self.aircraft_pose = {}
 
         self.camera_yaw = 0.0
         self.camera_pitch = 0.0
@@ -85,13 +78,7 @@ class Image():
             image_dict = json.load(f)
             f.close()
             self.num_matches = image_dict['num-matches']
-            lon = image_dict['aircraft-longitude']
-            lat = image_dict['aircraft-latitude']
-            msl = image_dict['aircraft-msl']
-            roll = image_dict['aircraft-roll']
-            pitch = image_dict['aircraft-pitch']
-            yaw = image_dict['aircraft-yaw']
-            self.set_location(lon, lat, msl, roll, pitch, yaw)
+            self.aircraft_pose = image_dict['aircraft-pose']
             self.alt_bias = image_dict['altitude-bias']
             self.roll_bias = image_dict['roll-bias']
             self.pitch_bias = image_dict['pitch-bias']
@@ -263,14 +250,7 @@ class Image():
     def save_meta(self):
         image_dict = {}
         image_dict['num-matches'] = self.num_matches
-        image_dict['aircraft-longitude'] = self.aircraft_lon
-        image_dict['aircraft-latitude'] = self.aircraft_lat
-        image_dict['aircraft-msl'] = self.aircraft_msl
-        image_dict['aircraft-yaw'] = self.aircraft_yaw
-        image_dict['aircraft-pitch'] = self.aircraft_pitch
-        image_dict['aircraft-roll'] = self.aircraft_roll
-        image_dict['aircraft-x'] = self.aircraft_x
-        image_dict['aircraft-y'] = self.aircraft_y
+        image_dict['aircraft-pose'] = self.aircraft_pose
         image_dict['altitude-bias'] = self.alt_bias
         image_dict['roll-bias'] = self.roll_bias
         image_dict['pitch-bias'] = self.pitch_bias
@@ -404,15 +384,19 @@ class Image():
         #print "%s coverage: (%.2f %.2f) (%.2f %.2f)" \
         #    % (self.name, xmin, ymin, xmax, ymax)
         return (xmin, ymin, xmax, ymax)
-
     
-    def set_location(self,
-                     lon=0.0, lat=0.0, msl=0.0,
-                     roll=0.0, pitch=0.0, yaw=0.0):
-        self.aircraft_lon = lon
-        self.aircraft_lat = lat
-        self.aircraft_msl = msl
-        self.aircraft_roll = roll
-        self.aircraft_pitch = pitch
-        self.aircraft_yaw = yaw
+    def set_aircraft_pose(self,
+                          lon_deg=0.0, lat_deg=0.0, alt_m=0.0,
+                          roll_deg=0.0, pitch_deg=0.0, yaw_deg=0.0):
+        self.aircraft_pose = { 'longitude-deg': lon_deg,
+                               'latitude-deg': lat_deg,
+                               'altitude-m': alt_m,
+                               'yaw-deg': yaw_deg,
+                               'pitch-deg': pitch_deg,
+                               'roll-deg': roll_deg }
+
+    def get_aircraft_pose(self):
+        p = self.aircraft_pose
+        return p['longitude-deg'], p['latitude-deg'], p['altitude-m'], p['roll-deg'], p['pitch-deg'], p['yaw-deg']
+
 

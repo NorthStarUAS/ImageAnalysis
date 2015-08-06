@@ -561,12 +561,6 @@ class Matcher():
                 self.deletePair(i, j, pair)
             #print "after = " + str(match)
 
-    def findImageByName(self, name):
-        for i in self.image_list:
-            if i.name == name:
-                return i
-        return None
-
     def findImageIndex(self, search):
         for i, image in enumerate(self.image_list):
             if search == image:

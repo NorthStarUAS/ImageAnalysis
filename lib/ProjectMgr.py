@@ -253,6 +253,12 @@ class ProjectMgr():
                 result = image.show_features()
                 if result == 27 or result == ord('q'):
                     break
+                
+    def findImageByName(self, name):
+        for i in self.image_list:
+            if i.name == name:
+                return i
+        return None
 
 #
 # Below this point all the code needs to be reviewed/refactored
@@ -293,7 +299,7 @@ class ProjectMgr():
         # the image was taken
         for match in correlator.best_matchups:
             pict, trig = correlator.get_match(match)
-            image = self.m.findImageByName(pict[2])
+            image = self.findImageByName(pict[2])
             if image != None:
                 if force or (math.fabs(image.aircraft_lon) < 0.01 and math.fabs(image.aircraft_lat) < 0.01):
                     # only if we are forcing a new position
@@ -302,7 +308,7 @@ class ProjectMgr():
                     t = trig[0] + self.shutter_latency
                     lon, lat, msl = correlator.get_position(t)
                     roll, pitch, yaw = correlator.get_attitude(t)
-                    image.set_location( lon, lat, msl, roll, pitch, yaw )
+                    image.set_aircraft_pose( lon, lat, msl, roll, pitch, yaw )
                     if weight:
                         # presumes a pitch/roll distance of 10, 10 gives a
                         # zero weight
@@ -314,37 +320,6 @@ class ProjectMgr():
                         image.weight = 1.0
                     image.save_meta()
                     #print "%s roll=%.1f pitch=%.1f weight=%.2f" % (image.name, roll, pitch, image.weight)
-
-    # from Sentera meta data file
-    def setAircraftPositions(self, meta_file="", force=False, weight=True):
-        f = fileinput.input(meta_file)
-        for line in f:
-            line.strip()
-            field = line.split(',')
-            name = field[0]
-            lat = float(field[1])
-            lon = float(field[2])
-            msl = float(field[3])
-            yaw = float(field[4])
-            pitch = float(field[5])
-            roll = float(field[6])
-            
-            image = self.m.findImageByName(name)
-            if image != None:
-                if force or (math.fabs(image.aircraft_lon) < 0.01 and math.fabs(image.aircraft_lat) < 0.01):
-                    image.set_location( lon, lat, msl, roll, pitch, yaw )
-                    if weight:
-                        # presumes a pitch/roll distance of 10, 10 gives a
-                        # zero weight
-                        w = 1.0 - (roll*roll + pitch*pitch)/200.0
-                        if w < 0.01:
-                            w = 0.01
-                        image.weight = w
-                    else:
-                        image.weight = 1.0
-                    image.save_meta()
-                    print "%s roll=%.1f pitch=%.1f weight=%.2f" % (image.name, roll, pitch, image.weight)
-
 
     # assuming the aircraft body pose has already been determined,
     # compute the camera pose as a new set of euler angles and NED.
