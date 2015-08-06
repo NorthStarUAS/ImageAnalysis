@@ -2,8 +2,6 @@
 
 import sys
 
-import FlightData
-
 class Solver():
     def __init__(self, image_group, correlator):
         self.ig = image_group

@@ -5,7 +5,7 @@ import sys
 # find our custom built opencv first
 sys.path.insert(0, "/home/curt/Projects/ComputerVision/lib/python2.7/site-packages/")
 
-import FlightData
+import ATICorrelate
 import ProjectMgr
 import Solver
 
@@ -60,7 +60,7 @@ ig.genKeypointUsageMap()
 # correlate shutter time with trigger time (based on interval
 # comaparison of trigger events from the flightdata vs. image time
 # stamps.)
-c = FlightData.Correlate()
+c = ATICorrelate.Correlate()
 c.load_all(flight_dir, image_dir)
 best_correlation, best_camera_time_error = c.test_correlations()
 
