@@ -31,7 +31,7 @@ if args.sentera != None:
 # compute the project's NED reference location (based on average of
 # aircraft poses)
 proj.compute_cart_reference_coord()
-print proj.cart_reference_coord
+print "Cartesian reference location:", proj.cart_reference_coord
 
 proj.save()
     
