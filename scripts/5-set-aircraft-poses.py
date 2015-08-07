@@ -27,4 +27,11 @@ proj.load_image_info()
 
 if args.sentera != None:
     Pose.setAircraftPoses(proj, args.sentera)
+
+# compute the project's NED reference location (based on average of
+# aircraft poses)
+proj.compute_cart_reference_coord()
+print proj.cart_reference_coord
+
+proj.save()
     
