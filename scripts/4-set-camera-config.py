@@ -83,7 +83,6 @@ if args.width_px or args.height_px:
     else:
          print "Must set width-px and height-px together"
 
-print args
 if args.yaw_deg != None or args.pitch_deg != None or args.roll_deg != None:
     if args.yaw_deg != None and args.pitch_deg != None and args.roll_deg != None:
         proj.cam.set_mount_params(args.yaw_deg, args.pitch_deg, args.roll_deg)
