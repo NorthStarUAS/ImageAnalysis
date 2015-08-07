@@ -42,12 +42,12 @@ class ProjectMgr():
                                  'surf-hessian-threshold': 600,
                                  'orb-max-features': 2000 }
 
+        self.cart_reference_coord = {}
+        
         # the following member variables need to be reviewed/organized
 
         self.match_ratio = match_ratio
         self.ac3d_steps = 8
-        self.ref_lon = None
-        self.ref_lat = None
         self.shutter_latency = 0.0
         self.group_roll_bias = 0.0
         self.group_pitch_bias = 0.0
@@ -114,6 +114,7 @@ class ProjectMgr():
         dirs['images-source'] = self.source_dir
         project_dict = {}
         project_dict['directories'] = dirs
+        project_dict['cartesian-reference-coord'] = self.cart_reference_coord
         project_file = self.project_dir + "/Project.json"
         try:
             f = open(project_file, 'w')
@@ -141,6 +142,7 @@ class ProjectMgr():
             
             dirs = project_dict['directories']
             self.source_dir = dirs['images-source']
+            self.cart_reference_coord = project_dict['cartesian-reference-coord']
         except:
             print "Notice: unable to read =", project_file
             print "Continuing with an empty project configuration"
@@ -260,6 +262,22 @@ class ProjectMgr():
                 return i
         return None
 
+    # compute a center reference location (lon, lat) for the group of
+    # images.
+    def compute_cart_reference_coord(self):
+        # requires images to have their location computed/loaded
+        lon_sum = 0.0
+        lat_sum = 0.0
+        for image in self.image_list:
+            lon, lat, alt, roll, pitch, yaw = image.get_aircraft_pose()
+            lon_sum += lon
+            lat_sum += lat
+        self.cart_reference_coord = {
+            'longitude-deg': lon_sum / len(self.image_list),
+            'latitude-deg':  lat_sum / len(self.image_list),
+            'altitude-m': 0.0 }
+        self.render.setRefCoord(self.cart_reference_coord)
+
 #
 # Below this point all the code needs to be reviewed/refactored
 #
@@ -321,66 +339,6 @@ class ProjectMgr():
                     image.save_meta()
                     #print "%s roll=%.1f pitch=%.1f weight=%.2f" % (image.name, roll, pitch, image.weight)
 
-    # assuming the aircraft body pose has already been determined,
-    # compute the camera pose as a new set of euler angles and NED.
-    def computeCameraPoseFromAircraft(self, image,
-                                      yaw_bias=0.0, roll_bias=0.0,
-                                      pitch_bias=0.0, alt_bias=0.0):
-        lon = image.aircraft_lon
-        lat = image.aircraft_lat
-        msl = image.aircraft_msl + image.alt_bias + alt_bias
-
-        # aircraft orientation includes our per camera bias
-        # (representing the aircraft attitude estimate error
-        body_roll = -(image.aircraft_roll + image.roll_bias + self.group_roll_bias)
-        body_pitch = -(image.aircraft_pitch + image.pitch_bias + self.group_pitch_bias)
-        body_yaw = image.aircraft_yaw + image.yaw_bias + self.group_yaw_bias
-
-        # camera orientation includes our group biases
-        # (representing the estimated mounting alignment error of
-        # the camera relative to the aircraft)
-        cam_yaw_bias = 0.0
-        cam_pitch_bias = 0.0
-        cam_roll_bias = 0.0
-        camera_yaw = self.offset_yaw_deg + cam_yaw_bias
-        camera_pitch = -(self.offset_pitch_deg + cam_pitch_bias)
-        camera_roll = -(self.offset_roll_deg + cam_roll_bias)
-
-        ned2cam = self.computeNed2Cam(body_yaw, body_pitch, body_roll,
-                                      camera_yaw, camera_pitch, camera_roll)
-        (yaw, pitch, roll) = transformations.euler_from_quaternion(ned2cam,
-                                                                   'rzyx')
-        (x, y) = ImageList.wgs842cart(lon, lat, self.ref_lon, self.ref_lat)
-        x += image.x_bias
-        y += image.y_bias
-        z = msl - self.ground_alt_m
-
-        deg2rad = math.pi / 180.0
-        return (yaw/deg2rad, pitch/deg2rad, roll/deg2rad, x, y, z)
-
-    # assuming the aircraft body pose has already been determined,
-    # compute the camera pose as a new set of euler angles and
-    # position in cartesian space.
-    def estimateCameraPoses(self, force=False):
-        for image in self.image_list:
-            if not force and \
-               (math.fabs(image.camera_yaw) > 0.001 \
-                or math.fabs(image.camera_pitch) > 0.001 \
-                or math.fabs(image.camera_roll) > 0.001 \
-                or math.fabs(image.camera_x) > 0.001 \
-                or math.fabs(image.camera_y) > 0.001 \
-                or math.fabs(image.camera_z) > 0.001):
-                continue
-        
-            pose = self.computeCameraPoseFromAircraft(image)
-            #print "pose from aircraft = %s" % str(pose) 
-            image.camera_yaw = pose[0]
-            image.camera_pitch = pose[1]
-            image.camera_roll = pose[2]
-            image.camera_x = pose[3]
-            image.camera_y = pose[4]
-            image.camera_z = pose[5]
-
     def computeWeights(self, force=None):
         # tag each image with the flight data parameters at the time
         # the image was taken
@@ -407,28 +365,6 @@ class ProjectMgr():
                     image.connections += 1
             image.save_meta()
             print "%s connections: %d" % (image.name, image.connections)
-
-    # compute a center reference location (lon, lat) for the group of
-    # images, then compute the x, y offset for each image relative to
-    # the reference position.
-    def computeRefLocation(self):
-        # requires images to have their location computed/loaded
-        lon_sum = 0.0
-        lat_sum = 0.0
-        for image in self.image_list:
-            lon_sum += image.aircraft_lon
-            lat_sum += image.aircraft_lat
-        self.ref_lon = lon_sum / len(self.image_list)
-        self.ref_lat = lat_sum / len(self.image_list)
-        self.render.setRefCoord(self.ref_lon, self.ref_lat)
-        print "Reference: lon = %.6f lat = %.6f" % (self.ref_lon, self.ref_lat)
-        for image in self.image_list:
-            (x, y) = ImageList.wgs842cart(image.aircraft_lon,
-                                          image.aircraft_lat,
-                                          self.ref_lon, self.ref_lat)
-            image.aircraft_x = x
-            image.aircraft_y = y
-            image.save_meta()
 
 
     # undistort x, y using a simple radial lens distortion model.  (We

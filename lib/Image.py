@@ -22,14 +22,15 @@ class Image():
         self.des_list = None
         self.match_list = []
 
-        self.aircraft_pose = {}
+        self.aircraft_pose = None
+        self.camera_pose = None
 
-        self.camera_yaw = 0.0
-        self.camera_pitch = 0.0
-        self.camera_roll = 0.0
-        self.camera_x = 0.0
-        self.camera_y = 0.0
-        self.camera_z = 0.0
+        #self.camera_yaw = 0.0
+        #self.camera_pitch = 0.0
+        #self.camera_roll = 0.0
+        #self.camera_x = 0.0
+        #self.camera_y = 0.0
+        #self.camera_z = 0.0
 
         self.yaw_bias = 0.0
         self.roll_bias = 0.0
@@ -78,7 +79,10 @@ class Image():
             image_dict = json.load(f)
             f.close()
             self.num_matches = image_dict['num-matches']
-            self.aircraft_pose = image_dict['aircraft-pose']
+            if 'aircraft_pose' in image_dict:
+                self.aircraft_pose = image_dict['aircraft-pose']
+            if 'camera_pose' in image_dict:
+                self.camera_pose = image_dict['camera-pose']
             self.alt_bias = image_dict['altitude-bias']
             self.roll_bias = image_dict['roll-bias']
             self.pitch_bias = image_dict['pitch-bias']
@@ -89,18 +93,18 @@ class Image():
             self.connections = image_dict['connections']
             self.error = image_dict['error']
             self.stddev = image_dict['stddev']
-            if 'camera-yaw' in image_dict:
-                self.camera_yaw = image_dict['camera-yaw']
-            if 'camera-pitch' in image_dict:
-                self.camera_pitch = image_dict['camera-pitch']
-            if 'camera-roll' in image_dict:
-                self.camera_roll = image_dict['camera-roll']
-            if 'camera-x' in image_dict:
-                self.camera_x = image_dict['camera-x']
-            if 'camera-y' in image_dict:
-                self.camera_y = image_dict['camera-y']
-            if 'camera-z' in image_dict:
-                self.camera_z = image_dict['camera-z']
+            # if 'camera-yaw' in image_dict:
+            #     self.camera_yaw = image_dict['camera-yaw']
+            # if 'camera-pitch' in image_dict:
+            #     self.camera_pitch = image_dict['camera-pitch']
+            # if 'camera-roll' in image_dict:
+            #     self.camera_roll = image_dict['camera-roll']
+            # if 'camera-x' in image_dict:
+            #     self.camera_x = image_dict['camera-x']
+            # if 'camera-y' in image_dict:
+            #     self.camera_y = image_dict['camera-y']
+            # if 'camera-z' in image_dict:
+            #     self.camera_z = image_dict['camera-z']
         except:
             print self.info_file + ":\n" + "  load error: " \
                 + str(sys.exc_info()[1])
@@ -251,6 +255,7 @@ class Image():
         image_dict = {}
         image_dict['num-matches'] = self.num_matches
         image_dict['aircraft-pose'] = self.aircraft_pose
+        image_dict['camera-pose'] = self.camera_pose
         image_dict['altitude-bias'] = self.alt_bias
         image_dict['roll-bias'] = self.roll_bias
         image_dict['pitch-bias'] = self.pitch_bias
@@ -261,12 +266,12 @@ class Image():
         image_dict['connections'] = self.connections
         image_dict['error'] = self.error
         image_dict['stddev'] = self.stddev
-        image_dict['camera-yaw'] = self.camera_yaw
-        image_dict['camera-pitch'] = self.camera_pitch
-        image_dict['camera-roll'] = self.camera_roll
-        image_dict['camera-x'] = self.camera_x
-        image_dict['camera-y'] = self.camera_y
-        image_dict['camera-z'] = self.camera_z
+        # image_dict['camera-yaw'] = self.camera_yaw
+        # image_dict['camera-pitch'] = self.camera_pitch
+        # image_dict['camera-roll'] = self.camera_roll
+        # image_dict['camera-x'] = self.camera_x
+        # image_dict['camera-y'] = self.camera_y
+        # image_dict['camera-z'] = self.camera_z
 
         try:
             f = open(self.info_file, 'w')
@@ -397,6 +402,24 @@ class Image():
 
     def get_aircraft_pose(self):
         p = self.aircraft_pose
-        return p['longitude-deg'], p['latitude-deg'], p['altitude-m'], p['roll-deg'], p['pitch-deg'], p['yaw-deg']
+        if p:
+            return p['longitude-deg'], p['latitude-deg'], p['altitude-m'], p['roll-deg'], p['pitch-deg'], p['yaw-deg']
+        else:
+            return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
+    def set_camera_pose(self,
+                        x_m=0.0, y_m=0.0, z_m=0.0,
+                        roll_deg=0.0, pitch_deg=0.0, yaw_deg=0.0):
+        self.camera_pose = { 'x-m': x_m,
+                             'y-m': y_m,
+                             'z-m': z_m,
+                             'yaw-deg': yaw_deg,
+                             'pitch-deg': pitch_deg,
+                             'roll-deg': roll_deg }
 
+    def get_camera_pose(self):
+        p = self.camera_pose
+        if p:
+            return p['x-m'], p['y-m'], p['z-m'], p['roll-deg'], p['pitch-deg'], p<['yaw-deg']
+        else:
+            return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
