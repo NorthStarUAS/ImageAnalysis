@@ -269,7 +269,7 @@ class ProjectMgr():
         lon_sum = 0.0
         lat_sum = 0.0
         for image in self.image_list:
-            lon, lat, alt, roll, pitch, yaw = image.get_aircraft_pose()
+            lon, lat, alt, roll, pitch, yaw, quat = image.get_aircraft_pose()
             lon_sum += lon
             lat_sum += lat
         self.cart_reference_coord = {

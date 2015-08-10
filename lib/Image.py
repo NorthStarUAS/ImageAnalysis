@@ -5,11 +5,17 @@
 import cv2
 import json
 import lxml.etree as ET
+import math
 from matplotlib import pyplot as plt
 import numpy as np
 import os.path
 import sys
 
+import transformations
+
+# a helpful constant
+d2r = math.pi / 180.0
+    
 class Image():
     def __init__(self, image_dir=None, image_file=None):
         self.name = None
@@ -74,7 +80,7 @@ class Image():
             self.num_matches = image_dict['num-matches']
             if 'aircraft-pose' in image_dict:
                 self.aircraft_pose = image_dict['aircraft-pose']
-            if 'camera_pose' in image_dict:
+            if 'camera-pose' in image_dict:
                 self.camera_pose = image_dict['camera-pose']
             self.alt_bias = image_dict['altitude-bias']
             self.roll_bias = image_dict['roll-bias']
@@ -368,33 +374,43 @@ class Image():
     def set_aircraft_pose(self,
                           lon_deg=0.0, lat_deg=0.0, alt_m=0.0,
                           roll_deg=0.0, pitch_deg=0.0, yaw_deg=0.0):
+        quat = transformations.quaternion_from_euler(yaw_deg * d2r,
+                                                     pitch_deg * d2r,
+                                                     roll_deg * d2r,
+                                                     'rzyx')
         self.aircraft_pose = { 'longitude-deg': lon_deg,
                                'latitude-deg': lat_deg,
                                'altitude-m': alt_m,
                                'yaw-deg': yaw_deg,
                                'pitch-deg': pitch_deg,
-                               'roll-deg': roll_deg }
+                               'roll-deg': roll_deg,
+                               'quat': quat.tolist() }
 
     def get_aircraft_pose(self):
         p = self.aircraft_pose
         if p:
-            return p['longitude-deg'], p['latitude-deg'], p['altitude-m'], p['roll-deg'], p['pitch-deg'], p['yaw-deg']
+            return p['longitude-deg'], p['latitude-deg'], p['altitude-m'], p['roll-deg'], p['pitch-deg'], p['yaw-deg'], np.array(p['quat'])
         else:
-            return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+            return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, np.zeros(4)
 
     def set_camera_pose(self,
                         x_m=0.0, y_m=0.0, z_m=0.0,
                         roll_deg=0.0, pitch_deg=0.0, yaw_deg=0.0):
+        quat = transformations.quaternion_from_euler(yaw_deg * d2r,
+                                                     pitch_deg * d2r,
+                                                     roll_deg * d2r,
+                                                     'rzyx')
         self.camera_pose = { 'x-m': x_m,
                              'y-m': y_m,
                              'z-m': z_m,
                              'yaw-deg': yaw_deg,
                              'pitch-deg': pitch_deg,
-                             'roll-deg': roll_deg }
+                             'roll-deg': roll_deg,
+                             'quat': quat.tolist() }
 
     def get_camera_pose(self):
         p = self.camera_pose
         if p:
-            return p['x-m'], p['y-m'], p['z-m'], p['roll-deg'], p['pitch-deg'], p<['yaw-deg']
+            return p['x-m'], p['y-m'], p['z-m'], p['roll-deg'], p['pitch-deg'], p<['yaw-deg'], np.array(p['quat'])
         else:
-            return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+            return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, np.zeros(4)
