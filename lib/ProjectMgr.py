@@ -429,32 +429,6 @@ class ProjectMgr():
         #print "proj dist = %.2f" % math.sqrt(x_proj*x_proj + y_proj*y_proj)
         return [x_proj, y_proj]
 
-    # returns a quaternion representing the rotation from ned
-    # coordinates to camera pos coordinates.  You can back translate a
-    # vector against this quaternion to project a camera vector into
-    # ned space.
-    #
-    # body angles represent the aircraft orientation
-    # camera angles represent the fixed mounting offset of the camera
-    # relative to the body
-    # +x axis = forward, +roll = left wing down
-    # +y axis = right, +pitch = nose down
-    # +z axis = up, +yaw = nose right    
-    def computeNed2Cam(self,
-                       body_yaw, body_pitch, body_roll,
-                       camera_yaw, camera_pitch, camera_roll):
-        deg2rad = math.pi / 180.0
-        ned2body = transformations.quaternion_from_euler(body_yaw * deg2rad,
-                                                         body_pitch * deg2rad,
-                                                         body_roll * deg2rad,
-                                                         'rzyx')
-        body2cam = transformations.quaternion_from_euler(camera_yaw * deg2rad,
-                                                         camera_pitch * deg2rad,
-                                                         camera_roll * deg2rad,
-                                                         'rzyx')
-        ned2cam = transformations.quaternion_multiply(ned2body, body2cam)
-        return ned2cam
-
     # project keypoints based on body reference system + body biases
     # transformed by camera mounting + camera mounting biases
     def projectImageKeypointsNative2(self, image, yaw_bias=0.0,

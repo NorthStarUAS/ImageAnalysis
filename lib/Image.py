@@ -25,13 +25,6 @@ class Image():
         self.aircraft_pose = None
         self.camera_pose = None
 
-        #self.camera_yaw = 0.0
-        #self.camera_pitch = 0.0
-        #self.camera_roll = 0.0
-        #self.camera_x = 0.0
-        #self.camera_y = 0.0
-        #self.camera_z = 0.0
-
         self.yaw_bias = 0.0
         self.roll_bias = 0.0
         self.pitch_bias = 0.0
@@ -79,7 +72,7 @@ class Image():
             image_dict = json.load(f)
             f.close()
             self.num_matches = image_dict['num-matches']
-            if 'aircraft_pose' in image_dict:
+            if 'aircraft-pose' in image_dict:
                 self.aircraft_pose = image_dict['aircraft-pose']
             if 'camera_pose' in image_dict:
                 self.camera_pose = image_dict['camera-pose']
@@ -93,18 +86,6 @@ class Image():
             self.connections = image_dict['connections']
             self.error = image_dict['error']
             self.stddev = image_dict['stddev']
-            # if 'camera-yaw' in image_dict:
-            #     self.camera_yaw = image_dict['camera-yaw']
-            # if 'camera-pitch' in image_dict:
-            #     self.camera_pitch = image_dict['camera-pitch']
-            # if 'camera-roll' in image_dict:
-            #     self.camera_roll = image_dict['camera-roll']
-            # if 'camera-x' in image_dict:
-            #     self.camera_x = image_dict['camera-x']
-            # if 'camera-y' in image_dict:
-            #     self.camera_y = image_dict['camera-y']
-            # if 'camera-z' in image_dict:
-            #     self.camera_z = image_dict['camera-z']
         except:
             print self.info_file + ":\n" + "  load error: " \
                 + str(sys.exc_info()[1])
@@ -266,12 +247,6 @@ class Image():
         image_dict['connections'] = self.connections
         image_dict['error'] = self.error
         image_dict['stddev'] = self.stddev
-        # image_dict['camera-yaw'] = self.camera_yaw
-        # image_dict['camera-pitch'] = self.camera_pitch
-        # image_dict['camera-roll'] = self.camera_roll
-        # image_dict['camera-x'] = self.camera_x
-        # image_dict['camera-y'] = self.camera_y
-        # image_dict['camera-z'] = self.camera_z
 
         try:
             f = open(self.info_file, 'w')
