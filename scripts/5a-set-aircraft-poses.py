@@ -25,8 +25,15 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 
+pose_set = False
 if args.sentera != None:
     Pose.setAircraftPoses(proj, args.sentera)
+    pose_set = True
+
+if not pose_set:
+    print "Error: no flight data specified or problem with flight data"
+    print "No poses computed"
+    exit
 
 # compute the project's NED reference location (based on average of
 # aircraft poses)
