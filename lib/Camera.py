@@ -151,3 +151,7 @@ class Camera():
                        [ 0,   fy, cv],
                        [ 0,    0,  1] ], dtype=float)
         return K
+
+    # returns inv(K)
+    def get_IK(self):
+        return np.linalg.inv(self.get_K())

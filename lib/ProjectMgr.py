@@ -394,16 +394,18 @@ class ProjectMgr():
         # normalized pixel coordinates to [0.0, 1.0]
         xnorm = pt[0] / float(w-1)
         ynorm = pt[1] / float(h-1)
-        #print "norm = %.4f %.4f" % (xnorm, ynorm)
+        print "norm = %.4f %.4f" % (xnorm, ynorm)
 
         # lens un-distortion
         xnorm_u, ynorm_u = self.doLensUndistort(ar, xnorm, ynorm)
+        print "norm_u = %.4f %.4f" % (xnorm_u, ynorm_u)
 
         # compute pixel coordinate in sensor coordinate space (mm
         # units) with (0mm, 0mm) being the center of the image.
         x_mm = (xnorm_u * 2.0 - 1.0) * (horiz_mm * 0.5)
-        y_mm = -1.0 * (ynorm_u * 2.0 - 1.0) * (vert_mm * 0.5)
-
+        y_mm = (ynorm_u * 2.0 - 1.0) * (vert_mm * 0.5)
+        print "x_mm = %.4f y_mm = %.4f" % ( x_mm, y_mm )
+        
         # the forward vector (out the nose when the aircraft is
         # straight, level, and flying north) is (x=1.0, y=0.0, z=0.0).
         # This vector will get projected to the camera center point,
@@ -411,7 +413,7 @@ class ProjectMgr():
         #camvec = [y_mm, x_mm, focal_len_mm]
         camvec = [focal_len_mm, x_mm, y_mm]
         camvec = transformations.unit_vector(camvec) # normalize
-        #print "%.3f %.3f %.3f" % (camvec[0], camvec[1], camvec[2])
+        print "%.3f %.3f %.3f" % (camvec[0], camvec[1], camvec[2])
 
         # transform camera vector (in body reference frame) to ned
         # reference frame
