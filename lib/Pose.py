@@ -25,7 +25,7 @@ d2r = math.pi / 180.0
 # +z axis = up, +yaw = nose right
 
 
-# from Sentera meta data file
+# define the image aircraft poses from Sentera meta data file
 def setAircraftPoses(proj, metafile="", force=True, weight=True):
     f = fileinput.input(metafile)
     for line in f:
@@ -46,15 +46,18 @@ def setAircraftPoses(proj, metafile="", force=True, weight=True):
                 image.weight = 1.0
                 image.save_meta()
                 print "%s yaw=%.1f pitch=%.1f roll=%.1f" % (image.name, yaw, pitch, roll)
+        else:
+            print "Error: image-metadata.txt references an image not in our data set =", name
 
-# assuming the aircraft body pose has already been computed and
-# represented as a quaternion, compute the camera pose in cartesian
-# space.
+                
+# compute the camera pose in cartesian space, assuming the aircraft
+# body pose has already been computed in lla space and the orientation
+# transform is represented as a quaternion.
 def computeCameraPoseFromAircraft(image, cam, ref,
                                   yaw_bias=0.0, roll_bias=0.0,
                                   pitch_bias=0.0, alt_bias=0.0):
     aircraft_lon, aircraft_lat, aircraft_alt, aircraft_roll, aircraft_pitch, aircraft_yaw, world2body = image.get_aircraft_pose()
-    print "aircraft quat =", world2body
+    #print "aircraft quat =", world2body
     msl = aircraft_alt + image.alt_bias + alt_bias
 
     (camera_yaw, camera_pitch, camera_roll) = cam.get_mount_params()
@@ -64,17 +67,15 @@ def computeCameraPoseFromAircraft(image, cam, ref,
                                                      'rzyx')
     world2cam = transformations.quaternion_multiply(world2body, body2cam)
     (yaw, pitch, roll) = transformations.euler_from_quaternion(world2cam, 'rzyx')
-    ref_lon = ref['longitude-deg']
-    ref_lat = ref['latitude-deg']
-    ref_alt = ref['altitude-m']
-    ned = navpy.lla2ned(aircraft_lat, aircraft_lon, aircraft_alt,
-                        ref_lat, ref_lon, ref_alt)
-    print "aircraft=%s ref=%s ned=%s" % (image.get_aircraft_pose(), ref, ned)
+    ned = navpy.lla2ned( aircraft_lat, aircraft_lon, aircraft_alt,
+                         ref['latitude-deg'], ref['longitude-deg'],
+                         ref['altitude-m'] )
+    #print "aircraft=%s ref=%s ned=%s" % (image.get_aircraft_pose(), ref, ned)
     return (yaw/d2r, pitch/d2r, roll/d2r, ned[1], ned[0], -ned[2])
 
+
 # for each image in the provided image list, compute the estimated
-# camera pose in cartesian space assuming the aircraft body pose has
-# already been determined.
+# camera pose in cartesian space from the aircraft body pose 
 def compute_camera_poses(image_list, cam, ref, force=False):
     for image in image_list:
         x, y, z, roll, pitch, yaw, quat = image.get_camera_pose()
@@ -85,7 +86,7 @@ def compute_camera_poses(image_list, cam, ref, force=False):
             continue
 
         pose = computeCameraPoseFromAircraft(image, cam, ref)
-        print "pose from aircraft = %s" % str(pose)
         image.set_camera_pose( pose[3], pose[4], pose[5],
                                pose[0], pose[1], pose[2])
+        print "%s: camera pose = %s" % (image.name, image.camera_pose)
 
