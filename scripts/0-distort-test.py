@@ -73,6 +73,34 @@ for i in range(0, num_points):
 # undistort the points
 points_undistort = cv2.undistortPoints(np.array(points_orig, dtype=np.float32), proj.cam.K, dist_coeffs, P=proj.cam.K)
 
+def redistort(u, v, dist_coeffs, K):
+    fx = K[0,0]
+    fy = K[1,1]
+    cx = K[0,2]
+    cy = K[1,2]
+    x = (u - cx) / fx
+    y = (v - cy) / fy
+    print [x, y]
+    k1, k2, p1, p2, k3 = dist_coeffs
+    
+    # Compute radius^2
+    r2 = x**2 + y**2
+    r4, r6 = r2**2, r2**3
+  
+    # Compute tangential distortion
+    dx = 2*p1*x*y + p2*(r2 + 2*x*x)
+    dy = p1*(r2 + 2*y*y) + 2*p2*x*y
+    
+    # Compute radial factor
+    Lr = 1.0 + k1*r2 + k2*r4 + k3*r6
+  
+    ud = Lr*x + dx
+    vd = Lr*y + dy
+    
+    return ud * fx + cx, vd * fy + cy
+
 for i in range(0, num_points):
     ud = points_undistort[i][0]
-    print "orig = %s  undist = %s" % (points_orig[i], ud)
+    rd = redistort(ud[0], ud[1], dist_coeffs, proj.cam.K)
+    print "orig = %s  undist = %s redist = %s" % (points_orig[i], ud, rd)
+
