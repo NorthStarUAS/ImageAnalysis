@@ -393,16 +393,13 @@ class Image():
         else:
             return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, np.zeros(4)
 
-    def set_camera_pose(self,
-                        x_m=0.0, y_m=0.0, z_m=0.0,
+    def set_camera_pose(self, ned=[0.0, 0.0, 0.0],
                         roll_deg=0.0, pitch_deg=0.0, yaw_deg=0.0):
         quat = transformations.quaternion_from_euler(yaw_deg * d2r,
                                                      pitch_deg * d2r,
                                                      roll_deg * d2r,
                                                      'rzyx')
-        self.camera_pose = { 'x-m': x_m,
-                             'y-m': y_m,
-                             'z-m': z_m,
+        self.camera_pose = { 'ned': ned,
                              'yaw-deg': yaw_deg,
                              'pitch-deg': pitch_deg,
                              'roll-deg': roll_deg,
@@ -410,7 +407,7 @@ class Image():
 
     def get_camera_pose(self):
         p = self.camera_pose
-        if p:
-            return p['x-m'], p['y-m'], p['z-m'], p['roll-deg'], p['pitch-deg'], p<['yaw-deg'], np.array(p['quat'])
+        if p and 'ned' in p:
+            return p['ned'], p['roll-deg'], p['pitch-deg'], p['yaw-deg'], np.array(p['quat'])
         else:
-            return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, np.zeros(4)
+            return [0.0, 0.0, 0.0], 0.0, 0.0, 0.0, np.zeros(4)

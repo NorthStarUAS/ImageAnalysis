@@ -13,9 +13,9 @@ import transformations
 d2r = math.pi / 180.0
 
 # quaternions represent a rotation from one coordinate system to
-# another (i.e. from cartesian space to aircraft body space).  You can
+# another (i.e. from NED space to aircraft body space).  You can
 # back translate a vector against this quaternion to project a camera
-# vector into cartesian space.
+# vector into NED space.
 #
 # body angles represent the aircraft orientation
 # camera angles represent the fixed mounting offset of the camera
@@ -50,13 +50,13 @@ def setAircraftPoses(proj, metafile="", force=True, weight=True):
             print "Error: image-metadata.txt references an image not in our data set =", name
 
                 
-# compute the camera pose in cartesian space, assuming the aircraft
+# compute the camera pose in NED space, assuming the aircraft
 # body pose has already been computed in lla space and the orientation
 # transform is represented as a quaternion.
 def computeCameraPoseFromAircraft(image, cam, ref,
                                   yaw_bias=0.0, roll_bias=0.0,
                                   pitch_bias=0.0, alt_bias=0.0):
-    aircraft_lon, aircraft_lat, aircraft_alt, aircraft_roll, aircraft_pitch, aircraft_yaw, world2body = image.get_aircraft_pose()
+    aircraft_lon, aircraft_lat, aircraft_alt, aircraft_roll, aircraft_pitch, aircraft_yaw, ned2body = image.get_aircraft_pose()
     #print "aircraft quat =", world2body
     msl = aircraft_alt + image.alt_bias + alt_bias
 
@@ -65,28 +65,27 @@ def computeCameraPoseFromAircraft(image, cam, ref,
                                                      camera_pitch * d2r,
                                                      camera_roll * d2r,
                                                      'rzyx')
-    world2cam = transformations.quaternion_multiply(world2body, body2cam)
-    (yaw, pitch, roll) = transformations.euler_from_quaternion(world2cam, 'rzyx')
+    ned2cam = transformations.quaternion_multiply(ned2body, body2cam)
+    (yaw, pitch, roll) = transformations.euler_from_quaternion(ned2cam, 'rzyx')
     ned = navpy.lla2ned( aircraft_lat, aircraft_lon, aircraft_alt,
                          ref['latitude-deg'], ref['longitude-deg'],
                          ref['altitude-m'] )
     #print "aircraft=%s ref=%s ned=%s" % (image.get_aircraft_pose(), ref, ned)
-    return (yaw/d2r, pitch/d2r, roll/d2r, ned[1], ned[0], -ned[2])
+    return (yaw/d2r, pitch/d2r, roll/d2r, ned[0], ned[1], ned[2])
 
 
 # for each image in the provided image list, compute the estimated
-# camera pose in cartesian space from the aircraft body pose 
+# camera pose in NED space from the aircraft body pose 
 def compute_camera_poses(image_list, cam, ref, force=False):
     for image in image_list:
-        x, y, z, roll, pitch, yaw, quat = image.get_camera_pose()
+        ned, roll, pitch, yaw, quat = image.get_camera_pose()
         if not force and \
            (math.fabs(yaw) > 0.001 or math.fabs(pitch) > 0.001 \
-            or math.fabs(roll) > 0.001 or math.fabs(x) > 0.001 \
-            or math.fabs(y) > 0.001 or math.fabs(z) > 0.001):
+            or math.fabs(roll) > 0.001 or math.fabs(ned[0]) > 0.001 \
+            or math.fabs(ned[1]) > 0.001 or math.fabs(ned[2]) > 0.001):
             continue
 
         pose = computeCameraPoseFromAircraft(image, cam, ref)
-        image.set_camera_pose( pose[3], pose[4], pose[5],
-                               pose[0], pose[1], pose[2])
+        image.set_camera_pose( pose[3:6], pose[0], pose[1], pose[2])
         print "%s: camera pose = %s" % (image.name, image.camera_pose)
 

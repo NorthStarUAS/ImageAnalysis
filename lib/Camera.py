@@ -43,6 +43,10 @@ class Camera():
         cd['pitch-deg'] = 0.0
         cd['roll-deg'] = 0.0
 
+        # internally cached values
+        self.K = np.zeros((3, 3), dtype=np.float)
+        self.IK = np.zeros((3, 3), dtype=np.float)
+
     def save(self, project_dir):
         # create a dictionary and write it out as json
         if not os.path.exists(project_dir):
@@ -66,6 +70,9 @@ class Camera():
             f = open(camera_file, 'r')
             self.camera_dict = json.load(f)
             f.close()
+
+            self.make_K()
+            
         except:
             print "Notice: unable to read =", camera_file
             print "Continuing with an empty camera configuration"
@@ -81,6 +88,21 @@ class Camera():
             self.camera_dict['vert-mm'], \
             self.camera_dict['focal-len-mm']
 
+    def make_K(self):
+        """
+        Form camera calibration matrix K using 5 parameters of 
+        Finite Projective Camera model.
+
+        See Eqn (6.10) in:
+        R.I. Hartley & A. Zisserman, Multiview Geometry in Computer Vision,
+        Cambridge University Press, 2004.
+        """
+        fx, fy, cu, cv, kcoeffs, skew = self.get_calibration_params()
+        self.K = np.array([ [fx, skew, cu],
+                            [ 0,   fy, cv],
+                            [ 0,    0,  1] ], dtype=float)
+        self.IK = np.linalg.inv(self.K)
+        
     # kcoeffs = array[5]
     def set_calibration_params(self, fx, fy, cu, cv, kcoeffs, skew):
         self.camera_dict['fx'] = fx
@@ -90,6 +112,9 @@ class Camera():
         self.camera_dict['kcoeffs'] = kcoeffs 
         self.camera_dict['skew'] = skew
 
+        # construct K & inv(K) matrices
+        self.make_K()
+        
     def get_calibration_params(self):
         return \
             self.camera_dict['fx'], \
@@ -136,22 +161,3 @@ class Camera():
             self.camera_dict['yaw-deg'], \
             self.camera_dict['pitch-deg'], \
             self.camera_dict['roll-deg']
-
-    def get_K(self):
-        """
-        Form camera calibration matrix K using 5 parameters of 
-        Finite Projective Camera model.
-
-        See Eqn (6.10) in:
-        R.I. Hartley & A. Zisserman, Multiview Geometry in Computer Vision,
-        Cambridge University Press, 2004.
-        """
-        fx, fy, cu, cv, kcoeffs, skew = self.get_calibration_params()
-        K = np.array([ [fx, skew, cu],
-                       [ 0,   fy, cv],
-                       [ 0,    0,  1] ], dtype=float)
-        return K
-
-    # returns inv(K)
-    def get_IK(self):
-        return np.linalg.inv(self.get_K())
