@@ -432,6 +432,7 @@ class ProjectMgr():
         return [x_proj, y_proj]
 
     def projectPoint3(self, image, q, pt, z_m):
+        IK = self.cam.IK
         d2r = math.pi / 180.0
         horiz_mm, vert_mm, focal_len_mm = self.cam.get_lens_params()
         h = image.height
