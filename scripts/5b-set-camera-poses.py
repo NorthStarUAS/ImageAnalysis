@@ -24,7 +24,7 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 
-Pose.compute_camera_poses(proj.image_list, proj.cam, proj.cart_reference_coord,
+Pose.compute_camera_poses(proj.image_list, proj.cam, proj.ned_reference_coord,
                           force=True)
 
 proj.save_images_meta()
