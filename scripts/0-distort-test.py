@@ -1,5 +1,11 @@
 #!/usr/bin/python
 
+# distortion formula here:
+#
+# http://docs.opencv.org/modules/imgproc/doc/geometric_transformations.html
+#
+# undistort via cv2 function
+
 import sys
 sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
 

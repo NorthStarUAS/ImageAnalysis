@@ -23,18 +23,32 @@ parser.add_argument('--project', required=True, help='project directory')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-#proj.load_image_info()
-#proj.load_features() # for height/width
+
+# setup the camera with sentera 3 Mpx params
+width_px = 3808
+height_px = 2754
+fx = fy = 4662.25 # [pixels] - where 1 pixel = 1.67 micrometer
+horiz_mm = width_px * 1.67 * 0.001
+vert_mm = height_px * 1.67 * 0.001
+focal_len_mm = (fx * horiz_mm) / width_px
+proj.cam.set_lens_params(horiz_mm, vert_mm, focal_len_mm)
+proj.cam.set_calibration_params(fx, fy, width_px/2, height_px/2,
+                                [0.0, 0.0, 0.0, 0.0, 0.0], 0.0)
+proj.cam.set_calibration_std(0.0, 0.0, 0.0, 0.0,
+                             [0.0, 0.0, 0.0, 0.0, 0.0], 0.0)
+proj.cam.set_image_params(width_px, height_px)
+proj.cam.set_mount_params(0.0, -90.0, 0.0)
 
 #image = proj.image_list[1]
 image = Image.Image()
-image.set_camera_pose([0.0, 0.0, 0.0], 0.0, -90.0, 0.0)
-image.width = 952
-image.height = 689
+image.set_camera_pose([0.0, 0.0, 0.0], [0.0, -90.0, 0.0])
+image.width = 3808
+image.height = 2754
 
+px = [3807, 1000]
 print "camera pose =", image.camera_pose
-print "projectPoint2 =", proj.projectPoint2(image, image.camera_pose['quat'], [476, 344.5], 272)
-print "projectPoint3 =", proj.projectPoint3(image, image.camera_pose['quat'], [476, 344.5], 272)
+print "projectPoint2:\n", proj.projectPoint2(image, image.camera_pose['quat'], px, 272)
+print "projectPoint3:\n", proj.projectPoint3(image, image.camera_pose['quat'], px, 272)
 
 print "K\n", proj.cam.K
 print "inv(K)\n", proj.cam.IK
