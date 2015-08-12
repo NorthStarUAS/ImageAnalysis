@@ -269,9 +269,9 @@ class ProjectMgr():
         lon_sum = 0.0
         lat_sum = 0.0
         for image in self.image_list:
-            lon, lat, alt, roll, pitch, yaw, quat = image.get_aircraft_pose()
-            lon_sum += lon
-            lat_sum += lat
+            lla, ypr, quat = image.get_aircraft_pose()
+            lon_sum += lla[1]
+            lat_sum += lla[0]
         self.ned_reference_coord = {
             'longitude-deg': lon_sum / len(self.image_list),
             'latitude-deg':  lat_sum / len(self.image_list),
@@ -367,12 +367,16 @@ class ProjectMgr():
             print "%s connections: %d" % (image.name, image.connections)
 
 
+    # depricate this function .... or replace with better one (or just
+    # use opencv)
+    #
     # undistort x, y using a simple radial lens distortion model.  (We
     # call the original image values the 'distorted' values.)  Input
     # x,y are expected to be normalize (0.0 - 1.0) in image pixel
     # space with 0.5 being the center of image (and hopefully the
     # center of distortion.)
     def doLensUndistort(self, aspect_ratio, xnorm, ynorm):
+        print "DEPRICATED..."
         xd = (xnorm * 2.0 - 1.0) * aspect_ratio
         yd = ynorm * 2.0 - 1.0
         r = math.sqrt(xd*xd + yd*yd)
@@ -389,6 +393,7 @@ class ProjectMgr():
         horiz_mm, vert_mm, focal_len_mm = self.cam.get_lens_params()
         h = image.height
         w = image.width
+        print [h, w, self.cam.get_lens_params()]
         ar = float(w)/float(h)  # aspect ratio
 
         # normalized pixel coordinates to [0.0, 1.0]
@@ -412,6 +417,7 @@ class ProjectMgr():
         # thus we have to remap the axes.
         #camvec = [y_mm, x_mm, focal_len_mm]
         camvec = [focal_len_mm, x_mm, y_mm]
+        print "camvec orig = ", camvec
         camvec = transformations.unit_vector(camvec) # normalize
         print "camvec = %.3f %.3f %.3f" % (camvec[0], camvec[1], camvec[2])
 
@@ -421,19 +427,34 @@ class ProjectMgr():
         print "q = %s  ned = %s" % (str(q), str(ned))
         
         # solve projection
-        if ned[2] >= 0.0:
+        if ned[2] < 0.0:
             # no interseciton
-            return (0.0, 0.0)
-        factor = z_m / -ned[2]
+            return [0.0, 0.0]
+        factor = z_m / ned[2]
         #print "z_m = %s" % str(z_m)
-        x_proj = ned[0] * factor
-        y_proj = ned[1] * factor
+        x_proj = -ned[0] * factor
+        y_proj = -ned[1] * factor
         #print "proj dist = %.2f" % math.sqrt(x_proj*x_proj + y_proj*y_proj)
         return [x_proj, y_proj]
 
     def projectPoint3(self, image, q, pt, z_m):
-        IK = self.cam.IK
         d2r = math.pi / 180.0
+        print "pt = ", pt
+        IK = self.cam.IK
+        v = IK.dot( np.array([pt[0], pt[1], 1.0]) )
+        print "v:\n", v
+        #va = np.array( [ v[2], v[0], v[1] ] )
+        #print va
+        vn = transformations.unit_vector( v )
+        print "camvec = ", vn
+
+        Rz = transformations.rotation_matrix(90*d2r, [0, 0, 1])
+        print Rz
+        Ry = transformations.rotation_matrix(-90*d2r, [0, 1, 0])
+        print Ry
+        R = Ry.dot(Rz)
+        print "camvec (rot) =", R.dot( np.hstack((vn, 1.0)))
+
         horiz_mm, vert_mm, focal_len_mm = self.cam.get_lens_params()
         h = image.height
         w = image.width
