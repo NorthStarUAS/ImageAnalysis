@@ -42,7 +42,7 @@ class ProjectMgr():
                                  'surf-hessian-threshold': 600,
                                  'orb-max-features': 2000 }
 
-        self.ned_reference_coord = {}
+        self.ned_reference_lla = []
         
         # the following member variables need to be reviewed/organized
 
@@ -114,7 +114,7 @@ class ProjectMgr():
         dirs['images-source'] = self.source_dir
         project_dict = {}
         project_dict['directories'] = dirs
-        project_dict['ned-reference-coord'] = self.ned_reference_coord
+        project_dict['ned-reference-lla'] = self.ned_reference_lla
         project_file = self.project_dir + "/Project.json"
         try:
             f = open(project_file, 'w')
@@ -142,7 +142,7 @@ class ProjectMgr():
             
             dirs = project_dict['directories']
             self.source_dir = dirs['images-source']
-            self.ned_reference_coord = project_dict['ned-reference-coord']
+            self.ned_reference_lla = project_dict['ned-reference-lla']
         except:
             print "Notice: unable to read =", project_file
             print "Continuing with an empty project configuration"
@@ -264,7 +264,7 @@ class ProjectMgr():
 
     # compute a center reference location (lon, lat) for the group of
     # images.
-    def compute_ned_reference_coord(self):
+    def compute_ned_reference_lla(self):
         # requires images to have their location computed/loaded
         lon_sum = 0.0
         lat_sum = 0.0
@@ -272,11 +272,10 @@ class ProjectMgr():
             lla, ypr, quat = image.get_aircraft_pose()
             lon_sum += lla[1]
             lat_sum += lla[0]
-        self.ned_reference_coord = {
-            'longitude-deg': lon_sum / len(self.image_list),
-            'latitude-deg':  lat_sum / len(self.image_list),
-            'altitude-m': 0.0 }
-        self.render.setRefCoord(self.ned_reference_coord)
+        self.ned_reference_lla = [ lat_sum / len(self.image_list),
+                                   lon_sum / len(self.image_list),
+                                   0.0 ]
+        self.render.setRefCoord(self.ned_reference_lla)
 
 #
 # Below this point all the code needs to be reviewed/refactored

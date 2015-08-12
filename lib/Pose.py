@@ -69,8 +69,7 @@ def computeCameraPoseFromAircraft(image, cam, ref,
     ned2cam = transformations.quaternion_multiply(ned2body, body2cam)
     (yaw, pitch, roll) = transformations.euler_from_quaternion(ned2cam, 'rzyx')
     ned = navpy.lla2ned( aircraft_lat, aircraft_lon, aircraft_alt,
-                         ref['latitude-deg'], ref['longitude-deg'],
-                         ref['altitude-m'] )
+                         ref[0], ref[1], ref[2] )
     #print "aircraft=%s ref=%s ned=%s" % (image.get_aircraft_pose(), ref, ned)
     return (ned.tolist(), [yaw/d2r, pitch/d2r, roll/d2r])
 

@@ -13,9 +13,9 @@ class Render():
     def setImageList(self, image_list):
         self.image_list = image_list
 
-    def setRefCoord(self, coord):
-        self.ref_lon = coord['longitude-deg']
-        self.ref_lat = coord['latitude-deg']
+    def setRefCoord(self, lla):
+        self.ref_lon = lla[1]
+        self.ref_lat = lla[0]
 
     def drawImage(self, image=None, source_dir=None,
                   cm_per_pixel=15.0, keypoints=False, bounds=None):

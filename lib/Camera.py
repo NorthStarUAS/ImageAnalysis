@@ -39,9 +39,7 @@ class Camera():
         cd['height-px'] = 0
 
         # camera mount parameters: these are offsets from the aircraft body
-        cd['yaw-deg'] = 0.0
-        cd['pitch-deg'] = 0.0
-        cd['roll-deg'] = 0.0
+        cd['mount-ypr'] = [ 0.0, 0.0, 0.0 ]
 
         # internally cached values
         self.K = np.zeros((3, 3), dtype=np.float)
@@ -152,12 +150,8 @@ class Camera():
             self.camera_dict['height-px']
 
     def set_mount_params(self, yaw_deg, pitch_deg, roll_deg):
-        self.camera_dict['yaw-deg'] = yaw_deg
-        self.camera_dict['pitch-deg'] = pitch_deg
-        self.camera_dict['roll-deg'] = roll_deg
+        self.camera_dict['mount-ypr'] = [yaw_deg, pitch_deg, roll_deg]
        
     def get_mount_params(self):
         return \
-            self.camera_dict['yaw-deg'], \
-            self.camera_dict['pitch-deg'], \
-            self.camera_dict['roll-deg']
+            self.camera_dict['mount-ypr']
