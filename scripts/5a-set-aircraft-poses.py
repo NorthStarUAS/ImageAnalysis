@@ -37,8 +37,8 @@ if not pose_set:
 
 # compute the project's NED reference location (based on average of
 # aircraft poses)
-proj.compute_ned_reference_coord()
-print "NED reference location:", proj.ned_reference_coord
+proj.compute_ned_reference_lla()
+print "NED reference location:", proj.ned_reference_lla
 
 proj.save()
     
