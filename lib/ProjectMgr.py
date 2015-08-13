@@ -436,33 +436,26 @@ class ProjectMgr():
         #print "proj dist = %.2f" % math.sqrt(x_proj*x_proj + y_proj*y_proj)
         return [x_proj, y_proj]
 
-    def projectVector(self, image, q, pt):
+    def projectVector(self, image, q, px):
         d2r = math.pi / 180.0
-        print "pt = ", pt
+        print "px u, v = ", px
 
         # lens un-distortion would go about here
         #xnorm_u, ynorm_u = self.doLensUndistort(ar, xnorm, ynorm)
         #print "norm_u = %.4f %.4f" % (xnorm_u, ynorm_u)
 
         IK = self.cam.IK
-        v = IK.dot( np.array([pt[0], pt[1], 1.0]) )
+        v = IK.dot( np.array([px[0], px[1], 1.0]) )
         print "v (orig):\n", v
-        # negate Z
-        v[2] = -v[2]
-        print "v (negZ):\n", v
-        #va = np.array( [ v[2], v[0], v[1] ] )
-        #print va
-        vn = transformations.unit_vector( v )
+        # remap lens space to ned space
+        ned = np.array([ v[2], v[0], -v[1] ])
+        print "ned:\n", ned
+        vn = transformations.unit_vector( ned )
         print "camvec = ", vn
-
-        Rx = transformations.rotation_matrix(90*d2r, [1, 0, 0])
-        print Rx
-        vrot = Rx.dot( np.hstack((vn, 1.0)))
-        print "camvec (rot) =", vrot
 
         # transform camera vector (in body reference frame) to ned
         # reference frame
-        ned = transformations.quaternion_backTransform(q, vrot[:3])
+        ned = transformations.quaternion_backTransform(q, vn)
         print "ned = %s" % str(ned)
 
         return ned
