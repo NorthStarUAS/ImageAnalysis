@@ -29,8 +29,8 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 
-# move (0,0,0) to ground level to help the world fit better in the
-# window if specified
+# place objects at alt - ground level (so z=0 corresponds to ground
+# elevation) to help the world fit better in the window if specified
 g = 0.0
 if args.ground:
     g = args.ground
