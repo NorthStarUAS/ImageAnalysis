@@ -436,72 +436,37 @@ class ProjectMgr():
         #print "proj dist = %.2f" % math.sqrt(x_proj*x_proj + y_proj*y_proj)
         return [x_proj, y_proj]
 
-    def projectPoint3(self, image, q, pt, z_m):
+    def projectVector(self, image, q, pt):
         d2r = math.pi / 180.0
         print "pt = ", pt
+
+        # lens un-distortion would go about here
+        #xnorm_u, ynorm_u = self.doLensUndistort(ar, xnorm, ynorm)
+        #print "norm_u = %.4f %.4f" % (xnorm_u, ynorm_u)
+
         IK = self.cam.IK
         v = IK.dot( np.array([pt[0], pt[1], 1.0]) )
-        print "v:\n", v
+        print "v (orig):\n", v
+        # negate Z
+        v[2] = -v[2]
+        print "v (negZ):\n", v
         #va = np.array( [ v[2], v[0], v[1] ] )
         #print va
         vn = transformations.unit_vector( v )
         print "camvec = ", vn
 
-        Rz = transformations.rotation_matrix(90*d2r, [0, 0, 1])
-        print Rz
-        Ry = transformations.rotation_matrix(-90*d2r, [0, 1, 0])
-        print Ry
-        R = Ry.dot(Rz)
-        print "camvec (rot) =", R.dot( np.hstack((vn, 1.0)))
-
-        horiz_mm, vert_mm, focal_len_mm = self.cam.get_lens_params()
-        h = image.height
-        w = image.width
-        ar = float(w)/float(h)  # aspect ratio
-
-        # normalized pixel coordinates to [0.0, 1.0]
-        xnorm = pt[0] / float(w-1)
-        ynorm = pt[1] / float(h-1)
-        print "norm = %.4f %.4f" % (xnorm, ynorm)
-
-        # lens un-distortion
-        xnorm_u, ynorm_u = self.doLensUndistort(ar, xnorm, ynorm)
-        print "norm_u = %.4f %.4f" % (xnorm_u, ynorm_u)
-
-        # compute pixel coordinate in sensor coordinate space (mm
-        # units) with (0mm, 0mm) being the center of the image.
-        x_mm = (xnorm_u * 2.0 - 1.0) * (horiz_mm * 0.5)
-        y_mm = (ynorm_u * 2.0 - 1.0) * (vert_mm * 0.5)
-        print "x_mm = %.4f y_mm = %.4f" % ( x_mm, y_mm )
-        
-        # the forward vector (out the nose when the aircraft is
-        # straight, level, and flying north) is (x=1.0, y=0.0, z=0.0).
-        # This vector will get projected to the camera center point,
-        # thus we have to remap the axes.
-        #camvec = [y_mm, x_mm, focal_len_mm]
-        camvec = [focal_len_mm, x_mm, y_mm]
-        camvec = transformations.unit_vector(camvec) # normalize
-        print "%.3f %.3f %.3f" % (camvec[0], camvec[1], camvec[2])
+        Rx = transformations.rotation_matrix(90*d2r, [1, 0, 0])
+        print Rx
+        vrot = Rx.dot( np.hstack((vn, 1.0)))
+        print "camvec (rot) =", vrot
 
         # transform camera vector (in body reference frame) to ned
         # reference frame
-        ned = transformations.quaternion_backTransform(q, camvec)
-        #print "ned = %s" % str(ned)
+        ned = transformations.quaternion_backTransform(q, vrot[:3])
+        print "ned = %s" % str(ned)
 
-        R = transformations.rotation_matrix( -90*d2r, [0.0, 0.0, 1.0] )
-        print "R = \n", R
-        
-        # solve projection
-        if ned[2] >= 0.0:
-            # no interseciton
-            return (0.0, 0.0)
-        factor = z_m / -ned[2]
-        #print "z_m = %s" % str(z_m)
-        x_proj = ned[0] * factor
-        y_proj = ned[1] * factor
-        #print "proj dist = %.2f" % math.sqrt(x_proj*x_proj + y_proj*y_proj)
-        return [x_proj, y_proj]
-
+        return ned
+    
     # project keypoints based on body reference system + body biases
     # transformed by camera mounting + camera mounting biases
     def projectImageKeypointsNative2(self, image, yaw_bias=0.0,
