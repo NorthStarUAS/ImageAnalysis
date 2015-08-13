@@ -45,10 +45,10 @@ image.set_camera_pose([0.0, 0.0, 0.0], [0.0, -90.0, 0.0])
 image.width = 3808
 image.height = 2754
 
-px = [3807, 1000]
+px = [0, 0]
 print "camera pose =", image.camera_pose
 print "projectPoint2:\n", proj.projectPoint2(image, image.camera_pose['quat'], px, 272)
-print "projectPoint3:\n", proj.projectPoint3(image, image.camera_pose['quat'], px, 272)
+print "projectVector:\n", proj.projectVector(image, image.camera_pose['quat'], px)
 
-print "K\n", proj.cam.K
-print "inv(K)\n", proj.cam.IK
+#print "K\n", proj.cam.K
+#print "inv(K)\n", proj.cam.IK
