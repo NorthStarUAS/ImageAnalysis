@@ -277,6 +277,55 @@ class ProjectMgr():
                                    0.0 ]
         self.render.setRefCoord(self.ned_reference_lla)
 
+    # for each feature in each image, compute the undistorted pixel
+    # location (from the calibrated distortion parameters)
+    def undistort_keypoints(self):
+        for image in self.image_list:
+            print image.name
+            uv_raw = np.zeros((len(image.kp_list),1,2), dtype=np.float32)
+            for i, kp in enumerate(image.kp_list):
+                uv_raw[i][0] = (kp.pt[0], kp.pt[1])
+            dist_coeffs = np.array(self.cam.camera_dict['dist-coeffs'],
+                                   dtype=np.float32)
+            uv_new = cv2.undistortPoints(uv_raw, self.cam.K, dist_coeffs,
+                                         P=self.cam.K)
+            image.uv_list = []
+            for i, uv in enumerate(uv_new):
+                image.uv_list.append(uv_new[i][0])
+                #print "  orig = %s  undistort = %s" % (uv_raw[i][0], uv_new[i][0])
+                
+    # for each uv in the provided uv list, apply the distortion
+    # formula to compute the original distorted value.
+    def redistort(self, uv_list, K, dist_coeffs):
+        fx = K[0,0]
+        fy = K[1,1]
+        cx = K[0,2]
+        cy = K[1,2]
+        k1, k2, p1, p2, k3 = dist_coeffs
+        
+        uv_distorted = []
+        for pt in uv_list:
+            x = (pt[0] - cx) / fx
+            y = (pt[1] - cy) / fy
+
+            # Compute radius^2
+            r2 = x**2 + y**2
+            r4, r6 = r2**2, r2**3
+
+            # Compute tangential distortion
+            dx = 2*p1*x*y + p2*(r2 + 2*x*x)
+            dy = p1*(r2 + 2*y*y) + 2*p2*x*y
+
+            # Compute radial factor
+            Lr = 1.0 + k1*r2 + k2*r4 + k3*r6
+
+            ud = Lr*x + dx
+            vd = Lr*y + dy
+            uv_distorted.append( [ud * fx + cx, vd * fy + cy] )
+            
+        return uv_distorted
+    
+
 #
 # Below this point all the code needs to be reviewed/refactored
 #
@@ -436,30 +485,47 @@ class ProjectMgr():
         #print "proj dist = %.2f" % math.sqrt(x_proj*x_proj + y_proj*y_proj)
         return [x_proj, y_proj]
 
-    def projectVector(self, image, q, px):
-        d2r = math.pi / 180.0
-        print "px u, v = ", px
+    # project the list of (u, v) pixels from image space into camera
+    # space, remap that to a vector in ned space (for camera
+    # ypr=[0,0,0], and then transform that by the camera pose, returns
+    # the vector from the camera, through the pixel, into ned space
+    def projectVectors(self, IK, quat, uv_list):
+        proj_list = []
+        for uv in uv_list:
+            print "u, v = ", uv
+            v_lens = IK.dot( np.array([uv[0], uv[1], 1.0]) )
+            print "v_lens:\n", v_lens
+            # remap lens space to ned space
+            v_lens_ned = np.array([ v_lens[2], v_lens[0], -v_lens[1] ])
+            print "v_lens_ned:\n", v_lens_ned
+            ned = transformations.unit_vector( v_lens_ned )
+            print "ned = ", ned
 
-        # lens un-distortion would go about here
-        #xnorm_u, ynorm_u = self.doLensUndistort(ar, xnorm, ynorm)
-        #print "norm_u = %.4f %.4f" % (xnorm_u, ynorm_u)
+            # transform camera vector (in body reference frame) to ned
+            # reference frame
+            proj = transformations.quaternion_backTransform(quat, ned)
+            print "proj = %s" % str(proj)
+            proj_list.append(proj)
 
-        IK = self.cam.IK
-        v = IK.dot( np.array([px[0], px[1], 1.0]) )
-        print "v (orig):\n", v
-        # remap lens space to ned space
-        ned = np.array([ v[2], v[0], -v[1] ])
-        print "ned:\n", ned
-        vn = transformations.unit_vector( ned )
-        print "camvec = ", vn
+        return proj_list
 
-        # transform camera vector (in body reference frame) to ned
-        # reference frame
-        ned = transformations.quaternion_backTransform(q, vn)
-        print "ned = %s" % str(ned)
+    # given a set of vectors in the ned frame, and a starting point.
+    # Find the ground intersection point.  For any vectors which point into
+    # the sky, return just the original reference/starting point.
+    def intersectVectorsWithGround(self, image_ned, ground_m, vec_list):
+        pt_list = []
+        for v in vec_list:
+            # solve projection
+            p = image_ned
+            if v[2] > 0.0:
+                d_proj = -(image_ned[2] + ground_m)
+                factor = d_proj / v[2]
+                n_proj = v[0] * factor
+                e_proj = v[1] * factor
+                p = [ image_ned[0] + n_proj, image_ned[1] + e_proj, image_ned[2] + d_proj ]
+            pt_list.append(p)
+        return pt_list
 
-        return ned
-    
     # project keypoints based on body reference system + body biases
     # transformed by camera mounting + camera mounting biases
     def projectImageKeypointsNative2(self, image, yaw_bias=0.0,

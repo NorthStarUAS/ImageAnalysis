@@ -23,11 +23,13 @@ class Image():
         self.img_rgb = None
         self.height = 0
         self.width = 0
-        self.kp_list = []
+        self.kp_list = []       # opencv keypoint list
         self.kp_usage = []
-        self.des_list = None
+        self.des_list = None    # opencv descriptor list
         self.match_list = []
 
+        self.uv_list = []       # the 'undistorted' uv coordinates of all kp's
+        
         self.aircraft_pose = None
         self.camera_pose = None
 
