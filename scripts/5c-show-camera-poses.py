@@ -88,7 +88,7 @@ for image in proj.image_list:
     print image.name
     # scale the K matrix if we have scaled the images
     scale = float(image.width) / float(camw)
-    print image.width, camw, scale
+    #print image.width, camw, scale
     K = np.array([ [fx*scale, skew*scale, cu*scale],
                    [ 0,       fy  *scale, cv*scale],
                    [ 0,       0,          1       ] ], dtype=np.float32)
@@ -102,20 +102,20 @@ for image in proj.image_list:
     
     quat = image.camera_pose['quat']
     proj_list = proj.projectVectors( IK, quat, corner_list )
-    print "proj_list:\n", proj_list
+    #print "proj_list:\n", proj_list
     pts = proj.intersectVectorsWithGround(image.camera_pose['ned'],
                                           g, proj_list)
-    print "pts (ned):\n", pts
+    #print "pts (ned):\n", pts
     cart = []
     for ned in pts:
         cart.append( [ned[1], ned[0], -ned[2]-g] )
-    print "cart:\n", cart
+    #print "cart:\n", cart
     
     # two faces makes a quad
     r = random.random()*0.5
     b = random.random()*0.5
     mycolor=(r, 1.0, b)
-    print mycolor
+    #print mycolor
     f = faces()
     f.append( pos=cart[0], normal=(0,0,1), color=mycolor )
     f.append( pos=cart[1], normal=(0,0,1), color=mycolor )
