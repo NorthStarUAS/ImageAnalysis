@@ -325,6 +325,41 @@ class ProjectMgr():
             
         return uv_distorted
     
+    # project the list of (u, v) pixels from image space into camera
+    # space, remap that to a vector in ned space (for camera
+    # ypr=[0,0,0], and then transform that by the camera pose, returns
+    # the vector from the camera, through the pixel, into ned space
+    def projectVectors(self, IK, quat, uv_list):
+        proj_list = []
+        for uv in uv_list:
+            v_lens = IK.dot( np.array([uv[0], uv[1], 1.0]) )
+            v_lens_norm = transformations.unit_vector( v_lens )
+            # remap lens space to ned body space
+            v_body = np.array([ v_lens_norm[2], v_lens_norm[0], -v_lens_norm[1] ])
+            # transform camera vector (in body reference frame) to ned
+            # reference frame
+            proj = transformations.quaternion_backTransform(quat, v_body)
+            #print "proj = ", proj
+            proj_list.append(proj)
+        return proj_list
+
+    # given a set of vectors in the ned frame, and a starting point.
+    # Find the ground intersection point.  For any vectors which point into
+    # the sky, return just the original reference/starting point.
+    def intersectVectorsWithGround(self, image_ned, ground_m, vec_list):
+        pt_list = []
+        for v in vec_list:
+            # solve projection
+            p = image_ned
+            if v[2] > 0.0:
+                d_proj = -(image_ned[2] + ground_m)
+                factor = d_proj / v[2]
+                n_proj = v[0] * factor
+                e_proj = v[1] * factor
+                p = [ image_ned[0] + n_proj, image_ned[1] + e_proj, image_ned[2] + d_proj ]
+            pt_list.append(p)
+        return pt_list
+
 
 #
 # Below this point all the code needs to be reviewed/refactored
@@ -484,47 +519,6 @@ class ProjectMgr():
         y_proj = -ned[1] * factor
         #print "proj dist = %.2f" % math.sqrt(x_proj*x_proj + y_proj*y_proj)
         return [x_proj, y_proj]
-
-    # project the list of (u, v) pixels from image space into camera
-    # space, remap that to a vector in ned space (for camera
-    # ypr=[0,0,0], and then transform that by the camera pose, returns
-    # the vector from the camera, through the pixel, into ned space
-    def projectVectors(self, IK, quat, uv_list):
-        proj_list = []
-        for uv in uv_list:
-            print "u, v = ", uv
-            v_lens = IK.dot( np.array([uv[0], uv[1], 1.0]) )
-            print "v_lens:\n", v_lens
-            # remap lens space to ned space
-            v_lens_ned = np.array([ v_lens[2], v_lens[0], -v_lens[1] ])
-            print "v_lens_ned:\n", v_lens_ned
-            ned = transformations.unit_vector( v_lens_ned )
-            print "ned = ", ned
-
-            # transform camera vector (in body reference frame) to ned
-            # reference frame
-            proj = transformations.quaternion_backTransform(quat, ned)
-            print "proj = %s" % str(proj)
-            proj_list.append(proj)
-
-        return proj_list
-
-    # given a set of vectors in the ned frame, and a starting point.
-    # Find the ground intersection point.  For any vectors which point into
-    # the sky, return just the original reference/starting point.
-    def intersectVectorsWithGround(self, image_ned, ground_m, vec_list):
-        pt_list = []
-        for v in vec_list:
-            # solve projection
-            p = image_ned
-            if v[2] > 0.0:
-                d_proj = -(image_ned[2] + ground_m)
-                factor = d_proj / v[2]
-                n_proj = v[0] * factor
-                e_proj = v[1] * factor
-                p = [ image_ned[0] + n_proj, image_ned[1] + e_proj, image_ned[2] + d_proj ]
-            pt_list.append(p)
-        return pt_list
 
     # project keypoints based on body reference system + body biases
     # transformed by camera mounting + camera mounting biases
