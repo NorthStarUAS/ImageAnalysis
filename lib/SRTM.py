@@ -3,6 +3,7 @@
 import json
 import numpy as np
 import os
+from pylab import *
 import random
 import scipy.interpolate
 import struct
@@ -13,6 +14,7 @@ class SRTM():
     def __init__(self, dict_path):
         self.srtm_dict = {}
         self.srtm_cache_dir = '/var/tmp' # unless set otherwise
+        self.srtm_z = None
         self.i = None
         self.load_srtm_dict(dict_path)
         
@@ -64,7 +66,7 @@ class SRTM():
         f = open(cache_file, "rb")
         contents = f.read()
         f.close()
-        srtm_z = struct.unpack(">1442401H", contents)
+        self.srtm_z = struct.unpack(">1442401H", contents)
 
         print "Notice: constructing interpolator"
 
@@ -89,7 +91,7 @@ class SRTM():
         for r in range(0,1201):
             for c in range(0,1201):
                 idx = (1201*r)+c
-                va = srtm_z[idx]
+                va = self.srtm_z[idx]
                 if va == 65535 or va < 0 or va > 10000:
                     va = 0.0
                 z = va
@@ -107,4 +109,17 @@ class SRTM():
         
     def interpolate(self, point_list):
         return self.i(point_list)
-            
+
+    def plot_raw(self):
+        zzz = np.zeros((1201,1201))
+        for r in range(0,1201):
+            for c in range(0,1201):
+                va=self.srtm_z[(1201*r)+c]
+                if (va==65535 or va<0 or va>2000):
+                    va=0.0
+                zzz[r][c]=float(va)
+ 
+        zz=np.log1p(zzz)
+        imshow(zz, interpolation='bilinear',cmap=cm.gray,alpha=1.0)
+        grid(False)
+        show()
