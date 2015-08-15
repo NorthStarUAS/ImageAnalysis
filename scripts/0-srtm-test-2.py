@@ -16,9 +16,17 @@ import SRTM
 
 srtm = SRTM.SRTM('../srtm')
 srtm.parse("N45W094")
+srtm.make_lla_interpolator()
+
+#ref = [ 45.220697421008396, -93.14530573529404, 0.0 ]
+#srtm.make_ned_interpolator(ref)
+
 pts = np.array([[-93.14530573529404, 45.220697421008396], [-93.2, 45.3]], dtype=float)
-result = srtm.interpolate(pts)
+result = srtm.lla_interpolate(pts)
 print result
  
 srtm.plot_raw()
-    
+
+srtm = SRTM.SRTM('../srtm')
+srtm.parse("N33W111")
+srtm.plot_raw()
