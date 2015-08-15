@@ -14,11 +14,14 @@ import numpy as np
 sys.path.append('../lib')
 import SRTM
 
+lla_ref = [ 45.220697421008396, -93.14530573529404, 0.0 ]
+sss = SRTM.NEDGround( lla_ref, 50000, 100000, 10000)
+
 srtm = SRTM.SRTM('../srtm')
 srtm.parse("N45W094")
 srtm.make_lla_interpolator()
 
-#ref = [ 45.220697421008396, -93.14530573529404, 0.0 ]
+
 #srtm.make_ned_interpolator(ref)
 
 pts = np.array([[-93.14530573529404, 45.220697421008396], [-93.2, 45.3]], dtype=float)
