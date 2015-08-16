@@ -15,7 +15,7 @@ sys.path.append('../lib')
 import SRTM
 
 lla_ref = [ 45.220697421008396, -93.14530573529404, 0.0 ]
-sss = SRTM.NEDGround( lla_ref, 50000, 100000, 10000)
+sss = SRTM.NEDGround( lla_ref, 200000, 500, 100 )
 
 srtm = SRTM.SRTM('../srtm')
 srtm.parse("N45W094")

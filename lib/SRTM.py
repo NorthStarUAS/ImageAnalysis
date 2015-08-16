@@ -191,6 +191,7 @@ class NEDGround():
                 srtm = SRTM(lat, lon, '../srtm')
                 srtm.parse()
                 srtm.make_lla_interpolator()
+                #srtm.plot_raw()
                 tile_name = make_tile_name(lat, lon)
                 self.tile_dict[tile_name] = srtm
                 
@@ -209,21 +210,22 @@ class NEDGround():
         #        ned_pts[c,r] = 0.0
         
         # build regularly gridded x,y coordinate list and ned_pts array
-        xlist = np.linspace(-width_m*0.5, width_m*0.5, cols)
-        ylist = np.linspace(-height_m*0.5, height_m*0.5, rows)
-        #print "x's:", xlist
-        #print "y's:", ylist
+        n_list = np.linspace(-height_m*0.5, height_m*0.5, rows)
+        e_list = np.linspace(-width_m*0.5, width_m*0.5, cols)
+        #print "e's:", e_list
+        #print "n's:", n_list
         ned_pts = []
-        for x in xlist:
-            for y in ylist:
-                ned_pts.append( [x, y, 0] )
+        for e in e_list:
+            for n in n_list:
+                ned_pts.append( [n, e, 0] )
 
         # convert ned_pts list to lla coordinates (so it's not
         # necessarily an exact grid anymore, but we can now
         # interpolate elevations out of the lla interpolators for each
         # tile.
         navpy_pts = navpy.ned2lla(ned_pts, lla_ref[0], lla_ref[1], lla_ref[2])
-
+        print navpy_pts
+        
         # build list of (lat, lon) points for doing actual lla
         # elevation lookup
         ll_pts = []
@@ -234,10 +236,12 @@ class NEDGround():
         print "ll_pts:", ll_pts
 
         # set all the elevations in the ned_ds list to the extreme
-        # minimum value
-        ned_ds = np.zeros((cols,rows))
+        # minimum value. (rows,cols) might seem funny, but (ne)d is
+        # reversed from (xy)z ... don't think about it too much or
+        # you'll get a headache. :-)
+        ned_ds = np.zeros((rows,cols))
         ned_ds[:][:] = -32768
-        print "ned_ds:", ned_ds
+        #print "ned_ds:", ned_ds
         
         # for each tile loaded, interpolate as many elevation values
         # as we can, then copy the good values into ned_ds.  When we
@@ -249,19 +253,38 @@ class NEDGround():
             # copy the good altitudes back to the corresponding ned points
             for r in range(0,rows):
                 for c in range(0,cols):
-                    idx = (cols*r)+c
+                    idx = (rows*c)+r
                     if zs[idx] > -10000:
-                        ned_ds[c,r] = zs[idx]
+                        ned_ds[r,c] = zs[idx]
 
         # quick sanity check
         for r in range(0,rows):
             for c in range(0,cols):
-                idx = (cols*r)+c
-                if ned_ds[c,r] < -10000:
+                idx = (rows*c)+r
+                if ned_ds[r,c] < -10000:
                     print "Problem interpolating elevation for:", ll_pts[i]
-        print "ned_ds:", ned_ds
+        #print "ned_ds:", ned_ds
 
         # now finally build the actual grid interpolator with evenly
         # spaced ned n, e values and elevations interpolated out of
         # the srtm lla interpolator.
-        self.interp = scipy.interpolate.RegularGridInterpolator((xlist, ylist), ned_ds, bounds_error=False, fill_value=-32768)
+        self.interp = scipy.interpolate.RegularGridInterpolator((n_list, e_list), ned_ds, bounds_error=False, fill_value=-32768)
+
+        do_plot = False
+        if do_plot:
+            imshow(ned_ds, interpolation='bilinear', cmap=cm.gray, alpha=1.0)
+            grid(False)
+            show()
+        
+        do_test = True
+        if do_test:
+            for i in range(40):
+                ned = [(random.random()-0.5)*height_m,
+                       (random.random()-0.5)*width_m,
+                       0.0]
+                lla = navpy.ned2lla(ned, lla_ref[0], lla_ref[1], lla_ref[2])
+                #print "ned=%s, lla=%s" % (ned, lla)
+                nedz = self.interp([ned[0], ned[1]])
+                tile = make_tile_name(lla[0], lla[1])
+                llaz = self.tile_dict[tile].lla_interpolate(np.array([lla[1], lla[0]]))
+                print "nedz=%.2f llaz=%.2f" % (nedz, llaz)
