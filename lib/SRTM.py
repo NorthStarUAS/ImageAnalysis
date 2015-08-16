@@ -66,7 +66,7 @@ class SRTM():
             print "Notice: downloading:", url
             file = urllib.URLopener()
             file.retrieve(url, download_file)
-            print "Exracting:", download_file
+            print "Extracting:", download_file
             zip = zipfile.ZipFile(download_file)
             zip.extractall(self.srtm_cache_dir)
             os.remove(download_file)
@@ -80,8 +80,7 @@ class SRTM():
         cache_file = self.srtm_cache_dir + '/' + tilename + '.hgt'
         if not os.path.exists(cache_file):
             if not self.download_srtm(tilename):
-                return
-
+                return False
         print "Notice: parsing SRTM file:", cache_file
         # read 1,442,401 (1201x1201) high-endian
         # signed 16-bit words into self.z
@@ -89,7 +88,8 @@ class SRTM():
         contents = f.read()
         f.close()
         self.srtm_z = struct.unpack(">1442401H", contents)
-
+        return True
+    
     def make_lla_interpolator(self):
         print "Notice: constructing lla interpolator"
         
@@ -189,11 +189,11 @@ class NEDGround():
         for lat in range(lat1, lat2+1):
             for lon in range(lon1, lon2+1):
                 srtm = SRTM(lat, lon, '../srtm')
-                srtm.parse()
-                srtm.make_lla_interpolator()
-                #srtm.plot_raw()
-                tile_name = make_tile_name(lat, lon)
-                self.tile_dict[tile_name] = srtm
+                if srtm.parse():
+                    srtm.make_lla_interpolator()
+                    #srtm.plot_raw()
+                    tile_name = make_tile_name(lat, lon)
+                    self.tile_dict[tile_name] = srtm
                 
     def make_interpolator(self, lla_ref, width_m, height_m, step_m):
         print "Notice: constructing interpolator"
@@ -224,7 +224,7 @@ class NEDGround():
         # interpolate elevations out of the lla interpolators for each
         # tile.
         navpy_pts = navpy.ned2lla(ned_pts, lla_ref[0], lla_ref[1], lla_ref[2])
-        print navpy_pts
+        #print navpy_pts
         
         # build list of (lat, lon) points for doing actual lla
         # elevation lookup
@@ -233,7 +233,7 @@ class NEDGround():
             lat = navpy_pts[0][i]
             lon = navpy_pts[1][i]
             ll_pts.append( [ lon, lat ] )
-        print "ll_pts:", ll_pts
+        #print "ll_pts:", ll_pts
 
         # set all the elevations in the ned_ds list to the extreme
         # minimum value. (rows,cols) might seem funny, but (ne)d is
@@ -262,7 +262,8 @@ class NEDGround():
             for c in range(0,cols):
                 idx = (rows*c)+r
                 if ned_ds[r,c] < -10000:
-                    print "Problem interpolating elevation for:", ll_pts[i]
+                    print "Problem interpolating elevation for:", ll_pts[idx]
+                    ned_ds[r,c] = 0.0
         #print "ned_ds:", ned_ds
 
         # now finally build the actual grid interpolator with evenly
@@ -270,9 +271,9 @@ class NEDGround():
         # the srtm lla interpolator.
         self.interp = scipy.interpolate.RegularGridInterpolator((n_list, e_list), ned_ds, bounds_error=False, fill_value=-32768)
 
-        do_plot = False
+        do_plot = True
         if do_plot:
-            imshow(ned_ds, interpolation='bilinear', cmap=cm.gray, alpha=1.0)
+            imshow(ned_ds, interpolation='bilinear', origin='lower', cmap=cm.gray, alpha=1.0)
             grid(False)
             show()
         
