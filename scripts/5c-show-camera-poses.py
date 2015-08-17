@@ -11,7 +11,7 @@ import numpy as np
 import os.path
 import random
 from visual import *
-
+from PIL import Image
 import navpy
 
 sys.path.append('../lib')
@@ -33,8 +33,10 @@ proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()            # for image dimensions
 
+ref = proj.ned_reference_lla
+
 # setup SRTM ground interpolator
-sss = SRTM.NEDGround( proj.ned_reference_lla, 2000, 2000, 30 )
+sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
 
 # lookup reference ground altitude (lla reference is [0,0,0] in ned frame)
 g = sss.interp([0.0, 0.0])[0]
@@ -52,7 +54,6 @@ if draw_ref:
               color=color.cyan)
 
 # draw aircraft locations and orientations
-ref = proj.ned_reference_lla
 for image in proj.image_list:
     lla = image.aircraft_pose['lla']
     ned = navpy.lla2ned( lla[0], lla[1], lla[2], ref[0], ref[1], ref[2] )
@@ -117,9 +118,9 @@ for image in proj.image_list:
     #print "cart:\n", cart
     
     # two faces makes a quad
-    r = random.random()*0.5
-    b = random.random()*0.5
-    mycolor=(r, 1.0, b)
+    mycolor=(random.random()*0.5,
+             random.random()*0.25+0.75,
+             random.random()*0.5)
     #print mycolor
     f = faces()
     f.append( pos=cart[0], normal=(0,0,1), color=mycolor )
@@ -130,3 +131,9 @@ for image in proj.image_list:
     f.append( pos=cart[3], normal=(0,0,1), color=mycolor )
     #f.make_twosided()
     f.make_normals()
+
+    # I haven't figure out how to control the texture coordinates
+    #im = Image.open(image.image_file)
+    #im = im.resize((128,128), Image.ANTIALIAS)
+    #tex = materials.texture(data=im, mapping="sign")
+    #f.material = tex
