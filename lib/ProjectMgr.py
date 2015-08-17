@@ -346,17 +346,18 @@ class ProjectMgr():
     # given a set of vectors in the ned frame, and a starting point.
     # Find the ground intersection point.  For any vectors which point into
     # the sky, return just the original reference/starting point.
-    def intersectVectorsWithGround(self, image_ned, ground_m, vec_list):
+    def intersectVectorsWithGroundPlane(self, pose, ground_m, v_list):
+        pose_ned = pose['ned']
         pt_list = []
-        for v in vec_list:
+        for v in v_list:
             # solve projection
-            p = image_ned
+            p = pose_ned
             if v[2] > 0.0:
-                d_proj = -(image_ned[2] + ground_m)
+                d_proj = -(pose_ned[2] + ground_m)
                 factor = d_proj / v[2]
                 n_proj = v[0] * factor
                 e_proj = v[1] * factor
-                p = [ image_ned[0] + n_proj, image_ned[1] + e_proj, image_ned[2] + d_proj ]
+                p = [ pose_ned[0] + n_proj, pose_ned[1] + e_proj, pose_ned[2] + d_proj ]
             pt_list.append(p)
         return pt_list
 

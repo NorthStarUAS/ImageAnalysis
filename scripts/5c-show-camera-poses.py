@@ -17,6 +17,7 @@ import navpy
 sys.path.append('../lib')
 import Pose
 import ProjectMgr
+import SRTM
 import transformations
 
 # for all the images in the project image_dir, compute the camera poses from
@@ -24,7 +25,7 @@ import transformations
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--ground', type=float, help='ground elevation in meters')
+#parser.add_argument('--ground', type=float, help='ground elevation in meters')
 
 args = parser.parse_args()
 
@@ -32,12 +33,13 @@ proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()            # for image dimensions
 
-# place objects at alt - ground level (so z=0 corresponds to ground
-# elevation) to help the world fit better in the window if specified
-g = 0.0
-if args.ground:
-    g = args.ground
-    
+# setup SRTM ground interpolator
+sss = SRTM.NEDGround( proj.ned_reference_lla, 2000, 2000, 30 )
+
+# lookup reference ground altitude (lla reference is [0,0,0] in ned frame)
+g = sss.interp([0.0, 0.0])[0]
+print "Reference ground elevation is:", g
+
 draw_ref = True
 axis_len = 20
 if draw_ref:
@@ -82,6 +84,7 @@ for image in proj.image_list:
                 axis=(f[1], f[0], -f[2]), up=(up[1], up[0], -up[2]),
                 color=color.orange, opacity=1.0)
 
+# draw approximate image areas 'direct georectified'
 camw, camh = proj.cam.get_image_params()
 fx, fy, cu, cv, dist_coeffs, skew = proj.cam.get_calibration_params()
 for image in proj.image_list:
@@ -103,9 +106,11 @@ for image in proj.image_list:
     quat = image.camera_pose['quat']
     proj_list = proj.projectVectors( IK, quat, corner_list )
     #print "proj_list:\n", proj_list
-    pts = proj.intersectVectorsWithGround(image.camera_pose['ned'],
-                                          g, proj_list)
+    #pts = proj.intersectVectorsWithGroundPlane(image.camera_pose,
+    #                                           g, proj_list)
+    pts = sss.interpolate_vectors(image.camera_pose, proj_list)
     #print "pts (ned):\n", pts
+    
     cart = []
     for ned in pts:
         cart.append( [ned[1], ned[0], -ned[2]-g] )
@@ -124,3 +129,4 @@ for image in proj.image_list:
     f.append( pos=cart[2], normal=(0,0,1), color=mycolor )
     f.append( pos=cart[3], normal=(0,0,1), color=mycolor )
     #f.make_twosided()
+    f.make_normals()

@@ -271,13 +271,13 @@ class NEDGround():
         # the srtm lla interpolator.
         self.interp = scipy.interpolate.RegularGridInterpolator((n_list, e_list), ned_ds, bounds_error=False, fill_value=-32768)
 
-        do_plot = True
+        do_plot = False
         if do_plot:
             imshow(ned_ds, interpolation='bilinear', origin='lower', cmap=cm.gray, alpha=1.0)
             grid(False)
             show()
         
-        do_test = True
+        do_test = False
         if do_test:
             for i in range(40):
                 ned = [(random.random()-0.5)*height_m,
@@ -289,3 +289,44 @@ class NEDGround():
                 tile = make_tile_name(lla[0], lla[1])
                 llaz = self.tile_dict[tile].lla_interpolate(np.array([lla[1], lla[0]]))
                 print "nedz=%.2f llaz=%.2f" % (nedz, llaz)
+
+    # while error > eps: find altitude at current point, new pt = proj
+    # vector to current alt.
+    def interpolate_vector(self, pose_dict, v):
+        pose = pose_dict['ned']
+        p = pose[:] # copy hopefully
+
+        # sanity check (always assume camera pose is above ground!)
+        if v[2] <= 0.0:
+            return p
+        
+        eps = 0.01
+        
+        #print "start:", p
+        #print "vec:", v
+        #print "pose:", pose
+        ground = self.interp([p[0], p[1]])
+        error = abs(p[2] + ground[0])
+        #print "  p=%s ground=%s error=%s" % (p, ground, error)
+        while error > eps:
+            d_proj = -(pose[2] + ground[0])
+            factor = d_proj / v[2]
+            n_proj = v[0] * factor
+            e_proj = v[1] * factor
+            #print "proj = %s %s" % (n_proj, e_proj)
+            p = [ pose[0] + n_proj, pose[1] + e_proj, pose[2] + d_proj ]
+            #print "new p:", p
+            ground = self.interp([p[0], p[1]])
+            error = abs(p[2] + ground[0])
+            #print "  p=%s ground=%.2f error = %.3f" % (p, ground, error)
+
+        return p
+
+    def interpolate_vectors(self, pose, v_list):
+        pose_ned = pose['ned']
+        pt_list = []
+        for v in v_list:
+            p = self.interpolate_vector(pose, v)
+            pt_list.append(p)
+        return pt_list
+            

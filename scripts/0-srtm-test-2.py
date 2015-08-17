@@ -14,22 +14,7 @@ import numpy as np
 sys.path.append('../lib')
 import SRTM
 
-lla_ref = [ 45.220697421008396, -93.14530573529404, 0.0 ]
-sss = SRTM.NEDGround( lla_ref, 200000, 500, 100 )
+#lla_ref = [ 45.220697421008396, -93.14530573529404, 0.0 ]
+lla_ref = [ 33.220697421008396, -110.14530573529404, 0.0 ]
+sss = SRTM.NEDGround( lla_ref, 100000, 100000, 75 )
 
-srtm = SRTM.SRTM('../srtm')
-srtm.parse("N45W094")
-srtm.make_lla_interpolator()
-
-
-#srtm.make_ned_interpolator(ref)
-
-pts = np.array([[-93.14530573529404, 45.220697421008396], [-93.2, 45.3]], dtype=float)
-result = srtm.lla_interpolate(pts)
-print result
- 
-srtm.plot_raw()
-
-srtm = SRTM.SRTM('../srtm')
-srtm.parse("N33W111")
-srtm.plot_raw()
