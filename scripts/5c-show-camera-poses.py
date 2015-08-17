@@ -116,23 +116,28 @@ for image in proj.image_list:
     for ned in pts:
         cart.append( [ned[1], ned[0], -ned[2]-g] )
     #print "cart:\n", cart
+
+    # I haven't figure out how to control the texture coordinates, it
+    # doesn't appear that there is any support for this at all. :-(
+    #im = Image.open(image.image_file)
+    #im = im.resize((128,128), Image.ANTIALIAS)
     
     # two faces makes a quad
     mycolor=(random.random()*0.5,
              random.random()*0.25+0.75,
              random.random()*0.5)
-    #print mycolor
-    f = faces()
-    f.append( pos=cart[0], normal=(0,0,1), color=mycolor )
-    f.append( pos=cart[1], normal=(0,0,1), color=mycolor )
-    f.append( pos=cart[2], normal=(0,0,1), color=mycolor )
-    f.append( pos=cart[0], normal=(0,0,1), color=mycolor )
-    f.append( pos=cart[2], normal=(0,0,1), color=mycolor )
-    f.append( pos=cart[3], normal=(0,0,1), color=mycolor )
-    #f.make_twosided()
+    vertices = [ cart[0], cart[1], cart[2] ]
+    #uvmap = [ [0.0, 0.0], [1.0, 0.0], [1.0, 1.0] ]
+    #tex = materials.texture(data=im)
+    f = faces( pos=vertices, color=mycolor )
     f.make_normals()
 
-    # I haven't figure out how to control the texture coordinates
+    vertices = [ cart[0], cart[2], cart[3] ]
+    #uvmap = [ [1.0, 0.0], [1.0, 1.0], [0.0, 1.0] ]
+    #tex = materials.texture(data=im)
+    f = faces( pos=vertices, color=mycolor)
+    f.make_normals()
+
     #im = Image.open(image.image_file)
     #im = im.resize((128,128), Image.ANTIALIAS)
     #tex = materials.texture(data=im, mapping="sign")
