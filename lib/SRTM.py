@@ -323,6 +323,8 @@ class NEDGround():
             #print "  p=%s ground=%.2f error = %.3f" % (p, ground, error)
         return p
 
+    # return a list of (3d) ground intersection points for the give
+    # vector list and camera pose.
     def interpolate_vectors(self, pose, v_list):
         pose_ned = pose['ned']
         pt_list = []
@@ -330,4 +332,3 @@ class NEDGround():
             p = self.interpolate_vector(pose, v)
             pt_list.append(p)
         return pt_list
-            
