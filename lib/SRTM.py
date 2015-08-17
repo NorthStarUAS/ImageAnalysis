@@ -66,10 +66,10 @@ class SRTM():
             print "Notice: downloading:", url
             file = urllib.URLopener()
             file.retrieve(url, download_file)
-            print "Extracting:", download_file
-            zip = zipfile.ZipFile(download_file)
-            zip.extractall(self.srtm_cache_dir)
-            os.remove(download_file)
+            #print "Extracting:", download_file
+            #zip = zipfile.ZipFile(download_file)
+            #zip.extractall(self.srtm_cache_dir)
+            #os.remove(download_file)
             return True
         else:
             print "Notice: requested srtm that is outside catalog"
@@ -77,16 +77,18 @@ class SRTM():
         
     def parse(self):
         tilename = make_tile_name(self.lat, self.lon)
-        cache_file = self.srtm_cache_dir + '/' + tilename + '.hgt'
+        cache_file = self.srtm_cache_dir + '/' + tilename + '.hgt.zip'
         if not os.path.exists(cache_file):
             if not self.download_srtm(tilename):
                 return False
         print "Notice: parsing SRTM file:", cache_file
-        # read 1,442,401 (1201x1201) high-endian
-        # signed 16-bit words into self.z
-        f = open(cache_file, "rb")
+        #f = open(cache_file, "rb")
+        zip = zipfile.ZipFile(cache_file)
+        f = zip.open(tilename + '.hgt', 'r')
         contents = f.read()
         f.close()
+        # read 1,442,401 (1201x1201) high-endian
+        # signed 16-bit words into self.z
         self.srtm_z = struct.unpack(">1442401H", contents)
         return True
     
@@ -319,7 +321,6 @@ class NEDGround():
             ground = self.interp([p[0], p[1]])
             error = abs(p[2] + ground[0])
             #print "  p=%s ground=%.2f error = %.3f" % (p, ground, error)
-
         return p
 
     def interpolate_vectors(self, pose, v_list):
