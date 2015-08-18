@@ -66,10 +66,6 @@ class SRTM():
             print "Notice: downloading:", url
             file = urllib.URLopener()
             file.retrieve(url, download_file)
-            #print "Extracting:", download_file
-            #zip = zipfile.ZipFile(download_file)
-            #zip.extractall(self.srtm_cache_dir)
-            #os.remove(download_file)
             return True
         else:
             print "Notice: requested srtm that is outside catalog"
@@ -115,37 +111,6 @@ class SRTM():
         #    y = 45 + random.random()
         #    z = self.lla_interp([x,y])
         #    print [x, y, z[0]]
-
-    # notice: this is *really* slow.  Adding the lla2ned conversion
-    # makes even more slow.  I think what I want to do is build as
-    # many SRTM instances as we need to cover an area, then resample
-    # just the needed area, at some reasonable grid size, convert just
-    # the resampled points to ned, and build the interpolator out of
-    # the subset of points.  A DEM file can cover 60nm in latitude and
-    # 60nm*cos(lat) in the longitude direction.
-    
-    def make_ned_interpolator(self, ref):
-        print "Notice: constructing ned interpolator"
-
-        # The LinearNDInterpolator works well, but is slow to
-        # construct, ned data is not 'regularly' gridded so we need to
-        # use this fancier interpolator
-        ned_pts = np.zeros((1201*1201, 2))
-        ned_vals = np.zeros((1201*1201))
-        for r in range(0,1201):
-            print "%.1f%%" % (float(r)/float(12.01))
-            for c in range(0,1201):
-                idx = (1201*r)+c
-                va = self.srtm_z[idx]
-                if va == 65535 or va < 0 or va > 10000:
-                    va = 0.0
-                lon = -94.0 + (float(c) / 1200.0)
-                lat = 45 + (float(1200-r) / 1200.0)
-                alt = va
-                ned = navpy.lla2ned( lat, lon, alt, ref[0], ref[1], ref[2] )
-                ned_pts[idx] = ned[0:2]
-                ned_vals[idx] = ned[2]
-        self.ned_interp = scipy.interpolate.LinearNDInterpolator(ned_pts, ned_vals)
         
     def lla_interpolate(self, point_list):
         return self.lla_interp(point_list)
