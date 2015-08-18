@@ -303,14 +303,14 @@ class NEDGround():
             return p
         
         eps = 0.01
-        
+        count = 0
         #print "start:", p
         #print "vec:", v
         #print "pose:", pose
         ground = self.interp([p[0], p[1]])
         error = abs(p[2] + ground[0])
         #print "  p=%s ground=%s error=%s" % (p, ground, error)
-        while error > eps:
+        while error > eps and count < 25:
             d_proj = -(pose[2] + ground[0])
             factor = d_proj / v[2]
             n_proj = v[0] * factor
@@ -321,6 +321,7 @@ class NEDGround():
             ground = self.interp([p[0], p[1]])
             error = abs(p[2] + ground[0])
             #print "  p=%s ground=%.2f error = %.3f" % (p, ground, error)
+            count += 1
         return p
 
     # return a list of (3d) ground intersection points for the give
