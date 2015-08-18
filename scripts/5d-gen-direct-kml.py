@@ -38,10 +38,6 @@ ref = proj.ned_reference_lla
 # setup SRTM ground interpolator
 sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
 
-# lookup reference ground altitude (lla reference is [0,0,0] in ned frame)
-g = sss.interp([0.0, 0.0])[0]
-print "Reference ground elevation is:", g
-
 # start a new kml file
 kml = simplekml.Kml()
 
