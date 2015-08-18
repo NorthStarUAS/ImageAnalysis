@@ -41,6 +41,8 @@ class ProjectMgr():
                                  'sift-max-features': 2000,
                                  'surf-hessian-threshold': 600,
                                  'orb-max-features': 2000 }
+        self.matcher_params = { 'matcher': 'FLANN', # { FLANN or 'Brute Force' }
+                                'match_ratio': 0.75 }
 
         self.ned_reference_lla = []
         
@@ -55,12 +57,12 @@ class ProjectMgr():
         #self.group_alt_bias = 0.0
         self.k1 = 0.0
         self.k2 = 0.0
-        self.m = Matcher.Matcher()
+        #self.m = Matcher.Matcher()
         self.placer = Placer.Placer()
         self.render = Render.Render()
-        matcherparams = { 'matcher': 'FLANN', 'match_ratio': match_ratio }
-        matcherparams = { 'matcher': 'Brute Force', 'match_ratio': match_ratio }
-        self.m.configure(matcherparams)
+        #matcherparams = { 'matcher': 'FLANN', 'match_ratio': match_ratio }
+        #matcherparams = { 'matcher': 'Brute Force', 'match_ratio': match_ratio }
+        #self.m.configure(matcherparams)
         
         if project_dir != None:
             self.load( project_dir )
@@ -113,6 +115,8 @@ class ProjectMgr():
         dirs = {}
         dirs['images-source'] = self.source_dir
         project_dict = {}
+        project_dict['detector'] = self.detector_params
+        project_dict['matcher'] = self.matcher_params
         project_dict['directories'] = dirs
         project_dict['ned-reference-lla'] = self.ned_reference_lla
         project_file = self.project_dir + "/Project.json"
@@ -139,14 +143,19 @@ class ProjectMgr():
             f = open(project_file, 'r')
             project_dict = json.load(f)
             f.close()
-            
+
+            if 'detector' in project_dict:
+                self.detector_params = project_dict['detector']
+            if 'matcher' in project_dict:
+                self.matcher_params = project_dict['matcher']
             dirs = project_dict['directories']
             self.source_dir = dirs['images-source']
             self.ned_reference_lla = project_dict['ned-reference-lla']
         except:
+            print "load error: " + str(sys.exc_info()[1])
             print "Notice: unable to read =", project_file
             print "Continuing with an empty project configuration"
-            
+ 
         # load camera configuration
         self.cam.load(self.project_dir)
 
@@ -280,8 +289,9 @@ class ProjectMgr():
     # for each feature in each image, compute the undistorted pixel
     # location (from the calibrated distortion parameters)
     def undistort_keypoints(self):
+        print "Notice: undistort keypoints"
         for image in self.image_list:
-            print image.name
+            # print image.name
             uv_raw = np.zeros((len(image.kp_list),1,2), dtype=np.float32)
             for i, kp in enumerate(image.kp_list):
                 uv_raw[i][0] = (kp.pt[0], kp.pt[1])
