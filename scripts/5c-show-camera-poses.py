@@ -123,9 +123,7 @@ for image in proj.image_list:
     #im = im.resize((128,128), Image.ANTIALIAS)
     
     # two faces makes a quad
-    mycolor=(random.random()*0.5,
-             random.random()*0.25+0.75,
-             random.random()*0.5)
+    mycolor=(random.random()*0.5, random.random()*0.3+0.7, random.random()*0.5)
     vertices = [ cart[0], cart[1], cart[2] ]
     #uvmap = [ [0.0, 0.0], [1.0, 0.0], [1.0, 1.0] ]
     #tex = materials.texture(data=im)

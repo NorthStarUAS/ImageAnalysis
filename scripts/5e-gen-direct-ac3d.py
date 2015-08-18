@@ -39,7 +39,7 @@ ref = proj.ned_reference_lla
 # setup SRTM ground interpolator
 sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
 
-ac3d_steps = 1
+ac3d_steps = 8
 
 # compute the uv grid for each image and project each point out into
 # ned space, then intersect each vector with the srtm ground.
