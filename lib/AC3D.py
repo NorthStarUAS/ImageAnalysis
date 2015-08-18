@@ -27,21 +27,12 @@ def generate(image_list, ref_image=False, image_dir=".", base_name="quick", vers
     f.write("MATERIAL \"\" rgb 1 1 1  amb 0.6 0.6 0.6  emis 0 0 0  spec 0.5 0.5 0.5  shi 10  trans %.2f\n" % (trans))
     f.write("OBJECT world\n")
     # wrong -- not a real rotation
-    # f.write("rot 1.0 0.0 0.0  0.0 0.0 1.0 0.0 1.0 0.0\n")
+    #   f.write("rot 1.0 0.0 0.0  0.0 0.0 1.0 0.0 1.0 0.0\n")
     f.write("kids " + str(match_count) + "\n")
 
     for image in image_list:
         # compute a priority function (higher priority tiles are raised up)
         #priority = (1.0-image.weight) - agl/400.0
-
-        #ll = list(image.grid_list[0])
-        #ll.append( -priority )
-        #lr = list(image.grid_list[1])
-        #lr.append( -priority )
-        #ur = list(image.grid_list[2])
-        #ur.append( -priority )
-        #ul = list(image.qgrid_list[3])
-        #ul.append( -priority )
 
         f.write("OBJECT poly\n")
         f.write("name \"rect\"\n")
@@ -69,10 +60,6 @@ def generate(image_list, ref_image=False, image_dir=".", base_name="quick", vers
                 f.write("SURF 0x20\n")
                 f.write("mat 0\n")
                 f.write("refs 4\n")
-                #f.write("%d %.3f %.3f\n" % (d, x, y-dy))
-                #f.write("%d %.3f %.3f\n" % (d+1, x+dx, y-dy))
-                #f.write("%d %.3f %.3f\n" % (c+1, x+dx, y))
-                #f.write("%d %.3f %.3f\n" % (c, x, y))
                 f.write("%d %.3f %.3f\n" % (c, x, y))
                 f.write("%d %.3f %.3f\n" % (c+1, x+dx, y))
                 f.write("%d %.3f %.3f\n" % (d+1, x+dx, y+dy))
