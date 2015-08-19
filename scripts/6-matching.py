@@ -70,4 +70,4 @@ for image in proj.image_list:
     #    print "dist=%.2f  coord=%s" % (dist, p2)
 
 # fire up the matcher
-m = Matcher()
+m = Matcher.Matcher()
