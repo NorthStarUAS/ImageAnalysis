@@ -220,7 +220,7 @@ class ProjectMgr():
             self.image_list.append( image )
 
         # make sure our matcher gets a copy of the image list
-        self.m.setImageList(self.image_list)
+        #self.m.setImageList(self.image_list)
         self.placer.setImageList(self.image_list)
         self.render.setImageList(self.image_list)
 
