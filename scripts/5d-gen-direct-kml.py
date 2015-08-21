@@ -61,7 +61,7 @@ for image in proj.image_list:
     
     quat = image.camera_pose['quat']
     proj_list = proj.projectVectors( IK, quat, corner_list )
-    #print "proj_list:\n", proj_list
+    print "proj_list:\n", proj_list
     #pts = proj.intersectVectorsWithGroundPlane(image.camera_pose,
     #                                           g, proj_list)
     pts = sss.interpolate_vectors(image.camera_pose, proj_list)
@@ -73,7 +73,8 @@ for image in proj.image_list:
         lla = navpy.ned2lla([ned], ref[0], ref[1], ref[2])
         corners_lonlat.append([lla[1], lla[0]])
     ground = kml.newgroundoverlay(name=image.name)
-    ground.icon.href = image.image_file # os.path.abspath(image.image_file)
+    ground.icon.href = "Images/" + image.name
     ground.gxlatlonquad.coords.addcoordinates(corners_lonlat)
-    
-kml.save("GroundOverlay.kml")
+
+filename = args.project + "/GroundOverlay.kml"
+kml.save(filename)
