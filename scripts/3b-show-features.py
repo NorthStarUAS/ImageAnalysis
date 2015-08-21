@@ -17,6 +17,7 @@ import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Load the project\'s images.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--image', help='show specific image')
 
 args = parser.parse_args()
 print args
@@ -24,4 +25,9 @@ print args
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
-proj.show_features()
+
+if args.image:
+    image = proj.findImageByName(args.image)
+    proj.show_features_image(image)
+else:
+    proj.show_features_images()
