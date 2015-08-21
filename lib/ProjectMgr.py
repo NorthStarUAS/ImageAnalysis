@@ -26,7 +26,7 @@ import transformations
 
 
 class ProjectMgr():
-    def __init__(self, project_dir=None, match_ratio=0.75):
+    def __init__(self, project_dir=None):
         # directories
         self.project_dir = None  # project working directory
         self.source_dir = None   # original images
@@ -41,14 +41,13 @@ class ProjectMgr():
                                  'sift-max-features': 2000,
                                  'surf-hessian-threshold': 600,
                                  'orb-max-features': 2000 }
-        self.matcher_params = { 'matcher': 'FLANN', # { FLANN or 'Brute Force' }
-                                'match_ratio': 0.75 }
+        self.matcher_params = { 'matcher': 'FLANN', # { FLANN or 'BF' }
+                                'match-ratio': 0.75 }
 
         self.ned_reference_lla = []
         
         # the following member variables need to be reviewed/organized
 
-        self.match_ratio = match_ratio
         self.ac3d_steps = 8
         self.shutter_latency = 0.0
         self.group_roll_bias = 0.0
@@ -60,9 +59,6 @@ class ProjectMgr():
         #self.m = Matcher.Matcher()
         self.placer = Placer.Placer()
         self.render = Render.Render()
-        #matcherparams = { 'matcher': 'FLANN', 'match_ratio': match_ratio }
-        #matcherparams = { 'matcher': 'Brute Force', 'match_ratio': match_ratio }
-        #self.m.configure(matcherparams)
         
         if project_dir != None:
             self.load( project_dir )
@@ -197,7 +193,7 @@ class ProjectMgr():
                 commands.getstatusoutput( command )
             elif converter == 'opencv':
                 src = cv2.imread(name_in)
-               #method = cv2.INTER_AREA
+                #method = cv2.INTER_AREA
                 method = cv2.INTER_LANCZOS4
                 dst = cv2.resize(src, (0,0), fx=scale, fy=scale,
                                  interpolation=method)
@@ -241,6 +237,9 @@ class ProjectMgr():
 
     def set_detector_params(self, dparams):
         self.detector_params = dparams
+        
+    def set_matcher_params(self, mparams):
+        self.matcher_params = mparams
         
     def detect_features(self, force=True, show=False):
         for image in self.image_list:
@@ -294,7 +293,7 @@ class ProjectMgr():
             # print image.name
             uv_raw = np.zeros((len(image.kp_list),1,2), dtype=np.float32)
             for i, kp in enumerate(image.kp_list):
-                uv_raw[i][0] = (kp.pt[0], kp.pt[1])
+                uv_raw[i][0] = (kp.pt[0], image.height-kp.pt[1])
             dist_coeffs = np.array(self.cam.camera_dict['dist-coeffs'],
                                    dtype=np.float32)
             uv_new = cv2.undistortPoints(uv_raw, self.cam.K, dist_coeffs,
