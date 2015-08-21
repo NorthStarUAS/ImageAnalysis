@@ -9,6 +9,7 @@ import math
 from matplotlib import pyplot as plt
 import numpy as np
 import os.path
+from progress.bar import Bar
 import subprocess
 import sys
 
@@ -221,10 +222,13 @@ class ProjectMgr():
         self.render.setImageList(self.image_list)
 
     def load_features(self):
+        bar = Bar('Loading keypoints and descriptors:',
+                  max = len(self.image_list))
         for image in self.image_list:
-            print "Loading keypoints and descriptors: " + image.name
             image.load_features()
             image.load_descriptors()
+            bar.next()
+        bar.finish()
 
     def load_matches(self):
         print "Loading pair matches"
@@ -256,13 +260,17 @@ class ProjectMgr():
                     if result == 27 or result == ord('q'):
                         break
 
-    def show_features(self):
+    def show_features_image(self, image):
+        if image.img_rgb == None:
+            image.load_rgb()
+            result = image.show_features()
+            return result
+        
+    def show_features_images(self, name=None):
         for image in self.image_list:
-            if image.img_rgb == None:
-                image.load_rgb()
-                result = image.show_features()
-                if result == 27 or result == ord('q'):
-                    break
+            result = self.show_features_image(image)
+            if result == 27 or result == ord('q'):
+                break
                 
     def findImageByName(self, name):
         for i in self.image_list:
@@ -290,7 +298,8 @@ class ProjectMgr():
     def undistort_keypoints(self):
         print "Notice: undistort keypoints"
         for image in self.image_list:
-            # print image.name
+            if len(image.kp_list) == 0:
+                continue
             uv_raw = np.zeros((len(image.kp_list),1,2), dtype=np.float32)
             for i, kp in enumerate(image.kp_list):
                 uv_raw[i][0] = (kp.pt[0], image.height-kp.pt[1])
