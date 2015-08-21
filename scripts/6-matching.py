@@ -10,6 +10,7 @@ import fnmatch
 import math
 import numpy as np
 import os.path
+from progress.bar import Bar
 import scipy.spatial
 
 sys.path.append('../lib')
@@ -41,8 +42,10 @@ sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
 # project undistorted keypoints into NED space
 camw, camh = proj.cam.get_image_params()
 fx, fy, cu, cv, dist_coeffs, skew = proj.cam.get_calibration_params()
+bar = Bar('Projecting keypoints to vectors:',
+          max = len(proj.image_list))
 for image in proj.image_list:
-    print "Projecting keypoints to vectors:", image.name
+    # print "Projecting keypoints to vectors:", image.name
     scale = float(image.width) / float(camw)
     K = np.array([ [fx*scale, skew*scale, cu*scale],
                    [ 0,       fy  *scale, cv*scale],
@@ -50,18 +53,27 @@ for image in proj.image_list:
     IK = np.linalg.inv(K)
     quat = image.camera_pose['quat']
     image.vec_list = proj.projectVectors(IK, quat, image.uv_list)
+    bar.next()
+bar.finish()
 
 # intersect keypoint vectors with srtm terrain
+bar = Bar('Vector/terrain intersecting:',
+          max = len(proj.image_list))
 for image in proj.image_list:
-    print "Intersecting keypoint vectors with terrain:", image.name
+    #print "Intersecting keypoint vectors with terrain:", image.name
     image.coord_list = sss.interpolate_vectors(image.camera_pose,
                                                image.vec_list)
+    bar.next()
+bar.finish()
     
 # build kdtree() of 3d point locations for fast spacial nearest
 # neighbor lookups.
 print "Notice: constructing KDTree's"
 for image in proj.image_list:
-    image.kdtree = scipy.spatial.KDTree(image.coord_list)
+    if len(image.coord_list):
+        image.kdtree = scipy.spatial.KDTree(image.coord_list)
+    else:
+        image.kdtree = None
 
     #result = image.kdtree.query_ball_point(image.coord_list[0], 5.0)
     #p1 = image.coord_list[0]
@@ -78,4 +90,4 @@ m = Matcher.Matcher()
 matcher_params = { 'matcher': args.matcher,
                    'match-ratio': args.match_ratio }
 m.configure(proj.detector_params, proj.matcher_params)
-m.robustGroupMatches(proj.image_list, filter2="fundamental", review=True)
+m.robustGroupMatches(proj.image_list, filter2="fundamental", review=False)
