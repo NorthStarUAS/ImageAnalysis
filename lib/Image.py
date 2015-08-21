@@ -25,7 +25,7 @@ class Image():
         self.width = 0
         self.kp_list = []       # opencv keypoint list
         self.kp_usage = []
-        self.des_list = None    # opencv descriptor list
+        self.des_list = []      # opencv descriptor list
         self.match_list = []
 
         self.uv_list = []       # the 'undistorted' uv coordinates of all kp's
@@ -155,10 +155,16 @@ class Image():
 
     def load_descriptors(self):
         filename = self.des_file + ".npy"
-        if self.des_list == None and os.path.exists(filename):
+        if len(self.des_list) == 0 and os.path.exists(filename):
             #print "Loading " + filename
             try:
                 self.des_list = np.load(filename)
+                #print np.any(self.des_list)
+                #val = "%s" % self.des_list
+                #print
+                #print "des_list.size =", self.des_list.size
+                #print val
+                #print
             except:
                 print filename + ":\n" + "  load error: " \
                     + str(sys.exc_info()[1])
