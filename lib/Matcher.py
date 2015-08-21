@@ -84,14 +84,22 @@ class Matcher():
                                                 trainDescriptors=i2.des_list,
                                                 k=2)
             else:
-                size = len(i1.des_list)
+                if np.any(i1.des_list):
+                    size = len(i1.des_list)
+                else:
+                    size = 0
                 matches = [[]] * size
+                #print "size = ", size
                 for i in range(size):
+                    #print "i =", i
                     p = i1.coord_list[i]
-                    #print "p=", p
+                    #print "p =", p
                     des_list1 = [ i1.des_list[i] ]
                     des_list2 = []
-                    result = i2.kdtree.query_ball_point(p, 5.0)
+                    if i2.kdtree != None:
+                        result = i2.kdtree.query_ball_point(p, 10.0)
+                    else:
+                        result = []
                     #print result
                     #print "i=%d results=%d uv=%s" % (i, len(result), i1.kp_list[i].pt)
                     if len(result) > 1:
