@@ -43,5 +43,12 @@ detector_params = { 'detector': args.detector,
                     'orb-max-features': args.orb_max_features,
                     'grid-detect': args.grid_detect }
 proj.set_detector_params(detector_params)
+proj.save()
 
 proj.detect_features(force=args.force, show=args.show)
+
+count = 0
+for image in proj.image_list:
+    count += len(image.kp_list)
+
+print "Average # of features per image found = %.0f" % (count / len(proj.image_list))
