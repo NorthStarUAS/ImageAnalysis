@@ -65,7 +65,7 @@ class SRTM():
             download_file = self.srtm_cache_dir + '/' + fileroot + '.hgt.zip'
             print "Notice: downloading:", url
             file = urllib.URLopener()
-            file.retrieve(url, download_file)
+            print file.retrieve(url, download_file)
             return True
         else:
             print "Notice: requested srtm that is outside catalog"
@@ -144,13 +144,13 @@ class NEDGround():
         self.make_interpolator(lla_ref, width_m, height_m, step_m)
         
     def load_tiles(self, lla_ref, width_m, height_m):
-        print "Notice: loading tiles"
+        print "Notice: loading DEM tiles"
         ll_ned = np.array([[-height_m*0.5, -width_m*0.5, 0.0]])
         ur_ned = np.array([[height_m*0.5, width_m*0.5, 0.0]])
         ll_lla = navpy.ned2lla(ll_ned, lla_ref[0], lla_ref[1], lla_ref[2])
         ur_lla = navpy.ned2lla(ur_ned, lla_ref[0], lla_ref[1], lla_ref[2])
-        print ll_lla
-        print ur_lla
+        #print ll_lla
+        #print ur_lla
         lat1, lon1 = lla_ll_corner( ll_lla[0], ll_lla[1] )
         lat2, lon2 = lla_ll_corner( ur_lla[0], ur_lla[1] )
         for lat in range(lat1, lat2+1):
@@ -163,7 +163,7 @@ class NEDGround():
                     self.tile_dict[tile_name] = srtm
                 
     def make_interpolator(self, lla_ref, width_m, height_m, step_m):
-        print "Notice: constructing interpolator"
+        print "Notice: constructing NED area interpolator"
         rows = (height_m / step_m) + 1
         cols = (width_m / step_m) + 1
         #ned_pts = np.zeros((cols, rows))
