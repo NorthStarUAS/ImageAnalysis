@@ -22,6 +22,10 @@ import SRTM
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--matcher', default='FLANN',
+                    choices=['FLANN', 'BF'])
+parser.add_argument('--match-ratio', default=0.75, type=float,
+                    help='match ratio')
 
 args = parser.parse_args()
 
@@ -71,3 +75,7 @@ for image in proj.image_list:
 
 # fire up the matcher
 m = Matcher.Matcher()
+matcher_params = { 'matcher': args.matcher,
+                   'match-ratio': args.match_ratio }
+m.configure(proj.detector_params, proj.matcher_params)
+m.robustGroupMatches(proj.image_list, filter2="fundamental", review=True)
