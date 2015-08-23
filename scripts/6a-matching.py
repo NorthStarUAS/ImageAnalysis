@@ -65,10 +65,30 @@ for image in proj.image_list:
                                                image.vec_list)
     bar.next()
 bar.finish()
-    
+
+# compute a bounding sphere for each image
+bar = Bar('Compute bounding spheres:',
+          max = len(proj.image_list))
+for image in proj.image_list:
+    sum = np.array([0.0, 0.0, 0.0])
+    for p in image.coord_list:
+        sum += p
+    image.center = sum / len(image.coord_list)
+    max_dist = 0.0
+    for p in image.coord_list:
+        dist = np.linalg.norm(image.center - p)
+        if dist > max_dist:
+            max_dist = dist
+    image.radius = max_dist
+    # print "center = %s radius = %.1f" % (image.center, image.radius)
+    bar.next()
+bar.finish()
+        
+
 # build kdtree() of 3d point locations for fast spacial nearest
 # neighbor lookups.
-print "Notice: constructing KDTree's"
+bar = Bar('Construct KDTrees:',
+          max = len(proj.image_list))
 for image in proj.image_list:
     if len(image.coord_list):
         image.kdtree = scipy.spatial.KDTree(image.coord_list)
@@ -85,9 +105,12 @@ for image in proj.image_list:
     #    dist = math.sqrt(d1**2 + d2**2)
     #    print "dist=%.2f  coord=%s" % (dist, p2)
 
+    bar.next()
+bar.finish()
+
 # fire up the matcher
 m = Matcher.Matcher()
 matcher_params = { 'matcher': args.matcher,
                    'match-ratio': args.match_ratio }
 m.configure(proj.detector_params, proj.matcher_params)
-m.robustGroupMatches(proj.image_list, filter2="fundamental", review=False)
+m.robustGroupMatches(proj.image_list, filter="fundamental", review=False)
