@@ -4,7 +4,6 @@
 
 import cv2
 import json
-import lxml.etree as ET
 import math
 from matplotlib import pyplot as plt
 import numpy as np
@@ -172,28 +171,14 @@ class Image():
             print "no file:", filename
             
     def load_matches(self):
-        if len(self.match_list) == 0 and os.path.exists(self.match_file):
-            #print "Loading " + self.match_file
-            try:
-                self.match_xml = ET.parse(self.match_file)
-            except:
-                print self.match_file + ":\n" + "  load error: " \
-                    + str(sys.exc_info()[1])
-            root = self.match_xml.getroot()
-            for match_node in root.findall('pairs'):
-                pairs_str = match_node.text
-                if pairs_str == None:
-                    self.match_list.append( [] )
-                else:
-                    pairs = pairs_str.split('), (')
-                    matches = []
-                    for p in pairs:
-                        p = p.replace('(', '')
-                        p = p.replace(')', '')
-                        i1, i2 = p.split(',')
-                        matches.append( (int(i1), int(i2)) )
-                    self.match_list.append( matches )
-            # print str(self.match_list)
+        try:
+            f = open(self.match_file, 'r')
+            self.match_list = json.load(f)
+            f.close()
+        except:
+            print self.features_file + ":\n" + "  load error: " \
+                + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1])
+            return
 
     def save_features(self):
         # convert from native opencv kp class to a dictionary
@@ -228,26 +213,16 @@ class Image():
                 + str(sys.exc_info()[1])
 
     def save_matches(self):
-        root = ET.Element('matches')
-        xml = ET.ElementTree(root)
-
-        # generate matches xml tree
-        for i in xrange(len(self.match_list)):
-            match = self.match_list[i]
-            match_node = ET.SubElement(root, 'pairs')
-            if len(match) >= 4:
-                pairs = str(match)
-                pairs = pairs.replace('[', '')
-                pairs = pairs.replace(']', '')
-                match_node.text = pairs
-
-        # write xml file
         try:
-            xml.write(self.match_file, encoding="us-ascii",
-                      xml_declaration=False, pretty_print=True)
-        except:
-            print self.match_file + ": error saving file: " \
+            f = open(self.match_file, 'w')
+            json.dump(self.match_list, f, sort_keys=True)
+            f.close()
+        except IOError as e:
+            print self.info_file + ": error saving file: " \
                 + str(sys.exc_info()[1])
+            return
+        except:
+            raise
 
     def save_meta(self):
         image_dict = {}
@@ -284,7 +259,9 @@ class Image():
             #norm = cv2.NORM_L2
         elif dparams['detector'] == 'SURF':
             threshold = float(dparams['surf-hessian-threshold'])
-            detector = cv2.SURF(threshold)
+            nOctaves = int(dparams['surf-noctaves'])
+            print "octaves = ", nOctaves
+            detector = cv2.SURF(hessianThreshold=threshold, nOctaves=nOctaves)
             #norm = cv2.NORM_L2
         elif dparams['detector'] == 'ORB':
             max_features = int(dparams['orb-max-features'])
@@ -339,8 +316,7 @@ class Image():
         if self.img == None:
             self.load_rgb()
         h, w = self.img.shape
-        hscale = float(h) / float(self.height)
-        wscale = float(w) / float(self.width)
+        scale = 1000.0 / float(h)
         kp_list = []
         for kp in self.kp_list:
             angle = kp.angle
@@ -349,12 +325,13 @@ class Image():
             pt = kp.pt
             response = kp.response
             size = kp.size
-            x = pt[0] * wscale
-            y = pt[1] * hscale
+            x = pt[0] * scale
+            y = pt[1] * scale
             kp_list.append( cv2.KeyPoint(x, y, size, angle, response,
                                          octave, class_id) )
 
-        res = cv2.drawKeypoints(self.img_rgb, kp_list,
+        scaled_image = cv2.resize(self.img_rgb, (0,0), fx=scale, fy=scale)
+        res = cv2.drawKeypoints(scaled_image, kp_list,
                                 color=(0,255,0), flags=flags)
         cv2.imshow(self.name, res)
         print 'waiting for keyboard input...'
