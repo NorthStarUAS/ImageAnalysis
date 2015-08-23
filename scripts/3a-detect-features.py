@@ -23,6 +23,8 @@ parser.add_argument('--sift-max-features', default=2000,
                     help='maximum SIFT features')
 parser.add_argument('--surf-hessian-threshold', default=600,
                     help='hessian threshold for surf method')
+parser.add_argument('--surf-noctaves', default=4,
+                    help='use a bigger number to detect bigger features')
 parser.add_argument('--orb-max-features', default=2000,
                     help='maximum ORB features')
 parser.add_argument('--grid-detect', default=1,
@@ -40,6 +42,7 @@ proj.load_image_info()
 detector_params = { 'detector': args.detector,
                     'sift-max-features': args.sift_max_features,
                     'surf-hessian-threshold': args.surf_hessian_threshold,
+                    'surf-noctaves': args.surf_noctaves,
                     'orb-max-features': args.orb_max_features,
                     'grid-detect': args.grid_detect }
 proj.set_detector_params(detector_params)
@@ -47,8 +50,10 @@ proj.save()
 
 proj.detect_features(force=args.force, show=args.show)
 
-count = 0
+feature_count = 0
+image_count = 0
 for image in proj.image_list:
-    count += len(image.kp_list)
+    feature_count += len(image.kp_list)
+    image_count += 1
 
-print "Average # of features per image found = %.0f" % (count / len(proj.image_list))
+print "Average # of features per image found = %.0f" % (feature_count / image_count)
