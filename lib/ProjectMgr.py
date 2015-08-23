@@ -41,6 +41,7 @@ class ProjectMgr():
                                  'grid-detect': 1,
                                  'sift-max-features': 2000,
                                  'surf-hessian-threshold': 600,
+                                 'surf-noctaves': 4,
                                  'orb-max-features': 2000 }
         self.matcher_params = { 'matcher': 'FLANN', # { FLANN or 'BF' }
                                 'match-ratio': 0.75 }
@@ -246,9 +247,11 @@ class ProjectMgr():
         self.matcher_params = mparams
         
     def detect_features(self, force=True, show=False):
+        if not show:
+            bar = Bar('Detecting features:', max = len(self.image_list))
         for image in self.image_list:
             if force or len(image.kp_list) == 0 or image.des_list == None:
-                print "detecting features and computing descriptors: " + image.name
+                #print "detecting features and computing descriptors: " + image.name
                 if image.img_rgb == None:
                     image.load_rgb()
                 image.detect_features(self.detector_params)
@@ -259,6 +262,10 @@ class ProjectMgr():
                     result = image.show_features()
                     if result == 27 or result == ord('q'):
                         break
+            if not show:
+                bar.next()
+        if not show:
+            bar.finish()
 
     def show_features_image(self, image):
         if image.img_rgb == None:
