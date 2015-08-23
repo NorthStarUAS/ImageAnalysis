@@ -23,6 +23,8 @@ class Matcher():
                 norm = cv2.NORM_L2
             elif dparams['detector'] == 'ORB':
                 norm = cv2.NORM_HAMMING
+            elif dparams['detector'] == 'Star':
+                norm = cv2.NORM_HAMMING
 
         FLANN_INDEX_KDTREE = 1  # bug: flann enums are missing
         FLANN_INDEX_LSH    = 6

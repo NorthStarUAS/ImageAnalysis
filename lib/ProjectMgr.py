@@ -37,12 +37,17 @@ class ProjectMgr():
         
         self.image_list = []
 
-        self.detector_params = { 'detector': 'SIFT', # { SIFT, SURF, or ORB }
+        self.detector_params = { 'detector': 'SIFT', # { SIFT, SURF, ORB, Star }
                                  'grid-detect': 1,
                                  'sift-max-features': 2000,
                                  'surf-hessian-threshold': 600,
                                  'surf-noctaves': 4,
-                                 'orb-max-features': 2000 }
+                                 'orb-max-features': 2000,
+                                 'star-max-size': 16,
+                                 'star-response-threshold': 30,
+                                 'star-line-threshold-projected': 10,
+                                 'star-line-threshold-binarized': 8,
+                                 'star-suppress-nonmax-size': 5 }
         self.matcher_params = { 'matcher': 'FLANN', # { FLANN or 'BF' }
                                 'match-ratio': 0.75 }
 

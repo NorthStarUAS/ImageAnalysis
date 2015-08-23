@@ -89,7 +89,7 @@ class SRTM():
         return True
     
     def make_lla_interpolator(self):
-        print "Notice: constructing lla interpolator"
+        print "Notice: constructing LLA interpolator"
         
         srtm_pts = np.zeros((1201, 1201))
         for r in range(0,1201):

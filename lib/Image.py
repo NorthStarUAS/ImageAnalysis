@@ -256,20 +256,27 @@ class Image():
         if dparams['detector'] == 'SIFT':
             max_features = int(dparams['sift-max-features'])
             detector = cv2.SIFT(nfeatures=max_features)
-            #norm = cv2.NORM_L2
         elif dparams['detector'] == 'SURF':
             threshold = float(dparams['surf-hessian-threshold'])
             nOctaves = int(dparams['surf-noctaves'])
             print "octaves = ", nOctaves
             detector = cv2.SURF(hessianThreshold=threshold, nOctaves=nOctaves)
-            #norm = cv2.NORM_L2
         elif dparams['detector'] == 'ORB':
             max_features = int(dparams['orb-max-features'])
             grid_size = int(dparams['grid-detect'])
             cells = grid_size * grid_size
             max_cell_features = int(max_features / cells)
             detector = cv2.ORB(max_cell_features)
-            #norm = cv2.NORM_HAMMING
+        elif dparams['detector'] == 'Star':
+            maxSize = int(dparams['star-max-size'])
+            responseThreshold = int(dparams['star-response-threshold'])
+            lineThresholdProjected = int(dparams['star-line-threshold-projected'])
+            lineThresholdBinarized = int(dparams['star-line-threshold-binarized'])
+            suppressNonmaxSize = int(dparams['star-suppress-nonmax-size'])
+            detector = cv2.StarDetector(maxSize, responseThreshold,
+                                        lineThresholdProjected,
+                                        lineThresholdBinarized,
+                                        suppressNonmaxSize)
         return detector
 
     def orb_grid_detect(self, detector, image, grid_size):
@@ -300,10 +307,17 @@ class Image():
         else:
             kp_list = detector.detect(self.img)
 
+        # compute the descriptors for the found features (Note: Star
+        # is a special case that uses the brief extractor
+        #
         # compute() could potential add/remove keypoints so we want to
         # save the returned keypoint list, not our original detected
         # keypoint list
-        self.kp_list, self.des_list = detector.compute(self.img, kp_list)
+        if dparams['detector'] == 'Star':
+            extractor = cv2.DescriptorExtractor_create('ORB')
+        else:
+            extractor = detector
+        self.kp_list, self.des_list = extractor.compute(self.img, kp_list)
         
         # wipe matches because we've touched the keypoints
         self.match_list = []
