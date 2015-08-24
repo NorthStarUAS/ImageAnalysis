@@ -119,8 +119,8 @@ class Matcher():
                             #print "q=", i2.coord_list[k]
                             des_list2.append(i2.des_list[k])
                             idx_pairs.append([i, k])
-                        #if review:
-                        #    status = self.showMatch(i1, i2, idx_pairs)
+                        if review:
+                            status = self.showMatch(i1, i2, idx_pairs)
 
                         m = self.matcher.knnMatch(np.array(des_list1), trainDescriptors=np.array(des_list2), k=2)
                         # rewrite the train/query indices
@@ -200,13 +200,14 @@ class Matcher():
         return match_list
 
     def robustGroupMatches(self, image_list, filter="fundamental", review=False):
-        # Find basic matches that satisfy NN > 2 and ratio test
+        # find basic matches that satisfy NN > 2 and ratio test
         for i, image in enumerate(image_list):
             if len(image.match_list):
                 continue
 
             # find basic matches and filter by match ratio
             image.match_list = self.hybridImageMatches(image, image_list, review)
+            #image.match_list = self.basicImageMatches(image, image_list, review)
 
             # filter matches that are out of range
             
@@ -274,70 +275,6 @@ class Matcher():
                             matches1.remove(pair)
                     #print "after %s" % str(image.match_list[j])
 
-            image.save_matches()
-
-    def old_computeImageMatches1(self, i1, review=False):
-        match_list = [[]] * len(self.image_list)
-        for j, i2 in enumerate(self.image_list):
-            if i1 == i2:
-                continue
-            matches = self.matcher.knnMatch(i1.des_list, trainDescriptors=i2.des_list, k=2)
-            p1, p2, kp_pairs, idx_pairs = self.filterMatches(i1, i2, matches)
-            if len(p1) >= 4:
-                H, status = cv2.findHomography(p1, p2, cv2.RANSAC, 5.0)
-                print '%d / %d  inliers/matched' % (np.sum(status), len(status))
-                # remove outliers
-                for k, flag in enumerate(status):
-                    if not flag:
-                        print "    deleting: " + str(idx_pairs[k])
-                        idx_pairs[k] = (-1, -1)
-                for pair in reversed(idx_pairs):
-                    if pair == (-1, -1):
-                        idx_pairs.remove(pair)
-
-            else:
-                H, status = None, None
-                # print '%d matches found, not enough for homography estimation' % len(p1)
-            if len(idx_pairs) >= self.min_pairs:
-                print "Matching %s vs %s = %d" \
-                    % (i1.name, i2.name, len(idx_pairs))
-
-                if False:
-                    # draw only keypoints location,not size and orientation (flags=0)
-                    # draw rich keypoints (flags=4)
-                    if i1.img == None:
-                        i1.load_rgb()
-                    if i2.img == None:
-                        i2.load_rgb()
-                    res1 = cv2.drawKeypoints(i1.img, i1.kp_list, color=(0,255,0), flags=0)
-                    res2 = cv2.drawKeypoints(i2.img, i2.kp_list, color=(0,255,0), flags=0)
-                    fig1, plt1 = plt.subplots(1)
-                    plt1 = plt.imshow(res1)
-                    fig2, plt2 = plt.subplots(1)
-                    plt2 = plt.imshow(res2)
-                    plt.show(block=False)
-
-                if review:
-                    status = self.showMatch(i1, i2, idx_pairs)
-                    # remove deselected pairs
-                    for k, flag in enumerate(status):
-                        if not flag:
-                            print "    deleting: " + str(idx_pairs[k])
-                            idx_pairs[k] = (-1, -1)
-                    for pair in reversed(idx_pairs):
-                        if pair == (-1, -1):
-                            idx_pairs.remove(pair)
-
-                match_list[j] = idx_pairs
-
-        return match_list
-
-    def old_computeGroupMatches(self, image_list, review=False):
-        # O(n,n) compare
-        for image in image_list:
-            if len(image.match_list):
-                continue
-            image.match_list = self.old_computeImageMatches1(image, review)
             image.save_matches()
 
     def safeAddPair(self, i1, i2, refpair):
