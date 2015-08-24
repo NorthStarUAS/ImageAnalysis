@@ -28,14 +28,10 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
+proj.load_matches()
 
 # setup SRTM ground interpolator
 ref = proj.ned_reference_lla
-
-print "loading matches lists..."
-for image in proj.image_list:
-    image.load_matches()
-    #image.save_matches_json()
 
 m = Matcher.Matcher()
 
