@@ -124,13 +124,13 @@ for image in proj.image_list:
     
     # two faces makes a quad
     mycolor=(random.random()*0.5, random.random()*0.3+0.7, random.random()*0.5)
-    vertices = [ cart[0], cart[1], cart[2] ]
+    vertices = [ cart[0], cart[2], cart[1] ]
     #uvmap = [ [0.0, 0.0], [1.0, 0.0], [1.0, 1.0] ]
     #tex = materials.texture(data=im)
     f = faces( pos=vertices, color=mycolor )
     f.make_normals()
 
-    vertices = [ cart[0], cart[2], cart[3] ]
+    vertices = [ cart[0], cart[3], cart[2] ]
     #uvmap = [ [1.0, 0.0], [1.0, 1.0], [0.0, 1.0] ]
     #tex = materials.texture(data=im)
     f = faces( pos=vertices, color=mycolor)
