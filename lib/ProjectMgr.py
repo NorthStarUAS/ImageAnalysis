@@ -237,9 +237,12 @@ class ProjectMgr():
         bar.finish()
 
     def load_matches(self):
-        print "Loading pair matches"
+        bar = Bar('Loading keypoint (pair) matches:',
+                  max = len(self.image_list))
         for image in self.image_list:
             image.load_matches()
+            bar.next()
+        bar.finish()
 
     def save_images_meta(self):
         for image in self.image_list:
@@ -314,7 +317,7 @@ class ProjectMgr():
                 continue
             uv_raw = np.zeros((len(image.kp_list),1,2), dtype=np.float32)
             for i, kp in enumerate(image.kp_list):
-                uv_raw[i][0] = (kp.pt[0], image.height-kp.pt[1])
+                uv_raw[i][0] = (kp.pt[0], kp.pt[1])
             dist_coeffs = np.array(self.cam.camera_dict['dist-coeffs'],
                                    dtype=np.float32)
             uv_new = cv2.undistortPoints(uv_raw, self.cam.K, dist_coeffs,
@@ -364,8 +367,10 @@ class ProjectMgr():
         for uv in uv_list:
             v_lens = IK.dot( np.array([uv[0], uv[1], 1.0]) )
             v_lens_norm = transformations.unit_vector( v_lens )
-            # remap lens space to ned body space
-            v_body = np.array([ v_lens_norm[2], v_lens_norm[0], -v_lens_norm[1] ])
+            # remap lens space to ned body space (change this here, to
+            # switch to (u,v=0,0) in upper right hand corner of image
+            # to match kp coordinate system and be more standard?  try not negating z/d)
+            v_body = np.array([ v_lens_norm[2], v_lens_norm[0], v_lens_norm[1] ])
             # transform camera vector (in body reference frame) to ned
             # reference frame
             proj = transformations.quaternion_backTransform(quat, v_body)
