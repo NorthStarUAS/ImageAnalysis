@@ -54,10 +54,10 @@ for image in proj.image_list:
     IK = np.linalg.inv(K)
 
     corner_list = []
-    corner_list.append( [0, 0] )
-    corner_list.append( [image.width, 0] )
-    corner_list.append( [image.width, image.height] )
     corner_list.append( [0, image.height] )
+    corner_list.append( [image.width, image.height] )
+    corner_list.append( [image.width, 0] )
+    corner_list.append( [0, 0] )
     
     quat = image.camera_pose['quat']
     proj_list = proj.projectVectors( IK, quat, corner_list )
