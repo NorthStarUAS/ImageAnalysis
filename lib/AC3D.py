@@ -51,7 +51,7 @@ def generate(image_list, ref_image=False, image_dir=".", base_name="quick", vers
         f.write("numsurf %d\n" % steps**2)
         dx = 1.0 / float(steps)
         dy = 1.0 / float(steps)
-        y = 0.0
+        y = 1.0
         for j in xrange(steps):
             x = 0.0
             for i in xrange(steps):
@@ -60,12 +60,12 @@ def generate(image_list, ref_image=False, image_dir=".", base_name="quick", vers
                 f.write("SURF 0x20\n")
                 f.write("mat 0\n")
                 f.write("refs 4\n")
-                f.write("%d %.3f %.3f\n" % (c, x, y))
+                f.write("%d %.3f %.3f\n" % (d, x, y-dy))
+                f.write("%d %.3f %.3f\n" % (d+1, x+dx, y-dy))
                 f.write("%d %.3f %.3f\n" % (c+1, x+dx, y))
-                f.write("%d %.3f %.3f\n" % (d+1, x+dx, y+dy))
-                f.write("%d %.3f %.3f\n" % (d, x, y+dy))
+                f.write("%d %.3f %.3f\n" % (c, x, y))
                 x += dx
-            y += dy
+            y -= dy
         f.write("kids 0\n")
 
     if ref_image:
