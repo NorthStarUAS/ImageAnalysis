@@ -49,7 +49,7 @@ class Matcher():
     def setImageList(self, image_list):
         self.image_list = image_list
 
-    def filterMatches(self, i1, i2, matches):
+    def filter_by_feature(self, i1, i2, matches):
         kp1 = i1.kp_list
         kp2 = i2.kp_list
         mkp1, mkp2 = [], []
@@ -65,217 +65,186 @@ class Matcher():
                 continue
 
             m = m[0]
-
-            c1 = np.array(i1.coord_list[m.queryIdx])
-            c2 = np.array(i2.coord_list[m.trainIdx])
-            dist = np.linalg.norm(c1 - c2)
-            if dist > 10:
-                # must be in physical proximity
-                continue
-
             if not used[m.trainIdx]:
                 used[m.trainIdx] = True
                 mkp1.append( kp1[m.queryIdx] )
                 mkp2.append( kp2[m.trainIdx] )
-                idx_pairs.append( (m.queryIdx, m.trainIdx) )
+                idx_pairs.append( [m.queryIdx, m.trainIdx] )
         p1 = np.float32([kp.pt for kp in mkp1])
         p2 = np.float32([kp.pt for kp in mkp2])
         kp_pairs = zip(mkp1, mkp2)
         return p1, p2, kp_pairs, idx_pairs
 
-    def basicImageMatches(self, i1, image_list, review=False):
-        match_list = [[]] * len(image_list)
-        for j, i2 in enumerate(image_list):
-            if i1 == i2:
+    def filter_by_location(self, i1, i2, idx_pairs, dist):
+        result = []
+        for pair in idx_pairs:
+            c1 = np.array(i1.coord_list[pair[0]])
+            c2 = np.array(i2.coord_list[pair[1]])
+            d = np.linalg.norm(c1 - c2)
+            if d > dist:
+                # must be in physical proximity
                 continue
-            print "Matching %s vs %s" % (i1.name, i2.name)
-            all_vs_all = False
-            if all_vs_all:
-                matches = self.matcher.knnMatch(i1.des_list,
-                                                trainDescriptors=i2.des_list,
-                                                k=2)
-            else:
-                if np.any(i1.des_list):
-                    size = len(i1.des_list)
-                else:
-                    size = 0
-                matches = [[]] * size
-                #print "size = ", size
-                for i in range(size):
-                    #print "i =", i
-                    p = i1.coord_list[i]
-                    #print "p =", p
-                    des_list1 = [ i1.des_list[i] ]
-                    des_list2 = []
-                    if i2.kdtree != None:
-                        result = i2.kdtree.query_ball_point(p, 10.0)
-                    else:
-                        result = []
-                    #print result
-                    #print "i=%d results=%d uv=%s" % (i, len(result), i1.kp_list[i].pt)
-                    if len(result) > 1:
-                        idx_pairs = []
-                        for k in result:
-                            #print "q=", i2.coord_list[k]
-                            des_list2.append(i2.des_list[k])
-                            idx_pairs.append([i, k])
-                        if review:
-                            status = self.showMatch(i1, i2, idx_pairs)
+            result.append(pair)
+        return result
 
-                        m = self.matcher.knnMatch(np.array(des_list1), trainDescriptors=np.array(des_list2), k=2)
-                        # rewrite the train/query indices
-                        if len(m[0]) == 2:
-                            m[0][0].queryIdx = i
-                            m[0][1].queryIdx = i
-                            qi0 = m[0][0].trainIdx
-                            qi1 = m[0][1].trainIdx
-                            m[0][0].trainIdx = result[qi0]
-                            m[0][1].trainIdx = result[qi1]
-                            matches[i] = m[0]
-   
-            p1, p2, kp_pairs, idx_pairs = self.filterMatches(i1, i2, matches)
-            print "filtered matches =", len(idx_pairs)
-            if len(idx_pairs) >= self.min_pairs:
-                print "  pairs = ", len(idx_pairs)
-                if review:
-                    status = self.showMatch(i1, i2, idx_pairs)
-                # remove deselected pairs
-                for k, flag in enumerate(status):
-                    if not flag:
-                        print "    deleting: " + str(idx_pairs[k])
-                        idx_pairs[k] = (-1, -1)
-                for pair in reversed(idx_pairs):
-                    if pair == (-1, -1):
-                        idx_pairs.remove(pair)
+    # Iterate through all the matches for the specified image and
+    # delete keypoints that don't satisfy the homography (or
+    # fundamental) relationship.  Returns true if match set is clean, false
+    # if keypoints were removed
+    def filter_by_homography(self, i1, i2, j, filter):
+        clean = True
+        
+        tol = float(i1.width) / 250.0 # rejection range in pixels
+        # print "tol = %.4f" % tol
+        matches = i1.match_list[j]
+        if len(matches) < 8:
+            i1.match_list[j] = []
+            return True
+        p1 = []
+        p2 = []
+        for k, pair in enumerate(matches):
+            p1.append( i1.kp_list[pair[0]].pt )
+            p2.append( i2.kp_list[pair[1]].pt )
 
-                match_list[j] = idx_pairs
+        p1 = np.float32(p1)
+        p2 = np.float32(p2)
+        #print "p1 = %s" % str(p1)
+        #print "p2 = %s" % str(p2)
+        if filter == "homography":
+            M, status = cv2.findHomography(p1, p2, cv2.RANSAC, tol)
+        elif filter == "fundamental":
+            M, status = cv2.findFundamentalMat(p1, p2, cv2.RANSAC, tol)
+        else:
+            # fail
+            M, status = None, None
+        print '%s vs %s: %d / %d  inliers/matched' \
+            % (i1.name, i2.name, np.sum(status), len(status))
+        # remove outliers
+        for k, flag in enumerate(status):
+            if not flag:
+                print "    deleting: " + str(matches[k])
+                clean = False
+                matches[k] = (-1, -1)
+        for pair in reversed(matches):
+            if pair == (-1, -1):
+                matches.remove(pair)
+        return clean
 
-        return match_list
+    def filter_non_reciprocal(self, image_list):
+        print "Removing non-reciprocal matches:"
+        for i, i1 in enumerate(image_list):
+            for j, i2 in enumerate(image_list):
+                #print "testing %i vs %i" % (i, j)
+                matches = i1.match_list[j]
+                rmatches = i2.match_list[i]
+                before = len(matches)
+                for k, pair in enumerate(matches):
+                    rpair = [pair[1], pair[0]]
+                    found = False
+                    for r in rmatches:
+                        #print "%s - %s" % (rpair, r)
+                        if rpair == r:
+                            found = True
+                            break
+                    if not found:
+                        #print "not found =", rpair
+                        matches[k] = [-1, -1]
+                for pair in reversed(matches):
+                    if pair == [-1, -1]:
+                        matches.remove(pair)
+                after = len(matches)
+                if before != after:
+                    print "  (%d vs. %d) matches %d -> %d" % (i, j, before, after)
+        
+    # do initial feature matching of specified image against every
+    # image in the provided image list (except self)
+    def hybridImageMatches(self, i1, i2, review=False):
+        if i1 == i2:
+            return []
+        if np.any(i1.des_list):
+            size = len(i1.des_list)
+        else:
+            size = 0
+        des_list2 = []
+        # find candidate features within a location proximity
+        if i2.kdtree != None:
+            result = i2.kdtree.query_ball_point(i1.center, i1.radius + 20.0)
+        else:
+            result = []
+        if len(result) == 0:
+            return []
 
-    def hybridImageMatches(self, i1, image_list, review=False):
-        match_list = [[]] * len(image_list)
-        for j, i2 in enumerate(image_list):
-            if i1 == i2:
+        # all vs. all match between i1 keypoints and any i2
+        # keypoints within the query radius
+        for k in result:
+            des_list2.append(i2.des_list[k])
+        matches = self.matcher.knnMatch(np.array(i1.des_list),
+                                        trainDescriptors=np.array(des_list2),
+                                        k=2)
+        # rewrite the train indices (from our query subset)
+        # back to referencing the full set of keypoints
+        for match in matches:
+            for m in match:
+                qi = m.trainIdx
+                m.trainIdx = result[qi]
+
+        # run the classic feature distance ratio test
+        p1, p2, kp_pairs, idx_pairs = self.filter_by_feature(i1, i2, matches)
+
+        # test each individual match pair for proximity to each
+        # other (fine grain distance check)
+        idx_pairs = self.filter_by_location(i1, i2, idx_pairs, 10.0)
+
+        if len(idx_pairs) < self.min_pairs:
+            return []
+        print "  pairs = ", len(idx_pairs)
+
+        if review:
+            status = self.showMatch(i1, i2, idx_pairs)
+            # remove deselected pairs
+            for k, flag in enumerate(status):
+                if not flag:
+                    print "    deleting: " + str(idx_pairs[k])
+                    idx_pairs[k] = (-1, -1)
+            for pair in reversed(idx_pairs):
+                if pair == (-1, -1):
+                    idx_pairs.remove(pair)
+
+        return idx_pairs
+
+    def robustGroupMatches(self, image_list, filter="fundamental",
+                           review=False):
+        # find basic matches and filter by match ratio and ned
+        # location
+        for i, i1 in enumerate(image_list):
+            if len(i1.match_list):
                 continue
-            print "Matching %s vs %s" % (i1.name, i2.name)
-            if np.any(i1.des_list):
-                size = len(i1.des_list)
-            else:
-                size = 0
-            matches = [[]] * size
-            des_list2 = []
-            if i2.kdtree != None:
-                result = i2.kdtree.query_ball_point(i1.center, i1.radius + 20.0)
-            else:
-                result = []
-            #print result
-            #print "i=%d results=%d uv=%s" % (i, len(result), i1.kp_list[i].pt)
-            if len(result) > 1:
-                for k in result:
-                    des_list2.append(i2.des_list[k])
-                matches = self.matcher.knnMatch(np.array(i1.des_list), trainDescriptors=np.array(des_list2), k=2)
-                # rewrite the train indices to match the full set
-                for match in matches:
-                    for m in match:
-                        qi = m.trainIdx
-                        m.trainIdx = result[qi]
-   
-            p1, p2, kp_pairs, idx_pairs = self.filterMatches(i1, i2, matches)
-            print "filtered matches =", len(idx_pairs)
-            if len(idx_pairs) >= self.min_pairs:
-                print "  pairs = ", len(idx_pairs)
-                if review:
-                    status = self.showMatch(i1, i2, idx_pairs)
-                    # remove deselected pairs
-                    for k, flag in enumerate(status):
-                        if not flag:
-                            print "    deleting: " + str(idx_pairs[k])
-                            idx_pairs[k] = (-1, -1)
-                    for pair in reversed(idx_pairs):
-                        if pair == (-1, -1):
-                            idx_pairs.remove(pair)
-
-                match_list[j] = idx_pairs
-
-        return match_list
-
-    def robustGroupMatches(self, image_list, filter="fundamental", review=False):
-        # find basic matches that satisfy NN > 2 and ratio test
-        for i, image in enumerate(image_list):
-            if len(image.match_list):
-                continue
-
-            # find basic matches and filter by match ratio
-            image.match_list = self.hybridImageMatches(image, image_list, review)
-            #image.match_list = self.basicImageMatches(image, image_list, review)
-
-            # filter matches that are out of range
             
-            done = False
-            while not done:
-                # Further filter against a Homography or Fundametal matrix
-                # constraint
-                done = True
-                tol = float(image.width) / 250.0 # rejection range in pixels
-                print "tol = %.4f" % tol
-                for j, matches in enumerate(image.match_list):
-                    if i == j:
-                        continue
-                    if len(matches) < 8:
-                        image.match_list[j] = []
-                        continue
-                    i2 = image_list[j]
-                    p1 = []
-                    p2 = []
-                    for k, pair in enumerate(matches):
-                        p1.append( image.kp_list[pair[0]].pt )
-                        p2.append( i2.kp_list[pair[1]].pt )
+            i1.match_list = [[]] * len(image_list)
 
-                    p1 = np.float32(p1)
-                    p2 = np.float32(p2)
-                    #print "p1 = %s" % str(p1)
-                    #print "p2 = %s" % str(p2)
-                    if filter == "homography":
-                        M, status = cv2.findHomography(p1, p2, cv2.RANSAC, tol)
-                    elif filter == "fundamental":
-                        M, status = cv2.findFundamentalMat(p1, p2, cv2.RANSAC, tol)
-                    else:
-                        # fail
-                        M, status = None, None
-                    print '%s vs %s: %d / %d  inliers/matched' \
-                        % (image.name, i2.name, np.sum(status), len(status))
-                    # remove outliers
-                    for k, flag in enumerate(status):
-                        if not flag:
-                            print "    deleting: " + str(matches[k])
-                            done = False
-                            matches[k] = (-1, -1)
-                    for pair in reversed(matches):
-                        if pair == (-1, -1):
-                            matches.remove(pair)
+            for j, i2 in enumerate(image_list):
+                if i1 == i2:
+                    continue
+                print "Matching %s vs %s" % (i1.name, i2.name)
+                i1.match_list[j] = self.hybridImageMatches(i1, i2, review)
 
-            if False:
-                # leave this out for now ...
-                # Cull non-symmetrical matches
-                for j, matches1 in enumerate(image.match_list):
-                    if i == j:
-                        continue
-                    i2 = image_list[j]
-                    for k, pair1 in enumerate(matches1):
-                        matches2 = i2.match_list[i]
-                        hasit = False
-                        for pair2 in matches2:
-                            if pair1[0] == pair2[1] and pair1[1] == pair2[0]:
-                                hasit = True
-                        if not hasit:
-                            matches1[k] = (-1, -1)
-                    #print "before %s" % str(image.match_list[j])
-                    for pair in reversed(matches1):
-                        if pair == (-1, -1):
-                            matches1.remove(pair)
-                    #print "after %s" % str(image.match_list[j])
+        # eliminate any non-reciprocal matches (a good sign they are
+        # bad or weak matches)
+        self.filter_non_reciprocal(image_list)
+        
+        # filter against a Homography or Fundametal matrix
+        # constraint
+        for i, i1 in enumerate(image_list):
+            for j, i2 in enumerate(image_list):
+                if i1 == i2:
+                    continue
+                print "Matching %s vs %s" % (i1.name, i2.name)
+                done = False
+                while not done:
+                    done = self.filter_by_homography(i1, i2, j, filter)
 
-            image.save_matches()
+        for i1 in image_list:
+            i1.save_matches()
 
     def safeAddPair(self, i1, i2, refpair):
         image1 = self.image_list[i1]
