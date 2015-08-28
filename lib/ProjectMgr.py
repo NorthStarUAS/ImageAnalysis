@@ -312,16 +312,18 @@ class ProjectMgr():
     # location (from the calibrated distortion parameters)
     def undistort_keypoints(self):
         print "Notice: undistort keypoints"
+        camw, camh = self.cam.get_image_params()
         for image in self.image_list:
             if len(image.kp_list) == 0:
                 continue
+            scale = float(image.width) / float(camw)
+            K = self.cam.get_K(scale)
             uv_raw = np.zeros((len(image.kp_list),1,2), dtype=np.float32)
             for i, kp in enumerate(image.kp_list):
                 uv_raw[i][0] = (kp.pt[0], kp.pt[1])
             dist_coeffs = np.array(self.cam.camera_dict['dist-coeffs'],
                                    dtype=np.float32)
-            uv_new = cv2.undistortPoints(uv_raw, self.cam.K, dist_coeffs,
-                                         P=self.cam.K)
+            uv_new = cv2.undistortPoints(uv_raw, K, dist_coeffs, P=K)
             image.uv_list = []
             for i, uv in enumerate(uv_new):
                 image.uv_list.append(uv_new[i][0])
@@ -362,20 +364,32 @@ class ProjectMgr():
     # space, remap that to a vector in ned space (for camera
     # ypr=[0,0,0], and then transform that by the camera pose, returns
     # the vector from the camera, through the pixel, into ned space
-    def projectVectors(self, IK, quat, uv_list):
+    def projectVectors(self, K, quat, uv_list):
+        IK = np.linalg.inv(K)
+        IR = transformations.quaternion_matrix(quat)[:3,:3]
+        # M is a transform to map the lens coordinate system (at zero
+        # roll/pitch/yaw to the ned coordinate system at zero
+        # roll/pitch/yaw).  It is essentially a +90 pitch followed by
+        # +90 roll (or equivalently a +90 yaw followed by +90 pitch.)
+        M = np.array( [[0, 0, 1], [1, 0, 0], [0, 1, 0]], dtype=float ) 
         proj_list = []
         for uv in uv_list:
-            v_lens = IK.dot( np.array([uv[0], uv[1], 1.0]) )
-            v_lens_norm = transformations.unit_vector( v_lens )
-            # remap lens space to ned body space (change this here, to
-            # switch to (u,v=0,0) in upper right hand corner of image
-            # to match kp coordinate system and be more standard?  try not negating z/d)
-            v_body = np.array([ v_lens_norm[2], v_lens_norm[0], v_lens_norm[1] ])
-            # transform camera vector (in body reference frame) to ned
-            # reference frame
-            proj = transformations.quaternion_backTransform(quat, v_body)
-            #print "proj = ", proj
-            proj_list.append(proj)
+            uvh = np.array([uv[0], uv[1], 1.0])
+            proj = IR.dot(M).dot(IK).dot(uvh)
+            proj_norm = transformations.unit_vector(proj)
+            proj_list.append(proj_norm)
+
+        #d2r = math.pi / 180.0
+        #Rx = transformations.rotation_matrix(90*d2r, [1, 0, 0])
+        #Ry = transformations.rotation_matrix(90*d2r, [0, 1, 0])
+        #Rz = transformations.rotation_matrix(90*d2r, [0, 0, 1])
+        #print Rx.dot(Ry)
+        #print Ry.dot(Rz)
+        
+        #for uv in uv_list:
+        #    print "uv:", uv
+        #    uvh = np.array([uv[0], uv[1], 1.0])
+        #    print "cam vec=", transformations.unit_vector(IR.dot(IK).dot(uvh))
         return proj_list
 
     # given a set of vectors in the ned frame, and a starting point.
@@ -1276,9 +1290,6 @@ class ProjectMgr():
             # [ [a, b, c], [d,  e,  f], [g, h,  i] ] =>
             # [ [h, b, a], [g, -e, -d], [i, c, -f] ]
             # this will be tedius code ...
-            #Rconv[:3, 0] = R[:3, 2] # swap col 0 <=> col 2
-            #Rconv[:3, 2] = R[:3, 0]
-            #Rconv[1, :3] *= -1.0    # negate the middle row
             Rconv = R.copy()
             Rconv[0,0] = R[2,1]
             Rconv[0,1] = R[0,1]
