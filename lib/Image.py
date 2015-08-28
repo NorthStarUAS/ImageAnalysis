@@ -389,6 +389,7 @@ class Image():
 
     # ned = [n_m, e_m, d_m] relative to the project ned reference point
     # ypr = [yaw_deg, pitch_deg, roll_deg] in the ned coordinate frame
+    # note that the matrix derived from 'quat' is inv(R) is transpose(R)
     def set_camera_pose(self, ned=[0.0, 0.0, 0.0], ypr=[0.0, 0.0, 0.0]):
         quat = transformations.quaternion_from_euler(ypr[0] * d2r,
                                                      ypr[1] * d2r,
