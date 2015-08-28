@@ -7,6 +7,7 @@ import argparse
 import commands
 import cv2
 import fnmatch
+import json
 import math
 import numpy as np
 import os.path
@@ -114,3 +115,44 @@ matcher_params = { 'matcher': args.matcher,
                    'match-ratio': args.match_ratio }
 m.configure(proj.detector_params, proj.matcher_params)
 m.robustGroupMatches(proj.image_list, filter="fundamental", review=False)
+
+# build a list of all 'unique' keypoints.  Include an index to each
+# containing image and feature.
+matches_dict = {}
+for i, i1 in enumerate(proj.image_list):
+    for j, matches in enumerate(i1.match_list):
+        if j > i:
+            for pair in matches:
+                key = "%d-%d" % (i, pair[0])
+                m1 = [i, pair[0]]
+                m2 = [j, pair[1]]
+                if key in matches_dict:
+                    feature_dict = matches_dict[key]
+                    feature_dict['pairs'].append(m2)
+                else:
+                    feature_dict = {}
+                    feature_dict['pairs'] = [m1, m2]
+                    matches_dict[key] = feature_dict
+#print match_dict
+count = 0.0
+sum = 0.0
+for key in matches_dict:
+    sum += len(matches_dict[key]['pairs'])
+    count += 1
+if count > 0.1:
+    print "total unique features in image set = %d" % count
+    print "kp average instances = %.4f" % (sum / count)
+
+# compute an initial guess at the 3d location of each unique feature
+# by averaging the locations of each projection
+for key in matches_dict:
+    feature_dict = matches_dict[key]
+    sum = np.array( [0.0, 0.0, 0.0] )
+    for p in feature_dict['pairs']:
+        sum += proj.image_list[ p[0] ].coord_list[ p[1] ]
+    ned = sum / len(feature_dict['pairs'])
+    feature_dict['ned'] = ned.tolist()
+    
+f = open(args.project + "/Matches.json", 'w')
+json.dump(matches_dict, f, sort_keys=True)
+f.close()
