@@ -45,17 +45,11 @@ ac3d_steps = 8
 # ned space, then intersect each vector with the srtm ground.
 
 camw, camh = proj.cam.get_image_params()
-fx, fy, cu, cv, dist_coeffs, skew = proj.cam.get_calibration_params()
 for image in proj.image_list:
     print image.name
     # scale the K matrix if we have scaled the images
     scale = float(image.width) / float(camw)
-    #print image.width, camw, scale
-    K = np.array([ [fx*scale, skew*scale, cu*scale],
-                   [ 0,       fy  *scale, cv*scale],
-                   [ 0,       0,          1       ] ], dtype=np.float32)
-    IK = np.linalg.inv(K)
-
+    K = proj.cam.get_K(scale)
     quat = image.camera_pose['quat']
 
     grid_list = []
@@ -67,7 +61,7 @@ for image in proj.image_list:
         for u in u_list:
             grid_list.append( [u, v] )
     
-    proj_list = proj.projectVectors( IK, quat, grid_list )
+    proj_list = proj.projectVectors( K, quat, grid_list )
     #print "proj_list:\n", proj_list
     pts_ned = sss.interpolate_vectors(image.camera_pose, proj_list)
     #print "pts_3d (ned):\n", pts_ned
