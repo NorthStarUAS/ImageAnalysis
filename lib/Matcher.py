@@ -131,6 +131,7 @@ class Matcher():
         return clean
 
     def filter_non_reciprocal(self, image_list):
+        clean = True
         print "Removing non-reciprocal matches:"
         for i, i1 in enumerate(image_list):
             for j, i2 in enumerate(image_list):
@@ -154,7 +155,9 @@ class Matcher():
                         matches.remove(pair)
                 after = len(matches)
                 if before != after:
+                    clean = False
                     print "  (%d vs. %d) matches %d -> %d" % (i, j, before, after)
+        return clean
         
     # do initial feature matching of specified image against every
     # image in the provided image list (except self)
@@ -228,20 +231,24 @@ class Matcher():
                 print "Matching %s vs %s" % (i1.name, i2.name)
                 i1.match_list[j] = self.hybridImageMatches(i1, i2, review)
 
-        # eliminate any non-reciprocal matches (a good sign they are
-        # bad or weak matches)
-        self.filter_non_reciprocal(image_list)
-        
-        # filter against a Homography or Fundametal matrix
-        # constraint
-        for i, i1 in enumerate(image_list):
-            for j, i2 in enumerate(image_list):
-                if i1 == i2:
-                    continue
-                print "Matching %s vs %s" % (i1.name, i2.name)
+        done = False
+        while not done:
+            done = True
+            
+            # eliminate any non-reciprocal matches (a good sign they
+            # are bad or weak matches)
+            if not self.filter_non_reciprocal(image_list):
                 done = False
-                while not done:
-                    done = self.filter_by_homography(i1, i2, j, filter)
+        
+            # filter against a Homography or Fundametal matrix
+            # constraint
+            for i, i1 in enumerate(image_list):
+                for j, i2 in enumerate(image_list):
+                    if i1 == i2:
+                        continue
+                    print "Matching %s vs %s" % (i1.name, i2.name)
+                    if not self.filter_by_homography(i1, i2, j, filter):
+                        done = False
 
         for i1 in image_list:
             i1.save_matches()
