@@ -87,17 +87,11 @@ for image in proj.image_list:
 
 # draw approximate image areas 'direct georectified'
 camw, camh = proj.cam.get_image_params()
-fx, fy, cu, cv, dist_coeffs, skew = proj.cam.get_calibration_params()
 for image in proj.image_list:
     print image.name
     # scale the K matrix if we have scaled the images
     scale = float(image.width) / float(camw)
-    #print image.width, camw, scale
-    K = np.array([ [fx*scale, skew*scale, cu*scale],
-                   [ 0,       fy  *scale, cv*scale],
-                   [ 0,       0,          1       ] ], dtype=np.float32)
-    IK = np.linalg.inv(K)
-
+    K = proj.cam.get_K(scale)
     corner_list = []
     corner_list.append( [0, 0] )
     corner_list.append( [image.width, 0] )
@@ -105,7 +99,7 @@ for image in proj.image_list:
     corner_list.append( [0, image.height] )
     
     quat = image.camera_pose['quat']
-    proj_list = proj.projectVectors( IK, quat, corner_list )
+    proj_list = proj.projectVectors( K, quat, corner_list )
     #print "proj_list:\n", proj_list
     #pts = proj.intersectVectorsWithGroundPlane(image.camera_pose,
     #                                           g, proj_list)
