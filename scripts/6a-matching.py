@@ -42,18 +42,14 @@ sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
 
 # project undistorted keypoints into NED space
 camw, camh = proj.cam.get_image_params()
-fx, fy, cu, cv, dist_coeffs, skew = proj.cam.get_calibration_params()
 bar = Bar('Projecting keypoints to vectors:',
           max = len(proj.image_list))
 for image in proj.image_list:
     # print "Projecting keypoints to vectors:", image.name
     scale = float(image.width) / float(camw)
-    K = np.array([ [fx*scale, skew*scale, cu*scale],
-                   [ 0,       fy  *scale, cv*scale],
-                   [ 0,       0,          1       ] ], dtype=np.float32)
-    IK = np.linalg.inv(K)
+    K = proj.cam.get_K(scale)
     quat = image.camera_pose['quat']
-    image.vec_list = proj.projectVectors(IK, quat, image.uv_list)
+    image.vec_list = proj.projectVectors(K, quat, image.uv_list)
     bar.next()
 bar.finish()
 
@@ -128,16 +124,16 @@ for i, i1 in enumerate(proj.image_list):
                 m2 = [j, pair[1]]
                 if key in matches_dict:
                     feature_dict = matches_dict[key]
-                    feature_dict['pairs'].append(m2)
+                    feature_dict['pts'].append(m2)
                 else:
                     feature_dict = {}
-                    feature_dict['pairs'] = [m1, m2]
+                    feature_dict['pts'] = [m1, m2]
                     matches_dict[key] = feature_dict
 #print match_dict
 count = 0.0
 sum = 0.0
 for key in matches_dict:
-    sum += len(matches_dict[key]['pairs'])
+    sum += len(matches_dict[key]['pts'])
     count += 1
 if count > 0.1:
     print "total unique features in image set = %d" % count
@@ -148,9 +144,9 @@ if count > 0.1:
 for key in matches_dict:
     feature_dict = matches_dict[key]
     sum = np.array( [0.0, 0.0, 0.0] )
-    for p in feature_dict['pairs']:
+    for p in feature_dict['pts']:
         sum += proj.image_list[ p[0] ].coord_list[ p[1] ]
-    ned = sum / len(feature_dict['pairs'])
+    ned = sum / len(feature_dict['pts'])
     feature_dict['ned'] = ned.tolist()
     
 f = open(args.project + "/Matches.json", 'w')
