@@ -41,10 +41,6 @@ class Camera():
         # camera mount parameters: these are offsets from the aircraft body
         cd['mount-ypr'] = [ 0.0, 0.0, 0.0 ]
 
-        # internally cached values
-        self.K = np.zeros((3, 3), dtype=np.float)
-        self.IK = np.zeros((3, 3), dtype=np.float)
-
     def save(self, project_dir):
         # create a dictionary and write it out as json
         if not os.path.exists(project_dir):
@@ -86,9 +82,9 @@ class Camera():
             self.camera_dict['vert-mm'], \
             self.camera_dict['focal-len-mm']
 
-    def make_K(self):
+    def get_K(self, scale=1.0):
         """
-        Form camera calibration matrix K using 5 parameters of 
+        Form the camera calibration matrix K using 5 parameters of 
         Finite Projective Camera model.
 
         See Eqn (6.10) in:
@@ -96,10 +92,11 @@ class Camera():
         Cambridge University Press, 2004.
         """
         fx, fy, cu, cv, dist_coeffs, skew = self.get_calibration_params()
-        self.K = np.array([ [fx, skew, cu],
-                            [ 0,   fy, cv],
-                            [ 0,    0,  1] ], dtype=np.float32)
-        self.IK = np.linalg.inv(self.K)
+        K = np.array( [ [fx*scale, skew*scale, cu*scale],
+                        [ 0,       fy  *scale, cv*scale],
+                        [ 0,       0,          1       ] ],
+                      dtype=np.float32 )
+        return K
         
     # dist_coeffs = array[5] = k1, k2, p1, p2, k3
     def set_calibration_params(self, fx, fy, cu, cv, dist_coeffs, skew):
