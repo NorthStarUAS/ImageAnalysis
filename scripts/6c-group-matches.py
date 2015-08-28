@@ -67,13 +67,14 @@ bar.finish()
 match_dict = {}
 for i, i1 in enumerate(proj.image_list):
     for j, matches in enumerate(i1.match_list):
-        for pair in matches:
-            key1 = "%d-%d" % (i, pair[0])
-            key2 = "%d-%d" % (j, pair[1])
-            if key1 in match_dict:
-                match_dict[key1].append(key2)
-            else:
-                match_dict[key1] = [key1, key2]
+        if j > i:
+            for pair in matches:
+                key1 = "%d-%d" % (i, pair[0])
+                key2 = "%d-%d" % (j, pair[1])
+                if key1 in match_dict:
+                    match_dict[key1].append(key2)
+                else:
+                    match_dict[key1] = [key1, key2]
 #print match_dict
 count = 0.0
 sum = 0.0
@@ -81,6 +82,7 @@ for keys in match_dict:
     sum += len(match_dict[keys])
     count += 1
 if count > 0.1:
+    print "total unique features in image set = %d" % count
     print "kp average instances = %.4f" % (sum / count)
 
 f = open("matches.json", 'w')
