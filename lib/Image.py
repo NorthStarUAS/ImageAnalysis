@@ -32,6 +32,13 @@ class Image():
         self.aircraft_pose = None
         self.camera_pose = None
 
+        # M is a transform to map the lens coordinate system (at zero
+        # roll/pitch/yaw to the ned coordinate system at zero
+        # roll/pitch/yaw).  It is essentially a +90 pitch followed by
+        # +90 roll (or equivalently a +90 yaw followed by +90 pitch.)
+        self.M = np.array( [[0, 0, 1], [1, 0, 0], [0, 1, 0]], dtype=float )
+        self.IM = np.linalg.inv(M)
+
         self.yaw_bias = 0.0
         self.roll_bias = 0.0
         self.pitch_bias = 0.0
@@ -403,3 +410,11 @@ class Image():
             return p['ned'], p['ypr'], np.array(p['quat'])
         else:
             return [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], np.zeros(4)
+
+    def get_M(self):
+        return self.M
+    
+    def get_R(self):
+        IR = transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
+        R = np.matrix(IR).T
+        return R

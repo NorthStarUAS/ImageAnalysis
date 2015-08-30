@@ -371,7 +371,7 @@ class ProjectMgr():
         # roll/pitch/yaw to the ned coordinate system at zero
         # roll/pitch/yaw).  It is essentially a +90 pitch followed by
         # +90 roll (or equivalently a +90 yaw followed by +90 pitch.)
-        M = np.array( [[0, 0, 1], [1, 0, 0], [0, 1, 0]], dtype=float ) 
+        M = image.get_M()
         proj_list = []
         for uv in uv_list:
             uvh = np.array([uv[0], uv[1], 1.0])
