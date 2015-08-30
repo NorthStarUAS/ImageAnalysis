@@ -97,12 +97,11 @@ for key in matches_dict:
         image.img_pts.append( kp.pt )
         image.obj_pts.append( ned )
         
-M = np.array( [[0, 0, 1], [1, 0, 0], [0, 1, 0]], dtype=float )
-IM = np.linalg.inv(M)
-
 camw, camh = proj.cam.get_image_params()
 for image in proj.image_list:
     print image.name
+    if len(image.img_pts) < 4:
+        continue
     scale = float(image.width) / float(camw)
     K = proj.cam.get_K(scale)
     if hasattr(image, 'rvec'):
@@ -128,9 +127,10 @@ for image in proj.image_list:
     pos = -np.matrix(Rraw[:3,:3]).T * np.matrix(image.tvec)
     print "pos = ", pos.tolist()
 
-    # Our Rcam matrix (in our coordinate system) is inv(M) * Rned, so
-    # solvePnP returns this combination.  We can extract Rned by
+    # Our Rcam matrix (in our ned coordinate system) is inv(M) * Rned,
+    # so solvePnP returns this combination.  We can extract Rned by
     # premultiplying by M aka inv(IM).
+    M = image.get_M()
     R = M.dot(Rraw)
     #print "R (after M * R):\n", R
 
@@ -147,3 +147,10 @@ for image in proj.image_list:
     print "ypr =", [yaw/d2r, pitch/d2r, roll/d2r]
 
     #print "Proj =", np.concatenate((R, image.tvec), axis=1)
+
+for i, i1 in enumerate(proj.image_list):
+    M = i1.get_M()
+    IM = np.linalg.inv(M)
+    R1 = IM.dot( i1.get_R() )
+    for j, i2 in enumerate(proj.image_list):
+        R2 = IM.dot( i2.get_R() )
