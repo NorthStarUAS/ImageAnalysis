@@ -77,7 +77,9 @@ for i in range(0, num_points):
 #print points_orig
 
 # undistort the points
-points_undistort = cv2.undistortPoints(np.array(points_orig, dtype=np.float32), proj.cam.K, dist_coeffs, P=proj.cam.K)
+K = proj.cam.get_K()
+points_undistort = cv2.undistortPoints(np.array(points_orig, dtype=np.float32),
+                                       K, dist_coeffs, P=K)
 
 def redistort(u, v, dist_coeffs, K):
     fx = K[0,0]
