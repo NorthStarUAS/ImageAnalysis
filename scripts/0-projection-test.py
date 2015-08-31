@@ -49,6 +49,3 @@ px = [0, 0]
 print "camera pose =", image.camera_pose
 print "projectPoint2:\n", proj.projectPoint2(image, image.camera_pose['quat'], px, 272)
 print "projectVector:\n", proj.projectVector(image, image.camera_pose['quat'], px)
-
-#print "K\n", proj.cam.K
-#print "inv(K)\n", proj.cam.IK
