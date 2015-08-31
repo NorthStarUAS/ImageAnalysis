@@ -153,32 +153,37 @@ for image in proj.image_list:
 
 for i, i1 in enumerate(proj.image_list):
     body2cam = i1.get_body2cam()
-    recompute = False
 
-    # the following code (commented out) will recompute the camerate
-    # projection matrix from the camera pose (otherwise we can more
-    # directly use the image.rvec and image.tvec value if they
-    # exist...
+    # the following code (commented out) will recompute the
+    # camerate projection matrix from the camera pose (otherwise
+    # we can more directly use the image.rvec and image.tvec value
+    # if they exist...
     
-    #R1 = body2cam.dot( i1.get_ned2body() )
-    #ned1 = i1.camera_pose['ned']
-    #tvec1 = -np.matrix(R1) * np.matrix(ned1).T
-    #PROJ1 = np.concatenate((R1, tvec1), axis=1)
-
+    # R1 = body2cam.dot( i1.get_ned2body() )
+    # ned1 = i1.camera_pose['ned']
+    # tvec1 = -np.matrix(R1) * np.matrix(ned1).T
+    # PROJ1 = np.concatenate((R1, tvec1), axis=1)
+    
+    # compute more directly
     R1, jac = cv2.Rodrigues(i1.rvec)
     PROJ1 = np.concatenate((R1, i1.tvec), axis=1)
     for j, i2 in enumerate(proj.image_list):
-        R2, jac = cv2.Rodrigues(i2.rvec)
-        PROJ2 = np.concatenate((R2, i2.tvec), axis=1)
-
         matches = i1.match_list[j]
         if len(matches) == 0:
             continue
+
+        R2, jac = cv2.Rodrigues(i2.rvec)
+        PROJ2 = np.concatenate((R2, i2.tvec), axis=1)
+
         pts1 = np.zeros( (2, len(matches)), dtype=float)
         pts2 = np.zeros( (2, len(matches)), dtype=float)
         for k, pair in enumerate(matches):
-            pts1[:,k] = i1.kp_list[ pair[0] ].pt
-            pts2[:,k] = i2.kp_list[ pair[1] ].pt
+            p1 = i1.kp_list[ pair[0] ].pt
+            p2 = i2.kp_list[ pair[1] ].pt
+            pts1[:,k] = [ p1[0] / i1.width, p1[1] / i1.height ]
+            pts2[:,k] = [ p2[0] / i2.width, p2[1] / i2.height ]
         points = cv2.triangulatePoints(PROJ1, PROJ2, pts1, pts2)
         points /= points[3]
-        print points[0:3]
+        #print "points:\n", points[0:3].T
+        for k, p in enumerate(points[0:3].T):
+            print p
