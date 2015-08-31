@@ -64,9 +64,6 @@ class Camera():
             f = open(camera_file, 'r')
             self.camera_dict = json.load(f)
             f.close()
-
-            self.make_K()
-            
         except:
             print "Notice: unable to read =", camera_file
             print "Continuing with an empty camera configuration"
@@ -106,9 +103,6 @@ class Camera():
         self.camera_dict['cv'] = cv
         self.camera_dict['dist-coeffs'] = dist_coeffs 
         self.camera_dict['skew'] = skew
-
-        # construct K & inv(K) matrices
-        self.make_K()
         
     def get_calibration_params(self):
         return \
