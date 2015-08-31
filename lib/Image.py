@@ -32,12 +32,17 @@ class Image():
         self.aircraft_pose = None
         self.camera_pose = None
 
-        # M is a transform to map the lens coordinate system (at zero
-        # roll/pitch/yaw to the ned coordinate system at zero
-        # roll/pitch/yaw).  It is essentially a +90 pitch followed by
-        # +90 roll (or equivalently a +90 yaw followed by +90 pitch.)
-        self.M = np.array( [[0, 0, 1], [1, 0, 0], [0, 1, 0]], dtype=float )
-        self.IM = np.linalg.inv(M)
+        # cam2body/body2cam are transforms to map between the standard
+        # lens coordinate system (at zero roll/pitch/yaw and the
+        # standard ned coordinate system at zero roll/pitch/yaw).
+        # cam2body is essentially a +90 pitch followed by +90 roll (or
+        # equivalently a +90 yaw followed by +90 pitch.)  This
+        # transform simply maps coordinate systems and has nothing to
+        # do with camera mounting offset or pose or anything other
+        # than converting from one system to another.
+        self.cam2body = np.array( [[0, 0, 1], [1, 0, 0], [0, 1, 0]],
+                                  dtype=float )
+        self.body2cam = np.linalg.inv(self.cam2body)
 
         self.yaw_bias = 0.0
         self.roll_bias = 0.0
@@ -411,10 +416,21 @@ class Image():
         else:
             return [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], np.zeros(4)
 
-    def get_M(self):
-        return self.M
+    # cam2body rotation matrix (M)
+    def get_cam2body(self):
+        return self.cam2body
+
+    # body2cam rotation matrix (IM)
+    def get_body2cam(self):
+        return self.body2cam
+
+    # ned2body (R) rotation matrix
+    def get_ned2body(self):
+        p = self.camera_pose
+        body2ned = transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
+        return np.matrix(body2ned).T
     
-    def get_R(self):
-        IR = transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
-        R = np.matrix(IR).T
-        return R
+    # body2ned (IR) rotation matrix
+    def get_body2ned(self):
+        p = self.camera_pose
+        return transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
