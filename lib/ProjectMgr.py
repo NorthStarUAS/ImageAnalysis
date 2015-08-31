@@ -364,28 +364,20 @@ class ProjectMgr():
     # space, remap that to a vector in ned space (for camera
     # ypr=[0,0,0], and then transform that by the camera pose, returns
     # the vector from the camera, through the pixel, into ned space
-    def projectVectors(self, K, quat, uv_list):
-        IK = np.linalg.inv(K)
-        IR = transformations.quaternion_matrix(quat)[:3,:3]
+    def projectVectors(self, IK, image, uv_list):
+        body2ned = image.get_body2ned() # IR
         # M is a transform to map the lens coordinate system (at zero
         # roll/pitch/yaw to the ned coordinate system at zero
         # roll/pitch/yaw).  It is essentially a +90 pitch followed by
         # +90 roll (or equivalently a +90 yaw followed by +90 pitch.)
-        M = image.get_M()
+        cam2body = image.get_cam2body()
         proj_list = []
         for uv in uv_list:
             uvh = np.array([uv[0], uv[1], 1.0])
-            proj = IR.dot(M).dot(IK).dot(uvh)
+            proj = body2ned.dot(cam2body).dot(IK).dot(uvh)
             proj_norm = transformations.unit_vector(proj)
             proj_list.append(proj_norm)
 
-        #d2r = math.pi / 180.0
-        #Rx = transformations.rotation_matrix(90*d2r, [1, 0, 0])
-        #Ry = transformations.rotation_matrix(90*d2r, [0, 1, 0])
-        #Rz = transformations.rotation_matrix(90*d2r, [0, 0, 1])
-        #print Rx.dot(Ry)
-        #print Ry.dot(Rz)
-        
         #for uv in uv_list:
         #    print "uv:", uv
         #    uvh = np.array([uv[0], uv[1], 1.0])
