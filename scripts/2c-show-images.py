@@ -23,4 +23,4 @@ print args
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
-proj.show_features()
+proj.show_features_images()
