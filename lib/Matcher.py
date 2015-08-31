@@ -90,11 +90,15 @@ class Matcher():
     # Iterate through all the matches for the specified image and
     # delete keypoints that don't satisfy the homography (or
     # fundamental) relationship.  Returns true if match set is clean, false
-    # if keypoints were removed
+    # if keypoints were removed.
+    #
+    # Notice: this tends to eliminate matche that aren't all on the
+    # same plane, so if the scene has a lot of depth, this could knock
+    # out a lot of good matches.
     def filter_by_homography(self, i1, i2, j, filter):
         clean = True
         
-        tol = float(i1.width) / 250.0 # rejection range in pixels
+        tol = float(i1.width) / 100.0 # rejection range in pixels
         # print "tol = %.4f" % tol
         matches = i1.match_list[j]
         if len(matches) < 8:
@@ -114,6 +118,8 @@ class Matcher():
             M, status = cv2.findHomography(p1, p2, cv2.RANSAC, tol)
         elif filter == "fundamental":
             M, status = cv2.findFundamentalMat(p1, p2, cv2.RANSAC, tol)
+        elif filter == "none":
+            status = np.ones(len(matches))
         else:
             # fail
             M, status = None, None
