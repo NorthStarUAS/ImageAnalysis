@@ -50,7 +50,7 @@ for image in proj.image_list:
     # scale the K matrix if we have scaled the images
     scale = float(image.width) / float(camw)
     K = proj.cam.get_K(scale)
-    quat = image.camera_pose['quat']
+    IK = np.linalg.inv(K)
 
     grid_list = []
     u_list = np.linspace(0, image.width, ac3d_steps + 1)
@@ -61,7 +61,7 @@ for image in proj.image_list:
         for u in u_list:
             grid_list.append( [u, v] )
     
-    proj_list = proj.projectVectors( K, quat, grid_list )
+    proj_list = proj.projectVectors( IK, image, grid_list )
     #print "proj_list:\n", proj_list
     pts_ned = sss.interpolate_vectors(image.camera_pose, proj_list)
     #print "pts_3d (ned):\n", pts_ned

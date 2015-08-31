@@ -92,14 +92,14 @@ for image in proj.image_list:
     # scale the K matrix if we have scaled the images
     scale = float(image.width) / float(camw)
     K = proj.cam.get_K(scale)
+    IK = np.linalg.inv(K)
     corner_list = []
     corner_list.append( [0, 0] )
     corner_list.append( [image.width, 0] )
     corner_list.append( [image.width, image.height] )
     corner_list.append( [0, image.height] )
     
-    quat = image.camera_pose['quat']
-    proj_list = proj.projectVectors( K, quat, corner_list )
+    proj_list = proj.projectVectors( IK, image, corner_list )
     #print "proj_list:\n", proj_list
     #pts = proj.intersectVectorsWithGroundPlane(image.camera_pose,
     #                                           g, proj_list)
