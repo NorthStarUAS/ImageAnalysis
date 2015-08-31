@@ -434,3 +434,14 @@ class Image():
     def get_body2ned(self):
         p = self.camera_pose
         return transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
+
+    # compute rvec and tvec (used to build the camera projection
+    # matrix for things like cv2.triangulatePoints) from camera pose
+    def get_proj(self):
+        body2cam = self.get_body2cam()
+        ned2body = self.get_ned2body()
+        R = body2cam.dot( ned2body )
+        rvec, jac = cv2.Rodrigues(R)
+        ned = self.camera_pose['ned']
+        tvec = -np.matrix(R) * np.matrix(ned).T
+        return rvec, tvec
