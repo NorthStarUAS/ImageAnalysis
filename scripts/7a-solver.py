@@ -154,26 +154,17 @@ for image in proj.image_list:
 for i, i1 in enumerate(proj.image_list):
     body2cam = i1.get_body2cam()
 
-    # the following code (commented out) will recompute the
-    # camerate projection matrix from the camera pose (otherwise
-    # we can more directly use the image.rvec and image.tvec value
-    # if they exist...
-    
-    # R1 = body2cam.dot( i1.get_ned2body() )
-    # ned1 = i1.camera_pose['ned']
-    # tvec1 = -np.matrix(R1) * np.matrix(ned1).T
-    # PROJ1 = np.concatenate((R1, tvec1), axis=1)
-    
-    # compute more directly
-    R1, jac = cv2.Rodrigues(i1.rvec)
-    PROJ1 = np.concatenate((R1, i1.tvec), axis=1)
+    rvec1, tvec1 = i1.get_proj()
+    R1, jac = cv2.Rodrigues(rvec1)
+    PROJ1 = np.concatenate((R1, tvec1), axis=1)
     for j, i2 in enumerate(proj.image_list):
         matches = i1.match_list[j]
         if len(matches) == 0:
             continue
 
-        R2, jac = cv2.Rodrigues(i2.rvec)
-        PROJ2 = np.concatenate((R2, i2.tvec), axis=1)
+        rvec2, tvec2 = i2.get_proj()
+        R2, jac = cv2.Rodrigues(rvec2)
+        PROJ2 = np.concatenate((R2, tvec2), axis=1)
 
         pts1 = np.zeros( (2, len(matches)), dtype=float)
         pts2 = np.zeros( (2, len(matches)), dtype=float)
@@ -185,5 +176,6 @@ for i, i1 in enumerate(proj.image_list):
         points = cv2.triangulatePoints(PROJ1, PROJ2, pts1, pts2)
         points /= points[3]
         #print "points:\n", points[0:3].T
+        print "%s vs %s" % (i1.name, i2.name)
         for k, p in enumerate(points[0:3].T):
             print p
