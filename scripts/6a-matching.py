@@ -28,6 +28,8 @@ parser.add_argument('--matcher', default='FLANN',
                     choices=['FLANN', 'BF'])
 parser.add_argument('--match-ratio', default=0.75, type=float,
                     help='match ratio')
+parser.add_argument('--filter', default='fundamental',
+                    choices=['homography', 'fundamental', 'none'])
 
 args = parser.parse_args()
 
@@ -48,8 +50,8 @@ for image in proj.image_list:
     # print "Projecting keypoints to vectors:", image.name
     scale = float(image.width) / float(camw)
     K = proj.cam.get_K(scale)
-    quat = image.camera_pose['quat']
-    image.vec_list = proj.projectVectors(K, quat, image.uv_list)
+    IK = np.linalg.inv(K)
+    image.vec_list = proj.projectVectors(IK, image, image.uv_list)
     bar.next()
 bar.finish()
 
@@ -68,6 +70,10 @@ bar = Bar('Compute bounding spheres:',
           max = len(proj.image_list))
 for image in proj.image_list:
     sum = np.array([0.0, 0.0, 0.0])
+    if len(image.coord_list) == 0:
+        image.center = np.array([0.0, 0.0, 0.0])
+        image.radius = 1.0
+        continue
     for p in image.coord_list:
         sum += p
     image.center = sum / len(image.coord_list)
@@ -110,7 +116,7 @@ m = Matcher.Matcher()
 matcher_params = { 'matcher': args.matcher,
                    'match-ratio': args.match_ratio }
 m.configure(proj.detector_params, proj.matcher_params)
-m.robustGroupMatches(proj.image_list, filter="fundamental", review=False)
+m.robustGroupMatches(proj.image_list, filter=args.filter, review=False)
 
 # build a list of all 'unique' keypoints.  Include an index to each
 # containing image and feature.
