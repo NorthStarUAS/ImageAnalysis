@@ -31,6 +31,7 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
+proj.load_matches()
 proj.undistort_keypoints()
 
 m = Matcher.Matcher()
@@ -117,40 +118,67 @@ for image in proj.image_list:
             = cv2.solvePnP(np.float32(image.obj_pts),
                            np.float32(image.img_pts),
                            K, None)
-    Rraw, jac = cv2.Rodrigues(image.rvec)
+    Rned2cam, jac = cv2.Rodrigues(image.rvec)
     #print "Rraw (from SolvePNP):\n", Rraw
 
     ned = image.camera_pose['ned']
     print "original ned = ", ned
     #tvec = -np.matrix(R[:3,:3]) * np.matrix(ned).T
     #print "tvec =", tvec
-    pos = -np.matrix(Rraw[:3,:3]).T * np.matrix(image.tvec)
+    pos = -np.matrix(Rned2cam[:3,:3]).T * np.matrix(image.tvec)
     print "pos = ", pos.tolist()
 
-    # Our Rcam matrix (in our ned coordinate system) is inv(M) * Rned,
+    # Our Rcam matrix (in our ned coordinate system) is body2cam * Rned,
     # so solvePnP returns this combination.  We can extract Rned by
-    # premultiplying by M aka inv(IM).
-    M = image.get_M()
-    R = M.dot(Rraw)
+    # premultiplying by cam2body aka inv(body2cam).
+    cam2body = image.get_cam2body()
+    Rned2body = cam2body.dot(Rned2cam)
     #print "R (after M * R):\n", R
 
     ypr = image.camera_pose['ypr']
     print "original ypr = ", ypr
-    IR = np.matrix(R).T
+    Rbody2ned = np.matrix(Rned2body).T
     IRo = transformations.euler_matrix(ypr[0]*d2r, ypr[1]*d2r, ypr[2]*d2r, 'rzyx')
     IRq = transformations.quaternion_matrix(image.camera_pose['quat'])
     #print "Original IR:\n", IRo
     #print "Original IR (from quat)\n", IRq
     #print "IR (from SolvePNP):\n", IR
     
-    (yaw, pitch, roll) = transformations.euler_from_matrix(IR, 'rzyx')
+    (yaw, pitch, roll) = transformations.euler_from_matrix(Rbody2ned, 'rzyx')
     print "ypr =", [yaw/d2r, pitch/d2r, roll/d2r]
 
+    image.set_camera_pose( pos.T[0].tolist(), [yaw/d2r, pitch/d2r, roll/d2r] )
+    
     #print "Proj =", np.concatenate((R, image.tvec), axis=1)
 
 for i, i1 in enumerate(proj.image_list):
-    M = i1.get_M()
-    IM = np.linalg.inv(M)
-    R1 = IM.dot( i1.get_R() )
+    body2cam = i1.get_body2cam()
+    recompute = False
+
+    # the following code (commented out) will recompute the camerate
+    # projection matrix from the camera pose (otherwise we can more
+    # directly use the image.rvec and image.tvec value if they
+    # exist...
+    
+    #R1 = body2cam.dot( i1.get_ned2body() )
+    #ned1 = i1.camera_pose['ned']
+    #tvec1 = -np.matrix(R1) * np.matrix(ned1).T
+    #PROJ1 = np.concatenate((R1, tvec1), axis=1)
+
+    R1, jac = cv2.Rodrigues(i1.rvec)
+    PROJ1 = np.concatenate((R1, i1.tvec), axis=1)
     for j, i2 in enumerate(proj.image_list):
-        R2 = IM.dot( i2.get_R() )
+        R2, jac = cv2.Rodrigues(i2.rvec)
+        PROJ2 = np.concatenate((R2, i2.tvec), axis=1)
+
+        matches = i1.match_list[j]
+        if len(matches) == 0:
+            continue
+        pts1 = np.zeros( (2, len(matches)), dtype=float)
+        pts2 = np.zeros( (2, len(matches)), dtype=float)
+        for k, pair in enumerate(matches):
+            pts1[:,k] = i1.kp_list[ pair[0] ].pt
+            pts2[:,k] = i2.kp_list[ pair[1] ].pt
+        points = cv2.triangulatePoints(PROJ1, PROJ2, pts1, pts2)
+        points /= points[3]
+        print points[0:3]
