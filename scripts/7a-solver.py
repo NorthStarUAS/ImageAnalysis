@@ -9,6 +9,8 @@ import cv2
 import fnmatch
 import json
 import math
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import os.path
 from progress.bar import Bar
@@ -85,7 +87,21 @@ for image in proj.image_list:
 for image in proj.image_list:
     image.img_pts = []
     image.obj_pts = []
-    
+
+# iterate through the match dictionary and build a simple list of
+# starting surface points
+surface0 = []
+for key in matches_dict:
+    feature_dict = matches_dict[key]
+    ned = feature_dict['ned']
+    surface0.append( [ned[1], ned[0], -ned[2]] )
+
+# iterate through the image list and build a simple list of camera locations
+cam0 = []
+for image in proj.image_list:
+    ned, ypr, quat = image.get_camera_pose()
+    cam0.append( [ned[1], ned[0], -ned[2]] )
+
 # iterate through the match dictionary and build a per image list of
 # obj_pts and img_pts
 for key in matches_dict:
@@ -97,36 +113,37 @@ for key in matches_dict:
         kp = image.kp_list[ p[1] ]
         image.img_pts.append( kp.pt )
         image.obj_pts.append( ned )
-        
+
 camw, camh = proj.cam.get_image_params()
+cam1 = []
 for image in proj.image_list:
+    # skip this step for the moment (so we can try triangulating from
+    # original camera positions
+    continue
+
     print image.name
     if len(image.img_pts) < 4:
         continue
     scale = float(image.width) / float(camw)
     K = proj.cam.get_K(scale)
-    if hasattr(image, 'rvec'):
-        (result, image.rvec, image.tvec) \
-            = cv2.solvePnP(np.float32(image.obj_pts),
-                           np.float32(image.img_pts),
-                           K, None,
-                           image.rvec, image.tvec,
-                           useExtrinsicGuess=True)
-    else:
-        # first time
-        (result, image.rvec, image.tvec) \
-            = cv2.solvePnP(np.float32(image.obj_pts),
-                           np.float32(image.img_pts),
-                           K, None)
-    Rned2cam, jac = cv2.Rodrigues(image.rvec)
+    rvec, tvec = image.get_proj()
+    (rvec, tvec, result) = cv2.solvePnPRansac(np.float32(image.obj_pts),
+                                        np.float32(image.img_pts),
+                                        K, None,
+                                        rvec, tvec, useExtrinsicGuess=True)
+    print "rvec=", rvec
+    print "tvec=", tvec
+    Rned2cam, jac = cv2.Rodrigues(rvec)
     #print "Rraw (from SolvePNP):\n", Rraw
 
     ned = image.camera_pose['ned']
     print "original ned = ", ned
     #tvec = -np.matrix(R[:3,:3]) * np.matrix(ned).T
     #print "tvec =", tvec
-    pos = -np.matrix(Rned2cam[:3,:3]).T * np.matrix(image.tvec)
-    print "pos = ", pos.tolist()
+    pos = -np.matrix(Rned2cam[:3,:3]).T * np.matrix(tvec)
+    newned = pos.T[0].tolist()[0]
+    print "new ned =", newned
+    cam1.append( [newned[1], newned[0], -newned[2]] )
 
     # Our Rcam matrix (in our ned coordinate system) is body2cam * Rned,
     # so solvePnP returns this combination.  We can extract Rned by
@@ -149,21 +166,22 @@ for image in proj.image_list:
 
     image.set_camera_pose( pos.T[0].tolist(), [yaw/d2r, pitch/d2r, roll/d2r] )
     
-    #print "Proj =", np.concatenate((R, image.tvec), axis=1)
+    #print "Proj =", np.concatenate((R, tvec), axis=1)
 
+K = proj.cam.get_K()
+surface1 = []
 for i, i1 in enumerate(proj.image_list):
-    body2cam = i1.get_body2cam()
-
     rvec1, tvec1 = i1.get_proj()
     R1, jac = cv2.Rodrigues(rvec1)
+    #R1 = K.dot(R)
     PROJ1 = np.concatenate((R1, tvec1), axis=1)
     for j, i2 in enumerate(proj.image_list):
         matches = i1.match_list[j]
         if len(matches) == 0:
             continue
-
         rvec2, tvec2 = i2.get_proj()
         R2, jac = cv2.Rodrigues(rvec2)
+        #XSR2 = K.dot(R)
         PROJ2 = np.concatenate((R2, tvec2), axis=1)
 
         pts1 = np.zeros( (2, len(matches)), dtype=float)
@@ -174,8 +192,55 @@ for i, i1 in enumerate(proj.image_list):
             pts1[:,k] = [ p1[0] / i1.width, p1[1] / i1.height ]
             pts2[:,k] = [ p2[0] / i2.width, p2[1] / i2.height ]
         points = cv2.triangulatePoints(PROJ1, PROJ2, pts1, pts2)
+        print "pts1 reproject:"
+        x1 = PROJ1.dot(points)
+        x1 /= x1[2]
+        for k in range(len(matches)):
+            #print "p=%s x1=%s" % (p[:,k], x1[:,k])
+            print "orig1=%s reproj=%s" % ( pts1[:,k].tolist(), x1[0:2,k].T.tolist()[0] )
+        print "pts2 reproject:"
+        x2 = PROJ2.dot(points)
+        x2 /= x2[2]
+        for k in range(len(matches)):
+            #print "p=%s x1=%s" % (p[:,k], x1[:,k])
+            print "orig1=%s reproj=%s" % ( pts2[:,k].tolist(), x2[0:2,k].T.tolist()[0] )
         points /= points[3]
         #print "points:\n", points[0:3].T
         print "%s vs %s" % (i1.name, i2.name)
         for k, p in enumerate(points[0:3].T):
-            print p
+            match = matches[k]
+            key = "%d-%d" % (i, match[0])
+            print key
+            if not key in matches_dict:
+                key = "%d-%d" % (j, match[1])
+                print key
+            pnew = p.tolist()
+            print "new=", pnew
+            print "1st guess=", matches_dict[key]['ned']
+            surface1.append( [pnew[1], pnew[0], -pnew[2]] )
+
+fig = plt.figure()
+
+ax = fig.add_subplot(111, projection='3d')
+xs = []; ys = []; zs = []
+for p in surface0:
+    xs.append(p[0])
+    ys.append(p[1])
+    zs.append(p[2])
+ax.scatter(np.array(xs), np.array(ys), np.array(zs), c='r', marker='o')
+
+xs = []; ys = []; zs = []
+for p in surface1:
+    xs.append(p[0])
+    ys.append(p[1])
+    zs.append(p[2])
+ax.scatter(np.array(xs), np.array(ys), np.array(zs), c='b', marker='o')
+
+xs = []; ys = []; zs = []
+for p in cam0:
+    xs.append(p[0])
+    ys.append(p[1])
+    zs.append(p[2])
+ax.scatter(np.array(xs), np.array(ys), np.array(zs), c='y', marker='^')
+
+plt.show()
