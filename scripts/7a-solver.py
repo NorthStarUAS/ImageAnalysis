@@ -169,11 +169,12 @@ for image in proj.image_list:
     #print "Proj =", np.concatenate((R, tvec), axis=1)
 
 K = proj.cam.get_K()
+IK = np.linalg.inv(K)
+fx, fy, cx, cy, distcoeffs, skew = proj.cam.get_calibration_params()
 surface1 = []
 for i, i1 in enumerate(proj.image_list):
     rvec1, tvec1 = i1.get_proj()
     R1, jac = cv2.Rodrigues(rvec1)
-    #R1 = K.dot(R)
     PROJ1 = np.concatenate((R1, tvec1), axis=1)
     for j, i2 in enumerate(proj.image_list):
         matches = i1.match_list[j]
@@ -181,17 +182,29 @@ for i, i1 in enumerate(proj.image_list):
             continue
         rvec2, tvec2 = i2.get_proj()
         R2, jac = cv2.Rodrigues(rvec2)
-        #XSR2 = K.dot(R)
         PROJ2 = np.concatenate((R2, tvec2), axis=1)
 
-        pts1 = np.zeros( (2, len(matches)), dtype=float)
-        pts2 = np.zeros( (2, len(matches)), dtype=float)
+        uv1 = []; uv2 = []
         for k, pair in enumerate(matches):
             p1 = i1.kp_list[ pair[0] ].pt
             p2 = i2.kp_list[ pair[1] ].pt
-            pts1[:,k] = [ p1[0] / i1.width, p1[1] / i1.height ]
-            pts2[:,k] = [ p2[0] / i2.width, p2[1] / i2.height ]
-        points = cv2.triangulatePoints(PROJ1, PROJ2, pts1, pts2)
+            uv1.append( [p1[0], p1[1], 1.0] )
+            uv2.append( [p2[0], p2[1], 1.0] )
+        pts1 = IK.dot(np.array(uv1).T)
+        pts2 = IK.dot(np.array(uv2).T)
+
+        #pts1 = np.zeros( (2, len(matches)), dtype=float)
+        #pts2 = np.zeros( (2, len(matches)), dtype=float)
+        #for k, pair in enumerate(matches):
+        #    p1 = i1.kp_list[ pair[0] ].pt
+        #    p2 = i2.kp_list[ pair[1] ].pt
+        #    pts1[:,k] = [ (p1[0]-cx) / fx, (p1[1]-cy) / fy ]
+        #    pts2[:,k] = [ (p2[0]-cx) / fx, (p2[1]-cy) / fy ]
+        #    #pts1[:,k] = [ p1[0] / i1.width-0.5, p1[1] / i1.height-0.5 ]
+        #    #pts2[:,k] = [ p2[0] / i2.width-0.5, p2[1] / i2.height-0.5 ]
+        #    #pts1[:,k] = [ p1[0], p1[1] ]
+        #    #pts2[:,k] = [ p2[0], p2[1] ]
+        points = cv2.triangulatePoints(PROJ1, PROJ2, pts1[:2], pts2[:2])
         print "pts1 reproject:"
         x1 = PROJ1.dot(points)
         x1 /= x1[2]
@@ -227,14 +240,14 @@ for p in surface0:
     xs.append(p[0])
     ys.append(p[1])
     zs.append(p[2])
-ax.scatter(np.array(xs), np.array(ys), np.array(zs), c='r', marker='o')
+ax.scatter(np.array(xs), np.array(ys), np.array(zs), c='r', marker='.')
 
 xs = []; ys = []; zs = []
 for p in surface1:
     xs.append(p[0])
     ys.append(p[1])
     zs.append(p[2])
-ax.scatter(np.array(xs), np.array(ys), np.array(zs), c='b', marker='o')
+ax.scatter(np.array(xs), np.array(ys), np.array(zs), c='b', marker='.')
 
 xs = []; ys = []; zs = []
 for p in cam0:
