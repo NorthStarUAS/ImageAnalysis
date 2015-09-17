@@ -413,6 +413,97 @@ def solvePnP2( cam_dict_orig, cam_dict, pts_dict ):
         print "new pose:\n", cam_dict_new[i1.name]
     return cam_dict_new
 
+# Iterate through the project image list pairs and run solvePnP on
+# each image pair individually to get the estimated pose (from each
+# match pair) for each camera.  The average the poses for each camera
+# to come up with an average pose.
+cam1 = []
+def solvePnP3( cam_dict_orig, cam_dict, pts_dict ):
+    print "solvePnP3()"
+    cam_dict_new = {}
+    camw, camh = proj.cam.get_image_params()
+    for i, i1 in enumerate(proj.image_list):
+        print i1.name
+        print "orig pose (at start of loop):\n", cam_dict[i1.name]
+        scale = float(i1.width) / float(camw)
+        K = proj.cam.get_K(scale)
+        cam2body = i1.get_cam2body()
+        body2cam = i1.get_body2cam()
+        # include our own position in the average
+        quat_start_weight = 50
+        count = 0
+        rvec1_start = np.copy(cam_dict[i1.name]['rvec'])
+        print "start_quat =", rvec2quat(rvec1_start, cam2body)
+        sum_quat = rvec2quat(rvec1_start, cam2body) * quat_start_weight
+        for j, i2 in enumerate(proj.image_list):
+            matches = i1.match_list[j]
+            if len(matches) < 8:
+                continue
+            count += 1
+            # solvePnP() overwrites the guesses with the answer, so
+            # let's make fresh copies each iteration (instead of just
+            # copying a pointer to the original.)
+            rvec1_guess = np.copy(cam_dict[i1.name]['rvec'])
+            tvec1_guess = np.copy(cam_dict[i1.name]['tvec'])
+            # build obj_pts and img_pts to position i1 relative to the
+            # matches in i2.
+            img1_pts = []
+            obj_pts = []
+            for pair in matches:
+                kp1 = i1.kp_list[ pair[0] ]
+                img1_pts.append( kp1.pt )
+                key = "%d-%d" % (i, pair[0])
+                if not key in pts_dict:
+                    key = "%d-%d" % (j, pair[1])
+                # print key, pts_dict[key]
+                obj_pts.append(pts_dict[key])
+            
+            # given the previously computed triangulations (and
+            # averages of point 3d locations if they are involved in
+            # multiple triangulations), then compute an estimate for
+            # both matching camera poses.  The relative positioning of
+            # these camera poses should be pretty accurate.
+            (result, rvec1, tvec1) = cv2.solvePnP(np.float32(obj_pts),
+                                                  np.float32(img1_pts),
+                                                  K, None,
+                                                  rvec1_guess, tvec1_guess,
+                                                  useExtrinsicGuess=True)
+            quat = rvec2quat(rvec1, cam2body)
+            sum_quat += quat
+
+        print "count = ", count
+        print "orig ned =", i1.camera_pose['ned']
+        print "sum_quat=%s total=%s" % (sum_quat, quat_start_weight + count)
+        newquat = sum_quat / (quat_start_weight + count)
+        print "new quat =", newquat
+        newIR = transformations.quaternion_matrix(newquat)
+        print "flight data ypr = ", i1.camera_pose['ypr']
+        (yaw, pitch, roll) = transformations.euler_from_quaternion(newquat, 'rzyx')
+        print "new ypr =", [yaw/d2r, pitch/d2r, roll/d2r]
+
+        newR = np.transpose(newIR[:3,:3]) # equivalent to inverting
+        newRned2cam = body2cam.dot(newR[:3,:3])
+        rvec, jac = cv2.Rodrigues(newRned2cam)
+        #new_tvec = -np.matrix(newRned2cam) * np.matrix(newned).T
+
+        print "orig pose (at end of loop):\n", cam_dict[i1.name]
+        cam_dict_new[i1.name] = {}
+        cam_dict_new[i1.name]['rvec'] = rvec
+        # compute a tvec relative to the starting ned (we are just
+        # adjusting orientation in this routine)
+        ned_orig = cam_dict[i1.name]['ned']
+        
+        # move the camera ned locations
+        tvec = -np.matrix(newRned2cam) * np.matrix(ned_orig).T
+        cam_dict_new[i1.name]['ned'] = ned_orig
+        # or don't move the camera ned locations
+        #### tvec = -np.matrix(newRned2cam) * np.matrix(ned_orig).T
+        #### cam_dict_new[i1.name]['ned'] = cam_dict[i1.name]['ned']
+        
+        cam_dict_new[i1.name]['tvec'] = tvec
+        print "new pose:\n", cam_dict_new[i1.name]
+    return cam_dict_new
+
 
 # compute a 3d affine tranformation between current set of refined
 # camera locations and original camera locations, then transform the
@@ -587,7 +678,7 @@ while True:
     cam_dict = solvePnP1(cam_dict_orig, cam_dict, newpts_dict)
 
     # improve camera pose orientation
-    cam_dict = solvePnP2(cam_dict_orig, cam_dict, newpts_dict)
+    # cam_dict = solvePnP3(cam_dict_orig, cam_dict, newpts_dict)
     
     # get the affine transformation required to bring the new camera
     # locations back into a best fit with the original camera
@@ -599,14 +690,14 @@ while True:
     
     # run solvePnP now on the updated points (hopefully this will
     # naturally reorient the cameras as needed.)
-    #### cam_dict = solvePnP(newpts_dict)
+    #### cam_dict = solvePnP3(cam_dict_orig, cam_dict, newpts_dict)
     
     cam1 = []
     for key in cam_dict:
         p = cam_dict[key]['ned']
         cam1.append( [ p[1], p[0], -p[2] ] )
 
-    if count % 1 == 0:
+    if count % 10 == 0:
         plot(surface0, cam0, surface1, cam1)
 
     count += 1
