@@ -11,25 +11,16 @@ import sys
 sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
 
 import argparse
-import commands
-import cv2
-import fnmatch
 import json
 import math
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
-import os.path
-from progress.bar import Bar
-import scipy.spatial
 
 sys.path.append('../lib')
 import Matcher
-import Pose
 import ProjectMgr
 import SBA
-import SRTM
 import transformations
+
 
 # working on matching features ...
 
@@ -52,4 +43,21 @@ f.close()
 
 sba = SBA.SBA(args.project)
 sba.prepair_data( proj.image_list, matches_dict, proj.cam.get_K() )
-sba.run()
+cameras, features = sba.run()
+
+for i, image in enumerate(proj.image_list):
+    orig = image.camera_pose
+    new = cameras[i]
+    newq = np.array( [ new[0], new[1], new[2], new[3] ] )
+    tvec = np.array( [ new[4], new[5], new[6] ] )
+    Rned2cam = transformations.quaternion_matrix(newq)[:3,:3]
+    cam2body = image.get_cam2body()
+    Rned2body = cam2body.dot(Rned2cam)
+    Rbody2ned = np.matrix(Rned2body).T
+    (yaw, pitch, roll) = transformations.euler_from_matrix(Rbody2ned, 'rzyx')
+    d2r = math.pi / 180.0       # a helpful constant
+    print "ypr =", [yaw/d2r, pitch/d2r, roll/d2r]
+    pos = -np.matrix(Rned2cam).T * np.matrix(tvec).T
+    newned = pos.T[0].tolist()[0]
+    print "orig ned =", image.camera_pose['ned']
+    print "new ned =", newned
