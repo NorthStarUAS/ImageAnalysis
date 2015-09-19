@@ -12,8 +12,8 @@ import sys
 
 import transformations
 
-# a helpful constant
-d2r = math.pi / 180.0
+
+d2r = math.pi / 180.0           # a helpful constant
     
 class Image():
     def __init__(self, image_dir=None, image_file=None):
