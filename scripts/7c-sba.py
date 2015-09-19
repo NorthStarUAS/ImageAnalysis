@@ -56,8 +56,24 @@ for i, image in enumerate(proj.image_list):
     Rbody2ned = np.matrix(Rned2body).T
     (yaw, pitch, roll) = transformations.euler_from_matrix(Rbody2ned, 'rzyx')
     d2r = math.pi / 180.0       # a helpful constant
-    print "ypr =", [yaw/d2r, pitch/d2r, roll/d2r]
+    #print "orig ypr =", image.camera_pose['ypr']
+    #print "new ypr =", [yaw/d2r, pitch/d2r, roll/d2r]
     pos = -np.matrix(Rned2cam).T * np.matrix(tvec).T
     newned = pos.T[0].tolist()[0]
-    print "orig ned =", image.camera_pose['ned']
-    print "new ned =", newned
+    #print "orig ned =", image.camera_pose['ned']
+    #print "new ned =", newned
+    image.set_camera_pose( ned=newned, ypr=[yaw/d2r, pitch/d2r, roll/d2r] )
+    image.save_meta()
+
+# update the ned coordinate in matches_dict
+for i, key in enumerate(matches_dict):
+    matches_dict[key]['ned'] = features[i].tolist()
+    #feat = matches_dict[key]
+    #ned = np.array(feat['ned'])
+    #newned = features[i]
+    #print "Feature %04d orig=%s new=%s" % (i, ned, newned)
+
+# write out the updated match_dict
+f = open(args.project + "/Matches.json", 'w')
+json.dump(matches_dict, f, sort_keys=True)
+f.close()
