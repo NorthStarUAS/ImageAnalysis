@@ -88,11 +88,13 @@ class SBA():
         print "Running:", command
         result = subprocess.check_output( command )
 
-        state = 'start'
+        state = ''
         mre_start = 0.0         # mre = mean reprojection error
         mre_final = 0.0         # mre = mean reprojection error
         iterations = 0
         time_msec = 0.0
+        cameras = []
+        features = []
         
         for line in result.split('\n'):
             if re.search('mean reprojection error', line):
@@ -113,13 +115,17 @@ class SBA():
             else:
                 tokens = line.split()
                 if state == 'motion' and len(tokens) == 7:
-                    print "camera:", np.array(tokens, dtype=float)
+                    # print "camera:", np.array(tokens, dtype=float)
+                    cameras.append( np.array(tokens, dtype=float) )
                 elif state == 'structure' and len(tokens) == 3:
-                    print "feature:", np.array(tokens, dtype=float)
-                else:
-                    print "debug =", line
+                    # print "feature:", np.array(tokens, dtype=float)
+                    features.append( np.array(tokens, dtype=float) )
+                # else:
+                    # print "debug =", line
             
         print "Starting mean reprojection error:", mre_start
         print "Final mean reprojection error:", mre_final
         print "Iterations =", iterations
-        print "Elapsed time = %.2f sec (%.2f msec)" % (time_msec/1000, time_msec)
+        print "Elapsed time = %.2f sec (%.2f msec)" % (time_msec/1000,
+                                                       time_msec)
+        return cameras, features
