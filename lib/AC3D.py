@@ -1,6 +1,26 @@
+import commands
 import math
+import os.path
 
-def generate(image_list, ref_image=False, image_dir=".", base_name="quick", version=1.0, trans=0.0 ):
+def make_textures(project_dir, image_list, resolution=256):
+    src_dir = project_dir + '/Images/'
+    dst_dir = project_dir + '/Textures/'
+    if not os.path.exists(dst_dir):
+        print "Notice: creating texture directory =", dst_dir
+        os.makedirs(dst_dir)
+    for image in image_list:
+        src = src_dir + image.name
+        dst = dst_dir + image.name
+        if not os.path.exists(dst):
+            command = "convert -resize %dx%d! %s %s" % ( resolution, resolution,
+                                                         src, dst )
+            print command
+            commands.getstatusoutput( command )
+        
+def generate(image_list, ref_image=False, project_dir=".", base_name="quick", version=1.0, trans=0.0 ):
+    # make the textures if needed
+    make_textures(project_dir, image_list, 256)
+    
     max_roll = 30.0
     max_pitch = 30.0
     min_agl = 50.0
@@ -16,7 +36,7 @@ def generate(image_list, ref_image=False, image_dir=".", base_name="quick", vers
     match_count += len(image_list)
 
     # write AC3D header
-    name = image_dir
+    name = project_dir
     name += "/"
     name += base_name
     if version:
@@ -36,7 +56,7 @@ def generate(image_list, ref_image=False, image_dir=".", base_name="quick", vers
 
         f.write("OBJECT poly\n")
         f.write("name \"rect\"\n")
-        f.write("texture \"./Images/" + image.name + "\"\n")
+        f.write("texture \"./Textures/" + image.name + "\"\n")
         f.write("loc 0 0 0\n")
 
         f.write("numvert %d\n" % len(image.grid_list))
