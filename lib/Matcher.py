@@ -533,7 +533,7 @@ class Matcher():
         stddev = math.sqrt(stddev_sum / len(match))
         print "   error avg = %.2f stddev = %.2f" % (error_avg, stddev)
 
-        # computers best estimation of valid vs. suspect pairs
+        # compute best estimation of valid vs. suspect pairs
         dirty = False
         if error_avg >= minError:
             dirty = True
