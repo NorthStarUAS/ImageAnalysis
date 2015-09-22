@@ -21,8 +21,11 @@ import ProjectMgr
 import SRTM
 import transformations
 
-# for all the images in the project image_dir, compute the camera poses from
-# the aircraft pose (and camera mounting transform)
+# for all the images in the project image_dir, compute the camera
+# poses from the aircraft pose (and camera mounting transform).
+# Project the image plane onto an SRTM (DEM) surface for our best
+# layout guess (at this point before we do any matching/bundle
+# adjustment work.)
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
