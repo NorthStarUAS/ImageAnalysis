@@ -222,6 +222,13 @@ class ProjectMgr():
             image = Image.Image(self.image_dir, file_name)
             self.image_list.append( image )
 
+        # load rgb and determine image dimensions of this step has not
+        # already been done
+        for image in self.image_list:
+            if image.height == 0 or image.width == 0:
+                image.load_rgb()
+                image.save_meta()
+            
         # make sure our matcher gets a copy of the image list
         #self.m.setImageList(self.image_list)
         self.placer.setImageList(self.image_list)
