@@ -28,13 +28,11 @@ import transformations
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
-#parser.add_argument('--ground', type=float, help='ground elevation in meters')
 
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
-proj.load_features()            # for image dimensions
 
 ref = proj.ned_reference_lla
 

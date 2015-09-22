@@ -35,7 +35,6 @@ args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
-proj.load_features()            # for image dimensions
 
 ref = proj.ned_reference_lla
 
