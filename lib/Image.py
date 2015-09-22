@@ -95,6 +95,11 @@ class Image():
                 self.aircraft_pose = image_dict['aircraft-pose']
             if 'camera-pose' in image_dict:
                 self.camera_pose = image_dict['camera-pose']
+            if 'height' in image_dict:
+                self.height = image_dict['height']
+            if 'width' in image_dict:
+                self.width = image_dict['width']
+            
             self.alt_bias = image_dict['altitude-bias']
             self.roll_bias = image_dict['roll-bias']
             self.pitch_bias = image_dict['pitch-bias']
@@ -150,8 +155,6 @@ class Image():
                     + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1])
                 return
             
-            self.width = feature_dict['width']
-            self.height = feature_dict['height']
             feature_list = feature_dict['features']
             for i, kp_dict in enumerate(feature_list):
                 angle = kp_dict['angle']
@@ -195,9 +198,7 @@ class Image():
     def save_features(self):
         # convert from native opencv kp class to a dictionary
         feature_list = []
-        feature_dict = { 'width': self.width,
-                         'height': self.height,
-                         'features': feature_list }
+        feature_dict = { 'features': feature_list }
         for i, kp in enumerate(self.kp_list):
             kp_dict = { 'angle': kp.angle,
                         'class-id': kp.class_id,
@@ -241,6 +242,8 @@ class Image():
         image_dict['num-matches'] = self.num_matches
         image_dict['aircraft-pose'] = self.aircraft_pose
         image_dict['camera-pose'] = self.camera_pose
+        image_dict['height'] = self.height
+        image_dict['width'] = self.width
         image_dict['altitude-bias'] = self.alt_bias
         image_dict['roll-bias'] = self.roll_bias
         image_dict['pitch-bias'] = self.pitch_bias
