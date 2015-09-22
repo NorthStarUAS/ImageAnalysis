@@ -111,10 +111,12 @@ for image in proj.image_list:
     bar.next()
 bar.finish()
 
+proj.matcher_params = { 'matcher': args.matcher,
+                        'match-ratio': args.match_ratio }
+proj.save()
+
 # fire up the matcher
 m = Matcher.Matcher()
-matcher_params = { 'matcher': args.matcher,
-                   'match-ratio': args.match_ratio }
 m.configure(proj.detector_params, proj.matcher_params)
 m.robustGroupMatches(proj.image_list, filter=args.filter, review=False)
 
