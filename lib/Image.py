@@ -121,8 +121,21 @@ class Image():
                 self.img_rgb = cv2.imread(self.image_file)
                 self.height, self.width, self.fulld = self.img_rgb.shape
                 self.img = cv2.cvtColor(self.img_rgb, cv2.COLOR_BGR2GRAY)
-                # self.img = cv2.equalizeHist(gray)
-                # self.img = gray
+
+                #cv2.imshow('load', self.img)
+
+                # if we wish to equalize history
+                # self.img = cv2.equalizeHist(self.img)
+
+                # if we wish to apply adaptive histogram equilization
+                # (block by block)
+                clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+                self.img = clahe.apply(self.img)
+    
+                #cv2.imshow('load-eq', self.img)
+                #print 'waiting for keyboard input...'
+                #key = cv2.waitKey() & 0xff
+
                 return self.img_rgb
                 
             except:
@@ -274,7 +287,6 @@ class Image():
         elif dparams['detector'] == 'SURF':
             threshold = float(dparams['surf-hessian-threshold'])
             nOctaves = int(dparams['surf-noctaves'])
-            print "octaves = ", nOctaves
             detector = cv2.SURF(hessianThreshold=threshold, nOctaves=nOctaves)
         elif dparams['detector'] == 'ORB':
             max_features = int(dparams['orb-max-features'])
