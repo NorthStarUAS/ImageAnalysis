@@ -5,6 +5,7 @@ import numpy as np
 
 from find_obj import filter_matches,explore_match
 import ImageList
+import transformations
 
 class Matcher():
     def __init__(self):
@@ -164,6 +165,102 @@ class Matcher():
                     clean = False
                     print "  (%d vs. %d) matches %d -> %d" % (i, j, before, after)
         return clean
+
+    # Iterative Closest Point algorithm
+    def ICP(self, i1, i2):
+        if i1 == i2:
+            return []
+        # create a new copy of i2.coord_list
+        coord_list2 = np.array(i2.coord_list, copy=True).T
+        #print coord_list2
+
+        # make homogeneous
+        newcol = np.ones( (1, coord_list2.shape[1]) )
+        #print newcol
+        #print coord_list2.shape, newcol.shape
+        coord_list2 = np.vstack((coord_list2, newcol))
+
+        done = False
+        while not done:
+            # find a pairing for the closest points.  If the closest point
+            # is already taken, then if the distance is less, the old
+            # pairing is dropped and the new one accepted. If the distance
+            # is greater than a previous pairing, the new pairing is
+            # skipped
+            i1.icp_index = np.zeros( len(i1.coord_list), dtype=int )
+            i1.icp_index.fill(-1)
+            i1.icp_dist = np.zeros( len(i1.coord_list) )
+            i1.icp_dist.fill(np.inf) # a big number
+            for i in range(coord_list2.shape[1]):
+                c2 = coord_list2[:3,i]
+                (dist, index) = i1.kdtree.query(c2, k=1)
+                if dist < i1.icp_dist[index]:
+                    i1.icp_dist[index] = dist
+                    i1.icp_index[index] = i
+            pairs = []
+            for i, index in enumerate(i1.icp_index):
+                if index >= 0:
+                    c1 = i1.coord_list[i]
+                    c2 = coord_list2[:3,index]
+                    #print "c1=%s c2=%s" % (c1, c2)
+                    pairs.append( [c1, c2] )
+
+            do_plot = True
+            if do_plot:
+                # This can be plotted in gnuplot with:
+                # plot "c1.txt", "c2.txt", "vector.txt" u 1:2:($3-$1):($4-$2) title "pairs" with vectors
+                f = open('c1.txt', 'w')
+                for c1 in i1.coord_list:
+                    f.write("%.3f %.3f %.3f\n" % (c1[1], c1[0], -c1[2]))
+                f.close()
+                f = open('c2.txt', 'w')
+                for i in range(coord_list2.shape[1]):
+                    c2 = coord_list2[:3,i]
+                    f.write("%.3f %.3f %.3f\n" % (c2[1], c2[0], -c2[2]))
+                f.close()
+                f = open('vector.txt', 'w')
+                for pair in pairs:
+                    c1 = pair[0]
+                    c2 = pair[1]
+                    f.write("%.3f %.3f %.3f %.3f %.3f %.3f\n" % ( c2[1], c2[0], -c2[2], c1[1], c1[0], -c1[2] ))
+                f.close()
+
+            # find the affine transform matrix that brings the paired
+            # points together
+            #print "icp pairs =", len(pairs)
+            v0 = np.zeros( (3, len(pairs)) )
+            v1 = np.zeros( (3, len(pairs)) )
+            weights = np.zeros( len(pairs) )
+            weights.fill(1.0)
+            for i, pair in enumerate(pairs):
+                v0[:,i] = pair[0]
+                v1[:,i] = pair[1]
+            #print "v0\n", v0
+            #print "v1\n", v1
+            #print "weights\n", weights
+            M = transformations.affine_matrix_from_points(v1, v0, shear=False, scale=False)
+            #M = transformations.affine_matrix_from_points_weighted(v0, v1, weights, shear=False, scale=False)
+            #print M
+            scale, shear, angles, trans, persp = transformations.decompose_matrix(M)
+            #print "scale=", scale
+            #print "shear=", shear
+            #print "angles=", angles
+            #print "trans=", trans
+            #print "persp=", persp
+
+            coord_list2 = np.dot(M, coord_list2)
+            coord_list2 /= coord_list2[3]
+            # print coord_list2
+
+            rot = np.linalg.norm(angles)
+            dist = np.linalg.norm(trans)
+            print "rot=%.6f dist=%.6f" % (rot, dist)
+            if rot < 0.001 and dist < 0.001:
+                done = True
+                a = raw_input("Press Enter to continue...")
+
+                
+        
         
     # do initial feature matching of specified image against every
     # image in the provided image list (except self)
@@ -180,13 +277,15 @@ class Matcher():
             result = i2.kdtree.query_ball_point(i1.center, i1.radius + 20.0)
         else:
             result = []
-        if len(result) == 0:
+        if len(result) <= 1:
             return []
 
         # all vs. all match between i1 keypoints and any i2
         # keypoints within the query radius
         for k in result:
             des_list2.append(i2.des_list[k])
+        print len(i1.des_list)
+        print len(des_list2)
         matches = self.matcher.knnMatch(np.array(i1.des_list),
                                         trainDescriptors=np.array(des_list2),
                                         k=2)
@@ -197,17 +296,26 @@ class Matcher():
                 qi = m.trainIdx
                 m.trainIdx = result[qi]
 
+        print "initial matches =", len(matches)
+        
         # run the classic feature distance ratio test
         p1, p2, kp_pairs, idx_pairs = self.filter_by_feature(i1, i2, matches)
-
+        print "after distance ratio test =", len(idx_pairs)
+        
         # test each individual match pair for proximity to each
         # other (fine grain distance check)
-        idx_pairs = self.filter_by_location(i1, i2, idx_pairs, 10.0)
+        # print "  pairs (before location filter) =", len(idx_pairs)
+        idx_pairs = self.filter_by_location(i1, i2, idx_pairs, 50.0)
+        print "after direct goereference distance test =", len(idx_pairs)
 
         if len(idx_pairs) < self.min_pairs:
             return []
-        print "  pairs = ", len(idx_pairs)
+        print "  pairs =", len(idx_pairs)
 
+        plot_matches = True
+        if plot_matches:
+            self.plot_matches(i1, i2, idx_pairs)
+            
         if review:
             status = self.showMatch(i1, i2, idx_pairs)
             # remove deselected pairs
@@ -220,6 +328,26 @@ class Matcher():
                     idx_pairs.remove(pair)
 
         return idx_pairs
+
+    def plot_matches(self, i1, i2, idx_pairs):
+        # This can be plotted in gnuplot with:
+        # plot "c1.txt", "c2.txt", "vector.txt" u 1:2:($3-$1):($4-$2) title "pairs" with vectors
+        f = open('c1.txt', 'w')
+        for c1 in i1.coord_list:
+            f.write("%.3f %.3f %.3f\n" % (c1[1], c1[0], -c1[2]))
+        f.close()
+        f = open('c2.txt', 'w')
+        for c2 in i2.coord_list:
+            f.write("%.3f %.3f %.3f\n" % (c2[1], c2[0], -c2[2]))
+        f.close()
+        f = open('vector.txt', 'w')
+        for pair in idx_pairs:
+            c1 = i1.coord_list[pair[0]]
+            c2 = i2.coord_list[pair[1]]
+            f.write("%.3f %.3f %.3f %.3f %.3f %.3f\n" % ( c2[1], c2[0], -c2[2], c1[1], c1[0], -c1[2] ))
+        f.close()
+        # a = raw_input("Press Enter to continue...")
+ 
 
     def robustGroupMatches(self, image_list, filter="fundamental",
                            review=False):
@@ -236,7 +364,8 @@ class Matcher():
                     continue
                 print "Matching %s vs %s" % (i1.name, i2.name)
                 i1.match_list[j] = self.hybridImageMatches(i1, i2, review)
-
+                # self.ICP(i1, i2)
+                
         done = False
         while not done:
             done = True
