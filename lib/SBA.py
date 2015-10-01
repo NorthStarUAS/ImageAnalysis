@@ -64,8 +64,9 @@ class SBA():
             f.write(s)
             for p in pts:
                 image_num = p[0]
-                kp = image_list[image_num].kp_list[p[1]]
-                s = "%d %.2f %.2f " % (image_num, kp.pt[0], kp.pt[1])
+                # kp = image_list[image_num].kp_list[p[1]].pt # undistorted
+                kp = image_list[image_num].uv_list[p[1]]      # distorted
+                s = "%d %.2f %.2f " % (image_num, kp[0], kp[1])
                 f.write(s)
             f.write('\n')
         f.close()
