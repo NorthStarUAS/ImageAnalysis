@@ -4,6 +4,7 @@
 
 import fileinput
 import math
+import re
 
 import navpy
 
@@ -26,18 +27,26 @@ d2r = math.pi / 180.0
 
 
 # define the image aircraft poses from Sentera meta data file
-def setAircraftPoses(proj, metafile="", force=True, weight=True):
+def setAircraftPoses(proj, metafile="", order='ypr', force=True, weight=True):
     f = fileinput.input(metafile)
     for line in f:
         line.strip()
+        if re.match('^\s*#', line):
+            print "skipping comment ", line
+            continue
         field = line.split(',')
         name = field[0]
         lat = float(field[1])
         lon = float(field[2])
         alt = float(field[3])
-        yaw = float(field[4])
-        pitch = float(field[5])
-        roll = float(field[6])
+        if order == 'ypr':
+            yaw = float(field[4])
+            pitch = float(field[5])
+            roll = float(field[6])
+        elif order == 'rpy':
+            roll = float(field[4])
+            pitch = float(field[5])
+            yaw = float(field[6])
 
         image = proj.findImageByName(name)
         if image != None:
