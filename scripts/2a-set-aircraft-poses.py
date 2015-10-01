@@ -18,7 +18,8 @@ import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Set the aircraft poses from flight data.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--sentera', help='use the specified sentera image-metadata.txt file')
+parser.add_argument('--sentera', help='use the specified sentera image-metadata.txt file (lat,lon,alt,yaw,pitch,roll)')
+parser.add_argument('--pix4d', help='use the specified pix4d csv file (lat,lon,alt,roll,pitch,yaw)')
 
 args = parser.parse_args()
 
@@ -27,7 +28,10 @@ proj.load_image_info()
 
 pose_set = False
 if args.sentera != None:
-    Pose.setAircraftPoses(proj, args.sentera)
+    Pose.setAircraftPoses(proj, args.sentera, order='ypr')
+    pose_set = True
+elif args.pix4d != None:
+    Pose.setAircraftPoses(proj, args.pix4d, order='rpy')
     pose_set = True
 
 if not pose_set:
