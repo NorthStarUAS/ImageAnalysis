@@ -29,7 +29,8 @@ parser.add_argument('--matcher', default='FLANN',
 parser.add_argument('--match-ratio', default=0.75, type=float,
                     help='match ratio')
 parser.add_argument('--filter', default='fundamental',
-                    choices=['homography', 'fundamental', 'none'])
+                    choices=['homography', 'fundamental', 'none'],
+                    required=True)
 
 args = parser.parse_args()
 
@@ -47,7 +48,6 @@ camw, camh = proj.cam.get_image_params()
 bar = Bar('Projecting keypoints to vectors:',
           max = len(proj.image_list))
 for image in proj.image_list:
-    # print "Projecting keypoints to vectors:", image.name
     scale = float(image.width) / float(camw)
     K = proj.cam.get_K(scale)
     IK = np.linalg.inv(K)
@@ -59,7 +59,6 @@ bar.finish()
 bar = Bar('Vector/terrain intersecting:',
           max = len(proj.image_list))
 for image in proj.image_list:
-    #print "Intersecting keypoint vectors with terrain:", image.name
     image.coord_list = sss.interpolate_vectors(image.camera_pose,
                                                image.vec_list)
     bar.next()
