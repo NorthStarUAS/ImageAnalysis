@@ -52,8 +52,10 @@ parser.add_argument('--pitch-deg', type=float,
 parser.add_argument('--roll-deg', type=float,
                     help='camera roll mounting offset from aircraft')
 
-parser.add_argument('--sentera3M', action='store_true',
+parser.add_argument('--sentera-3M', action='store_true',
                     help='settings for Sentera 3.1 Mpx 3808x2754 camera')
+parser.add_argument('--sentera-global', action='store_true',
+                    help='settings for Sentera 1.3Mpx Global shutter camera')
 
 args = parser.parse_args()
 
@@ -89,7 +91,11 @@ if args.yaw_deg != None or args.pitch_deg != None or args.roll_deg != None:
     else:
          print "Must set yaw-deg, pitch-deg, and roll-deg together"
 
-if args.sentera3M:
+# note: fx = (focal_len_mm * width_px) / horiz_mm
+# note: fy = (focal_len_mm * height_px) / vert_mm
+# note: dist_coeffs = array[5] = k1, k2, p1, p2, k3
+
+if args.sentera_3M:
     # need confirmation on these numbers because they don't all exactly jive
     # 1 pixel = 1.67 micrometer
     # horiz-mm = 6.36 (?)
@@ -102,9 +108,26 @@ if args.sentera3M:
     horiz_mm = width_px * 1.67 * 0.001
     vert_mm = height_px * 1.67 * 0.001
     focal_len_mm = (fx * horiz_mm) / width_px
+    dist_coeffs = [0.0, 0.0, 0.0, 0.0, 0.0]
     proj.cam.set_lens_params(horiz_mm, vert_mm, focal_len_mm)
     proj.cam.set_calibration_params(fx, fy, width_px/2, height_px/2,
-                                    [0.0, 0.0, 0.0, 0.0, 0.0], 0.0)
+                                    dist_coeffs, 0.0)
+    proj.cam.set_calibration_std(0.0, 0.0, 0.0, 0.0,
+                                 [0.0, 0.0, 0.0, 0.0, 0.0], 0.0)
+    proj.cam.set_image_params(width_px, height_px)
+    proj.cam.set_mount_params(0.0, -90.0, 0.0)
+elif args.sentera_global:
+    width_px = 1248
+    height_px = 950
+    fx = fy = 1613.33 # [pixels] - where 1 pixel = 3.75 micrometer
+    horiz_mm = width_px * 3.75 * 0.001
+    vert_mm = height_px * 3.75 * 0.001
+    focal_len_mm = (fx * horiz_mm) / width_px
+    # dist_coeffs = array[5] = k1, k2, p1, p2, k3
+    dist_coeffs = [-0.387486, 0.211065, 0.0, 0.0, 0.0]
+    proj.cam.set_lens_params(horiz_mm, vert_mm, focal_len_mm)
+    proj.cam.set_calibration_params(fx, fy, width_px/2, height_px/2,
+                                    dist_coeffs, 0.0)
     proj.cam.set_calibration_std(0.0, 0.0, 0.0, 0.0,
                                  [0.0, 0.0, 0.0, 0.0, 0.0], 0.0)
     proj.cam.set_image_params(width_px, height_px)
