@@ -14,6 +14,15 @@ import ProjectMgr
 
 # for all the images in the project image_dir, detect features using the
 # specified method and parameters
+#
+# Suggests censure/star has good stability between images (highest
+# likelihood of finding a match in the target features set:
+# http://computer-vision-talks.com/articles/2011-01-04-comparison-of-the-opencv-feature-detection-algorithms/
+#
+# Suggests censure/star works better than sift in outdoor natural
+# environments: http://www.ai.sri.com/~agrawal/isrr.pdf
+#
+# Basic description of censure/star algorithm: http://www.researchgate.net/publication/221304099_CenSurE_Center_Surround_Extremas_for_Realtime_Feature_Detection_and_Matching
 
 parser = argparse.ArgumentParser(description='Load the project\'s images.')
 parser.add_argument('--project', required=True, help='project directory')
