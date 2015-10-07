@@ -43,7 +43,15 @@ proj.undistort_keypoints()
 ref = proj.ned_reference_lla
 sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
 
-# project undistorted keypoints into NED space
+# alternative:
+# 1. make a grid (i.e. 8x8) of uv coordinates covering the whole image
+# 2. undistort these uv coordinates
+# 3. project them into vectors
+# 4. intersect them with the srtm terrain to get ned coordinates
+# 5. use linearndinterpolator ... g = scipy.interpolate.LinearNDInterpolator([[0,0],[1,0],[0,1],[1,1]], [[0,4,8],[1,3,2],[2,2,-4],[4,1,0]])
+#    with origin uv vs. 3d location to build a table
+# 6. interpolate original uv coordinates to 3d locations
+
 camw, camh = proj.cam.get_image_params()
 bar = Bar('Projecting keypoints to vectors:',
           max = len(proj.image_list))
