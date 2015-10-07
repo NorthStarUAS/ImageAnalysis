@@ -122,17 +122,20 @@ class Image():
                 self.height, self.width, self.fulld = self.img_rgb.shape
                 self.img = cv2.cvtColor(self.img_rgb, cv2.COLOR_BGR2GRAY)
 
-                #cv2.imshow('load', self.img)
+                #cv2.imshow('rgb', self.img_rgb)
+                #cv2.imshow('grayscale', self.img)
 
-                # if we wish to equalize history
-                # self.img = cv2.equalizeHist(self.img)
+                # histogram equalization
+                eq = cv2.equalizeHist(self.img)
+                #cv2.imshow('history equalization', eq)
+                
+                # adaptive histogram equilization (block by block)
+                clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+                aeq = clahe.apply(self.img)
+                #cv2.imshow('adaptive history equalization', aeq)
 
-                # if we wish to apply adaptive histogram equilization
-                # (block by block)
-                clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-                self.img = clahe.apply(self.img)
-    
-                #cv2.imshow('load-eq', self.img)
+                self.img = aeq  # we like adaptive histogram equalization
+                
                 #print 'waiting for keyboard input...'
                 #key = cv2.waitKey() & 0xff
 
