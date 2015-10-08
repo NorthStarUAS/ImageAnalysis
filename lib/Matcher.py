@@ -264,37 +264,54 @@ class Matcher():
         
     # do initial feature matching of specified image against every
     # image in the provided image list (except self)
-    def hybridImageMatches(self, i1, i2, review=False):
+    # fuzz units is meters
+    def hybridImageMatches(self, i1, i2, image_fuzz=20, feature_fuzz=10, review=False):
         if i1 == i2:
             return []
         if np.any(i1.des_list):
             size = len(i1.des_list)
         else:
             size = 0
-        des_list2 = []
-        # find candidate features within a location proximity
-        if i2.kdtree != None:
-            result = i2.kdtree.query_ball_point(i1.center, i1.radius + 20.0)
+
+        # all the points in image1 that are within range of image2
+        if i1.kdtree != None:
+            result1 = i1.kdtree.query_ball_point(i2.center, i2.radius + image_fuzz)
         else:
-            result = []
-        if len(result) <= 1:
+            result1 = []
+        if len(result1) <= 1:
             return []
+
+        # all the points in image2 that are within range of image1
+        if i2.kdtree != None:
+            result2 = i2.kdtree.query_ball_point(i1.center, i1.radius + image_fuzz)
+        else:
+            result2 = []
+        if len(result2) <= 1:
+            return []
+
+        # build the subset lists for matching
+        des_list1 = []
+        for k in result1:
+            des_list1.append(i1.des_list[k])
+        des_list2 = []
+        for k in result2:
+            des_list2.append(i2.des_list[k])
 
         # all vs. all match between i1 keypoints and any i2
         # keypoints within the query radius
-        for k in result:
-            des_list2.append(i2.des_list[k])
-        print len(i1.des_list)
+        print len(des_list1)
         print len(des_list2)
-        matches = self.matcher.knnMatch(np.array(i1.des_list),
+        matches = self.matcher.knnMatch(np.array(des_list1),
                                         trainDescriptors=np.array(des_list2),
                                         k=2)
-        # rewrite the train indices (from our query subset)
+        # rewrite the query/train indices (from our query subset)
         # back to referencing the full set of keypoints
         for match in matches:
             for m in match:
-                qi = m.trainIdx
-                m.trainIdx = result[qi]
+                qi = m.queryIdx
+                m.queryIdx = result1[qi]
+                ti = m.trainIdx
+                m.trainIdx = result2[ti]
 
         print "initial matches =", len(matches)
         
@@ -305,7 +322,7 @@ class Matcher():
         # test each individual match pair for proximity to each
         # other (fine grain distance check)
         # print "  pairs (before location filter) =", len(idx_pairs)
-        idx_pairs = self.filter_by_location(i1, i2, idx_pairs, 50.0)
+        idx_pairs = self.filter_by_location(i1, i2, idx_pairs, feature_fuzz)
         print "after direct goereference distance test =", len(idx_pairs)
 
         if len(idx_pairs) < self.min_pairs:
@@ -350,7 +367,7 @@ class Matcher():
  
 
     def robustGroupMatches(self, image_list, filter="fundamental",
-                           review=False):
+                           image_fuzz=20, feature_fuzz=10, review=False):
         # find basic matches and filter by match ratio and ned
         # location
         for i, i1 in enumerate(image_list):
@@ -363,7 +380,10 @@ class Matcher():
                 if i1 == i2:
                     continue
                 print "Matching %s vs %s" % (i1.name, i2.name)
-                i1.match_list[j] = self.hybridImageMatches(i1, i2, review)
+                i1.match_list[j] = self.hybridImageMatches(i1, i2,
+                                                           image_fuzz,
+                                                           feature_fuzz,
+                                                           review)
                 # self.ICP(i1, i2)
                 
         done = False
