@@ -10,6 +10,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import os.path
 from progress.bar import Bar
+import scipy.interpolate
 import subprocess
 import sys
 
@@ -359,6 +360,7 @@ class ProjectMgr():
                 image.uv_list.append(uv_new[i][0])
                 #print "  orig = %s  undistort = %s" % (uv_raw[i][0], uv_new[i][0])
             bar.next()
+        bar.finish()
                 
     # for each uv in the provided uv list, apply the distortion
     # formula to compute the original distorted value.
@@ -433,7 +435,53 @@ class ProjectMgr():
             pt_list.append(p)
         return pt_list
 
+    # build an interpolation table for 'fast' projection of keypoints
+    # into 3d world space
+    def fastProjectKeypointsTo3d(self, sss):
+        bar = Bar('Projecting keypoints to 3d:',
+                  max = len(self.image_list))
+        for image in self.image_list:
+            camw, camh = self.cam.get_image_params()
+            scale = float(image.width) / float(camw)
+            K = self.cam.get_K(scale)
+            IK = np.linalg.inv(K)
+            
+            # build a regular grid of uv coordinates
+            size = 16
+            u_grid = np.linspace(0, image.width, size+1)
+            v_grid = np.linspace(0, image.height, size+1)
+            uv_raw = []
+            for u in u_grid:
+                for v in v_grid:
+                    uv_raw.append( [u,v] )
+                    
+            # undistort the grid of points
+            uv_grid = self.undistort_uvlist(image, uv_raw)
+            
+            # project the grid out into vectors
+            vec_list = self.projectVectors(IK, image, uv_grid)
 
+            # intersect the vectors with the surface to find the 3d points
+            coord_list = sss.interpolate_vectors(image.camera_pose, vec_list)
+
+            # build the multidimenstional interpolator that relates
+            # undistored uv coordinates to their 3d location.  Note we
+            # could also relate the original raw/distored points to
+            # their 3d locations and interpolate from the raw uv's,
+            # but we already have a convenient list of undistored uv
+            # points.
+            g = scipy.interpolate.LinearNDInterpolator(uv_grid, coord_list)
+
+            # interpolate all the keypoints now to approximate their
+            # 3d locations
+            image.coord_list = []
+            for i, uv in enumerate(image.uv_list):
+                coord = g(uv)
+                # coord[0] is the 3 element vector
+                image.coord_list.append(coord[0])
+            bar.next()
+        bar.finish()
+                
 #
 # Below this point all the code needs to be reviewed/refactored
 #
