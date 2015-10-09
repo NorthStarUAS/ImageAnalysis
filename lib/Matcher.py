@@ -93,7 +93,7 @@ class Matcher():
     # fundamental) relationship.  Returns true if match set is clean, false
     # if keypoints were removed.
     #
-    # Notice: this tends to eliminate matche that aren't all on the
+    # Notice: this tends to eliminate matches that aren't all on the
     # same plane, so if the scene has a lot of depth, this could knock
     # out a lot of good matches.
     def filter_by_homography(self, i1, i2, j, filter):
@@ -108,8 +108,14 @@ class Matcher():
         p1 = []
         p2 = []
         for k, pair in enumerate(matches):
-            p1.append( i1.kp_list[pair[0]].pt )
-            p2.append( i2.kp_list[pair[1]].pt )
+            use_raw_uv = False
+            if use_raw_uv:
+                p1.append( i1.kp_list[pair[0]].pt )
+                p2.append( i2.kp_list[pair[1]].pt )
+            else:
+                #undistored uv points should be better, right?
+                p1.append( i1.uv_list[pair[0]] )
+                p2.append( i2.uv_list[pair[1]] )
 
         p1 = np.float32(p1)
         p2 = np.float32(p2)
@@ -259,48 +265,10 @@ class Matcher():
                 done = True
                 a = raw_input("Press Enter to continue...")
 
-                
-        
-        
-    # do initial feature matching of specified image against every
-    # image in the provided image list (except self)
-    # fuzz units is meters
-    def hybridImageMatches(self, i1, i2, image_fuzz=20, feature_fuzz=10, review=False):
-        if i1 == i2:
-            return []
-        if np.any(i1.des_list):
-            size = len(i1.des_list)
-        else:
-            size = 0
-
-        # all the points in image1 that are within range of image2
-        if i1.kdtree != None:
-            result1 = i1.kdtree.query_ball_point(i2.center, i2.radius + image_fuzz)
-        else:
-            result1 = []
-        if len(result1) <= 1:
-            return []
-
-        # all the points in image2 that are within range of image1
-        if i2.kdtree != None:
-            result2 = i2.kdtree.query_ball_point(i1.center, i1.radius + image_fuzz)
-        else:
-            result2 = []
-        if len(result2) <= 1:
-            return []
-
-        # build the subset lists for matching
-        des_list1 = []
-        for k in result1:
-            des_list1.append(i1.des_list[k])
-        des_list2 = []
-        for k in result2:
-            des_list2.append(i2.des_list[k])
-
-        # all vs. all match between i1 keypoints and any i2
-        # keypoints within the query radius
-        print len(des_list1)
-        print len(des_list2)
+    def basic_matches(self, i1, i2, des_list1, des_list2,
+                      result1, result2, feature_fuzz):
+        # all vs. all match between overlapping i1 keypoints and i2
+        # keypoints (forward match)
         matches = self.matcher.knnMatch(np.array(des_list1),
                                         trainDescriptors=np.array(des_list2),
                                         k=2)
@@ -312,7 +280,6 @@ class Matcher():
                 m.queryIdx = result1[qi]
                 ti = m.trainIdx
                 m.trainIdx = result2[ti]
-
         print "initial matches =", len(matches)
         
         # run the classic feature distance ratio test
@@ -326,25 +293,138 @@ class Matcher():
         print "after direct goereference distance test =", len(idx_pairs)
 
         if len(idx_pairs) < self.min_pairs:
-            return []
+            idx_pairs = []
         print "  pairs =", len(idx_pairs)
+        return idx_pairs
+    
+    # do initial feature matching of specified image against every
+    # image in the provided image list (except self)
+    # fuzz units is meters
+    def hybridImageMatches(self, i1, i2, image_fuzz=20, feature_fuzz=10, review=False):
+        if i1 == i2:
+            print "We shouldn't see this, but i1 == i2"
+            return [], []
+        if np.any(i1.des_list):
+            size = len(i1.des_list)
+        else:
+            size = 0
+
+        # all the points in image1 that are within range of image2
+        if i1.kdtree != None:
+            result1 = i1.kdtree.query_ball_point(i2.center,
+                                                 i2.radius + image_fuzz)
+        else:
+            result1 = [], []
+        if len(result1) <= 1:
+            return [], []
+
+        # all the points in image2 that are within range of image1
+        if i2.kdtree != None:
+            result2 = i2.kdtree.query_ball_point(i1.center,
+                                                 i1.radius + image_fuzz)
+        else:
+            result2 = [], []
+        if len(result2) <= 1:
+            return [], []
+
+        # build the subset lists for matching
+        des_list1 = []
+        for k in result1:
+            des_list1.append(i1.des_list[k])
+        des_list2 = []
+        for k in result2:
+            des_list2.append(i2.des_list[k])
+
+        print "i1 vs. i2 features = %d vs %d" % (len(des_list1), len(des_list2))
+
+        # all vs. all match between overlapping i1 keypoints and i2
+        # keypoints (forward match)
+        idx_pairs1 = self.basic_matches( i1, i2, des_list1, des_list2,
+                                         result1, result2, feature_fuzz )
+        
+        # all vs. all match between overlapping i2 keypoints and i1
+        # keypoints (reverse match)
+        idx_pairs2 = self.basic_matches( i2, i1, des_list2, des_list1,
+                                         result2, result1, feature_fuzz )
+
+        old_code = False
+        if old_code:
+            matches1 = self.matcher.knnMatch(np.array(des_list1),
+                                             trainDescriptors=np.array(des_list2),
+                                             k=2)
+            # rewrite the query/train indices (from our query subset)
+            # back to referencing the full set of keypoints
+            for match in matches1:
+                for m in match:
+                    qi = m.queryIdx
+                    m.queryIdx = result1[qi]
+                    ti = m.trainIdx
+                    m.trainIdx = result2[ti]
+            print "initial forward matches =", len(matches1)
+
+            # all vs. all match between overlapping i2 keypoints and i1
+            # keypoints (reverse match)
+            matches2 = self.matcher.knnMatch(np.array(des_list2),
+                                             trainDescriptors=np.array(des_list1),
+                                             k=2)
+            # rewrite the query/train indices (from our query subset)
+            # back to referencing the full set of keypoints
+            for match in matches2:
+                for m in match:
+                    qi = m.queryIdx
+                    m.queryIdx = result2[qi]
+                    ti = m.trainIdx
+                    m.trainIdx = result1[ti]
+            print "initial reverse matches =", len(matches2)
+
+            # run the classic feature distance ratio test
+            p1, p2, kp_pairs, idx_pairs1 = self.filter_by_feature(i1, i2, matches1)
+            p1, p2, kp_pairs, idx_pairs2 = self.filter_by_feature(i2, i1, matches2)
+            print "after distance ratio test =", len(idx_pairs1)
+            print "after distance ratio test =", len(idx_pairs2)
+
+            # test each individual match pair for proximity to each
+            # other (fine grain distance check)
+            # print "  pairs (before location filter) =", len(idx_pairs)
+            idx_pairs1 = self.filter_by_location(i1, i2, idx_pairs1, feature_fuzz)
+            idx_pairs2 = self.filter_by_location(i2, i1, idx_pairs2, feature_fuzz)
+            print "after direct goereference distance test =", len(idx_pairs1)
+            print "after direct goereference distance test =", len(idx_pairs2)
+
+            if len(idx_pairs1) < self.min_pairs:
+                idx_pairs1 = []
+            if len(idx_pairs2) < self.min_pairs:
+                idx_pairs2 = []
+            print "  pairs1 =", len(idx_pairs1)
+            print "  pairs2 =", len(idx_pairs2)
 
         plot_matches = True
         if plot_matches:
-            self.plot_matches(i1, i2, idx_pairs)
+            self.plot_matches(i1, i2, idx_pairs1)
+            self.plot_matches(i2, i1, idx_pairs2)
             
         if review:
-            status = self.showMatch(i1, i2, idx_pairs)
+            status = self.showMatch(i1, i2, idx_pairs1)
             # remove deselected pairs
             for k, flag in enumerate(status):
                 if not flag:
-                    print "    deleting: " + str(idx_pairs[k])
-                    idx_pairs[k] = (-1, -1)
-            for pair in reversed(idx_pairs):
+                    print "    deleting: " + str(idx_pairs1[k])
+                    idx_pairs1[k] = (-1, -1)
+            for pair in reversed(idx_pairs1):
                 if pair == (-1, -1):
-                    idx_pairs.remove(pair)
+                    idx_pairs1.remove(pair)
 
-        return idx_pairs
+            status = self.showMatch(i2, i1, idx_pairs2)
+            # remove deselected pairs
+            for k, flag in enumerate(status):
+                if not flag:
+                    print "    deleting: " + str(idx_pairs2[k])
+                    idx_pairs2[k] = (-1, -1)
+            for pair in reversed(idx_pairs2):
+                if pair == (-1, -1):
+                    idx_pairs2.remove(pair)
+
+        return idx_pairs1, idx_pairs2
 
     def plot_matches(self, i1, i2, idx_pairs):
         # This can be plotted in gnuplot with:
@@ -371,19 +451,19 @@ class Matcher():
         # find basic matches and filter by match ratio and ned
         # location
         for i, i1 in enumerate(image_list):
-            if len(i1.match_list):
-                continue
-            
-            i1.match_list = [[]] * len(image_list)
+            if len(i1.match_list) == 0:
+                i1.match_list = [[]] * len(image_list)
 
             for j, i2 in enumerate(image_list):
-                if i1 == i2:
+                if j <= i:
                     continue
                 print "Matching %s vs %s" % (i1.name, i2.name)
-                i1.match_list[j] = self.hybridImageMatches(i1, i2,
-                                                           image_fuzz,
-                                                           feature_fuzz,
-                                                           review)
+                if len(i2.match_list) == 0:
+                    # create if needed
+                    i2.match_list = [[]] * len(image_list)
+                i1.match_list[j], i2.match_list[i] \
+                    = self.hybridImageMatches(i1, i2, image_fuzz, feature_fuzz,
+                                              review)
                 # self.ICP(i1, i2)
                 
         done = False
@@ -401,7 +481,7 @@ class Matcher():
                 for j, i2 in enumerate(image_list):
                     if i1 == i2:
                         continue
-                    print "Matching %s vs %s" % (i1.name, i2.name)
+                    # print "Matching %s vs %s" % (i1.name, i2.name)
                     if not self.filter_by_homography(i1, i2, j, filter):
                         done = False
 
