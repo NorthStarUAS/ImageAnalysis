@@ -26,14 +26,14 @@ proj.load_image_info()
 proj.load_features()
 proj.undistort_keypoints()
 
-f = open(args.project + "/Matches.json", 'r')
+f = open(args.project + "/Matches-sba.json", 'r')
 matches_dict = json.load(f)
 f.close()
 
 # image mean reprojection error
 def compute_feature_mre(K, image, kp, ned):
     if image.PROJ == None:
-        rvec, tvec = image.get_proj()
+        rvec, tvec = image.get_proj_sba()
         R, jac = cv2.Rodrigues(rvec)
         image.PROJ = np.concatenate((R, tvec), axis=1)
 
@@ -139,6 +139,6 @@ print "Mean reprojection error = %.4f" % (mre)
 alt = compute_group_altitude()
 
 # write out the updated match_dict
-f = open(args.project + "/Matches.json", 'w')
+f = open(args.project + "/Matches-sba.json", 'w')
 json.dump(matches_dict, f, sort_keys=True)
 f.close()
