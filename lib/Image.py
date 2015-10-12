@@ -31,6 +31,7 @@ class Image():
         
         self.aircraft_pose = None
         self.camera_pose = None
+        self.camera_pose_sba = None
 
         # cam2body/body2cam are transforms to map between the standard
         # lens coordinate system (at zero roll/pitch/yaw and the
@@ -95,6 +96,8 @@ class Image():
                 self.aircraft_pose = image_dict['aircraft-pose']
             if 'camera-pose' in image_dict:
                 self.camera_pose = image_dict['camera-pose']
+            if 'camera-pose-sba' in image_dict:
+                self.camera_pose_sba = image_dict['camera-pose-sba']
             if 'height' in image_dict:
                 self.height = image_dict['height']
             if 'width' in image_dict:
@@ -258,6 +261,7 @@ class Image():
         image_dict['num-matches'] = self.num_matches
         image_dict['aircraft-pose'] = self.aircraft_pose
         image_dict['camera-pose'] = self.camera_pose
+        image_dict['camera-pose-sba'] = self.camera_pose_sba
         image_dict['height'] = self.height
         image_dict['width'] = self.width
         image_dict['altitude-bias'] = self.alt_bias
@@ -434,6 +438,20 @@ class Image():
         else:
             return [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], np.zeros(4)
 
+    def set_camera_pose_sba(self, ned=[0.0, 0.0, 0.0], ypr=[0.0, 0.0, 0.0]):
+        quat = transformations.quaternion_from_euler(ypr[0] * d2r,
+                                                     ypr[1] * d2r,
+                                                     ypr[2] * d2r,
+                                                     'rzyx')
+        self.camera_pose_sba = { 'ned': ned, 'ypr': ypr, 'quat': quat.tolist() }
+
+    def get_camera_pose_sba(self):
+        p = self.camera_pose_sba
+        if p and 'ned' in p and 'ypr' in p:
+            return p['ned'], p['ypr'], np.array(p['quat'])
+        else:
+            return [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], np.zeros(4)
+
     # cam2body rotation matrix (M)
     def get_cam2body(self):
         return self.cam2body
@@ -448,9 +466,20 @@ class Image():
         body2ned = transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
         return np.matrix(body2ned).T
     
-    # body2ned (IR) rotation matrix
+    # ned2body (R) rotation matrix (of SBA pose)
+    def get_ned2body_sba(self):
+        p = self.camera_pose_sba
+        body2ned = transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
+        return np.matrix(body2ned).T
+    
+   # body2ned (IR) rotation matrix
     def get_body2ned(self):
         p = self.camera_pose
+        return transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
+
+   # body2ned (IR) rotation matrix
+    def get_body2ned_sba(self):
+        p = self.camera_pose_sba
         return transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
 
     # compute rvec and tvec (used to build the camera projection
@@ -461,5 +490,16 @@ class Image():
         R = body2cam.dot( ned2body )
         rvec, jac = cv2.Rodrigues(R)
         ned = self.camera_pose['ned']
+        tvec = -np.matrix(R) * np.matrix(ned).T
+        return rvec, tvec
+    
+    # compute rvec and tvec (used to build the camera projection
+    # matrix for things like cv2.triangulatePoints) from camera pose
+    def get_proj_sba(self):
+        body2cam = self.get_body2cam()
+        ned2body = self.get_ned2body_sba()
+        R = body2cam.dot( ned2body )
+        rvec, jac = cv2.Rodrigues(R)
+        ned = self.camera_pose_sba['ned']
         tvec = -np.matrix(R) * np.matrix(ned).T
         return rvec, tvec
