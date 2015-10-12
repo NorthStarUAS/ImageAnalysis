@@ -119,10 +119,9 @@ for tri in tri.simplices:
                     best_connections = image.connections
                     best_image = key
         if best_image >= 0:
-            print "Best image: %d (%d)" % (best_image, best_connections)
+            print "Best image (easy): %d (%d)" % (best_image, best_connections)
             image = proj.image_list[best_image]
-            easy_tris += 1
-            done = True
+            triangle = []
             for vert in tri:
                 feat = matches_sba[rkeys[vert]]
                 ned = feat['ned']
@@ -133,44 +132,49 @@ for tri in tri.simplices:
                         v = list(ned)
                         v.append( image.kp_list[p[1]].pt[0] / image.width )
                         v.append( image.kp_list[p[1]].pt[1] / image.height )
-                        print " ", v
-                        # push to the tri and then push to the list of
-                        # image tries
-
+                        triangle.append(v)
+            print " ", triangle
+            image.tris.append(triangle)
+            easy_tris += 1
+            done = True
     if not done:
         # look for complete coverage, possibly estimating uv by
         # reprojection if a feature wasn't found originally
         best_image = -1
         best_connections = -1
-        best_uv_list = []
+        best_triangle = []
         for key in union:
             image = proj.image_list[key]
             # print image.name
             ok = True
-            uv_list = []
+            triangle = []
             for vert in tri:
                 feat = matches_sba[rkeys[vert]]
                 ned = feat['ned']
                 uv = compute_feature_uv(proj.cam.get_K(), image, ned)
-                # print " ", uv
-                uv_list.append(uv)
-                if uv[0] < 0 or uv[0] > image.width:
+                uv[0] /= image.width
+                uv[1] /= image.height
+                #print " ", uv
+                v = list(ned)
+                v.append(uv[0])
+                v.append(uv[1])
+                triangle.append(v)
+                if uv[0] < 0.0 or uv[0] > 1.0:
                     #print "  fail"
                     ok = False
-                    break
-                if uv[1] < 0 or uv[1] > image.height:
+                if uv[1] < 0.0 or uv[1] > 1.0:
                     #print "  fail"
                     ok = False
-                    break
             if ok:
                 # print " pass!"
                 if image.connections > best_connections:
                     best_connections = image.connections
                     best_image = key
-                    best_uv_list = list(uv_list)
+                    best_triangle = list(triangle)
         if best_image >= 0:
-            print "Best image: %d (%d)" % (best_image, best_connections)
-            print "  ", best_uv_list
+            print "Best image (hard): %d (%d)" % (best_image, best_connections)
+            print "  ", best_triangle
+            image.tris.append(best_triangle)
             hard_tris += 1
             done = True
     if not done:
@@ -180,3 +184,6 @@ for tri in tri.simplices:
 print "easy tris =", easy_tris
 print "hard tris =", hard_tris
 print "failed tris =", failed_tris
+
+for image in proj.image_list:
+    print image.name, len(image.tris)
