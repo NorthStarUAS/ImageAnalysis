@@ -45,6 +45,7 @@ def diff_stats(pts1, pts2):
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--stddev', required=True, type=int, default=6, help='how many stddevs above the mean to consider')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
@@ -92,13 +93,40 @@ for key in matches_direct:
         print "Not in sba =", key
 average, stddev = diff_stats(pts1, pts2)
 
+delete_list = []
 for key in matches_direct:
     ned_direct = np.array(matches_direct[key]['ned'])
     if key in matches_sba:
         ned_sba = np.array(matches_sba[key]['ned'])
         dist = np.linalg.norm(ned_direct - ned_sba)
-        if abs(dist) > average + 3*stddev:
+        if abs(dist) > average + stddev * args.stddev:
             print "Possible outlier = %s, dist = %.2f" % (key, dist),
             for i in matches_direct[key]['pts']:
                 print "%s " % proj.image_list[i[0]].name,
             print
+            delete_list.append(key)
+
+result = raw_input('Remove these outliers from the original matches? (y/n):')
+if result == 'y' or result == 'Y':
+    for key in delete_list:
+        ned_direct = np.array(matches_direct[key]['ned'])
+        ned_sba = np.array(matches_sba[key]['ned'])
+        dist = np.linalg.norm(ned_direct - ned_sba)
+        if abs(dist) > average + stddev * args.stddev:
+            print "Removing outlier = %s, dist = %.2f" % (key, dist),
+            for i in matches_direct[key]['pts']:
+                print "%s " % proj.image_list[i[0]].name,
+            print
+            del matches_direct[key]
+            del matches_sba[key]
+
+    # write out the updated match dictionaries
+    print "Writing original matches..."
+    f = open(args.project + "/Matches.json", 'w')
+    json.dump(matches_direct, f, sort_keys=True)
+    f.close()
+    print "Writing sba matches..."
+    f = open(args.project + "/Matches-sba.json", 'w')
+    json.dump(matches_sba, f, sort_keys=True)
+    f.close()
+
