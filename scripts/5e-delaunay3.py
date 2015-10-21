@@ -167,8 +167,12 @@ for image in proj.image_list:
     image.PROJ = None
         
 # iterate through the triangle list
-bar = Bar('Computing 3d model:', max = len(tri.simplices))
+bar = Bar('Computing 3d model:', max=len(tri.simplices),
+          suffix='%(percent).1f%% - %(eta)ds')
+bar.sma_window = 100
 fuzz = 20.0
+count = 0
+update_steps = 50
 for tri in tri.simplices:
     # print "Triangle:", tri
 
@@ -231,7 +235,9 @@ for tri in tri.simplices:
     if not done:
         # print "failed triangle"
         failed_tris += 1
-    bar.next()
+    count += 1
+    if count % update_steps == 0:
+        bar.next(update_steps)
 bar.finish()
 
 print "easy tris =", easy_tris
