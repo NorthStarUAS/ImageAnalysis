@@ -57,7 +57,6 @@ class ProjectMgr():
         # the following member variables need to be reviewed/organized
 
         self.ac3d_steps = 8
-        self.shutter_latency = 0.0
         self.group_roll_bias = 0.0
         self.group_pitch_bias = 0.0
         self.group_yaw_bias = 0.0
@@ -494,12 +493,10 @@ class ProjectMgr():
 # Below this point all the code needs to be reviewed/refactored
 #
 
-    def setWorldParams(self, ground_alt_m=0.0, shutter_latency=0.0,
-                       yaw_bias=0.0, roll_bias=0.0, pitch_bias=0.0):
-        print "Setting ground=%.1f shutter=%.2f yaw=%.2f roll=%.2f pitch=%.2f"\
-            % (ground_alt_m, shutter_latency, yaw_bias, roll_bias, pitch_bias)
+    def setWorldParams(self, ground_alt_m=0.0, yaw_bias=0.0, roll_bias=0.0, pitch_bias=0.0):
+        print "Setting ground=%.1f yaw=%.2f roll=%.2f pitch=%.2f"\
+            % (ground_alt_m, yaw_bias, roll_bias, pitch_bias)
         self.ground_alt_m = ground_alt_m
-        self.shutter_latency = shutter_latency
         self.group_yaw_bias = yaw_bias
         self.group_roll_bias = roll_bias
         self.group_pitch_bias = pitch_bias
@@ -523,22 +520,28 @@ class ProjectMgr():
                     i2.kp_usage[pair[1]] = True
         print "done."
 
-    def interpolateAircraftPositions(self, correlator, force=False,
-                                     weight=True):
+    def interpolateAircraftPositions(self, correlator, shutter_latency=0.0,
+                                     force=False, weight=True):
         # tag each image with the flight data parameters at the time
         # the image was taken
         for match in correlator.best_matchups:
             pict, trig = correlator.get_match(match)
             image = self.findImageByName(pict[2])
             if image != None:
-                if force or (math.fabs(image.aircraft_lon) < 0.01 and math.fabs(image.aircraft_lat) < 0.01):
+                aircraft_lon = 0.0
+                aircraft_lat = 0.0
+                if image.aircraft_pose:
+                    aircraft_lat = image.aircraft_pose['lla'][0]
+                    aircraft_lon = image.aircraft_pose['lla'][1]
+                if force or (math.fabs(aircraft_lon) < 0.01 and math.fabs(aircraft_lat) < 0.01):
                     # only if we are forcing a new position
                     # calculation or the position is not already set
                     # from a save file.
-                    t = trig[0] + self.shutter_latency
+                    t = trig[0] + shutter_latency
                     lon, lat, msl = correlator.get_position(t)
                     roll, pitch, yaw = correlator.get_attitude(t)
-                    image.set_aircraft_pose( lon, lat, msl, roll, pitch, yaw )
+                    image.set_aircraft_pose( [lat, lon, msl],
+                                             [yaw, pitch, roll] )
                     if weight:
                         # presumes a pitch/roll distance of 10, 10 gives a
                         # zero weight
