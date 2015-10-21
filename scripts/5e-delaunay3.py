@@ -170,6 +170,7 @@ for image in proj.image_list:
 bar = Bar('Computing 3d model:', max=len(tri.simplices),
           suffix='%(percent).1f%% - %(eta)ds')
 bar.sma_window = 100
+camw, camh = proj.cam.get_image_params()
 fuzz = 20.0
 count = 0
 update_steps = 50
@@ -203,9 +204,10 @@ for tri in tri.simplices:
         for vert in tri:
             feat = matches_sba[rkeys[vert]]
             ned = feat['ned']
-            uv = compute_feature_uv(proj.cam.get_K(), image, ned)
+            scale = float(image.width) / float(camw)
+            uv = compute_feature_uv(proj.cam.get_K(scale), image, ned)
             fx, fy, cu, cv, dist_coeffs, skew = proj.cam.get_calibration_params()
-            uv[0], uv[1] = redistort(uv[0], uv[1], dist_coeffs, proj.cam.get_K())
+            uv[0], uv[1] = redistort(uv[0], uv[1], dist_coeffs, proj.cam.get_K(scale))
             uv[0] /= image.width
             uv[1] /= image.height
             v = list(ned)
