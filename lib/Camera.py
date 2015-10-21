@@ -146,3 +146,22 @@ class Camera():
     def get_mount_params(self):
         return \
             self.camera_dict['mount-ypr']
+
+    def derive_other_params(self):
+        fx = self.camera_dict['fx']
+        fy = self.camera_dict['fy']
+        cu = self.camera_dict['cu']
+        cv = self.camera_dict['cv']
+        width_px = self.camera_dict['width-px']
+        height_px = self.camera_dict['height-px']
+        horiz_mm = self.camera_dict['horiz-mm']
+        vert_mm = self.camera_dict['vert-mm']
+        focal_len_mm = self.camera_dict['focal-len-mm']
+        if cu < 1.0 and width_px > 0:
+            self.camera_dict['cu'] = width_px * 0.5
+        if cv < 1.0 and height_px > 0:
+            self.camera_dict['cv'] = height_px * 0.5
+        if fx < 1 and focal_len_mm > 0 and width_px > 0 and horiz_mm > 0:
+            self.camera_dict['fx'] = (focal_len_mm * width_px) / horiz_mm
+        if fy < 1 and focal_len_mm > 0 and height_px > 0 and vert_mm > 0:
+            self.camera_dict['fy'] = (focal_len_mm * height_px) / vert_mm
