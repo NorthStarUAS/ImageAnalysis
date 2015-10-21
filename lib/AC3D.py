@@ -19,7 +19,7 @@ def make_textures(project_dir, image_list, resolution=256):
         
 def generate(image_list, ref_image=False, project_dir=".", base_name="quick", version=1.0, trans=0.0 ):
     # make the textures if needed
-    make_textures(project_dir, image_list, 256)
+    make_textures(project_dir, image_list, 512)
     
     max_roll = 30.0
     max_pitch = 30.0
