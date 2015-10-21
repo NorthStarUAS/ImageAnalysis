@@ -78,8 +78,8 @@ matches_dict = json.load(f)
 f.close()
 
 image_width = proj.image_list[0].width
-cam_width, cam_height = proj.cam.get_image_params()
-scale = float(image_width) / float(cam_width)
+camw, camh = proj.cam.get_image_params()
+scale = float(image_width) / float(camw)
 
 sba = SBA.SBA(args.project)
 sba.prepair_data( proj.image_list, matches_dict, proj.cam.get_K(scale) )
