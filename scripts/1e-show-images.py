@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(description='Load the project\'s images.')
 parser.add_argument('--project', required=True, help='project directory')
 
 args = parser.parse_args()
-print args
+#print args
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
