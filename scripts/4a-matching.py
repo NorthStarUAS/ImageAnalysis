@@ -31,6 +31,8 @@ parser.add_argument('--match-ratio', default=0.75, type=float,
 parser.add_argument('--filter', default='fundamental',
                     choices=['homography', 'fundamental', 'none'],
                     required=True)
+parser.add_argument('--image-fuzz', default=20, type=float, help='image fuzz') 
+parser.add_argument('--feature-fuzz', default=10, type=float, help='feature fuzz') 
 
 args = parser.parse_args()
 
@@ -93,6 +95,7 @@ for image in proj.image_list:
         if dist > max_dist:
             max_dist = dist
     image.radius = max_dist
+    image.save_meta()
     # print "center = %s radius = %.1f" % (image.center, image.radius)
     bar.next()
 bar.finish()
@@ -127,8 +130,11 @@ proj.save()
 
 # fire up the matcher
 m = Matcher.Matcher()
+m.min_pairs = 10
 m.configure(proj.detector_params, proj.matcher_params)
-m.robustGroupMatches(proj.image_list, filter=args.filter, review=False)
+m.robustGroupMatches(proj.image_list, filter=args.filter,
+                     image_fuzz=args.image_fuzz, feature_fuzz=args.feature_fuzz,
+                     review=False)
 
 # build a list of all 'unique' keypoints.  Include an index to each
 # containing image and feature.
