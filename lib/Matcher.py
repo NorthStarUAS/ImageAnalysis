@@ -102,7 +102,7 @@ class Matcher():
         tol = float(i1.width) / 100.0 # rejection range in pixels
         # print "tol = %.4f" % tol
         matches = i1.match_list[j]
-        if len(matches) < 8:
+        if len(matches) < self.min_pairs:
             i1.match_list[j] = []
             return True
         p1 = []
@@ -834,7 +834,7 @@ class Matcher():
             for j, matches in enumerate(i1.match_list):
                 if i == j:
                     continue
-                if len(matches) < 8:
+                if len(matches) < self.min_pairs:
                     i1.match_list[j] = []
                     continue
                 i2 = self.image_list[j]
@@ -893,7 +893,7 @@ class Matcher():
             for j, matches in enumerate(i1.match_list):
                 if i == j:
                     continue
-                if len(matches) < 8:
+                if len(matches) < self.min_pairs:
                     i1.match_list[j] = []
                     continue
                 i2 = self.image_list[j]
