@@ -18,7 +18,7 @@ import ProjectMgr
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--stddev', required=True, type=int, default=6, help='how many stddevs above the mean for auto discarding features')
-parser.add_argument('--select', default='direct', choices=(['direct', 'sba']))
+parser.add_argument('--select', required=True, default='direct', choices=(['direct', 'sba']))
 
 args = parser.parse_args()
 
