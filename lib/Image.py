@@ -2,6 +2,7 @@
 
 # Image.py - manage all the data scructures associated with an image
 
+import cPickle as pickle
 import cv2
 import json
 import math
@@ -66,6 +67,9 @@ class Image():
         self.coord_list = []
         self.corner_list = []
         self.grid_list = []
+
+        self.center = []
+        self.radius = 0.0
         
         if image_file:
             self.name = image_file
@@ -113,6 +117,10 @@ class Image():
             self.connections = image_dict['connections']
             self.error = image_dict['error']
             self.stddev = image_dict['stddev']
+            if 'bounding-center' in image_dict:
+                self.center = np.array(image_dict['bounding-center'])
+            if 'bounding-radius' in image_dict:
+                self.radius = image_dict['bounding-radius']
         except:
             print self.info_file + ":\n" + "  load error: " \
                 + str(sys.exc_info()[1])
@@ -166,25 +174,35 @@ class Image():
         if len(self.kp_list) == 0 and os.path.exists(self.features_file):
             #print "Loading " + self.features_file
             try:
-                f = open(self.features_file, 'r')
-                feature_dict = json.load(f)
-                f.close()
+                feature_list = pickle.load( open( self.features_file, "rb" ) )
+                for point in feature_list:
+                    kp = cv2.KeyPoint(x=point[0][0], y=point[0][1],
+                                      _size=point[1], _angle=point[2],
+                                      _response=point[3], _octave=point[4],
+                                      _class_id=point[5])
+                    self.kp_list.append(kp)
             except:
-                print self.features_file + ":\n" + "  load error: " \
-                    + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1])
-                return
-            
-            feature_list = feature_dict['features']
-            for i, kp_dict in enumerate(feature_list):
-                angle = kp_dict['angle']
-                class_id = kp_dict['class-id']
-                octave = kp_dict['octave']
-                pt = kp_dict['pt']
-                response = kp_dict['response']
-                size = kp_dict['size']
-                self.kp_list.append( cv2.KeyPoint(pt[0], pt[1], size,
-                                                  angle, response, octave,
-                                                  class_id) )
+                # unpickle failed, try old style json
+                try:
+                    f = open(self.features_file, 'r')
+                    feature_dict = json.load(f)
+                    f.close()
+                except:
+                    print self.features_file + ":\n" + "  load error: " \
+                        + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1])
+                    return
+
+                feature_list = feature_dict['features']
+                for i, kp_dict in enumerate(feature_list):
+                    angle = kp_dict['angle']
+                    class_id = kp_dict['class-id']
+                    octave = kp_dict['octave']
+                    pt = kp_dict['pt']
+                    response = kp_dict['response']
+                    size = kp_dict['size']
+                    self.kp_list.append( cv2.KeyPoint(pt[0], pt[1], size,
+                                                      angle, response, octave,
+                                                      class_id) )
 
     def load_descriptors(self):
         filename = self.des_file + ".npy"
@@ -215,21 +233,14 @@ class Image():
             return
 
     def save_features(self):
-        # convert from native opencv kp class to a dictionary
+        # convert from native opencv kp class to a python list
         feature_list = []
-        feature_dict = { 'features': feature_list }
-        for i, kp in enumerate(self.kp_list):
-            kp_dict = { 'angle': kp.angle,
-                        'class-id': kp.class_id,
-                        'octave': kp.octave,
-                        'pt': kp.pt,
-                        'response': kp.response,
-                        'size': kp.size }
-            feature_list.append( kp_dict)
+        for kp in self.kp_list:
+            point = (kp.pt, kp.size, kp.angle, kp.response, kp.octave,
+                     kp.class_id)
+            feature_list.append(point)
         try:
-            f = open(self.features_file, 'w')
-            json.dump(feature_dict, f, indent=2, sort_keys=True)
-            f.close()
+            pickle.dump(feature_list, open(self.features_file, "wb"))
         except IOError as e:
             print "save_features(): I/O error({0}): {1}".format(e.errno, e.strerror)
             return
@@ -274,6 +285,8 @@ class Image():
         image_dict['connections'] = self.connections
         image_dict['error'] = self.error
         image_dict['stddev'] = self.stddev
+        image_dict['bounding-center'] = list(self.center)
+        image_dict['bounding-radius'] = self.radius
 
         try:
             f = open(self.info_file, 'w')
