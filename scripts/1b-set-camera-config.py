@@ -81,7 +81,7 @@ if args.fx_std or args.fy_std or args.cu_std or args.cv_std or args.kcoeffs_std 
    
 if args.width_px or args.height_px:
     if args.width_px and args.height_px:
-        proj.cam.set_image_params(args.with_px, args.height_px)
+        proj.cam.set_image_params(args.width_px, args.height_px)
     else:
          print "Must set width-px and height-px together"
 
@@ -132,5 +132,8 @@ elif args.sentera_global:
                                  [0.0, 0.0, 0.0, 0.0, 0.0], 0.0)
     proj.cam.set_image_params(width_px, height_px)
     proj.cam.set_mount_params(0.0, -90.0, 0.0)
+
+# some parameters can be computed from the others automatically
+proj.cam.derive_other_params()
 
 proj.save()
