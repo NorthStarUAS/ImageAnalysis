@@ -145,7 +145,7 @@ for key in matches_sba:
     raw_values.append( -ned[2] )
     sum_values += -ned[2]
 avg_height = sum_values / len(matches_sba)
-print "  average elevation = %.1f" % ( avg_height )
+print "Average elevation = %.1f" % ( avg_height )
 i = scipy.interpolate.LinearNDInterpolator(raw_points, raw_values, avg_height)
 
 # compute min/max range of horizontal surface
