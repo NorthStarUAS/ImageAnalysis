@@ -55,7 +55,9 @@ parser.add_argument('--roll-deg', type=float,
 parser.add_argument('--sentera-3M', action='store_true',
                     help='settings for Sentera 3.1 Mpx 3808x2754 camera')
 parser.add_argument('--sentera-global', action='store_true',
-                    help='settings for Sentera 1.3Mpx Global shutter camera')
+                    help='generic settings for Sentera 1.3Mpx Global shutter camera')
+parser.add_argument('--sentera-global-aem', action='store_true',
+                    help='AEM calibrated settings for Sentera 1.3Mpx Global shutter camera')
 
 args = parser.parse_args()
 
@@ -125,6 +127,26 @@ elif args.sentera_global:
     focal_len_mm = (fx * horiz_mm) / width_px
     # dist_coeffs = array[5] = k1, k2, p1, p2, k3
     dist_coeffs = [-0.387486, 0.211065, 0.0, 0.0, 0.0]
+    proj.cam.set_lens_params(horiz_mm, vert_mm, focal_len_mm)
+    proj.cam.set_calibration_params(fx, fy, width_px/2, height_px/2,
+                                    dist_coeffs, 0.0)
+    proj.cam.set_calibration_std(0.0, 0.0, 0.0, 0.0,
+                                 [0.0, 0.0, 0.0, 0.0, 0.0], 0.0)
+    proj.cam.set_image_params(width_px, height_px)
+    proj.cam.set_mount_params(0.0, -90.0, 0.0)
+elif args.sentera_global_aem:
+    width_px = 1248
+    height_px = 950
+    fx = 1612.26
+    fy = 1610.56
+    cu = 624
+    cv = 475
+    # [pixels] - where 1 pixel = 3.75 micrometer
+    horiz_mm = width_px * 3.75 * 0.001
+    vert_mm = height_px * 3.75 * 0.001
+    focal_len_mm = (fx * horiz_mm) / width_px
+    # dist_coeffs = array[5] = k1, k2, p1, p2, k3
+    dist_coeffs = [-0.37158252, 0.4333338, 0.0, 0.0, -1.40601407]
     proj.cam.set_lens_params(horiz_mm, vert_mm, focal_len_mm)
     proj.cam.set_calibration_params(fx, fy, width_px/2, height_px/2,
                                     dist_coeffs, 0.0)
