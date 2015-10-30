@@ -7,6 +7,7 @@ import cv2
 import json
 import math
 from matplotlib import pyplot as plt
+import navpy
 import numpy as np
 import os.path
 import sys
@@ -131,18 +132,18 @@ class Image():
             try:
                 self.img_rgb = cv2.imread(self.image_file)
                 self.height, self.width, self.fulld = self.img_rgb.shape
-                self.img = cv2.cvtColor(self.img_rgb, cv2.COLOR_BGR2GRAY)
+                gray = cv2.cvtColor(self.img_rgb, cv2.COLOR_BGR2GRAY)
 
                 #cv2.imshow('rgb', self.img_rgb)
                 #cv2.imshow('grayscale', self.img)
 
                 # histogram equalization
-                eq = cv2.equalizeHist(self.img)
+                #eq = cv2.equalizeHist(self.img)
                 #cv2.imshow('history equalization', eq)
                 
                 # adaptive histogram equilization (block by block)
                 clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
-                aeq = clahe.apply(self.img)
+                aeq = clahe.apply(gray)
                 #cv2.imshow('adaptive history equalization', aeq)
 
                 self.img = aeq  # we like adaptive histogram equalization
@@ -400,14 +401,14 @@ class Image():
         cv2.destroyWindow(self.name)
         return key
 
-    def coverage(self):
-        if not len(self.corner_list):
+    def coverage_xy(self):
+        if not len(self.corner_list_xy):
             return (0.0, 0.0, 0.0, 0.0)
 
         # find the min/max area of the image
-        p0 = self.corner_list[0]
+        p0 = self.corner_list_xy[0]
         xmin = p0[0]; xmax = p0[0]; ymin = p0[1]; ymax = p0[1]
-        for pt in self.corner_list:
+        for pt in self.corner_list_xy:
             if pt[0] < xmin:
                 xmin = pt[0]
             if pt[0] > xmax:
@@ -420,6 +421,12 @@ class Image():
         #    % (self.name, xmin, ymin, xmax, ymax)
         return (xmin, ymin, xmax, ymax)
     
+    def coverage_lla(self, ref):
+        xmin, ymin, xmax, ymax = self.coverage_xy()
+        minlla = navpy.ned2lla([ymin, xmin, 0.0], ref[0], ref[1], ref[2])
+        maxlla = navpy.ned2lla([ymax, xmax, 0.0], ref[0], ref[1], ref[2])
+        return(minlla[1], minlla[0], maxlla[1], maxlla[0])
+        
     def set_aircraft_pose(self, lla=[0.0, 0.0, 0.0], ypr=[0.0, 0.0, 0.0]):
         quat = transformations.quaternion_from_euler(ypr[0] * d2r,
                                                      ypr[1] * d2r,
