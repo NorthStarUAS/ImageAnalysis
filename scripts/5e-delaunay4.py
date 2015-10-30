@@ -26,7 +26,6 @@ parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--depth', action='store_const', const=True,
                     help='generate 3d surface')
 args = parser.parse_args()
-print args
 
 
 # project the estimated uv coordinates for the specified image and ned
@@ -146,7 +145,8 @@ for key in matches_sba:
     sum_values += -ned[2]
 avg_height = sum_values / len(matches_sba)
 print "Average elevation = %.1f" % ( avg_height )
-i = scipy.interpolate.LinearNDInterpolator(raw_points, raw_values, avg_height)
+#i = scipy.interpolate.LinearNDInterpolator(raw_points, raw_values, avg_height)
+i = scipy.interpolate.LinearNDInterpolator(raw_points, raw_values)
 
 # compute min/max range of horizontal surface
 print "Determining coverage area"
@@ -183,7 +183,8 @@ for y in y_list:
     for x in x_list:
         grid_points.append( [x, y] )
         value = i([x, y])
-        grid_values.append( i([x, y]) )
+        if value:
+            grid_values.append( i([x, y]) )
 
 print "Building grid triangulation..."
 tri = scipy.spatial.Delaunay(np.array(grid_points))
@@ -228,7 +229,7 @@ for tri in tri.simplices:
     done = False 
     best_image = None
     best_connections = -1
-    best_distance = 1000000.0
+    best_metric = 10000.0 * 10000.0
     best_triangle = []
     for image in proj.image_list:
         ok = True
@@ -261,9 +262,15 @@ for tri in tri.simplices:
         if ok:
             # print " pass!"
             # compute center of triangle
-            dist = np.linalg.norm( image.camera_pose_sba['ned'] - tri_center )
-            if dist < best_distance:
-                best_distance = dist
+            dist_cam = np.linalg.norm( image.camera_pose_sba['ned'] - tri_center )
+            dist_img = np.linalg.norm( image.center - tri_center )
+            # favor the image source that is seeing this triangle
+            # directly downwards, but also favor the image source that
+            # has us closest to the center of projection
+            #metric = dist_cam * dist_img
+            metric = dist_cam
+            if metric < best_metric:
+                best_metric = metric
                 best_image = image
                 best_triangle = list(triangle)
     if not best_image == None:
