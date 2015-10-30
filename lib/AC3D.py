@@ -1,9 +1,9 @@
 import commands
+import cv2
 import math
 import os.path
 
-def make_textures(project_dir, image_list, resolution=256):
-    src_dir = project_dir + '/Images/'
+def make_textures(src_dir, project_dir, image_list, resolution=256):
     dst_dir = project_dir + '/Textures/'
     if not os.path.exists(dst_dir):
         print "Notice: creating texture directory =", dst_dir
@@ -17,9 +17,39 @@ def make_textures(project_dir, image_list, resolution=256):
             print command
             commands.getstatusoutput( command )
         
-def generate(image_list, ref_image=False, project_dir=".", base_name="quick", version=1.0, trans=0.0 ):
+def make_textures_opencv(src_dir, project_dir, image_list, resolution=256):
+    dst_dir = project_dir + '/Textures/'
+    if not os.path.exists(dst_dir):
+        print "Notice: creating texture directory =", dst_dir
+        os.makedirs(dst_dir)
+    for image in image_list:
+        src = src_dir + "/" + image.name
+        dst = dst_dir + image.name
+        if not os.path.exists(dst):
+            src = cv2.imread(src)
+            height, width = src.shape[:2]
+            # downscale image first
+            method = cv2.INTER_AREA  # cv2.INTER_AREA
+            scale = cv2.resize(src, (0,0),
+                               fx=resolution/float(width),
+                               fy=resolution/float(height),
+                               interpolation=method)
+            # convert to hsv color space
+            hsv = cv2.cvtColor(scale, cv2.COLOR_BGR2HSV)
+            hue,sat,val = cv2.split(hsv)
+            # adaptive histogram equalization on 'value' channel
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+            aeq = clahe.apply(val)
+            # recombine
+            hsv = cv2.merge((hue,sat,aeq))
+            # convert back to rgb
+            result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+            cv2.imwrite(dst, result)
+            print "Texture %dx%d %s" % (resolution, resolution, dst)
+            
+def generate(image_list, ref_image=False, src_dir=".", project_dir=".", base_name="quick", version=1.0, trans=0.0 ):
     # make the textures if needed
-    make_textures(project_dir, image_list, 512)
+    make_textures_opencv(src_dir, project_dir, image_list, 512)
     
     max_roll = 30.0
     max_pitch = 30.0
