@@ -74,4 +74,6 @@ for image in proj.image_list:
         image.grid_list.append( [p[1], p[0], -p[2]] )
     
 # call the ac3d generator
-AC3D.generate(proj.image_list, project_dir=args.project, base_name='direct', version=1.0, trans=0.0)
+AC3D.generate(proj.image_list, src_dir=proj.source_dir,
+              project_dir=args.project, base_name='direct',
+              version=1.0, trans=0.0)
