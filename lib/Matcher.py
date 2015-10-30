@@ -113,7 +113,7 @@ class Matcher():
                 p1.append( i1.kp_list[pair[0]].pt )
                 p2.append( i2.kp_list[pair[1]].pt )
             else:
-                #undistored uv points should be better, right?
+                # undistorted uv points should be better, right?
                 p1.append( i1.uv_list[pair[0]] )
                 p2.append( i2.uv_list[pair[1]] )
 
@@ -404,25 +404,27 @@ class Matcher():
             self.plot_matches(i2, i1, idx_pairs2)
             
         if review:
-            status = self.showMatch(i1, i2, idx_pairs1)
-            # remove deselected pairs
-            for k, flag in enumerate(status):
-                if not flag:
-                    print "    deleting: " + str(idx_pairs1[k])
-                    idx_pairs1[k] = (-1, -1)
-            for pair in reversed(idx_pairs1):
-                if pair == (-1, -1):
-                    idx_pairs1.remove(pair)
-
-            status = self.showMatch(i2, i1, idx_pairs2)
-            # remove deselected pairs
-            for k, flag in enumerate(status):
-                if not flag:
-                    print "    deleting: " + str(idx_pairs2[k])
-                    idx_pairs2[k] = (-1, -1)
-            for pair in reversed(idx_pairs2):
-                if pair == (-1, -1):
-                    idx_pairs2.remove(pair)
+            if len(idx_pairs1):
+                status = self.showMatch(i1, i2, idx_pairs1)
+                # remove deselected pairs
+                for k, flag in enumerate(status):
+                    if not flag:
+                        print "    deleting: " + str(idx_pairs1[k])
+                        idx_pairs1[k] = (-1, -1)
+                for pair in reversed(idx_pairs1):
+                    if pair == (-1, -1):
+                        idx_pairs1.remove(pair)
+                        
+            if len(idx_pairs2):
+                status = self.showMatch(i2, i1, idx_pairs2)
+                # remove deselected pairs
+                for k, flag in enumerate(status):
+                    if not flag:
+                        print "    deleting: " + str(idx_pairs2[k])
+                        idx_pairs2[k] = (-1, -1)
+                for pair in reversed(idx_pairs2):
+                    if pair == (-1, -1):
+                        idx_pairs2.remove(pair)
 
         return idx_pairs1, idx_pairs2
 
