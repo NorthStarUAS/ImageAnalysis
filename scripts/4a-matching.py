@@ -31,8 +31,8 @@ parser.add_argument('--match-ratio', default=0.75, type=float,
 parser.add_argument('--filter', default='fundamental',
                     choices=['homography', 'fundamental', 'none'],
                     required=True)
-parser.add_argument('--image-fuzz', default=20, type=float, help='image fuzz') 
-parser.add_argument('--feature-fuzz', default=10, type=float, help='feature fuzz') 
+parser.add_argument('--image-fuzz', default=40, type=float, help='image fuzz') 
+parser.add_argument('--feature-fuzz', default=20, type=float, help='feature fuzz') 
 
 args = parser.parse_args()
 
