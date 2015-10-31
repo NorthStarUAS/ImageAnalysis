@@ -99,7 +99,7 @@ class Matcher():
     def filter_by_homography(self, i1, i2, j, filter):
         clean = True
         
-        tol = float(i1.width) / 100.0 # rejection range in pixels
+        tol = float(i1.width) / 400.0 # rejection range in pixels
         # print "tol = %.4f" % tol
         matches = i1.match_list[j]
         if len(matches) < self.min_pairs:
@@ -300,7 +300,7 @@ class Matcher():
     # do initial feature matching of specified image against every
     # image in the provided image list (except self)
     # fuzz units is meters
-    def hybridImageMatches(self, i1, i2, image_fuzz=20, feature_fuzz=10, review=False):
+    def hybridImageMatches(self, i1, i2, image_fuzz=40, feature_fuzz=20, review=False):
         if i1 == i2:
             print "We shouldn't see this, but i1 == i2"
             return [], []
@@ -449,7 +449,7 @@ class Matcher():
  
 
     def robustGroupMatches(self, image_list, filter="fundamental",
-                           image_fuzz=20, feature_fuzz=10, review=False):
+                           image_fuzz=40, feature_fuzz=20, review=False):
         # find basic matches and filter by match ratio and ned
         # location
         for i, i1 in enumerate(image_list):
