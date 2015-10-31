@@ -396,8 +396,8 @@ class ProjectMgr():
     # space, remap that to a vector in ned space (for camera
     # ypr=[0,0,0], and then transform that by the camera pose, returns
     # the vector from the camera, through the pixel, into ned space
-    def projectVectors(self, IK, image, uv_list, pose='orig'):
-        if pose == 'orig':
+    def projectVectors(self, IK, image, uv_list, pose='direct'):
+        if pose == 'direct':
             body2ned = image.get_body2ned() # IR
         elif pose == 'sba':
             body2ned = image.get_body2ned_sba() # IR
