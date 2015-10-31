@@ -1,43 +1,51 @@
 #!/usr/bin/python
 
-import copy
+# Image.py - manage all the data scructures associated with an image
+
+import cPickle as pickle
 import cv2
-import lxml.etree as ET
+import json
+import math
 from matplotlib import pyplot as plt
+import navpy
 import numpy as np
 import os.path
 import sys
 
-from find_obj import filter_matches,explore_match
+import transformations
 
+
+d2r = math.pi / 180.0           # a helpful constant
+    
 class Image():
     def __init__(self, image_dir=None, image_file=None):
         self.name = None
         self.img = None
         self.img_rgb = None
-        self.fullh = 0
-        self.fullw = 0
-        self.kp_list = []
+        self.height = 0
+        self.width = 0
+        self.kp_list = []       # opencv keypoint list
         self.kp_usage = []
-        self.des_list = None
+        self.des_list = []      # opencv descriptor list
         self.match_list = []
-        self.num_matches = 0
 
-        self.aircraft_yaw = 0.0
-        self.aircraft_pitch = 0.0
-        self.aircraft_roll = 0.
-        self.aircraft_lon = 0.0
-        self.aircraft_lat = 0.0
-        self.aircraft_msl = 0.0
-        self.aircraft_x = 0.0
-        self.aircraft_y = 0.0
+        self.uv_list = []       # the 'undistorted' uv coordinates of all kp's
+        
+        self.aircraft_pose = None
+        self.camera_pose = None
+        self.camera_pose_sba = None
 
-        self.camera_yaw = 0.0
-        self.camera_pitch = 0.0
-        self.camera_roll = 0.0
-        self.camera_x = 0.0
-        self.camera_y = 0.0
-        self.camera_z = 0.0
+        # cam2body/body2cam are transforms to map between the standard
+        # lens coordinate system (at zero roll/pitch/yaw and the
+        # standard ned coordinate system at zero roll/pitch/yaw).
+        # cam2body is essentially a +90 pitch followed by +90 roll (or
+        # equivalently a +90 yaw followed by +90 pitch.)  This
+        # transform simply maps coordinate systems and has nothing to
+        # do with camera mounting offset or pose or anything other
+        # than converting from one system to another.
+        self.cam2body = np.array( [[0, 0, 1], [1, 0, 0], [0, 1, 0]],
+                                  dtype=float )
+        self.body2cam = np.linalg.inv(self.cam2body)
 
         self.yaw_bias = 0.0
         self.roll_bias = 0.0
@@ -46,8 +54,13 @@ class Image():
         self.x_bias = 0.0
         self.y_bias = 0.0
 
-        self.weight = 1.0
+        # fixme: num_matches and connections appear to be the same
+        # idea computed and used in different places.  We should be
+        # able to collapse this into a single consistent value.
+        self.num_matches = 0
         self.connections = 0.0
+        self.weight = 1.0
+
         self.error = 0.0
         self.stddev = 0.0
         self.placed = False
@@ -55,213 +68,185 @@ class Image():
         self.coord_list = []
         self.corner_list = []
         self.grid_list = []
+
+        self.center = []
+        self.radius = 0.0
         
         if image_file:
-            self.load(image_dir, image_file)
+            self.name = image_file
+            root, ext = os.path.splitext(image_file)
+            file_root = image_dir + "/" + root
+            self.image_file = image_dir + "/" + image_file
+            self.features_file = file_root + ".feat"
+            self.des_file = file_root + ".desc"
+            self.match_file = file_root + ".match"
+            self.info_file = file_root + ".info"
+            # only load meta data when instance is created, other
+            # items will be loaded 'just in time' depending on the
+            # task to be performed later on
+            self.load_meta()
+            
+    def load_meta(self):
+        if not os.path.exists(self.info_file):
+            # no info file, create a new file
+            self.save_meta()
+            return
+        
+        try:
+            f = open(self.info_file, 'r')
+            image_dict = json.load(f)
+            f.close()
+            self.num_matches = image_dict['num-matches']
+            if 'aircraft-pose' in image_dict:
+                self.aircraft_pose = image_dict['aircraft-pose']
+            if 'camera-pose' in image_dict:
+                self.camera_pose = image_dict['camera-pose']
+            if 'camera-pose-sba' in image_dict:
+                self.camera_pose_sba = image_dict['camera-pose-sba']
+            if 'height' in image_dict:
+                self.height = image_dict['height']
+            if 'width' in image_dict:
+                self.width = image_dict['width']
+            
+            self.alt_bias = image_dict['altitude-bias']
+            self.roll_bias = image_dict['roll-bias']
+            self.pitch_bias = image_dict['pitch-bias']
+            self.yaw_bias = image_dict['yaw-bias']
+            self.x_bias = image_dict['x-bias']
+            self.y_bias = image_dict['y-bias']
+            self.weight = image_dict['weight']
+            self.connections = image_dict['connections']
+            self.error = image_dict['error']
+            self.stddev = image_dict['stddev']
+            if 'bounding-center' in image_dict:
+                self.center = np.array(image_dict['bounding-center'])
+            if 'bounding-radius' in image_dict:
+                self.radius = image_dict['bounding-radius']
+        except:
+            print self.info_file + ":\n" + "  load error: " \
+                + str(sys.exc_info()[1])
 
-    def set_location(self,
-                     lon=0.0, lat=0.0, msl=0.0,
-                     roll=0.0, pitch=0.0, yaw=0.0):
-        self.aircraft_lon = lon
-        self.aircraft_lat = lat
-        self.aircraft_msl = msl
-        self.aircraft_roll = roll
-        self.aircraft_pitch = pitch
-        self.aircraft_yaw = yaw
-
-    def load_image(self):
+    def load_rgb(self):
         if self.img == None:
             #print "Loading " + self.image_file
             try:
                 self.img_rgb = cv2.imread(self.image_file)
-                self.fullh, self.fullw, self.fulld = self.img_rgb.shape
-                self.img = cv2.cvtColor(self.img_rgb, cv2.COLOR_BGR2GRAY)
-                # self.img = cv2.equalizeHist(gray)
-                #self.img = gray
+                self.height, self.width, self.fulld = self.img_rgb.shape
+                gray = cv2.cvtColor(self.img_rgb, cv2.COLOR_BGR2GRAY)
+
+                #cv2.imshow('rgb', self.img_rgb)
+                #cv2.imshow('grayscale', self.img)
+
+                # histogram equalization
+                #eq = cv2.equalizeHist(self.img)
+                #cv2.imshow('history equalization', eq)
+                
+                # adaptive histogram equilization (block by block)
+                clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+                aeq = clahe.apply(gray)
+                #cv2.imshow('adaptive history equalization', aeq)
+
+                self.img = aeq  # we like adaptive histogram equalization
+                
+                #print 'waiting for keyboard input...'
+                #key = cv2.waitKey() & 0xff
+
                 return self.img_rgb
                 
             except:
                 print self.image_file + ":\n" + "  load error: " \
                     + str(sys.exc_info()[1])
         else:
-            self.fullh, self.fullw, self.fulld = self.img_rgb.shape
+            self.height, self.width, self.fulld = self.img_rgb.shape
 
-    def load_full_image(self, source_dir):
+    def load_source_rgb(self, source_dir):
         #print "Loading " + self.image_file
-        full_name = source_dir + "/" + self.name
+        source_name = source_dir + "/" + self.name
         try:
-            full_image = cv2.imread(full_name)
-            return full_image
+            source_image = cv2.imread(source_name)
+            return source_image
 
         except:
-            print full_image + ":\n" + "  load error: " \
+            print source_image + ":\n" + "  load error: " \
                 + str(sys.exc_info()[1])
             return None
 
-    def load_keys(self):
-        if len(self.kp_list) == 0 and os.path.exists(self.keys_file):
-            #print "Loading " + self.keys_file
+    def load_features(self):
+        if len(self.kp_list) == 0 and os.path.exists(self.features_file):
+            #print "Loading " + self.features_file
             try:
-                self.keys_xml = ET.parse(self.keys_file)
+                feature_list = pickle.load( open( self.features_file, "rb" ) )
+                for point in feature_list:
+                    kp = cv2.KeyPoint(x=point[0][0], y=point[0][1],
+                                      _size=point[1], _angle=point[2],
+                                      _response=point[3], _octave=point[4],
+                                      _class_id=point[5])
+                    self.kp_list.append(kp)
             except:
-                print self.keys_file + ":\n" + "  load error: " \
-                    + str(sys.exc_info()[1])
-            root = self.keys_xml.getroot()
-            self.fullw = int(root.find('width').text)
-            self.fullh = int(root.find('height').text)
-            for kp in root.findall('kp'):
-                angle = float(kp.find('angle').text)
-                class_id = int(kp.find('class_id').text)
-                octave = int(kp.find('octave').text)
-                pt = kp.find('pt').text
-                x, y = map( float, str(pt).split() )
-                response = float(kp.find('response').text)
-                size = float(kp.find('size').text)
-                self.kp_list.append( cv2.KeyPoint(x, y, size, angle, response, octave, class_id) )
+                # unpickle failed, try old style json
+                try:
+                    f = open(self.features_file, 'r')
+                    feature_dict = json.load(f)
+                    f.close()
+                except:
+                    print self.features_file + ":\n" + "  load error: " \
+                        + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1])
+                    return
+
+                feature_list = feature_dict['features']
+                for i, kp_dict in enumerate(feature_list):
+                    angle = kp_dict['angle']
+                    class_id = kp_dict['class-id']
+                    octave = kp_dict['octave']
+                    pt = kp_dict['pt']
+                    response = kp_dict['response']
+                    size = kp_dict['size']
+                    self.kp_list.append( cv2.KeyPoint(pt[0], pt[1], size,
+                                                      angle, response, octave,
+                                                      class_id) )
 
     def load_descriptors(self):
-        if self.des_list == None and os.path.exists(self.des_file):
-            #print "Loading " + self.des_file
+        filename = self.des_file + ".npy"
+        if len(self.des_list) == 0 and os.path.exists(filename):
+            #print "Loading " + filename
             try:
-                self.des_list = np.load(self.des_file)
+                self.des_list = np.load(filename)
+                #print np.any(self.des_list)
+                #val = "%s" % self.des_list
+                #print
+                #print "des_list.size =", self.des_list.size
+                #print val
+                #print
             except:
-                print self.des_file + ":\n" + "  load error: " \
-                    + str(sys.exc_info()[1])
-
-    def load_matches(self):
-        if len(self.match_list) == 0 and os.path.exists(self.match_file):
-            #print "Loading " + self.match_file
-            try:
-                self.match_xml = ET.parse(self.match_file)
-            except:
-                print self.match_file + ":\n" + "  load error: " \
-                    + str(sys.exc_info()[1])
-            root = self.match_xml.getroot()
-            for match_node in root.findall('pairs'):
-                pairs_str = match_node.text
-                if pairs_str == None:
-                    self.match_list.append( [] )
-                else:
-                    pairs = pairs_str.split('), (')
-                    matches = []
-                    for p in pairs:
-                        p = p.replace('(', '')
-                        p = p.replace(')', '')
-                        i1, i2 = p.split(',')
-                        matches.append( (int(i1), int(i2)) )
-                    self.match_list.append( matches )
-            # print str(self.match_list)
-
-    def load_info(self):
-        if os.path.exists(self.info_file):
-            #print "Loading " + self.info_file
-            try:
-                xml = ET.parse(self.info_file)
-                root = xml.getroot()
-                self.num_matches = int(root.find('num-matches').text)
-                if root.find('longitude') is not None:
-                    lon = float(root.find('longitude').text)
-                else:
-                    lon = float(root.find('aircraft-longitude').text)
-                if root.find('latitude') is not None:
-                    lat = float(root.find('latitude').text)
-                else:
-                    lat = float(root.find('aircraft-latitude').text)
-                if root.find('altitude-msl') is not None:
-                    msl = float(root.find('altitude-msl').text)
-                else:
-                    msl = float(root.find('aircraft-msl').text)
-                if root.find('roll') is not None:
-                    roll = float(root.find('roll').text)
-                else:
-                    roll = float(root.find('aircraft-roll').text)
-                if root.find('pitch') is not None:
-                    pitch = float(root.find('pitch').text)
-                else:
-                    pitch = float(root.find('aircraft-pitch').text)
-                if root.find('yaw') is not None:
-                    yaw = float(root.find('yaw').text)
-                else:
-                    yaw = float(root.find('aircraft-yaw').text)
-                self.set_location(lon, lat, msl, roll, pitch, yaw)
-                self.alt_bias = float(root.find('altitude-bias').text)
-                self.roll_bias = float(root.find('roll-bias').text)
-                self.pitch_bias = float(root.find('pitch-bias').text)
-                self.yaw_bias = float(root.find('yaw-bias').text)
-                self.x_bias = float(root.find('x-bias').text)
-                self.y_bias = float(root.find('y-bias').text)
-                self.weight = float(root.find('weight').text)
-                self.connections = float(root.find('connections').text)
-                self.error = float(root.find('error').text)
-                self.stddev = float(root.find('stddev').text)
-                if root.find('camera-yaw') is not None:
-                    self.camera_yaw = float(root.find('camera-yaw').text)
-                if root.find('camera-pitch') is not None:
-                    self.camera_pitch = float(root.find('camera-pitch').text)
-                if root.find('camera-roll') is not None:
-                    self.camera_roll = float(root.find('camera-roll').text)
-                if root.find('camera-x') is not None:
-                    self.camera_x = float(root.find('camera-x').text)
-                if root.find('camera-y') is not None:
-                    self.camera_y = float(root.find('camera-y').text)
-                if root.find('camera-z') is not None:
-                    self.camera_z = float(root.find('camera-z').text)
-            except:
-                print self.info_file + ":\n" + "  load error: " \
+                print filename + ":\n" + "  load error: " \
                     + str(sys.exc_info()[1])
         else:
-            # no info file, create a new file
-            self.save_info()
-
-    def load(self, image_dir, image_file):
-        print "Loading " + image_file
-        self.name = image_file
-        root, ext = os.path.splitext(image_file)
-        self.file_root = image_dir + "/" + root
-        self.image_file = image_dir + "/" + image_file
-        self.keys_file = self.file_root + ".keys"
-        self.des_file = self.file_root + ".npy"
-        self.match_file = self.file_root + ".match"
-        self.info_file = self.file_root + ".info"
-        self.load_info()
-        #self.load_keys()
-        #self.load_descriptors()
-        #self.load_matches()
-
-    def save_keys(self):
-        root = ET.Element('keypoints')
-        xml = ET.ElementTree(root)
-
-        width = ET.SubElement(root, 'width')
-        width.text = str(self.fullw)
-        height = ET.SubElement(root, 'height')
-        height.text = str(self.fullh)
-
-        # generate keypoints xml tree
-        for i in xrange(len(self.kp_list)):
-            kp = self.kp_list[i]
-            e = ET.SubElement(root, 'kp')
-            idx = ET.SubElement(e, 'index')
-            idx.text = str(i)
-            angle = ET.SubElement(e, 'angle')
-            angle.text = str(kp.angle)
-            class_id = ET.SubElement(e, 'class_id')
-            class_id.text = str(kp.class_id)
-            octave = ET.SubElement(e, 'octave')
-            octave.text = str(kp.octave)
-            pt = ET.SubElement(e, 'pt')
-            pt.text = str(kp.pt[0]) + " " + str(kp.pt[1])
-            response = ET.SubElement(e, 'response')
-            response.text = str(kp.response)
-            size = ET.SubElement(e, 'size')
-            size.text = str(kp.size)
-        # write xml file
+            print "no file:", filename
+            
+    def load_matches(self):
         try:
-            xml.write(self.keys_file, encoding="us-ascii",
-                      xml_declaration=False, pretty_print=True)
+            f = open(self.match_file, 'r')
+            self.match_list = json.load(f)
+            f.close()
         except:
-            print self.keys_file + ": error saving file: " \
-                + str(sys.exc_info()[1])
+            print self.features_file + ":\n" + "  load error: " \
+                + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1])
+            return
+
+    def save_features(self):
+        # convert from native opencv kp class to a python list
+        feature_list = []
+        for kp in self.kp_list:
+            point = (kp.pt, kp.size, kp.angle, kp.response, kp.octave,
+                     kp.class_id)
+            feature_list.append(point)
+        try:
+            pickle.dump(feature_list, open(self.features_file, "wb"))
+        except IOError as e:
+            print "save_features(): I/O error({0}): {1}".format(e.errno, e.strerror)
+            return
+        except:
+            raise
 
     def save_descriptors(self):
         # write descriptors as 'ppm image' format
@@ -272,72 +257,128 @@ class Image():
                 + str(sys.exc_info()[1])
 
     def save_matches(self):
-        root = ET.Element('matches')
-        xml = ET.ElementTree(root)
-
-        # generate matches xml tree
-        for i in xrange(len(self.match_list)):
-            match = self.match_list[i]
-            match_node = ET.SubElement(root, 'pairs')
-            if len(match) >= 4:
-                pairs = str(match)
-                pairs = pairs.replace('[', '')
-                pairs = pairs.replace(']', '')
-                match_node.text = pairs
-
-        # write xml file
         try:
-            xml.write(self.match_file, encoding="us-ascii",
-                      xml_declaration=False, pretty_print=True)
-        except:
-            print self.match_file + ": error saving file: " \
-                + str(sys.exc_info()[1])
-
-    def save_info(self):
-        root = ET.Element('information')
-        xml = ET.ElementTree(root)
-        ET.SubElement(root, 'num-matches').text = str(self.num_matches)
-        ET.SubElement(root, 'aircraft-longitude').text = "%.10f" % self.aircraft_lon
-        ET.SubElement(root, 'aircraft-latitude').text = "%.10f" % self.aircraft_lat
-        ET.SubElement(root, 'aircraft-msl').text = "%.2f" % self.aircraft_msl
-        ET.SubElement(root, 'aircraft-yaw').text = "%.2f" % self.aircraft_yaw
-        ET.SubElement(root, 'aircraft-pitch').text = "%.2f" % self.aircraft_pitch
-        ET.SubElement(root, 'aircraft-roll').text = "%.2f" % self.aircraft_roll
-        ET.SubElement(root, 'aircraft-x').text = "%.3f" % self.aircraft_x
-        ET.SubElement(root, 'aircraft-y').text = "%.3f" % self.aircraft_y
-        ET.SubElement(root, 'altitude-bias').text = "%.2f" % self.alt_bias
-        ET.SubElement(root, 'roll-bias').text = "%.2f" % self.roll_bias
-        ET.SubElement(root, 'pitch-bias').text = "%.2f" % self.pitch_bias
-        ET.SubElement(root, 'yaw-bias').text = "%.2f" % self.yaw_bias
-        ET.SubElement(root, 'x-bias').text = "%.2f" % self.x_bias
-        ET.SubElement(root, 'y-bias').text = "%.2f" % self.y_bias
-        ET.SubElement(root, 'weight').text = "%.2f" % self.weight
-        ET.SubElement(root, 'connections').text = "%d" % self.connections
-        ET.SubElement(root, 'error').text = "%.3f" % self.error
-        ET.SubElement(root, 'stddev').text = "%.3f" % self.stddev
-        ET.SubElement(root, 'camera-yaw').text = "%.3f" % self.camera_yaw
-        ET.SubElement(root, 'camera-pitch').text = "%.3f" % self.camera_pitch
-        ET.SubElement(root, 'camera-roll').text = "%.3f" % self.camera_roll
-        ET.SubElement(root, 'camera-x').text = "%.3f" % self.camera_x
-        ET.SubElement(root, 'camera-y').text = "%.3f" % self.camera_y
-        ET.SubElement(root, 'camera-z').text = "%.3f" % self.camera_z
-
-        # write xml file
-        try:
-            xml.write(self.info_file, encoding="us-ascii",
-                      xml_declaration=False, pretty_print=True)
-        except:
+            f = open(self.match_file, 'w')
+            json.dump(self.match_list, f, sort_keys=True)
+            f.close()
+        except IOError as e:
             print self.info_file + ": error saving file: " \
                 + str(sys.exc_info()[1])
+            return
+        except:
+            raise
 
-    def show_keypoints(self, flags=0):
+    def save_meta(self):
+        image_dict = {}
+        image_dict['num-matches'] = self.num_matches
+        image_dict['aircraft-pose'] = self.aircraft_pose
+        image_dict['camera-pose'] = self.camera_pose
+        image_dict['camera-pose-sba'] = self.camera_pose_sba
+        image_dict['height'] = self.height
+        image_dict['width'] = self.width
+        image_dict['altitude-bias'] = self.alt_bias
+        image_dict['roll-bias'] = self.roll_bias
+        image_dict['pitch-bias'] = self.pitch_bias
+        image_dict['yaw-bias'] = self.yaw_bias
+        image_dict['x-bias'] = self.x_bias
+        image_dict['y-bias'] = self.y_bias
+        image_dict['weight'] = self.weight
+        image_dict['connections'] = self.connections
+        image_dict['error'] = self.error
+        image_dict['stddev'] = self.stddev
+        image_dict['bounding-center'] = list(self.center)
+        image_dict['bounding-radius'] = self.radius
+
+        try:
+            f = open(self.info_file, 'w')
+            json.dump(image_dict, f, indent=4, sort_keys=True)
+            f.close()
+        except IOError as e:
+            print self.info_file + ": error saving file: " \
+                + str(sys.exc_info()[1])
+            return
+        except:
+            raise
+
+    def make_detector(self, dparams):
+        detector = None
+        if dparams['detector'] == 'SIFT':
+            max_features = int(dparams['sift-max-features'])
+            detector = cv2.SIFT(nfeatures=max_features)
+        elif dparams['detector'] == 'SURF':
+            threshold = float(dparams['surf-hessian-threshold'])
+            nOctaves = int(dparams['surf-noctaves'])
+            detector = cv2.SURF(hessianThreshold=threshold, nOctaves=nOctaves)
+        elif dparams['detector'] == 'ORB':
+            max_features = int(dparams['orb-max-features'])
+            grid_size = int(dparams['grid-detect'])
+            cells = grid_size * grid_size
+            max_cell_features = int(max_features / cells)
+            detector = cv2.ORB(max_cell_features)
+        elif dparams['detector'] == 'Star':
+            maxSize = int(dparams['star-max-size'])
+            responseThreshold = int(dparams['star-response-threshold'])
+            lineThresholdProjected = int(dparams['star-line-threshold-projected'])
+            lineThresholdBinarized = int(dparams['star-line-threshold-binarized'])
+            suppressNonmaxSize = int(dparams['star-suppress-nonmax-size'])
+            detector = cv2.StarDetector(maxSize, responseThreshold,
+                                        lineThresholdProjected,
+                                        lineThresholdBinarized,
+                                        suppressNonmaxSize)
+        return detector
+
+    def orb_grid_detect(self, detector, image, grid_size):
+        steps = grid_size
+        kp_list = []
+        h, w = image.shape
+        dx = 1.0 / float(steps)
+        dy = 1.0 / float(steps)
+        x = 0.0
+        for i in xrange(steps):
+            y = 0.0
+            for j in xrange(steps):
+                #print "create mask (%dx%d) %d %d" % (w, h, i, j)
+                #print "  roi = %.2f,%.2f %.2f,%2f" % (y*h,(y+dy)*h-1, x*w,(x+dx)*w-1)
+                mask = np.zeros((h,w,1), np.uint8)
+                mask[y*h:(y+dy)*h-1,x*w:(x+dx)*w-1] = 255
+                kps = detector.detect(image, mask)
+                kp_list.extend( kps )
+                y += dy
+            x += dx
+        return kp_list
+
+    def detect_features(self, dparams):
+        detector = self.make_detector(dparams)
+        grid_size = int(dparams['grid-detect'])
+        if dparams['detector'] == 'ORB' and grid_size > 1:
+            kp_list = self.orb_grid_detect(detector, self.img, grid_size)
+        else:
+            kp_list = detector.detect(self.img)
+
+        # compute the descriptors for the found features (Note: Star
+        # is a special case that uses the brief extractor
+        #
+        # compute() could potential add/remove keypoints so we want to
+        # save the returned keypoint list, not our original detected
+        # keypoint list
+        if dparams['detector'] == 'Star':
+            extractor = cv2.DescriptorExtractor_create('ORB')
+        else:
+            extractor = detector
+        self.kp_list, self.des_list = extractor.compute(self.img, kp_list)
+        
+        # wipe matches because we've touched the keypoints
+        self.match_list = []
+
+    # Displays the image in a window and waits for a keystroke and
+    # then destroys the window.  Returns the value of the keystroke.
+    def show_features(self, flags=0):
         # flags=0: draw only keypoints location
         # flags=4: draw rich keypoints
         if self.img == None:
-            self.load_image()
+            self.load_rgb()
         h, w = self.img.shape
-        hscale = float(h) / float(self.fullh)
-        wscale = float(w) / float(self.fullw)
+        scale = 1000.0 / float(h)
         kp_list = []
         for kp in self.kp_list:
             angle = kp.angle
@@ -346,25 +387,28 @@ class Image():
             pt = kp.pt
             response = kp.response
             size = kp.size
-            x = pt[0] * wscale
-            y = pt[1] * hscale
+            x = pt[0] * scale
+            y = pt[1] * scale
             kp_list.append( cv2.KeyPoint(x, y, size, angle, response,
                                          octave, class_id) )
 
-        res = cv2.drawKeypoints(self.img_rgb, kp_list,
+        scaled_image = cv2.resize(self.img_rgb, (0,0), fx=scale, fy=scale)
+        res = cv2.drawKeypoints(scaled_image, kp_list,
                                 color=(0,255,0), flags=flags)
-        fig1, plt1 = plt.subplots(1)
-        plt1 = plt.imshow(res)
-        plt.show(block=True) #block=True/Flase
+        cv2.imshow(self.name, res)
+        print 'waiting for keyboard input...'
+        key = cv2.waitKey() & 0xff
+        cv2.destroyWindow(self.name)
+        return key
 
-    def coverage(self):
-        if not len(self.corner_list):
+    def coverage_xy(self):
+        if not len(self.corner_list_xy):
             return (0.0, 0.0, 0.0, 0.0)
 
         # find the min/max area of the image
-        p0 = self.corner_list[0]
+        p0 = self.corner_list_xy[0]
         xmin = p0[0]; xmax = p0[0]; ymin = p0[1]; ymax = p0[1]
-        for pt in self.corner_list:
+        for pt in self.corner_list_xy:
             if pt[0] < xmin:
                 xmin = pt[0]
             if pt[0] > xmax:
@@ -376,4 +420,106 @@ class Image():
         #print "%s coverage: (%.2f %.2f) (%.2f %.2f)" \
         #    % (self.name, xmin, ymin, xmax, ymax)
         return (xmin, ymin, xmax, ymax)
+    
+    def coverage_lla(self, ref):
+        xmin, ymin, xmax, ymax = self.coverage_xy()
+        minlla = navpy.ned2lla([ymin, xmin, 0.0], ref[0], ref[1], ref[2])
+        maxlla = navpy.ned2lla([ymax, xmax, 0.0], ref[0], ref[1], ref[2])
+        return(minlla[1], minlla[0], maxlla[1], maxlla[0])
+        
+    def set_aircraft_pose(self, lla=[0.0, 0.0, 0.0], ypr=[0.0, 0.0, 0.0]):
+        quat = transformations.quaternion_from_euler(ypr[0] * d2r,
+                                                     ypr[1] * d2r,
+                                                     ypr[2] * d2r,
+                                                     'rzyx')
+        self.aircraft_pose = { 'lla': lla, 'ypr': ypr, 'quat': quat.tolist() }
 
+    def get_aircraft_pose(self):
+        p = self.aircraft_pose
+        if p and 'lla' in p and 'ypr' in p:
+            return p['lla'], p['ypr'], np.array(p['quat'])
+        else:
+            return [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], np.zeros(4)
+
+    # ned = [n_m, e_m, d_m] relative to the project ned reference point
+    # ypr = [yaw_deg, pitch_deg, roll_deg] in the ned coordinate frame
+    # note that the matrix derived from 'quat' is inv(R) is transpose(R)
+    def set_camera_pose(self, ned=[0.0, 0.0, 0.0], ypr=[0.0, 0.0, 0.0]):
+        quat = transformations.quaternion_from_euler(ypr[0] * d2r,
+                                                     ypr[1] * d2r,
+                                                     ypr[2] * d2r,
+                                                     'rzyx')
+        self.camera_pose = { 'ned': ned, 'ypr': ypr, 'quat': quat.tolist() }
+
+    def get_camera_pose(self):
+        p = self.camera_pose
+        if p and 'ned' in p and 'ypr' in p:
+            return p['ned'], p['ypr'], np.array(p['quat'])
+        else:
+            return [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], np.zeros(4)
+
+    def set_camera_pose_sba(self, ned=[0.0, 0.0, 0.0], ypr=[0.0, 0.0, 0.0]):
+        quat = transformations.quaternion_from_euler(ypr[0] * d2r,
+                                                     ypr[1] * d2r,
+                                                     ypr[2] * d2r,
+                                                     'rzyx')
+        self.camera_pose_sba = { 'ned': ned, 'ypr': ypr, 'quat': quat.tolist() }
+
+    def get_camera_pose_sba(self):
+        p = self.camera_pose_sba
+        if p and 'ned' in p and 'ypr' in p:
+            return p['ned'], p['ypr'], np.array(p['quat'])
+        else:
+            return [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], np.zeros(4)
+
+    # cam2body rotation matrix (M)
+    def get_cam2body(self):
+        return self.cam2body
+
+    # body2cam rotation matrix (IM)
+    def get_body2cam(self):
+        return self.body2cam
+
+    # ned2body (R) rotation matrix
+    def get_ned2body(self):
+        p = self.camera_pose
+        body2ned = transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
+        return np.matrix(body2ned).T
+    
+    # ned2body (R) rotation matrix (of SBA pose)
+    def get_ned2body_sba(self):
+        p = self.camera_pose_sba
+        body2ned = transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
+        return np.matrix(body2ned).T
+    
+   # body2ned (IR) rotation matrix
+    def get_body2ned(self):
+        p = self.camera_pose
+        return transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
+
+   # body2ned (IR) rotation matrix
+    def get_body2ned_sba(self):
+        p = self.camera_pose_sba
+        return transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
+
+    # compute rvec and tvec (used to build the camera projection
+    # matrix for things like cv2.triangulatePoints) from camera pose
+    def get_proj(self):
+        body2cam = self.get_body2cam()
+        ned2body = self.get_ned2body()
+        R = body2cam.dot( ned2body )
+        rvec, jac = cv2.Rodrigues(R)
+        ned = self.camera_pose['ned']
+        tvec = -np.matrix(R) * np.matrix(ned).T
+        return rvec, tvec
+    
+    # compute rvec and tvec (used to build the camera projection
+    # matrix for things like cv2.triangulatePoints) from camera pose
+    def get_proj_sba(self):
+        body2cam = self.get_body2cam()
+        ned2body = self.get_ned2body_sba()
+        R = body2cam.dot( ned2body )
+        rvec, jac = cv2.Rodrigues(R)
+        ned = self.camera_pose_sba['ned']
+        tvec = -np.matrix(R) * np.matrix(ned).T
+        return rvec, tvec

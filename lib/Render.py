@@ -13,27 +13,42 @@ class Render():
     def setImageList(self, image_list):
         self.image_list = image_list
 
-    def setRefCoord(self, lon, lat):
-        self.ref_lon = lon
-        self.ref_lat = lat
+    def setRefCoord(self, lla):
+        self.ref_lon = lla[1]
+        self.ref_lat = lla[0]
 
-    def drawImage(self, image=None, source_dir=None,
+    # adaptive equalize the value in HSV and recombine
+    def aeq_value(self, bgr):
+        hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+        hue,sat,val = cv2.split(hsv)
+        # adaptive histogram equalization on 'value' channel
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+        aeq = clahe.apply(val)
+        # recombine
+        hsv = cv2.merge((hue,sat,aeq))
+        # convert back to rgb
+        result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+        return result
+ 
+    def drawImage(self, image, K, dist_coeffs, source_dir=None,
                   cm_per_pixel=15.0, keypoints=False, bounds=None):
-        if not len(image.corner_list):
+        if not len(image.corner_list_xy):
             return
         if bounds == None:
-            (xmin, ymin, xmax, ymax) = image.coverage()
+            (xmin, ymin, xmax, ymax) = image.coverage_xy()
         else:
             (xmin, ymin, xmax, ymax) = bounds
         x = int(100.0 * (xmax - xmin) / cm_per_pixel)
         y = int(100.0 * (ymax - ymin) / cm_per_pixel)
-        print "Drawing %s: (%d %d)" % (image.name, x, y)
-        #print str(image.corner_list)
+        #print "Drawing %s: (%d %d)" % (image.name, x, y)
+        #print str(image.corner_list_xy)
 
-        full_image = image.load_full_image(source_dir)
+        full_image = image.load_source_rgb(source_dir)
         h, w, d = full_image.shape
-        corners = np.float32([[0,0],[w,0],[0,h],[w,h]])
-        target = np.array([image.corner_list]).astype(np.float32)
+        equalized = self.aeq_value(full_image)
+        
+        corners = np.array([[0,0],[w,0],[0,h],[w,h]], dtype=np.float32)
+        target = np.array([image.corner_list_xy], dtype=np.float32)
         for i, pt in enumerate(target[0]):
             #print "i=%d" % i
             target[0][i][0] = 100.0 * (target[0][i][0] - xmin) / cm_per_pixel
@@ -44,13 +59,16 @@ class Render():
             for i, kp in enumerate(image.kp_list):
                 if image.kp_usage[i]:
                     keypoints.append(kp)
-            src = cv2.drawKeypoints(full_image, keypoints,
+            src = cv2.drawKeypoints(equalized, keypoints,
                                     color=(0,255,0), flags=0)
         else:
-            src = cv2.drawKeypoints(full_image, [],
+            src = cv2.drawKeypoints(equalized, [],
                                     color=(0,255,0), flags=0)
+        undist = cv2.undistort(src, K, np.array(dist_coeffs))
+        #print "corners:\n", corners
+        #print "target:\n", target
         M = cv2.getPerspectiveTransform(corners, target)
-        out = cv2.warpPerspective(src, M, (x,y))
+        out = cv2.warpPerspective(undist, M, (x,y))
 
         # clean up the edges so we don't have a ring of super dark pixels.
         ret, mask = cv2.threshold(out, 1, 255, cv2.THRESH_BINARY)

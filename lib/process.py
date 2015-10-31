@@ -5,8 +5,8 @@ import sys
 # find our custom built opencv first
 sys.path.insert(0, "/home/curt/Projects/ComputerVision/lib/python2.7/site-packages/")
 
-import FlightData
-import ImageGroup
+import ATICorrelate
+import ProjectMgr
 import Solver
 
 ComputeMatches = True
@@ -31,7 +31,7 @@ ground_alt_m = float(sys.argv[3])
 work_dir = image_dir + "-work"
 
 # create the image group
-ig = ImageGroup.ImageGroup( max_features=800, detect_grid=4, match_ratio=0.75 )
+ig = ProjectMgr.ProjectMgr( max_features=800, detect_grid=4, match_ratio=0.75 )
 
 # set up Samsung NX210 parameters
 ig.setCameraParams(horiz_mm=23.5, vert_mm=15.7, focal_len_mm=30.0)
@@ -60,7 +60,7 @@ ig.genKeypointUsageMap()
 # correlate shutter time with trigger time (based on interval
 # comaparison of trigger events from the flightdata vs. image time
 # stamps.)
-c = FlightData.Correlate()
+c = ATICorrelate.Correlate()
 c.load_all(flight_dir, image_dir)
 best_correlation, best_camera_time_error = c.test_correlations()
 
@@ -122,7 +122,7 @@ if ReviewMatches:
 if False:
     # recompute matches with a bit larger match ratio than default
     ig.m.match_ratio *= 1.4
-    i1 = ig.m.findImageByName("SAM_0369.JPG")
+    i1 = ig.findImageByName("SAM_0369.JPG")
     i1.match_list = ig.m.computeImageMatches(i1, review=True)
     i1.save_matches()
 
@@ -221,7 +221,7 @@ if False:
     image_list = [ "SAM_0327.JPG", "SAM_0328.JPG" ]
     print str(image_list)
     #for name in image_list:
-    #    image = ig.m.findImageByName(name)
+    #    image = ig.findImageByName(name)
     #    ig.findImageShift(image, gain=1.0, placing=True)
     #    image.placed = True
     ig.render_image_list(image_list, cm_per_pixel=10.0, keypoints=True)
