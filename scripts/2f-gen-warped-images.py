@@ -27,6 +27,8 @@ import transformations
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--pose', required=True, default='direct',
+                    choices=(['direct', 'sba']), help='select pose')
 
 args = parser.parse_args()
 
@@ -51,11 +53,12 @@ for image in proj.image_list:
     corner_list.append( [0, image.height] )
     corner_list.append( [image.width, image.height] )
     
-    proj_list = proj.projectVectors( IK, image, corner_list, pose='sba' )
+    proj_list = proj.projectVectors( IK, image, corner_list, pose=args.pose )
     #print "proj_list:\n", proj_list
-    #pts = proj.intersectVectorsWithGroundPlane(image.camera_pose,
-    #                                           g, proj_list)
-    pts_ned = sss.interpolate_vectors(image.camera_pose_sba, proj_list)
+    if args.pose == 'direct':
+        pts_ned = sss.interpolate_vectors(image.camera_pose, proj_list)
+    elif args.pose == 'sba':
+        pts_ned = sss.interpolate_vectors(image.camera_pose_sba, proj_list)
     # print "pts (ned):\n", pts_ned
     
     image.corner_list_ned = []
@@ -76,8 +79,8 @@ if not os.path.exists(dst_dir):
 for image in proj.image_list:
     basename, ext = os.path.splitext(image.name)
     dst = dst_dir + basename + ".png"
-    if os.path.exists(dst):
-        continue
+    #if os.path.exists(dst):
+    #    continue
     # print image.name
     scale = float(image.width) / float(camw)
     K = proj.cam.get_K(scale)
