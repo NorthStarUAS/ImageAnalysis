@@ -490,6 +490,10 @@ class Matcher():
         for i1 in image_list:
             i1.save_matches()
 
+###########################################################
+###   STUFF BELOW HERE IS OLD AND POSSIBLY DEPRECATED   ###
+###########################################################
+
     def safeAddPair(self, i1, i2, refpair):
         image1 = self.image_list[i1]
         image2 = self.image_list[i2]
