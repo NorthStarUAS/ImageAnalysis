@@ -1457,7 +1457,7 @@ void sba_driver(char *camsfname, char *ptsfname, char *calibfname, int cnp, int 
   double K[9], ical[5]; // intrinsic calibration matrix & temp. storage for its params
   char *vmask, tbuf[32];
   double opts[SBA_OPTSSZ], info[SBA_INFOSZ], phi;
-  int howto, expert, analyticjac, fixedcal, havedist, n, prnt, verbose=0;
+  int howto, expert, analyticjac, fixedcal, havedist, n, prnt, verbose=3;
   int nframes, numpts3D, numprojs, nvars;
   const int nconstframes=0;
   register int i;
@@ -1488,8 +1488,8 @@ void sba_driver(char *camsfname, char *ptsfname, char *calibfname, int cnp, int 
   /* print motion & structure estimates,
    * motion only or structure only upon completion?
    */
-  prnt=BA_NONE;
-  //prnt=BA_MOTSTRUCT;
+  //prnt=BA_NONE;
+  prnt=BA_MOTSTRUCT;
   //prnt=BA_MOT;
   //prnt=BA_STRUCT;
 

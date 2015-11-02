@@ -2,7 +2,7 @@
 # Makefile for Sparse Bundle Adjustment demo program
 #
 CC=gcc
-CFLAGS=-I.. -O3 -Wall #-g -pg
+CFLAGS=-I.. -O3 -Wall -u MAIN__ #-g -pg
 OBJS=eucsbademo.o imgproj.o readparams.o
 SRCS=eucsbademo.c imgproj.c readparams.c
 
