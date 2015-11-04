@@ -488,9 +488,13 @@ class Matcher():
                     if not self.filter_by_homography(i1, i2, j, filter):
                         done = False
 
-        for i1 in image_list:
-            i1.save_matches()
+        # so nothing sneaks through
+        self.cullShortMatches(image_list)
 
+        # and save
+        self.saveMatches(image_list)
+
+        
 ###########################################################
 ###   STUFF BELOW HERE IS OLD AND POSSIBLY DEPRECATED   ###
 ###########################################################
@@ -526,17 +530,15 @@ class Matcher():
             i1.save_matches()
 
     # remove any match sets shorter than self.min_pair
-    def cullShortMatches(self):
-        for i, i1 in enumerate(self.image_list):
+    def cullShortMatches(self, image_list):
+        for i, i1 in enumerate(image_list):
             print "Cull matches for %s" % i1.name
             for j, matches in enumerate(i1.match_list):
                 if len(matches) < self.min_pairs:
                     i1.match_list[j] = []
-        for i1 in self.image_list:
-            i1.save_matches()
 
-    def saveMatches(self):
-        for image in self.image_list:
+    def saveMatches(self, image_list):
+        for image in image_list:
             image.save_matches()
 
     def showMatch(self, i1, i2, idx_pairs, status=None):
@@ -1039,6 +1041,30 @@ class Matcher():
             
 # the following functions do not have class dependencies but can live
 # here for functional grouping.
+
+def buildConnectionDetail(image_list, matches_dict):
+    # wipe any existing connection detail
+    for image in image_list:
+        image.connection_detail = [0] * len(image_list)
+    for key in matches_dict:
+        feature_dict = matches_dict[key]
+        points = feature_dict['pts']
+        ned = matches_dict[key]['ned']
+        # record all v. all connections
+        for p in points:
+            for q in points:
+                image_index1 = p[0]
+                image_index2 = q[0]
+                if image_index1 != image_index2:
+                    image_list[image_index1].connection_detail[image_index2] += 1
+    print "Connection detail report"
+    print "(will add in extra 3+ way matches to the count when they exist.)"
+    for image in image_list:
+        print image.name
+        for i, count in enumerate(image.connection_detail):
+            if count > 0:
+                print "  ", image_list[i].name, count
+
 
 def bestNeighbor(image, image_list):
     best_cycle_dist = len(image_list) + 1
