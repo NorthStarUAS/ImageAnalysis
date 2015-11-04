@@ -7,8 +7,10 @@ import argparse
 import commands
 import cv2
 import fnmatch
+import itertools
 import json
 import math
+import matplotlib.pyplot as plt
 import numpy as np
 import os.path
 from progress.bar import Bar
@@ -25,6 +27,7 @@ parser = argparse.ArgumentParser(description='Compute Delauney triangulation of 
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--depth', action='store_const', const=True,
                     help='generate 3d surface')
+parser.add_argument('--steps', default=50, type=int, help='grid steps')
 args = parser.parse_args()
 
 
@@ -103,7 +106,7 @@ def gen_ac3d_object(f, name, raw_tris):
     f.write("texture \"./Textures/" + name + "\"\n")
     f.write("loc 0 0 0\n")
     f.write("numvert %d\n" % len(vertex_list))
-    for v in vertex_list:
+    for i, v in enumerate(vertex_list):
         if args.depth:
             f.write("%.3f %.3f %.3f\n" % (v[1], v[0], -v[2]))
         else:
@@ -145,8 +148,8 @@ for key in matches_sba:
     sum_values += -ned[2]
 avg_height = sum_values / len(matches_sba)
 print "Average elevation = %.1f" % ( avg_height )
-#i = scipy.interpolate.LinearNDInterpolator(raw_points, raw_values, avg_height)
-i = scipy.interpolate.LinearNDInterpolator(raw_points, raw_values)
+tri = scipy.spatial.Delaunay(np.array(raw_points))
+i = scipy.interpolate.LinearNDInterpolator(tri, raw_values)
 
 # compute min/max range of horizontal surface
 print "Determining coverage area"
@@ -174,7 +177,7 @@ for image in proj.image_list:
 
 # construct grid of points for rendering and interpolate elevation
 # from raw mesh
-steps = 50
+steps = args.steps
 x_list = np.linspace(x_min, x_max, steps + 1)
 y_list = np.linspace(y_min, y_max, steps + 1)
 grid_points = []
@@ -233,6 +236,10 @@ for tri in tri.simplices:
     best_triangle = []
     for image in proj.image_list:
         ok = True
+        # reject images with no connections to the set
+        if image.connections == 0:
+            ok = False
+            continue
         # quick 3d bounding radius rejection
         dist = np.linalg.norm(image.center - tri_center)
         if dist > image.radius + fuzz:
@@ -264,11 +271,13 @@ for tri in tri.simplices:
             # compute center of triangle
             dist_cam = np.linalg.norm( image.camera_pose_sba['ned'] - tri_center )
             dist_img = np.linalg.norm( image.center - tri_center )
+            dist_cycle = image.cycle_dist+1
             # favor the image source that is seeing this triangle
             # directly downwards, but also favor the image source that
             # has us closest to the center of projection
             #metric = dist_cam * dist_img
             metric = dist_cam
+            #metric = dist_cam * dist_cycle
             if metric < best_metric:
                 best_metric = metric
                 best_image = image
