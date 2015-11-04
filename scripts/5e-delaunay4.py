@@ -271,13 +271,14 @@ for tri in tri.simplices:
             # compute center of triangle
             dist_cam = np.linalg.norm( image.camera_pose_sba['ned'] - tri_center )
             dist_img = np.linalg.norm( image.center - tri_center )
-            dist_cycle = image.cycle_dist+1
+            dist_cycle = image.cycle_dist
             # favor the image source that is seeing this triangle
             # directly downwards, but also favor the image source that
             # has us closest to the center of projection
             #metric = dist_cam * dist_img
-            metric = dist_cam
-            #metric = dist_cam * dist_cycle
+            #metric = dist_cam
+            cycle_gain = 0.02
+            metric = dist_cam * (1 + dist_cycle * cycle_gain)
             if metric < best_metric:
                 best_metric = metric
                 best_image = image
