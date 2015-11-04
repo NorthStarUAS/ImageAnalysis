@@ -53,12 +53,18 @@ proj.fastProjectKeypointsTo3d(sss)
 # containing image and feature.
 matches_dict = {}
 for i, i1 in enumerate(proj.image_list):
+    # print i1.name
     for j, matches in enumerate(i1.match_list):
+        # print proj.image_list[j].name
         if j > i:
             for pair in matches:
                 key = "%d-%d" % (i, pair[0])
+                #if key == '1-8450':
+                #    print key
+                #    print "  ", i, "vs", j
                 m1 = [i, pair[0]]
                 m2 = [j, pair[1]]
+                #print "  ", m1, "; ", m2
                 if key in matches_dict:
                     feature_dict = matches_dict[key]
                     feature_dict['pts'].append(m2)
