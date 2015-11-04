@@ -49,29 +49,52 @@ sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
 # 6. interpolate original uv coordinates to 3d locations
 proj.fastProjectKeypointsTo3d(sss)
 
-# build a list of all 'unique' keypoints.  Include an index to each
-# containing image and feature.
-matches_dict = {}
-for i, i1 in enumerate(proj.image_list):
-    # print i1.name
-    for j, matches in enumerate(i1.match_list):
-        # print proj.image_list[j].name
-        if j > i:
-            for pair in matches:
-                key = "%d-%d" % (i, pair[0])
-                #if key == '1-8450':
-                #    print key
-                #    print "  ", i, "vs", j
-                m1 = [i, pair[0]]
-                m2 = [j, pair[1]]
-                #print "  ", m1, "; ", m2
-                if key in matches_dict:
-                    feature_dict = matches_dict[key]
-                    feature_dict['pts'].append(m2)
-                else:
+easy_dumb = True
+if not easy_dumb:
+    # build a list of all 'unique' keypoints.  Include an index to
+    # each containing image and feature.  This seems smarter, but
+    # complicates outlier detection and removal and subsequent cycle
+    # and connection computations.
+    matches_dict = {}
+    for i, i1 in enumerate(proj.image_list):
+        # print i1.name
+        for j, matches in enumerate(i1.match_list):
+            # print proj.image_list[j].name
+            if j > i:
+                for pair in matches:
+                    key = "%d-%d" % (i, pair[0])
+                    #if key == '1-8450':
+                    #    print key
+                    #    print "  ", i, "vs", j
+                    m1 = [i, pair[0]]
+                    m2 = [j, pair[1]]
+                    #print "  ", m1, "; ", m2
+                    if key in matches_dict:
+                        feature_dict = matches_dict[key]
+                        feature_dict['pts'].append(m2)
+                    else:
+                        feature_dict = {}
+                        feature_dict['pts'] = [m1, m2]
+                        matches_dict[key] = feature_dict
+else:
+    # build a list of all keypoints, but only consider pairwise
+    # matches and don't try to find single matches that span 3 or more
+    # images.
+    matches_dict = {}
+    for i, i1 in enumerate(proj.image_list):
+        # print i1.name
+        for j, matches in enumerate(i1.match_list):
+            # print proj.image_list[j].name
+            if j > i:
+                for pair in matches:
+                    key = "%d-%d-%d" % (i, j, pair[0])
+                    m1 = [i, pair[0]]
+                    m2 = [j, pair[1]]
+                    #print "  ", m1, "; ", m2
                     feature_dict = {}
                     feature_dict['pts'] = [m1, m2]
                     matches_dict[key] = feature_dict
+    
 #print match_dict
 count = 0.0
 sum = 0.0
