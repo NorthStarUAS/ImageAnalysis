@@ -79,6 +79,18 @@ avg_height = sum_values / len(matches_sba)
 print "Average elevation = %.1f" % ( avg_height )
 tri = scipy.spatial.Delaunay(np.array(raw_points))
 
+# custom slope routine
+def my_slope(p1, p2, z1, z2):
+    dx = p2[0] - p1[0]
+    dy = p2[1] - p1[1]
+    dz = z2 - z1
+    hdist = math.sqrt(dx**2 + dy**2)
+    if hdist > 0.00001:
+        slope = dz / hdist
+    else:
+        slope = 0
+    return slope
+
 # look for outliers by comparing depth of a point with the average
 # depth of it's neighbors.  Outliers will tend to stick out this way
 # (although you could be looking at the top of a flag pole so it's not
@@ -91,29 +103,31 @@ print "neighbors:", len(tri.vertex_neighbor_vertices[0]), len(tri.vertex_neighbo
 #print "neighbor[0]:\n", tri.vertex_neighbor_vertices[0][0], tri.vertex_neighbor_vertices[0][1]
 indices, indptr = tri.vertex_neighbor_vertices
 report = []
-x = []; y = []; z_diff = []
+x = []; y = []; slope = []
 for i in range(len(tri.points)):
-    z = raw_values[i]
-    sum_z = 0
+    pi = raw_points[i]
+    zi = raw_values[i]
+    sum_slope = 0.0
     neighbors = indptr[indices[i]:indices[i+1]]
     if len(neighbors) == 0:
         continue
     # print neighbors
     for j in neighbors:
-        sum_z += raw_values[j]
-    avg_neighbor_z = sum_z / len(neighbors)
-    diff = abs(z - avg_neighbor_z)
-    # print i, diff
-    report.append( (diff, i) )
+        pj = raw_points[j]
+        zj = raw_values[j]
+        sum_slope += my_slope(pi, pj, zi, zj)
+    avg_slope = sum_slope / len(neighbors)
+    print i, avg_slope
+    report.append( (avg_slope, i) )
     x.append(raw_points[i][0])
     y.append(raw_points[i][1])
-    z_diff.append(diff)
+    slope.append(avg_slope)
 
 # plot results
 x = np.array(x)
 y = np.array(y)
-z_diff = np.array(z_diff)
-plt.scatter(x, y, c=z_diff)
+slope_diff = np.array(slope)
+plt.scatter(x, y, c=slope)
 plt.show()
 
 avg, stddev = meta_stats(report)
@@ -122,10 +136,10 @@ report = sorted(report, key=lambda fields: fields[0], reverse=True)
 
 delete_list = []
 for line in report:
-    diff = line[0]
+    slope = line[0]
     index = line[1]
-    if diff >= args.stddev * stddev:
-        print "index=", index, "diff=", diff
+    if slope >= args.stddev * stddev:
+        print "index=", index, "slope=", slope
         delete_list.append( reverse_lookup[index] )
 
 result = raw_input('Remove these outliers from the original matches? (y/n):')
