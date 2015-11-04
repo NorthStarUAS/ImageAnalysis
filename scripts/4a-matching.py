@@ -136,6 +136,10 @@ m.robustGroupMatches(proj.image_list, filter=args.filter,
                      image_fuzz=args.image_fuzz, feature_fuzz=args.feature_fuzz,
                      review=False)
 
+# compute cycle dist starting from the most connected image (relative
+# errors may tend to build up as cycle distance increases.)
+Matcher.groupByConnections(proj.image_list)
+
 # build a list of all 'unique' keypoints.  Include an index to each
 # containing image and feature.
 matches_dict = {}
