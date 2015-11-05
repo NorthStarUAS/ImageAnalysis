@@ -23,7 +23,6 @@ import ProjectMgr
 import SRTM
 import transformations
 
-print "FIXME: verify our mapping from triangle vertex to original key is correct!!!"
 
 def meta_stats(report):
     sum = 0.0
@@ -117,7 +116,7 @@ for i in range(len(tri.points)):
         zj = raw_values[j]
         sum_slope += my_slope(pi, pj, zi, zj)
     avg_slope = sum_slope / len(neighbors)
-    print i, avg_slope
+    # print i, avg_slope
     report.append( (avg_slope, i) )
     x.append(raw_points[i][0])
     y.append(raw_points[i][1])
