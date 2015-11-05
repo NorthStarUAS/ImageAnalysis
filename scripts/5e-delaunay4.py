@@ -129,7 +129,7 @@ proj.load_image_info()
 proj.load_features()
 proj.load_matches()
         
-print "Loading match points..."
+print "Loading match points (sba)..."
 f = open(args.project + "/Matches-sba.json", 'r')
 matches_sba = json.load(f)
 f.close()
