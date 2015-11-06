@@ -123,11 +123,13 @@ for i in range(len(tri.points)):
     slope.append(avg_slope)
 
 # plot results
-x = np.array(x)
-y = np.array(y)
-slope_diff = np.array(slope)
-plt.scatter(x, y, c=slope)
-plt.show()
+do_plot = False
+if do_plot:
+    x = np.array(x)
+    y = np.array(y)
+    slope_diff = np.array(slope)
+    plt.scatter(x, y, c=slope)
+    plt.show()
 
 avg, stddev = meta_stats(report)
 
