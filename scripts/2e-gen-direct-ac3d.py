@@ -29,6 +29,7 @@ import transformations
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--texture-resolution', type=int, help='texture resolution (should be 2**n, so numbers like 256, 512, 1024, etc.')
 #parser.add_argument('--ground', type=float, help='ground elevation in meters')
 
 args = parser.parse_args()
@@ -76,4 +77,4 @@ for image in proj.image_list:
 # call the ac3d generator
 AC3D.generate(proj.image_list, src_dir=proj.source_dir,
               project_dir=args.project, base_name='direct',
-              version=1.0, trans=0.0)
+              version=1.0, trans=0.0, resolution=args.texture_resolution)
