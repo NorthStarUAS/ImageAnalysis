@@ -11,7 +11,7 @@ import os
 
 
 USAGE = '''
-USAGE: calib.py [--save <filename>] [--debug <output path>] [--square_size] [<image mask>]
+USAGE: calibration.py [--save <filename>] [--debug <output path>] [--square_size] [<image mask>]
 '''
 
 
