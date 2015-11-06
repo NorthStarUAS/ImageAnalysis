@@ -62,7 +62,7 @@ f.close()
 
 # iterate through the sba match dictionary and build a list of feature
 # points and heights (in x=east,y=north,z=up coordinates)
-print "Building raw mesh interpolator"
+print "Building Delaunay triangulation..."
 raw_points = []
 raw_values = []
 sum_values = 0.0
@@ -100,6 +100,7 @@ print "tri points =", len(tri.points)
 
 print "neighbors:", len(tri.vertex_neighbor_vertices[0]), len(tri.vertex_neighbor_vertices[1])
 #print "neighbor[0]:\n", tri.vertex_neighbor_vertices[0][0], tri.vertex_neighbor_vertices[0][1]
+print "Computing average slope to neighbors..."
 indices, indptr = tri.vertex_neighbor_vertices
 report = []
 x = []; y = []; slope = []
