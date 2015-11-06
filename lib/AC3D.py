@@ -38,7 +38,7 @@ def make_textures_opencv(src_dir, project_dir, image_list, resolution=256):
             hsv = cv2.cvtColor(scale, cv2.COLOR_BGR2HSV)
             hue,sat,val = cv2.split(hsv)
             # adaptive histogram equalization on 'value' channel
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+            clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
             aeq = clahe.apply(val)
             # recombine
             hsv = cv2.merge((hue,sat,aeq))
