@@ -110,53 +110,8 @@ def compute_group_mre(image_list, cam, select='direct'):
             if key in matches_sba: del matches_sba[key]
     return mre
 
-# group altitude filter
-def compute_group_altitude(select='direct'):
-    # iterate through the match dictionary and build a per image list of
-    # obj_pts and img_pts
-    sum = 0.0
-    count = 0
-
-    if select == 'direct': matches = matches_direct
-    elif select == 'sba': matches = matches_sba
-
-    for key in matches:
-        feature_dict = matches[key]
-        ned = matches[key]['ned']
-        sum += ned[2]
-        
-    avg_alt = sum / len(matches)
-    print "Average altitude = %.2f" % (avg_alt)
-    
-    # stats
-    stddev_sum = 0.0
-    for key in matches:
-        feature_dict = matches[key]
-        ned = matches[key]['ned']
-        error = avg_alt - ned[2]
-        stddev_sum += error**2
-    stddev = math.sqrt(stddev_sum / len(matches))
-    print "stddev = %.4f" % (stddev)
-
-    # cull outliers
-    bad_keys = []
-    for i, key in enumerate(matches_sba):
-        feature_dict = matches[key]
-        ned = matches[key]['ned']
-        error = avg_alt - ned[2]
-        if abs(error) > stddev * args.stddev:
-            print "deleting key %s err=%.2f" % (key, error)
-            bad_keys.append(key)
-    for key in bad_keys:
-        if key in matches_direct: del matches_direct[key]
-        if key in matches_sba: del matches_sba[key]
-            
-    return avg_alt
-
 mre = compute_group_mre(proj.image_list, proj.cam, select=args.select)
 print "Mean reprojection error = %.4f" % (mre)
-
-alt = compute_group_altitude(select=args.select)
 
 # write out the updated match_dict
 print "Writing original matches..."
