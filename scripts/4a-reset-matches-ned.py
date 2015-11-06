@@ -5,6 +5,7 @@ sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
 
 import argparse
 import commands
+import cPickle as pickle
 import cv2
 import fnmatch
 import json
@@ -94,27 +95,44 @@ else:
                     feature_dict = {}
                     feature_dict['pts'] = [m1, m2]
                     matches_dict[key] = feature_dict
+
+# matches_dict is used with the key so we can find existing keys
+# quickly for triple + match points.  But now lets convert the result
+# to a list
+matches_list = []
+for key in matches_dict:
+    match = []
+    # the 'key'
+    match.append(matches_dict[key])
+    # ned place holder
+    match.append([0.0, 0.0, 0.0])
+    for p in feature_dict['pts']:
+        match.append( [ p[0], p[1] ] )
+    matches_list.append( match )
     
 #print match_dict
 count = 0.0
 sum = 0.0
-for key in matches_dict:
-    sum += len(matches_dict[key]['pts'])
-    count += 1
+for match in matches_list:
+    n = len(match)
+    if n >= 3:
+        # len should be 3, 4, 5, etc..
+        sum += (n - 2)
+        count += 1
 if count > 0.1:
     print "total unique features in image set = %d" % count
     print "kp average instances = %.4f" % (sum / count)
 
 # compute an initial guess at the 3d location of each unique feature
 # by averaging the locations of each projection
-for key in matches_dict:
-    feature_dict = matches_dict[key]
+for match in matches_list:
     sum = np.array( [0.0, 0.0, 0.0] )
-    for p in feature_dict['pts']:
+    for p in match[2:]:
         sum += proj.image_list[ p[0] ].coord_list[ p[1] ]
-    ned = sum / len(feature_dict['pts'])
-    feature_dict['ned'] = ned.tolist()
+    ned = sum / len(match[2:])
+    match[1] = ned.tolist()
     
-f = open(args.project + "/Matches.json", 'w')
-json.dump(matches_dict, f, sort_keys=True)
-f.close()
+pickle.dump(matches_list, open(args.project + "/matches_list", "wb"))
+#f = open(args.project + "/Matches.json", 'w')
+#json.dump(matches_dict, f, sort_keys=True)
+#f.close()
