@@ -228,13 +228,17 @@ class Image():
             
     def load_matches(self):
         try:
-            f = open(self.match_file, 'r')
-            self.match_list = json.load(f)
-            f.close()
+            self.match_list = pickle.load( open( self.match_file, "rb" ) )
         except:
-            print self.features_file + ":\n" + "  load error: " \
-                + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1])
-            return
+            # unpickle failed, try old style json
+            try:
+                f = open(self.match_file, 'r')
+                self.match_list = json.load(f)
+                f.close()
+            except:
+                print self.features_file + ":\n" + "  load error: " \
+                    + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1])
+                return
 
     def save_features(self):
         # convert from native opencv kp class to a python list
@@ -261,9 +265,10 @@ class Image():
 
     def save_matches(self):
         try:
-            f = open(self.match_file, 'w')
-            json.dump(self.match_list, f, sort_keys=True)
-            f.close()
+            pickle.dump(self.match_list, open(self.match_file, "wb"))
+            #f = open(self.match_file, 'w')
+            #json.dump(self.match_list, f, sort_keys=True)
+            #f.close()
         except IOError as e:
             print self.info_file + ": error saving file: " \
                 + str(sys.exc_info()[1])
