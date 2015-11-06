@@ -24,6 +24,7 @@ parser.add_argument('--pix4d', help='use the specified pix4d csv file (lat,lon,a
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
+print "Loading image info..."
 proj.load_image_info()
 
 pose_set = False
