@@ -11,7 +11,7 @@ import sys
 sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
 
 import argparse
-import json
+import cPickle as pickle
 import math
 import numpy as np
 
@@ -55,7 +55,9 @@ def transform_points( A, pts_list ):
     dst = A.dot( np.array(src) )
     result = []
     for i in range(len(pts_list)):
-        result.append( [ dst[0][i], dst[1][i], dst[2][i] ] )
+        result.append( [ float(dst[0][i]),
+                         float(dst[1][i]),
+                         float(dst[2][i]) ] )
     return result
 
 # working on matching features ...
@@ -73,16 +75,14 @@ proj.undistort_keypoints()
 
 m = Matcher.Matcher()
 
-f = open(args.project + "/Matches.json", 'r')
-matches_dict = json.load(f)
-f.close()
+matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )
 
 image_width = proj.image_list[0].width
 camw, camh = proj.cam.get_image_params()
 scale = float(image_width) / float(camw)
 
 sba = SBA.SBA(args.project)
-sba.prepair_data( proj.image_list, matches_dict, proj.cam.get_K(scale) )
+sba.prepair_data( proj.image_list, matches_direct, proj.cam.get_K(scale) )
 cameras, features = sba.run()
 
 for i, image in enumerate(proj.image_list):
@@ -153,14 +153,14 @@ for f in features:
     feature_list.append( f.tolist() )
 new_feats = transform_points(A, feature_list)
 
-# update the ned coordinate in matches_dict (overwrites the in-memory
-# copy of the original match dictionary, which is ok since we aren't
-# changing the original dictonary.
-for i, key in enumerate(matches_dict):
-    matches_dict[key]['ned'] = new_feats[i]
+# create the matches_sba list and update the ned coordinate
+matches_sba = list(matches_direct)
+for i, match in enumerate(matches_sba):
+    #print type(new_feats[i])
+    matches_sba[i][0] = new_feats[i]
 
+        
 # write out the updated match_dict
-f = open(args.project + "/Matches-sba.json", 'w')
-json.dump(matches_dict, f, sort_keys=True)
-f.close()
+print "Writing match file ..."
+pickle.dump(matches_sba, open(args.project + "/matches_sba", "wb"))
 

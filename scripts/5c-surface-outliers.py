@@ -5,10 +5,11 @@ sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
 
 import argparse
 import commands
+import cPickle as pickle
 import cv2
 import fnmatch
 import itertools
-import json
+#import json
 import math
 import matplotlib.pyplot as plt
 import numpy as np
@@ -51,14 +52,10 @@ proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
         
 print "Loading original matches ..."
-f = open(args.project + "/Matches.json", 'r')
-matches_direct = json.load(f)
-f.close()
+matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )
 
 print "Loading match points..."
-f = open(args.project + "/Matches-sba.json", 'r')
-matches_sba = json.load(f)
-f.close()
+matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
 
 # iterate through the sba match dictionary and build a list of feature
 # points and heights (in x=east,y=north,z=up coordinates)
@@ -66,11 +63,8 @@ print "Building Delaunay triangulation..."
 raw_points = []
 raw_values = []
 sum_values = 0.0
-reverse_lookup = [None] * len(matches_sba)
-for i, key in enumerate(matches_sba):
-    reverse_lookup[i] = key
-    feature_dict = matches_sba[key]
-    ned = feature_dict['ned']
+for match in matches_sba:
+    ned = match[0]
     raw_points.append( [ned[1], ned[0]] )
     raw_values.append( -ned[2] )
     sum_values += -ned[2]
@@ -142,21 +136,20 @@ for line in report:
     index = line[1]
     if slope >= args.stddev * stddev:
         print "index=", index, "slope=", slope
-        delete_list.append( reverse_lookup[index] )
+        delete_list.append( index )
 
 result = raw_input('Remove these outliers from the original matches? (y/n):')
 if result == 'y' or result == 'Y':
-    for key in delete_list:
-        print "deleting", key
-        del matches_direct[key]
-        del matches_sba[key]
+    delete_list = sorted(delete_list, reverse=True)
+    print delete_list
+    for index in delete_list:
+        print "deleting", index
+        matches_direct.pop(index)
+        matches_sba.pop(index)
         
     # write out the updated match dictionaries
     print "Writing original matches..."
-    f = open(args.project + "/Matches.json", 'w')
-    json.dump(matches_direct, f, sort_keys=True)
-    f.close()
+    pickle.dump(matches_direct, open(args.project + "/matches_direct", "wb"))
+
     print "Writing sba matches..."
-    f = open(args.project + "/Matches-sba.json", 'w')
-    json.dump(matches_sba, f, sort_keys=True)
-    f.close()
+    pickle.dump(matches_sba, open(args.project + "/matches_sba", "wb"))

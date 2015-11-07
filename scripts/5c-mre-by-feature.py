@@ -7,8 +7,9 @@ import sys
 sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
 
 import argparse
+import cPickle as pickle
 import cv2
-import json
+#import json
 import math
 import numpy as np
 
@@ -28,14 +29,10 @@ proj.load_features()
 proj.undistort_keypoints()
 
 print "Loading original matches ..."
-f = open(args.project + "/Matches.json", 'r')
-matches_direct = json.load(f)
-f.close()
+matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )
 
-print "Loading sba matches ..."
-f = open(args.project + "/Matches-sba.json", 'r')
-matches_sba = json.load(f)
-f.close()
+print "Loading match points..."
+matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
 
 # image mean reprojection error
 def compute_feature_mre(K, image, kp, ned, select):
@@ -74,12 +71,9 @@ def compute_group_mre(image_list, cam, select='direct'):
     if select == 'direct': matches = matches_direct
     elif select == 'sba': matches = matches_sba
         
-    for key in matches:
-        feature_dict = matches[key]
-        points = feature_dict['pts']
-        ned = matches[key]['ned']
-        #print key,
-        for p in points:
+    for i, match in enumerate(matches):
+        ned = match[0]
+        for p in match[1:]:
             image = image_list[ p[0] ]
             kp = image.uv_list[ p[1] ] # undistorted uv point
             scale = float(image.width) / float(camw)
@@ -87,7 +81,7 @@ def compute_group_mre(image_list, cam, select='direct'):
             sum += dist
             count += 1
             #print dist,
-            result_list.append( (dist, key) )
+            result_list.append( (dist, i) )
         #print
 
     # sort by worst max error first
@@ -102,23 +96,28 @@ def compute_group_mre(image_list, cam, select='direct'):
     stddev = math.sqrt(stddev_sum / count)
     print "   mre = %.4f stddev = %.4f" % (mre, stddev)
 
+    delete_list = []
     for line in result_list:
         if line[0] > mre + stddev * args.stddev:
-            key = line[1]
-            print "deleting key %s err=%.2f" % (key, line[0])
-            if key in matches_direct: del matches_direct[key]
-            if key in matches_sba: del matches_sba[key]
+            index = line[1]
+            print "deleting index %d err=%.2f" % (index, line[0])
+            delete_list.append(index)
+
+    delete_list = sorted(delete_list, reverse=True)
+    print delete_list
+    for index in delete_list:
+        print "deleting", index
+        matches_direct.pop(index)
+        matches_sba.pop(index)
+
     return mre
 
 mre = compute_group_mre(proj.image_list, proj.cam, select=args.select)
 print "Mean reprojection error = %.4f" % (mre)
 
-# write out the updated match_dict
+# write out the updated match dictionaries
 print "Writing original matches..."
-f = open(args.project + "/Matches.json", 'w')
-json.dump(matches_direct, f, sort_keys=True)
-f.close()
+pickle.dump(matches_direct, open(args.project + "/matches_direct", "wb"))
+
 print "Writing sba matches..."
-f = open(args.project + "/Matches-sba.json", 'w')
-json.dump(matches_sba, f, sort_keys=True)
-f.close()
+pickle.dump(matches_sba, open(args.project + "/matches_sba", "wb"))

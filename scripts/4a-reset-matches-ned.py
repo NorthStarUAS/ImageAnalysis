@@ -8,7 +8,6 @@ import commands
 import cPickle as pickle
 import cv2
 import fnmatch
-import json
 import math
 import numpy as np
 import os.path
@@ -50,7 +49,8 @@ sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
 # 6. interpolate original uv coordinates to 3d locations
 proj.fastProjectKeypointsTo3d(sss)
 
-easy_dumb = True
+print "Constructing unified match structure..."
+easy_dumb = False
 if not easy_dumb:
     # build a list of all 'unique' keypoints.  Include an index to
     # each containing image and feature.  This seems smarter, but
@@ -99,40 +99,38 @@ else:
 # matches_dict is used with the key so we can find existing keys
 # quickly for triple + match points.  But now lets convert the result
 # to a list
-matches_list = []
+matches_direct = []
 for key in matches_dict:
     match = []
-    # the 'key'
-    match.append(matches_dict[key])
     # ned place holder
     match.append([0.0, 0.0, 0.0])
+    feature_dict = matches_dict[key]
     for p in feature_dict['pts']:
         match.append( [ p[0], p[1] ] )
-    matches_list.append( match )
+    matches_direct.append( match )
     
 #print match_dict
 count = 0.0
 sum = 0.0
-for match in matches_list:
+for match in matches_direct:
     n = len(match)
-    if n >= 3:
-        # len should be 3, 4, 5, etc..
-        sum += (n - 2)
+    if n >= 2:
+        # len should be 2, 3, 4, etc..
+        sum += (n-1)
         count += 1
 if count > 0.1:
     print "total unique features in image set = %d" % count
-    print "kp average instances = %.4f" % (sum / count)
+    print "keypoint average instances = %.4f" % (sum / count)
 
 # compute an initial guess at the 3d location of each unique feature
 # by averaging the locations of each projection
-for match in matches_list:
+print "Estimating world coordinates of each keypoint..."
+for match in matches_direct:
     sum = np.array( [0.0, 0.0, 0.0] )
-    for p in match[2:]:
+    for p in match[1:]:
         sum += proj.image_list[ p[0] ].coord_list[ p[1] ]
-    ned = sum / len(match[2:])
-    match[1] = ned.tolist()
-    
-pickle.dump(matches_list, open(args.project + "/matches_list", "wb"))
-#f = open(args.project + "/Matches.json", 'w')
-#json.dump(matches_dict, f, sort_keys=True)
-#f.close()
+    ned = sum / len(match[1:])
+    match[0] = ned.tolist()
+
+print "Writing match file ..."
+pickle.dump(matches_direct, open(args.project + "/matches_direct", "wb"))
