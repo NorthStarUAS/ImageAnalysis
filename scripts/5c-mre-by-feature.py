@@ -100,15 +100,16 @@ def compute_group_mre(image_list, cam, select='direct'):
     for line in result_list:
         if line[0] > mre + stddev * args.stddev:
             index = line[1]
-            print "deleting index %d err=%.2f" % (index, line[0])
+            print "outlier index %d err=%.2f" % (index, line[0])
             delete_list.append(index)
 
-    delete_list = sorted(delete_list, reverse=True)
-    print delete_list
-    for index in delete_list:
-        print "deleting", index
-        matches_direct.pop(index)
-        matches_sba.pop(index)
+    result=raw_input('Remove these outliers from the original matches? (y/n):')
+    if result == 'y' or result == 'Y':
+        delete_list = sorted(delete_list, reverse=True)
+        for index in delete_list:
+            print "deleting", index
+            matches_direct.pop(index)
+            matches_sba.pop(index)
 
     return mre
 
