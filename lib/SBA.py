@@ -36,7 +36,7 @@ class SBA():
     # write the camera (motion) parameters, feature (structure)
     # parameters, and calibration (K) to files in the project
     # directory.
-    def prepair_data(self, image_list, matches_dict, K):
+    def prepair_data(self, image_list, matches_list, K):
         # iterate through the image list and build the camera pose dictionary
         # (and a simple list of camera locations for plotting)
         f = open( self.root + '/sba-cams.txt', 'w' )
@@ -54,15 +54,13 @@ class SBA():
 
         # iterate through the matches dictionary to produce a list of matches
         f = open( self.root + '/sba-points.txt', 'w' )
-        for key in matches_dict:
-            feat = matches_dict[key]
-            ned = np.array(feat['ned']) / 1.0
+        for match in matches_list:
+            ned = np.array(match[0])
             s = "%.4f %.4f %.4f " % (ned[0], ned[1], ned[2])
             f.write(s)
-            pts = feat['pts']
-            s = "%d " % (len(pts))
+            s = "%d " % (len(match[1:]))
             f.write(s)
-            for p in pts:
+            for p in match[1:]:
                 image_num = p[0]
                 # kp = image_list[image_num].kp_list[p[1]].pt # undistorted
                 kp = image_list[image_num].uv_list[p[1]]      # distorted
