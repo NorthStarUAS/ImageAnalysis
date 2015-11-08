@@ -51,10 +51,10 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
         
-print "Loading original matches ..."
+print "Loading original (direct) matches ..."
 matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )
 
-print "Loading match points..."
+print "Loading fitted (sba) matches..."
 matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
 
 # iterate through the sba match dictionary and build a list of feature
@@ -128,13 +128,13 @@ if do_plot:
 
 avg, stddev = meta_stats(report)
 
-report = sorted(report, key=lambda fields: fields[0], reverse=True)
+report = sorted(report, key=lambda fields: abs(fields[0]), reverse=True)
 
 delete_list = []
 for line in report:
     slope = line[0]
     index = line[1]
-    if slope >= args.stddev * stddev:
+    if abs(slope) >= args.stddev * stddev:
         print "index=", index, "slope=", slope
         delete_list.append( index )
 
