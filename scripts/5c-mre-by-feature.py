@@ -28,10 +28,10 @@ proj.load_image_info()
 proj.load_features()
 proj.undistort_keypoints()
 
-print "Loading original matches ..."
+print "Loading original (direct) matches ..."
 matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )
 
-print "Loading match points..."
+print "Loading fitted (sba) matches..."
 matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
 
 # image mean reprojection error
@@ -111,14 +111,15 @@ def compute_group_mre(image_list, cam, select='direct'):
             matches_direct.pop(index)
             matches_sba.pop(index)
 
+        # write out the updated match dictionaries
+        print "Writing direct matches..."
+        pickle.dump(matches_direct, open(args.project+"/matches_direct", "wb"))
+
+        print "Writing sba matches..."
+        pickle.dump(matches_sba, open(args.project + "/matches_sba", "wb"))
+
     return mre
 
 mre = compute_group_mre(proj.image_list, proj.cam, select=args.select)
 print "Mean reprojection error = %.4f" % (mre)
 
-# write out the updated match dictionaries
-print "Writing original matches..."
-pickle.dump(matches_direct, open(args.project + "/matches_direct", "wb"))
-
-print "Writing sba matches..."
-pickle.dump(matches_sba, open(args.project + "/matches_sba", "wb"))
