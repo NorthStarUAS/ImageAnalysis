@@ -56,8 +56,6 @@ def compute_feature_mre(K, image, kp, ned, select):
 def compute_group_mre(image_list, cam, select='direct'):
     # start with a clean slate
     for image in image_list:
-        image.img_pts = []
-        image.obj_pts = []
         image.PROJ = None
 
     camw, camh = proj.cam.get_image_params()
@@ -106,14 +104,23 @@ def compute_group_mre(image_list, cam, select='direct'):
             print "outlier index %d err=%.2f" % (index, line[0])
             delete_list.append(index)
 
-    result=raw_input('Remove these outliers from the original matches? (y/n):')
-    if result == 'y' or result == 'Y':
-        delete_list = sorted(delete_list, reverse=True)
-        for index in delete_list:
-            print "deleting", index
-            matches_direct.pop(index)
-            matches_sba.pop(index)
+    delete_list = sorted(delete_list, reverse=True)
+    for index in delete_list:
+        # print "deleting", index
+        matches_direct.pop(index)
+        matches_sba.pop(index)
 
+    return len(delete_list)
+
+deleted_sum = 0
+result = compute_group_mre(proj.image_list, proj.cam, select=args.select)
+while result > 0:
+    deleted_sum += result
+    result = compute_group_mre(proj.image_list, proj.cam, select=args.select)
+
+if deleted_sum > 0:
+    result=raw_input('Remove ' + str(deleted_sum) + ' outliers from the original matches? (y/n):')
+    if result == 'y' or result == 'Y':
         # write out the updated match dictionaries
         print "Writing direct matches..."
         pickle.dump(matches_direct, open(args.project+"/matches_direct", "wb"))
@@ -121,8 +128,6 @@ def compute_group_mre(image_list, cam, select='direct'):
         print "Writing sba matches..."
         pickle.dump(matches_sba, open(args.project + "/matches_sba", "wb"))
 
-    return mre
 
-mre = compute_group_mre(proj.image_list, proj.cam, select=args.select)
-print "Mean reprojection error = %.4f" % (mre)
+#print "Mean reprojection error = %.4f" % (mre)
 
