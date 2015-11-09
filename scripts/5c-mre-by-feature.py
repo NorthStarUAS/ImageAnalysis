@@ -19,7 +19,6 @@ import ProjectMgr
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--stddev', required=True, type=int, default=6, help='how many stddevs above the mean for auto discarding features')
-parser.add_argument('--select', required=True, default='direct', choices=(['direct', 'sba']))
 
 args = parser.parse_args()
 
@@ -35,10 +34,10 @@ print "Loading fitted (sba) matches..."
 matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
 
 # image mean reprojection error
-def compute_feature_mre(K, image, kp, ned, select):
+def compute_feature_mre(K, image, kp, ned):
     if image.PROJ == None:
-        if select == 'direct': rvec, tvec = image.get_proj()
-        if select == 'sba': rvec, tvec = image.get_proj_sba()
+        # rvec, tvec = image.get_proj()   # original direct pose
+        rvec, tvec = image.get_proj_sba() # fitted pose
         R, jac = cv2.Rodrigues(rvec)
         image.PROJ = np.concatenate((R, tvec), axis=1)
 
@@ -53,7 +52,7 @@ def compute_feature_mre(K, image, kp, ned, select):
     return dist
 
 # group mean reprojection error
-def compute_group_mre(image_list, cam, select='direct'):
+def compute_group_mre(image_list, cam):
     # start with a clean slate
     for image in image_list:
         image.PROJ = None
@@ -66,17 +65,14 @@ def compute_group_mre(image_list, cam, select='direct'):
     count = 0
     result_list = []
     
-    if select == 'direct': matches = matches_direct
-    elif select == 'sba': matches = matches_sba
-        
-    for i, match in enumerate(matches):
+    for i, match in enumerate(matches_sba):
         ned = match[0]
         max_dist = 0.0
         for p in match[1:]:
             image = image_list[ p[0] ]
             kp = image.uv_list[ p[1] ] # undistorted uv point
             scale = float(image.width) / float(camw)
-            dist = compute_feature_mre(cam.get_K(scale), image, kp, ned, select)
+            dist = compute_feature_mre(cam.get_K(scale), image, kp, ned)
             if dist > max_dist:
                 max_dist = dist
             sum += dist
@@ -113,10 +109,10 @@ def compute_group_mre(image_list, cam, select='direct'):
     return len(delete_list)
 
 deleted_sum = 0
-result = compute_group_mre(proj.image_list, proj.cam, select=args.select)
+result = compute_group_mre(proj.image_list, proj.cam)
 while result > 0:
     deleted_sum += result
-    result = compute_group_mre(proj.image_list, proj.cam, select=args.select)
+    result = compute_group_mre(proj.image_list, proj.cam)
 
 if deleted_sum > 0:
     result=raw_input('Remove ' + str(deleted_sum) + ' outliers from the original matches? (y/n):')
