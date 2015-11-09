@@ -83,7 +83,7 @@ scale = float(image_width) / float(camw)
 
 sba = SBA.SBA(args.project)
 sba.prepair_data( proj.image_list, matches_direct, proj.cam.get_K(scale) )
-cameras, features = sba.run()
+cameras, features = sba.run_live()
 
 for i, image in enumerate(proj.image_list):
     orig = image.camera_pose
