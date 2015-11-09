@@ -29,15 +29,15 @@ def meta_stats(report):
     sum = 0.0
     count = len(report)
     for line in report:
-        diff = line[0]
-        sum += diff
+        value = line[0]
+        sum += value
     average = sum / len(report)
-    print "mean error = %.2f" % (average)
+    print "average value = %.2f" % (average)
 
     sum = 0.0
     for line in report:
-        diff = line[0]
-        off = average - diff
+        value = line[0]
+        diff = average - value
         sum += diff**2
     stddev = math.sqrt(sum / count)
     print "standard deviation = %.2f" % (stddev)
@@ -126,7 +126,7 @@ if do_plot:
     plt.scatter(x, y, c=slope)
     plt.show()
 
-avg, stddev = meta_stats(report)
+average, stddev = meta_stats(report)
 
 report = sorted(report, key=lambda fields: abs(fields[0]), reverse=True)
 
@@ -134,7 +134,7 @@ delete_list = []
 for line in report:
     slope = line[0]
     index = line[1]
-    if abs(slope) >= args.stddev * stddev:
+    if abs(average - slope) >= args.stddev * stddev:
         print "index=", index, "slope=", slope
         delete_list.append( index )
 
