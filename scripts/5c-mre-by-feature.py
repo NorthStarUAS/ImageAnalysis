@@ -73,15 +73,18 @@ def compute_group_mre(image_list, cam, select='direct'):
         
     for i, match in enumerate(matches):
         ned = match[0]
+        max_dist = 0.0
         for p in match[1:]:
             image = image_list[ p[0] ]
             kp = image.uv_list[ p[1] ] # undistorted uv point
             scale = float(image.width) / float(camw)
             dist = compute_feature_mre(cam.get_K(scale), image, kp, ned, select)
+            if dist > max_dist:
+                max_dist = dist
             sum += dist
             count += 1
             #print dist,
-            result_list.append( (dist, i) )
+        result_list.append( (max_dist, i) )
         #print
 
     # sort by worst max error first
