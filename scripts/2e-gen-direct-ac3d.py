@@ -29,7 +29,7 @@ import transformations
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--texture-resolution', type=int, help='texture resolution (should be 2**n, so numbers like 256, 512, 1024, etc.')
+parser.add_argument('--texture-resolution', type=int, default=512, help='texture resolution (should be 2**n, so numbers like 256, 512, 1024, etc.')
 #parser.add_argument('--ground', type=float, help='ground elevation in meters')
 
 args = parser.parse_args()
