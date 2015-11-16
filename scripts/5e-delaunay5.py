@@ -220,14 +220,14 @@ for line in by_cycles:
         t = []
         shape = []
         for vert in tris:
-            shape.append( (image.raw_points[vert][0], image.raw_points[vert][1]) )
+            shape.append( (image.raw_points[vert][1], image.raw_points[vert][0]) )
             v = []
             v.append( image.raw_points[vert][1] )
             v.append( image.raw_points[vert][0] )
             if args.depth:
                 v.append( -image.raw_values[vert] + 2 * image.cycle_depth )
             else:
-                v.append( 2 * image.cycle_depth )
+                v.append( 0 * image.cycle_depth )
             i_orig = image.raw_indices[vert] 
             v.append( image.kp_list[i_orig].pt[0] / image.width )
             v.append( (1.0 - image.kp_list[i_orig].pt[1]) / image.height )
@@ -238,7 +238,7 @@ for line in by_cycles:
         if mask.covers(new):
             # do nothing
             a = 1
-        elif mask.overlaps(new):
+        elif False and mask.overlaps(new):
             # more complicated case
             rem = new - mask
             mask += new
@@ -254,6 +254,8 @@ for line in by_cycles:
             # easiest case, just add the tri
             mask += new
             image.tris.append(t)
+
+print "Finished assigning tris..."
 
 # write out an ac3d file
 name = args.project + "/sba3d.ac"
