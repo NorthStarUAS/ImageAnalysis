@@ -278,7 +278,7 @@ for tri in tri.simplices:
             # has us closest to the center of projection
             #metric = dist_cam * dist_img
             #metric = dist_cam
-            cycle_gain = 0.02
+            cycle_gain = 0.01
             metric = dist_cam * (1 + dist_cycle * cycle_gain)
             if metric < best_metric:
                 best_metric = metric
