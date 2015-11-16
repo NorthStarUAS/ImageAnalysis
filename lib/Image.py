@@ -20,8 +20,8 @@ d2r = math.pi / 180.0           # a helpful constant
 class Image():
     def __init__(self, image_dir=None, image_file=None):
         self.name = None
-        self.img = None
-        self.img_rgb = None
+        #self.img = None
+        #self.img_rgb = None
         self.height = 0
         self.width = 0
         self.kp_list = []       # opencv keypoint list
@@ -130,37 +130,15 @@ class Image():
                 + str(sys.exc_info()[1])
 
     def load_rgb(self):
-        if self.img == None:
-            #print "Loading " + self.image_file
-            try:
-                self.img_rgb = cv2.imread(self.image_file)
-                self.height, self.width, self.fulld = self.img_rgb.shape
-                gray = cv2.cvtColor(self.img_rgb, cv2.COLOR_BGR2GRAY)
-
-                #cv2.imshow('rgb', self.img_rgb)
-                #cv2.imshow('grayscale', self.img)
-
-                # histogram equalization
-                #eq = cv2.equalizeHist(self.img)
-                #cv2.imshow('history equalization', eq)
-                
-                # adaptive histogram equilization (block by block)
-                clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
-                aeq = clahe.apply(gray)
-                #cv2.imshow('adaptive history equalization', aeq)
-
-                self.img = aeq  # we like adaptive histogram equalization
-                
-                #print 'waiting for keyboard input...'
-                #key = cv2.waitKey() & 0xff
-
-                return self.img_rgb
-                
-            except:
-                print self.image_file + ":\n" + "  load error: " \
-                    + str(sys.exc_info()[1])
-        else:
-            self.height, self.width, self.fulld = self.img_rgb.shape
+        #print "Loading " + self.image_file
+        try:
+            img_rgb = cv2.imread(self.image_file)
+            if self.height == 0 or self.width == 0:
+                self.height, self.width, self.fulld = img_rgb.shape
+            return img_rgb
+        except:
+            print self.image_file + ":\n" + "  load error: " \
+                + str(sys.exc_info()[1])
 
     def load_source_rgb(self, source_dir):
         #print "Loading " + self.image_file
@@ -173,6 +151,35 @@ class Image():
             print source_image + ":\n" + "  load error: " \
                 + str(sys.exc_info()[1])
             return None
+
+    def load_gray(self):
+        #print "Loading " + self.image_file
+        try:
+            rgb = cv2.imread(self.image_file)
+            if self.height == 0 or self.width == 0:
+                self.height, self.width, self.fulld = img_rgb.shape
+            gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
+
+            #cv2.imshow('rgb', rgb)
+            #cv2.imshow('grayscale', gray)
+
+            # histogram equalization
+            #eq = cv2.equalizeHist(gray)
+            #cv2.imshow('history equalization', eq)
+
+            # adaptive histogram equilization (block by block)
+            clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+            aeq = clahe.apply(gray)
+            #cv2.imshow('adaptive history equalization', aeq)
+
+            #print 'waiting for keyboard input...'
+            #key = cv2.waitKey() & 0xff
+
+            return aeq
+
+        except:
+            print self.image_file + ":\n" + "  load error: " \
+                + str(sys.exc_info()[1])
 
     def load_features(self):
         if len(self.kp_list) == 0 and os.path.exists(self.features_file):
@@ -356,13 +363,13 @@ class Image():
             x += dx
         return kp_list
 
-    def detect_features(self, dparams):
+    def detect_features(self, dparams, gray):
         detector = self.make_detector(dparams)
         grid_size = int(dparams['grid-detect'])
         if dparams['detector'] == 'ORB' and grid_size > 1:
-            kp_list = self.orb_grid_detect(detector, self.img, grid_size)
+            kp_list = self.orb_grid_detect(detector, gray, grid_size)
         else:
-            kp_list = detector.detect(self.img)
+            kp_list = detector.detect(gray)
 
         # compute the descriptors for the found features (Note: Star
         # is a special case that uses the brief extractor
@@ -374,7 +381,7 @@ class Image():
             extractor = cv2.DescriptorExtractor_create('ORB')
         else:
             extractor = detector
-        self.kp_list, self.des_list = extractor.compute(self.img, kp_list)
+        self.kp_list, self.des_list = extractor.compute(gray, kp_list)
         
         # wipe matches because we've touched the keypoints
         self.match_list = []
@@ -384,10 +391,8 @@ class Image():
     def show_features(self, flags=0):
         # flags=0: draw only keypoints location
         # flags=4: draw rich keypoints
-        if self.img == None:
-            self.load_rgb()
-        h, w = self.img.shape
-        scale = 1000.0 / float(h)
+        rgb = self.load_rgb()
+        scale = 1000.0 / float(self.height)
         kp_list = []
         for kp in self.kp_list:
             angle = kp.angle
@@ -401,7 +406,7 @@ class Image():
             kp_list.append( cv2.KeyPoint(x, y, size, angle, response,
                                          octave, class_id) )
 
-        scaled_image = cv2.resize(self.img_rgb, (0,0), fx=scale, fy=scale)
+        scaled_image = cv2.resize(rgb, (0,0), fx=scale, fy=scale)
         res = cv2.drawKeypoints(scaled_image, kp_list,
                                 color=(0,255,0), flags=flags)
         cv2.imshow(self.name, res)
