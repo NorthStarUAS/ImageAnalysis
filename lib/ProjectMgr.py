@@ -224,10 +224,13 @@ class ProjectMgr():
 
         # load rgb and determine image dimensions of this step has not
         # already been done
+        bar = Bar('Computing image dimensions:', max = len(self.image_list))
         for image in self.image_list:
             if image.height == 0 or image.width == 0:
                 image.load_rgb()
                 image.save_meta()
+            bar.next()
+        bar.finish()
             
         # make sure our matcher gets a copy of the image list
         #self.m.setImageList(self.image_list)
@@ -267,9 +270,8 @@ class ProjectMgr():
         for image in self.image_list:
             if force or len(image.kp_list) == 0 or image.des_list == None:
                 #print "detecting features and computing descriptors: " + image.name
-                if image.img_rgb == None:
-                    image.load_rgb()
-                image.detect_features(self.detector_params)
+                gray = image.load_gray()
+                image.detect_features(self.detector_params, gray)
                 image.save_features()
                 image.save_descriptors()
                 image.save_matches()
@@ -283,10 +285,8 @@ class ProjectMgr():
             bar.finish()
 
     def show_features_image(self, image):
-        if image.img_rgb == None:
-            image.load_rgb()
-            result = image.show_features()
-            return result
+        result = image.show_features()
+        return result
         
     def show_features_images(self, name=None):
         for image in self.image_list:
