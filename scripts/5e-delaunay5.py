@@ -17,6 +17,10 @@ import os.path
 from progress.bar import Bar
 import scipy.spatial
 
+import Polygon
+import Polygon.Shapes
+import Polygon.Utils
+
 sys.path.append('../lib')
 import Matcher
 import Pose
@@ -28,20 +32,13 @@ parser = argparse.ArgumentParser(description='Compute Delauney triangulation of 
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--depth', action='store_const', const=True,
                     help='generate 3d surface')
-parser.add_argument('--steps', default=50, type=int, help='grid steps')
 args = parser.parse_args()
 
 
 # project the estimated uv coordinates for the specified image and ned
 # point
 def compute_feature_uv(K, image, ned):
-    if image.PROJ == None:
-        rvec, tvec = image.get_proj_sba()
-        R, jac = cv2.Rodrigues(rvec)
-        image.PROJ = np.concatenate((R, tvec), axis=1)
-
-    PROJ = image.PROJ
-    uvh = K.dot( PROJ.dot( np.hstack((ned, 1.0)) ).T )
+    uvh = K.dot( image.PROJ.dot( np.hstack((ned, 1.0)) ).T )
     uvh /= uvh[2]
     uv = np.array( [ np.squeeze(uvh[0,0]), np.squeeze(uvh[1,0]) ] )
     return uv
@@ -108,10 +105,7 @@ def gen_ac3d_object(f, name, raw_tris):
     f.write("loc 0 0 0\n")
     f.write("numvert %d\n" % len(vertex_list))
     for i, v in enumerate(vertex_list):
-        if args.depth:
-            f.write("%.3f %.3f %.3f\n" % (v[1], v[0], -v[2]))
-        else:
-            f.write("%.3f %.3f %.3f\n" % (v[1], v[0], 0.0))
+        f.write("%.3f %.3f %.3f\n" % (v[1], v[0], -v[2]))
     f.write("numsurf %d\n" % (len(tris) / 3))
     for i in range(len(tris) / 3):
         f.write("SURF 0x30\n")
@@ -152,6 +146,25 @@ print "Average elevation = %.1f" % ( avg_height )
 tri = scipy.spatial.Delaunay(np.array(raw_points))
 i = scipy.interpolate.LinearNDInterpolator(tri, raw_values)
 
+print "Building individual image meshes from matched features ..."
+for image in proj.image_list:
+    image.raw_points = []
+    image.raw_values = []
+    image.raw_indices = []
+for match in matches_sba:
+    ned = match[0]
+    #raw_points.append( [ned[1], ned[0]] )
+    #raw_values.append( -ned[2] )
+    for p in match[1:]:
+        image = proj.image_list[ p[0] ]
+        image.raw_indices.append( p[1] )
+        image.raw_points.append( [ned[1], ned[0]] )
+        image.raw_values.append( -ned[2] )
+for image in proj.image_list:
+    if len(image.raw_points) >= 3:
+        image.delaunay = scipy.spatial.Delaunay(np.array(image.raw_points))
+        #image.interp = scipy.interpolate.LinearNDInterpolator(image.tri, image.raw_values)
+
 # compute min/max range of horizontal surface
 print "Determining coverage area"
 p0 = raw_points[0]
@@ -167,139 +180,80 @@ for p in raw_points:
 print "Area coverage = %.1f,%.1f to %.1f,%.1f (%.1f x %.1f meters)" % \
     (x_min, y_min, x_max, y_max, x_max-x_min, y_max-y_min)
 
-# compute number of connections per image
-for image in proj.image_list:
-    image.connections = 0
-    for pairs in image.match_list:
-        if len(pairs) >= 8:
-            image.connections += 1
-    #if image.connections > 1:
-    #    print "%s connections: %d" % (image.name, image.connections)
-
-print "Building grid triangulation..."
-tri = scipy.spatial.Delaunay(np.array(grid_points))
+# compute number of connections and cycle depth per image
+Matcher.groupByConnections(proj.image_list)
 
 # start with empty triangle lists
 # format: [ [v[0], v[1], v[2], u, v], .... ]
 for image in proj.image_list:
     image.tris = []
     
-print "Points:", len(grid_points)
-print "Triangles:", len(tri.simplices)
-
 good_tris = 0
 failed_tris = 0
 
-# make sure we start with an empty projection matrix for each image
+# compute image.PROJ for each image
 for image in proj.image_list:
-    image.PROJ = None
+    rvec, tvec = image.get_proj_sba()
+    R, jac = cv2.Rodrigues(rvec)
+    image.PROJ = np.concatenate((R, tvec), axis=1)
 
 # create an image list sorted by cycle depth
 by_cycles = []
 for i, image in enumerate(proj.image_list):
-    by_cycles.append(image.cycle_dist, i)
+    by_cycles.append( (image.cycle_depth, i) )
 by_cycles = sorted(by_cycles, key=lambda fields: fields[0])
 
-# record when we've used up a simplice
-used = np.zeros(len(tri.simplices), np.bool_)
+mask = Polygon.Polygon()
 
 # iterate image list in cycle depth order
 for line in by_cycles:
-    (cycle_dist, index) = line
-    image = project.image_list[index]
+    (cycle_depth, index) = line
+    image = proj.image_list[index]
+    print image.name
+    if image.connections == 0:
+        continue
+    if len(image.raw_points) < 3:
+        continue
+    image.tris = []
+    for tris in image.delaunay.simplices:
+        # print tri
+        t = []
+        shape = []
+        for vert in tris:
+            shape.append( (image.raw_points[vert][0], image.raw_points[vert][1]) )
+            v = []
+            v.append( image.raw_points[vert][1] )
+            v.append( image.raw_points[vert][0] )
+            if args.depth:
+                v.append( -image.raw_values[vert] + 2 * image.cycle_depth )
+            else:
+                v.append( 2 * image.cycle_depth )
+            i_orig = image.raw_indices[vert] 
+            v.append( image.kp_list[i_orig].pt[0] / image.width )
+            v.append( (1.0 - image.kp_list[i_orig].pt[1]) / image.height )
+            # print " ", v
+            t.append(v)
 
-# iterate through the triangle list
-bar = Bar('Computing 3d model:', max=len(tri.simplices),
-          suffix='%(percent).1f%% - %(eta)ds')
-bar.sma_window = 50
-camw, camh = proj.cam.get_image_params()
-fuzz = 20.0
-count = 0
-update_steps = 10
-for tri in tri.simplices:
-    # print "Triangle:", tri
-
-    # compute triangle center
-    sum = np.array( [0.0, 0.0, 0.0] )
-    for vert in tri:
-        #print vert
-        ned = [ grid_points[vert][1], grid_points[vert][0], -grid_values[vert] ]
-        sum += np.array( ned )
-    tri_center = sum / len(tri)
-    #print tri_center
-
-    # look for complete coverage, possibly estimating uv by
-    # reprojection if a feature wasn't found originally
-    done = False 
-    best_image = None
-    best_connections = -1
-    best_metric = 10000.0 * 10000.0
-    best_triangle = []
-    for image in proj.image_list:
-        ok = True
-        # reject images with no connections to the set
-        if image.connections == 0:
-            ok = False
-            continue
-        # quick 3d bounding radius rejection
-        dist = np.linalg.norm(image.center - tri_center)
-        if dist > image.radius + fuzz:
-            ok = False
-            continue
-        # we passed the initial proximity test
-        triangle = []
-        for vert in tri:
-            ned = [ grid_points[vert][1], grid_points[vert][0],
-                    -grid_values[vert] ]
-            scale = float(image.width) / float(camw)
-            uv = compute_feature_uv(proj.cam.get_K(scale), image, ned)
-            fx, fy, cu, cv, dist_coeffs, skew = proj.cam.get_calibration_params()
-            uv[0], uv[1] = redistort(uv[0], uv[1], dist_coeffs, proj.cam.get_K(scale))
-            uv[0] /= image.width
-            uv[1] /= image.height
-            v = list(ned)
-            v.append(uv[0])
-            v.append(1.0 - uv[1])
-            triangle.append(v)
-            if uv[0] < 0.0 or uv[0] > 1.0:
-                #print "  fail"
-                ok = False
-            if uv[1] < 0.0 or uv[1] > 1.0:
-                #print "  fail"
-                ok = False
-        if ok:
-            # print " pass!"
-            # compute center of triangle
-            dist_cam = np.linalg.norm( image.camera_pose_sba['ned'] - tri_center )
-            dist_img = np.linalg.norm( image.center - tri_center )
-            dist_cycle = image.cycle_dist
-            # favor the image source that is seeing this triangle
-            # directly downwards, but also favor the image source that
-            # has us closest to the center of projection
-            #metric = dist_cam * dist_img
-            #metric = dist_cam
-            cycle_gain = 0.01
-            metric = dist_cam * (1 + dist_cycle * cycle_gain)
-            if metric < best_metric:
-                best_metric = metric
-                best_image = image
-                best_triangle = list(triangle)
-    if not best_image == None:
-        # print "Best image (hard): %d (%d)" % (best_image, best_connections)
-        # print "  ", best_triangle
-        best_image.tris.append(best_triangle)
-        good_tris += 1
-        done = True
-    if not done:
-        # print "failed triangle"
-        failed_tris += 1
-    count += 1
-    if count % update_steps == 0:
-        bar.next(update_steps)
-bar.finish()
-
-print "good tris =", good_tris
-print "failed tris =", failed_tris
+        new = Polygon.Polygon(shape)
+        if mask.covers(new):
+            # do nothing
+            a = 1
+        elif mask.overlaps(new):
+            # more complicated case
+            rem = new - mask
+            mask += new
+            print "tri:", rem.triStrip()
+            tristrip = rem.triStrip()
+            for contour in tristrip:
+                for i in range(2, len(contour)):
+                    print contour[i-2]
+                    print contour[i-1]
+                    print contour[i]
+            #image.tris.append(t)
+        else:
+            # easiest case, just add the tri
+            mask += new
+            image.tris.append(t)
 
 # write out an ac3d file
 name = args.project + "/sba3d.ac"
