@@ -34,6 +34,9 @@ def setAircraftPoses(proj, metafile="", order='ypr', force=True, weight=True):
         if re.match('^\s*#', line):
             print "skipping comment ", line
             continue
+        if re.match('^\s*File', line):
+            print "skipping header ", line
+            continue
         field = line.split(',')
         name = field[0]
         lat = float(field[1])
