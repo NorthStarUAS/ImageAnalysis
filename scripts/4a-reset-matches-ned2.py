@@ -66,9 +66,9 @@ for image in proj.image_list:
             key = "%.2f-%.2f" % (kp.pt[0], kp.pt[1])
             if not key in image.kp_remap:
                 image.kp_remap[key] = i
-            else:
-                print "%d -> %d" % (i, image.kp_remap[key])
-                print " ", image.coord_list[i], image.coord_list[image.kp_remap[key]]
+            # else:
+            #     print "%d -> %d" % (i, image.kp_remap[key])
+            #     print " ", image.coord_list[i], image.coord_list[image.kp_remap[key]]
     print " features:", len(image.kp_list)
     print " unique by uv and used:", len(image.kp_remap)
 
@@ -85,11 +85,11 @@ for i1 in proj.image_list:
             uv2 = list(i2.kp_list[idx2].pt)
             key1 = "%.2f-%.2f" % (uv1[0], uv1[1])
             key2 = "%.2f-%.2f" % (uv2[0], uv2[1])
-            print key1, key2
+            # print key1, key2
             new_idx1 = i1.kp_remap[key1]
             new_idx2 = i2.kp_remap[key2]
-            if new_idx1 != idx1 or new_idx2 != idx2:
-                print "[%d, %d] -> [%d, %d]" % (idx1, idx2, new_idx1, new_idx2)
+            #if new_idx1 != idx1 or new_idx2 != idx2:
+            #    print "[%d, %d] -> [%d, %d]" % (idx1, idx2, new_idx1, new_idx2)
             matches[k] = [new_idx1, new_idx2]                
                 
 print "Constructing unified match structure..."
