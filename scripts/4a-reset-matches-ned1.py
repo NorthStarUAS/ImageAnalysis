@@ -39,6 +39,9 @@ proj.load_matches()
 ref = proj.ned_reference_lla
 sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
 
+# compute keypoint usage map
+proj.compute_kp_usage()
+                      
 # fast way:
 # 1. make a grid (i.e. 8x8) of uv coordinates covering the whole image
 # 2. undistort these uv coordinates
@@ -134,3 +137,7 @@ for match in matches_direct:
 
 print "Writing match file ..."
 pickle.dump(matches_direct, open(args.project + "/matches_direct", "wb"))
+
+print "temp: writing ascii version..."
+for match in matches_direct:
+    print match
