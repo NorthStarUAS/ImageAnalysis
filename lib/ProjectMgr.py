@@ -437,6 +437,19 @@ class ProjectMgr():
             pt_list.append(p)
         return pt_list
 
+    def compute_kp_usage(self):
+        print "Determing feature usage in matching pairs..."
+        # but they may have different scaling or other attributes important
+        # during feature matching
+        for image in self.image_list:
+            image.kp_used = np.zeros(len(image.kp_list), np.bool_)
+        for i1 in self.image_list:
+            for j, matches in enumerate(i1.match_list):
+                i2 = self.image_list[j]
+                for k, pair in enumerate(matches):
+                    i1.kp_used[ pair[0] ] = True
+                    i2.kp_used[ pair[1] ] = True
+                    
     # build an interpolation table for 'fast' projection of keypoints
     # into 3d world space
     #
@@ -486,9 +499,12 @@ class ProjectMgr():
             # 3d locations
             image.coord_list = []
             for i, uv in enumerate(image.uv_list):
-                coord = g(uv)
-                # coord[0] is the 3 element vector
-                image.coord_list.append(coord[0])
+                if image.kp_used[i]:
+                    coord = g(uv)
+                    # coord[0] is the 3 element vector
+                    image.coord_list.append(coord[0])
+                else:
+                    image.coord_list.append(np.zeros(3))
             bar.next()
         bar.finish()
                 
