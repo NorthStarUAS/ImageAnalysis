@@ -84,8 +84,22 @@ def compute_surface_outliers():
     print "Processing images..."
     report = []
     for image in proj.image_list:
+        print image.name, len(image.feat_uv)
         if len(image.feat_uv) < 3:
             continue
+        size = len(image.feat_uv)
+        min_dist = image.width
+        count = 0
+        for i in range(size):
+            p0 = np.array(image.feat_uv[i])
+            for j in range(i+1, size):
+                p1 = np.array(image.feat_uv[j])
+                dist = np.linalg.norm(p0-p1)
+                if dist < 000001:
+                    count += 1
+                if dist < min_dist:
+                    min_dist = dist
+        print "minimum feature dist =", min_dist, "count =", count
         tri = scipy.spatial.Delaunay(np.array(image.feat_uv))
         
         # look for outliers by computing the 3d world shape of the
