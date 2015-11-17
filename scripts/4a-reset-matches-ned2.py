@@ -176,15 +176,15 @@ print "Estimating world coordinates of each keypoint..."
 for match in matches_direct:
     sum = np.array( [0.0, 0.0, 0.0] )
     for p in match[1:]:
-        print proj.image_list[ p[0] ].coord_list[ p[1] ]
+        # print proj.image_list[ p[0] ].coord_list[ p[1] ]
         sum += proj.image_list[ p[0] ].coord_list[ p[1] ]
     ned = sum / len(match[1:])
-    print "avg =", ned
+    # print "avg =", ned
     match[0] = ned.tolist()
 
 print "Writing match file ..."
 pickle.dump(matches_direct, open(args.project + "/matches_direct", "wb"))
 
-print "temp: writing ascii version..."
-for match in matches_direct:
-    print match
+#print "temp: writing ascii version..."
+#for match in matches_direct:
+#    print match
