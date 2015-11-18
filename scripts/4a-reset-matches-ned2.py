@@ -108,9 +108,11 @@ for i, i1 in enumerate(proj.image_list):
                 match.append([j, pair[1]])
                 matches_direct.append(match)
 
-# collect/group match chains that refer to the same keypoint
+# collect/group match chains that refer to the same keypoint (warning,
+# if there are bad matches this can over-constrain the problem or tie
+# the pieces together too tightly/incorrectly and lead to nans.)
 count = 0
-done = False
+done = True
 while not done:
     print "Iteration:", count
     count += 1
@@ -159,10 +161,13 @@ count = 0.0
 sum = 0.0
 for match in matches_direct:
     n = len(match)
-    if n >= 2:
-        # len should be 2, 3, 4, etc..
+    if n >= 3:
+        # len should be 3, 4, etc..
         sum += (n-1)
         count += 1
+    else:
+        print "Oops, match with < 2 image references!"
+        
 if count > 0.1:
     print "total unique features in image set = %d" % count
     print "keypoint average instances = %.4f" % (sum / count)
