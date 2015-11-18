@@ -86,7 +86,7 @@ def compute_surface_outliers():
     print "Processing images..."
     report = []
     for index, image in enumerate(proj.image_list):
-        print image.name, len(image.feat_uv)
+        # print image.name, len(image.feat_uv)
         if len(image.feat_uv) < 3:
             continue
         debug = False
