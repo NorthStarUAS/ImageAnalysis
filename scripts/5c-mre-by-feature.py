@@ -18,7 +18,7 @@ import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--stddev', type=int, default=6, help='how many stddevs above the mean for auto discarding features')
+parser.add_argument('--stddev', type=int, default=5, help='how many stddevs above the mean for auto discarding features')
 
 args = parser.parse_args()
 
@@ -67,18 +67,15 @@ def compute_group_mre(image_list, cam):
     
     for i, match in enumerate(matches_sba):
         ned = match[0]
-        max_dist = 0.0
-        for p in match[1:]:
+        for j, p in enumerate(match[1:]):
             image = image_list[ p[0] ]
             kp = image.uv_list[ p[1] ] # undistorted uv point
             scale = float(image.width) / float(camw)
             dist = compute_feature_mre(cam.get_K(scale), image, kp, ned)
-            if dist > max_dist:
-                max_dist = dist
+            #print dist,
             sum += dist
             count += 1
-            #print dist,
-        result_list.append( (max_dist, i) )
+            result_list.append( (dist, i, j) )
         #print
 
     # sort by worst max error first
@@ -91,22 +88,34 @@ def compute_group_mre(image_list, cam):
         error = line[0]
         stddev_sum += (mre-error)*(mre-error)
     stddev = math.sqrt(stddev_sum / count)
-    print "   mre = %.4f stddev = %.4f" % (mre, stddev)
+    print "mre = %.4f stddev = %.4f" % (mre, stddev)
 
-    delete_list = []
+    # mark items to delete
+    delete_count = 0
     for line in result_list:
         if line[0] > mre + stddev * args.stddev:
-            index = line[1]
-            print "outlier index %d err=%.2f" % (index, line[0])
-            delete_list.append(index)
+            print "  outlier index %d-%d err=%.2f" % (line[1], line[2],
+                                                      line[0])
+            match = matches_direct[line[1]]
+            match[line[2]+1] = [-1, -1]
+            match = matches_sba[line[1]]
+            match[line[2]+1] = [-1, -1]
+            delete_count += 1
 
-    delete_list = sorted(delete_list, reverse=True)
-    for index in delete_list:
-        # print "deleting", index
-        matches_direct.pop(index)
-        matches_sba.pop(index)
+    for i in reversed(range(len(matches_direct))):
+        match_direct = matches_direct[i]
+        match_sba = matches_sba[i]
+        for j in reversed(range(1, len(match_direct))):
+            p = match_direct[j]
+            if p == [-1, -1]:
+                match_direct.pop(j)
+                match_sba.pop(j)
+        if len(match_direct) < 3:
+            print "deleting:", match_direct
+            matches_direct.pop(i)
+            matches_sba.pop(i)
 
-    return len(delete_list)
+    return delete_count
 
 deleted_sum = 0
 result = compute_group_mre(proj.image_list, proj.cam)
