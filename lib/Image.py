@@ -59,7 +59,7 @@ class Image():
         # able to collapse this into a single consistent value.
         self.num_matches = 0
         self.connections = 0.0
-        self.cycle_dist = -1
+        self.cycle_depth = -1
         self.weight = 1.0
 
         self.error = 0.0
@@ -117,8 +117,10 @@ class Image():
             self.y_bias = image_dict['y-bias']
             self.weight = image_dict['weight']
             self.connections = image_dict['connections']
-            if 'cycle-distance' in image_dict:
-                self.cycle_dist = image_dict['cycle-distance']
+            if 'cycle-depth' in image_dict:
+                self.cycle_depth = image_dict['cycle-depth']
+            elif 'cycle-distance' in image_dict:
+                self.cycle_depth = image_dict['cycle-distance']
             self.error = image_dict['error']
             self.stddev = image_dict['stddev']
             if 'bounding-center' in image_dict:
@@ -299,7 +301,7 @@ class Image():
         image_dict['y-bias'] = self.y_bias
         image_dict['weight'] = self.weight
         image_dict['connections'] = self.connections
-        image_dict['cycle-distance'] = self.cycle_dist
+        image_dict['cycle-depth'] = self.cycle_depth
         image_dict['error'] = self.error
         image_dict['stddev'] = self.stddev
         image_dict['bounding-center'] = list(self.center)
