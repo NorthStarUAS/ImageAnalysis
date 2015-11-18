@@ -164,8 +164,10 @@ class SBA():
                 elif re.search('damping term', line):
                     print  line 
                 elif re.search('iterations=', line):
+                    print line
                     iterations = int(re.sub('iterations=', '', line))
                 elif re.search('Elapsed time:', line):
+                    print line
                     tokens = line.split()
                     time_msec = float(tokens[4])
                 elif re.search('Motion parameters:', line):
@@ -180,8 +182,8 @@ class SBA():
                     elif state == 'structure' and len(tokens) == 3:
                         # print "feature:", np.array(tokens, dtype=float)
                         features.append( np.array(tokens, dtype=float) )
-                    # else:
-                        # print "debug =", line
+                    else:
+                        print line
             # read next line
             result = process.stdout.readline()
             
