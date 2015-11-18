@@ -134,7 +134,7 @@ while not done:
         else:
             # found a previous reference, append these match items
             existing = matches_new[index]
-            print existing, "+", match
+            # print existing, "+", match
             # only append items that don't already exist in the early
             # match
             for p in match[1:]:
@@ -148,7 +148,7 @@ while not done:
                     # add
                     existing.append(p)
                     matches_lookup[key] = index
-            print "new:", existing
+            # print "new:", existing
     if len(matches_new) == len(matches_direct):
         done = True
     else:
