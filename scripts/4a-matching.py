@@ -67,6 +67,9 @@ if slow_way:
         bar.next()
     bar.finish()
 else:
+    # compute keypoint usage map
+    proj.compute_kp_usage(all=True)
+    
     # fast way:
     # 1. make a grid (i.e. 8x8) of uv coordinates covering the whole image
     # 2. undistort these uv coordinates
