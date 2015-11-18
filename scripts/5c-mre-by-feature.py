@@ -19,9 +19,13 @@ import ProjectMgr
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--stddev', type=int, default=5, help='how many stddevs above the mean for auto discarding features')
+parser.add_argument('--direct', action='store_true', help='analyze direct matches (might help if initial sba fit fails.)')
 
 args = parser.parse_args()
 
+if args.direct:
+    print "NOTICE: analyzing direct matches list"
+    
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
@@ -30,14 +34,18 @@ proj.undistort_keypoints()
 print "Loading original (direct) matches ..."
 matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )
 
-print "Loading fitted (sba) matches..."
-matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
+if not args.direct:
+    print "Loading fitted (sba) matches..."
+    matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
 
 # image mean reprojection error
 def compute_feature_mre(K, image, kp, ned):
     if image.PROJ == None:
         # rvec, tvec = image.get_proj()   # original direct pose
-        rvec, tvec = image.get_proj_sba() # fitted pose
+        if args.direct:
+            rvec, tvec = image.get_proj() # fitted pose
+        else:
+            rvec, tvec = image.get_proj_sba() # fitted pose
         R, jac = cv2.Rodrigues(rvec)
         image.PROJ = np.concatenate((R, tvec), axis=1)
 
@@ -64,8 +72,13 @@ def compute_group_mre(image_list, cam):
     sum = 0.0
     count = 0
     result_list = []
-    
-    for i, match in enumerate(matches_sba):
+
+    if args.direct:
+        matches_source = matches_direct
+    else:
+        matches_source = matches_sba
+        
+    for i, match in enumerate(matches_source):
         ned = match[0]
         for j, p in enumerate(match[1:]):
             image = image_list[ p[0] ]
@@ -98,22 +111,26 @@ def compute_group_mre(image_list, cam):
                                                       line[0])
             match = matches_direct[line[1]]
             match[line[2]+1] = [-1, -1]
-            match = matches_sba[line[1]]
-            match[line[2]+1] = [-1, -1]
+            if not args.direct:
+                match = matches_sba[line[1]]
+                match[line[2]+1] = [-1, -1]
             delete_count += 1
 
     for i in reversed(range(len(matches_direct))):
         match_direct = matches_direct[i]
-        match_sba = matches_sba[i]
+        if not args.direct:
+            match_sba = matches_sba[i]
         for j in reversed(range(1, len(match_direct))):
             p = match_direct[j]
             if p == [-1, -1]:
                 match_direct.pop(j)
-                match_sba.pop(j)
+                if not args.direct:
+                    match_sba.pop(j)
         if len(match_direct) < 3:
-            print "deleting:", match_direct
+            # print "deleting:", match_direct
             matches_direct.pop(i)
-            matches_sba.pop(i)
+            if not args.direct:
+                matches_sba.pop(i)
 
     return delete_count
 
@@ -130,8 +147,9 @@ if deleted_sum > 0:
         print "Writing direct matches..."
         pickle.dump(matches_direct, open(args.project+"/matches_direct", "wb"))
 
-        print "Writing sba matches..."
-        pickle.dump(matches_sba, open(args.project + "/matches_sba", "wb"))
+        if not args.direct:
+            print "Writing sba matches..."
+            pickle.dump(matches_sba, open(args.project + "/matches_sba", "wb"))
 
 
 #print "Mean reprojection error = %.4f" % (mre)
