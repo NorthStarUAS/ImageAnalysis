@@ -93,70 +93,67 @@ for i1 in proj.image_list:
             matches[k] = [new_idx1, new_idx2]                
                 
 print "Constructing unified match structure..."
-fancy = True
-if fancy:
-    # build a list of all 'unique' keypoints.  Include an index to
-    # each containing image and feature.  This seems smarter, but
-    # complicates outlier detection and removal and subsequent cycle
-    # and connection computations.
-    matches_dict = {}
-    for i, i1 in enumerate(proj.image_list):
-        # print i1.name
-        for j, matches in enumerate(i1.match_list):
-            # print proj.image_list[j].name
-            if j > i:
-                for pair in matches:
-                    key = "%d-%d" % (i, pair[0])
-                    #if key == '1-8450':
-                    #    print key
-                    #    print "  ", i, "vs", j
-                    m1 = [i, pair[0]]
-                    m2 = [j, pair[1]]
-                    #print "  ", m1, "; ", m2
-                    if key in matches_dict:
-                        feature_dict = matches_dict[key]
-                        exists = False
-                        for m in feature_dict['pts']:
-                            if m[0] == m2[0] and m[1] == m2[1]:
-                                exists = True
-                        if not exists:
-                            feature_dict['pts'].append(m2)
-                    else:
-                        feature_dict = {}
-                        feature_dict['pts'] = [m1, m2]
-                        matches_dict[key] = feature_dict
-else:
-    # build a list of all keypoints, but only consider pairwise
-    # matches and don't try to find single matches that span 3 or more
-    # images.
-    matches_dict = {}
-    for i, i1 in enumerate(proj.image_list):
-        # print i1.name
-        for j, matches in enumerate(i1.match_list):
-            # print proj.image_list[j].name
-            if j > i:
-                for pair in matches:
-                    key = "%d-%d-%d" % (i, j, pair[0])
-                    m1 = [i, pair[0]]
-                    m2 = [j, pair[1]]
-                    #print "  ", m1, "; ", m2
-                    feature_dict = {}
-                    feature_dict['pts'] = [m1, m2]
-                    matches_dict[key] = feature_dict
-
-# matches_dict is used with the key so we can find existing keys
-# quickly for triple + match points.  But now lets convert the result
-# to a list
+# create an initial pair-wise match list
 matches_direct = []
-for key in matches_dict:
-    match = []
-    # ned place holder
-    match.append([0.0, 0.0, 0.0])
-    feature_dict = matches_dict[key]
-    for p in feature_dict['pts']:
-        match.append( [ p[0], p[1] ] )
-    matches_direct.append( match )
-    
+for i, i1 in enumerate(proj.image_list):
+    # print i1.name
+    for j, matches in enumerate(i1.match_list):
+        # print proj.image_list[j].name
+        if j > i:
+            for pair in matches:
+                match = []
+                # ned place holder
+                match.append([0.0, 0.0, 0.0])
+                match.append([i, pair[0]])
+                match.append([j, pair[1]])
+                matches_direct.append(match)
+
+# collect/group match chains that refer to the same keypoint
+count = 0
+done = False
+while not done:
+    print "Iteration:", count
+    count += 1
+    matches_new = []
+    matches_lookup = {}
+    for i, match in enumerate(matches_direct):
+        # scan if any of these match points have been previously seen
+        # and record the match index
+        index = -1
+        for p in match[1:]:
+            key = "%d-%d" % (p[0], p[1])
+            if key in matches_lookup:
+                index = matches_lookup[key]
+                break
+        if index < 0:
+            # not found, append to the new list
+            for p in match[1:]:
+                key = "%d-%d" % (p[0], p[1])
+                matches_lookup[key] = len(matches_new)
+            matches_new.append(match)
+        else:
+            # found a previous reference, append these match items
+            existing = matches_new[index]
+            print existing, "+", match
+            # only append items that don't already exist in the early
+            # match
+            for p in match[1:]:
+                key = "%d-%d" % (p[0], p[1])
+                found = False
+                for e in existing[1:]:
+                    if p[0] == e[0] and p[1] == e[1]:
+                        found = True
+                        break
+                if not found:
+                    # add
+                    existing.append(p)
+                    matches_lookup[key] = index
+            print "new:", existing
+    if len(matches_new) == len(matches_direct):
+        done = True
+    else:
+        matches_direct = matches_new
+ 
 #print match_dict
 count = 0.0
 sum = 0.0
