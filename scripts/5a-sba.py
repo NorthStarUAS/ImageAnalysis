@@ -76,6 +76,7 @@ proj.undistort_keypoints()
 m = Matcher.Matcher()
 
 matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )
+print "unique features:", len(matches_direct)
 
 image_width = proj.image_list[0].width
 camw, camh = proj.cam.get_image_params()
