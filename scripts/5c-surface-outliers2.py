@@ -51,6 +51,7 @@ def meta_stats(report):
 parser = argparse.ArgumentParser(description='Compute Delauney triangulation of matches.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--stddev', default=5, type=int, help='standard dev threshold')
+parser.add_argument('--checkpoint', action='store_true', help='auto save results after each iteration')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
@@ -160,19 +161,23 @@ def compute_surface_outliers():
 
     return len(delete_list)
 
+def save_results():
+    # write out the updated match dictionaries
+    print "Writing original matches..."
+    pickle.dump(matches_direct, open(args.project+"/matches_direct", "wb"))
+
+    print "Writing sba matches..."
+    pickle.dump(matches_sba, open(args.project+"/matches_sba", "wb"))
+
 deleted_sum = 0
 result = compute_surface_outliers()
 while result > 0:
     deleted_sum += result
     result = compute_surface_outliers()
+    if args.checkpoint:
+        save_results()
 
 if deleted_sum > 0:
     result=raw_input('Remove ' + str(deleted_sum) + ' outliers from the original matches? (y/n):')
     if result == 'y' or result == 'Y':
-
-        # write out the updated match dictionaries
-        print "Writing original matches..."
-        pickle.dump(matches_direct, open(args.project+"/matches_direct", "wb"))
-
-        print "Writing sba matches..."
-        pickle.dump(matches_sba, open(args.project+"/matches_sba", "wb"))
+        save_results()
