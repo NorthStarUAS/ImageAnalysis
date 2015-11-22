@@ -73,12 +73,13 @@ for image in proj.image_list:
     print " unique by uv and used:", len(image.kp_remap)
 
 print "Collapsing keypoints with duplicate uv coordinates..."
-# but after feature matching we don't care about other attributes,
-# just the uv coordinate.
+# after feature matching we don't care about other attributes, just
+# the uv coordinate.
 for i1 in proj.image_list:
     for j, matches in enumerate(i1.match_list):
         i2 = proj.image_list[j]
         for k, pair in enumerate(matches):
+            # print pair
             idx1 = pair[0]
             idx2 = pair[1]
             uv1 = list(i1.kp_list[idx1].pt)
@@ -88,8 +89,22 @@ for i1 in proj.image_list:
             # print key1, key2
             new_idx1 = i1.kp_remap[key1]
             new_idx2 = i2.kp_remap[key2]
-            #if new_idx1 != idx1 or new_idx2 != idx2:
-            #    print "[%d, %d] -> [%d, %d]" % (idx1, idx2, new_idx1, new_idx2)
+            if False and idx1 != new_idx1:
+                print "1: %d -> %d" % (idx1, new_idx1)
+                new_uv1 = list(i1.kp_list[new_idx1].pt)
+                print "  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv1[0], uv1[1],
+                                                          new_uv1[0],
+                                                          new_uv1[1])
+                if not np.allclose(uv1, new_uv1):
+                    print "OOPS!"
+            if False and idx2 != new_idx2:
+                print "2: %d -> %d" % (idx2, new_idx2)
+                new_uv2 = list(i2.kp_list[new_idx2].pt)
+                print "  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv2[0], uv2[1],
+                                                          new_uv2[0],
+                                                          new_uv2[1])
+                if not np.allclose(uv2, new_uv2):
+                    print "OOPS!"
             matches[k] = [new_idx1, new_idx2]                
                 
 print "Constructing unified match structure..."
