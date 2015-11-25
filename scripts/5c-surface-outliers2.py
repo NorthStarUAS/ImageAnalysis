@@ -153,7 +153,9 @@ def compute_surface_outliers():
             print "index=", index, "metric=", metric
             delete_list.append( index )
 
-    delete_list = sorted(delete_list, reverse=True)
+    # set(delete_list) eliminates potential duplicates (if an outlier
+    # is an outlier in both images it matches.)
+    delete_list = sorted(set(delete_list), reverse=True)
     for index in delete_list:
         #print "deleting", index
         matches_direct.pop(index)

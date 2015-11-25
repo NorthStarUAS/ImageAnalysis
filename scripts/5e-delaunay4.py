@@ -209,7 +209,7 @@ for image in proj.image_list:
     image.PROJ = None
         
 # iterate through the triangle list
-bar = Bar('Computing 3d model:', max=len(tri.simplices),
+bar = Bar('Generating 3d model:', max=len(tri.simplices),
           suffix='%(percent).1f%% - %(eta)ds')
 bar.sma_window = 50
 camw, camh = proj.cam.get_image_params()
