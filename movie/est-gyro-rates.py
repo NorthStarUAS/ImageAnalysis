@@ -269,6 +269,33 @@ while True:
     frame = cv2.resize(frame, (0,0), fx=scale, fy=scale,
                      interpolation=method)
 
+    # experimental undistortion
+    K_Mobius_1080p = np.array( [[1446.47271782,    0.,         995.97981187],
+                                [   0.,         1355.97161653, 660.86038277],
+                                [   0.,            0.,           1.        ]] )
+
+    K_720_16x9 = np.array([ [469.967, 0.0, 640],
+                            [0.0, 467.682, 360],
+                            [0.0, 0.0, 1.0] ] )
+    # guessed from the 16x9 version
+    K_720_3x4 = np.array([ [469.967, 0.0, 480],
+                          [0.0, 467.682, 360],
+                          [0.0, 0.0, 1.0] ] )
+
+    K_960_3x4 = K_720_3x4 * (960.0 / 720.0)
+    K_960_3x4[2:2] = 1.0
+
+    K_1080_16x9 = K_720_16x9 * (1080.0 / 720.0)
+    K_1080_16x9[2,2] = 1.0
+
+    dist_mobius = [ -0.40697795,  0.22146696, -0.02121735, -0.00270626, -0.08839147 ]
+    dist_gopro = [ -0.18957, 0.037319, 0.0, 0.0, -0.00337 ] # ???
+
+    K = K_Mobius_1080p * args.scale
+    K[2,2] = 1.0
+    frame = cv2.undistort(frame, K, np.array(dist_mobius))
+    cv2.imshow('undistort', frame)
+
     process_hsv = False
     if process_hsv:
         # Convert BGR to HSV
@@ -443,7 +470,7 @@ while True:
                 new_kp = cv2.KeyPoint(pt[0], pt[1], kp.size)
                 new_filtered.append(new_kp)
         final = cv2.drawKeypoints(accum, new_filtered, color=(0,255,0), flags=0)
-        
+   
     cv2.imshow('bgr', res1)
     cv2.imshow('smooth', new_frame)
     cv2.imshow('final', final)
