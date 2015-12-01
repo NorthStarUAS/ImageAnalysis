@@ -26,22 +26,39 @@ with open(args.movie_log, 'rb') as f:
     for line in f:
         movie.append( line.rstrip().split() )
 
-flight = []
+flight_imu = []
+flight_gps = []
 last_time = -1
 
 if args.apm_log:
     # load APM flight log
+    agl = 0.0
     with open(args.apm_log, 'rb') as f:
         for line in f:
-            if re.search('yawspeed', line):
-                tokens = line.rstrip().split(',')
+            tokens = line.rstrip().split(',')
+            if tokens[7] == 'mavlink_attitude_t':
                 timestamp = float(tokens[9])/1000.0
                 if timestamp > last_time:
-                    flight.append( [float(tokens[9])/1000.0, float(tokens[17]),
-                                    float(tokens[19]), float(tokens[21])] )
+                    flight_imu.append( [timestamp,
+                                        float(tokens[17]), float(tokens[19]),
+                                        float(tokens[21]),
+                                        float(tokens[11]), float(tokens[13]),
+                                        float(tokens[15])] )
                     last_time = timestamp
                 else:
-                    print "ERROR: time went backwards:", timestamp, last_time
+                    print "ERROR: IMU time went backwards:", timestamp, last_time
+            elif tokens[7] == 'mavlink_gps_raw_int_t':
+                timestamp = float(tokens[9])/1000000.0
+                if timestamp > last_time - 1.0:
+                    flight_gps.append( [timestamp,
+                                        float(tokens[11]) / 10000000.0,
+                                        float(tokens[13]) / 10000000.0,
+                                        float(tokens[15]) / 1000.0,
+                                        agl] )
+                else:
+                    print "ERROR: GPS time went backwards:", timestamp, last_time
+            elif tokens[7] == 'mavlink_terrain_report_t':
+                agl = float(tokens[15])
 elif args.aura_log:
     # load Aura flight log
     with open(args.aura_log, 'rb') as f:
@@ -49,7 +66,8 @@ elif args.aura_log:
             tokens = line.rstrip().split()
             timestamp = float(tokens[0])
             if timestamp > last_time:
-                flight.append( [tokens[0], tokens[1], tokens[2], tokens[3]] )
+                flight_imu.append( [tokens[0], tokens[1], tokens[2],
+                                    tokens[3]] )
                 last_time = timestamp
             else:
                 print "ERROR: time went backwards:", timestamp, last_time
@@ -73,22 +91,30 @@ for x in np.linspace(xmin, xmax, time*args.resample_hz):
 print "movie len:", len(movie_interp)
 
 # resample flight data
-flight = np.array(flight, dtype=float)
+flight_imu = np.array(flight_imu, dtype=float)
 flight_interp = []
-x = flight[:,0]
+x = flight_imu[:,0]
+flight_spl_roll = InterpolatedUnivariateSpline(x, flight_imu[:,1])
+flight_spl_pitch = InterpolatedUnivariateSpline(x, flight_imu[:,2])
+flight_spl_yaw = InterpolatedUnivariateSpline(x, flight_imu[:,3])
 if args.apm_log:
-    print "Fixme: pick correct flight log axes"
-    quit()
-flight_spl_roll = InterpolatedUnivariateSpline(x, flight[:,1])
-flight_spl_pitch = InterpolatedUnivariateSpline(x, flight[:,2])
-flight_spl_yaw = InterpolatedUnivariateSpline(x, flight[:,3])
+    y_spline = flight_spl_yaw
+elif args.aura_log:
+    y_spline = flight_spl_roll
 xmin = x.min()
 xmax = x.max()
 print "flight range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin)
 time = xmax - xmin
 for x in np.linspace(xmin, xmax, time*args.resample_hz):
-    flight_interp.append( [x, flight_spl_roll(x)] )
+    flight_interp.append( [x, y_spline(x)] )
 print "flight len:", len(flight_interp)
+
+flight_gps = np.array(flight_gps, dtype=np.float64)
+x = flight_gps[:,0]
+flight_gps_lat = InterpolatedUnivariateSpline(x, flight_gps[:,1])
+flight_gps_lon = InterpolatedUnivariateSpline(x, flight_gps[:,2])
+flight_gps_alt = InterpolatedUnivariateSpline(x, flight_gps[:,3])
+flight_gps_agl = InterpolatedUnivariateSpline(x, flight_gps[:,4])
 
 # compute best correlation between movie and flight data logs
 movie_interp = np.array(movie_interp, dtype=float)
@@ -130,11 +156,24 @@ if mrsum > 0.001:
 print "pitch ratio:", qratio
 print "yaw ratio:", rratio
 
+# extract frames
+time = tmax - tmin
+last_time = 0.0
+for t in np.linspace(tmin, tmax, time*args.resample_hz):
+    if flight_gps_agl(t) < 5.0:
+        continue
+    if t > last_time + 2.0:
+        last_time = t
+        print t, flight_gps_lat(t), flight_gps_lon(t), flight_gps_alt(t)
+    
+
+
+# plot the data ...
 plt.figure(1)
 plt.ylabel('roll rate (deg per sec)')
 plt.xlabel('flight time (sec)')
-plt.plot(movie_interp[:,0] + time_shift, movie_interp[:,1]*r2d, label='estimate from flight movie')
-plt.plot(flight_interp[:,0], flight_interp[:,1]*r2d, label='flight data log')
+plt.plot(movie[:,0] + time_shift, movie[:,2]*r2d, label='estimate from flight movie')
+plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
 #plt.plot(movie_interp[:,1])
 #plt.plot(flight_interp[:,1])
 plt.legend()
@@ -146,7 +185,7 @@ plt.figure(3)
 plt.ylabel('pitch rate (deg per sec)')
 plt.xlabel('flight time (sec)')
 plt.plot(movie[:,0] + time_shift, (movie[:,3]/qratio)*r2d, label='estimate from flight movie')
-plt.plot(flight[:,0], flight[:,2]*r2d, label='flight data log')
+plt.plot(flight_imu[:,0], flight_imu[:,2]*r2d, label='flight data log')
 #plt.plot(movie_interp[:,1])
 #plt.plot(flight_interp[:,1])
 plt.legend()
@@ -155,7 +194,7 @@ plt.figure(4)
 plt.ylabel('yaw rate (deg per sec)')
 plt.xlabel('flight time (sec)')
 plt.plot(movie[:,0] + time_shift, (movie[:,4]/rratio)*r2d, label='estimate from flight movie')
-plt.plot(flight[:,0], flight[:,3]*r2d, label='flight data log')
+plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
 #plt.plot(movie_interp[:,1])
 #plt.plot(flight_interp[:,1])
 plt.legend()
