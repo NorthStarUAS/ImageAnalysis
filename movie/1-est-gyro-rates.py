@@ -8,6 +8,11 @@ import argparse
 import cv2
 import math
 import numpy as np
+import os
+
+sys.path.append('../lib')
+import Render
+r = Render.Render()
 
 d2r = math.pi / 180.0
 
@@ -22,12 +27,20 @@ parser = argparse.ArgumentParser(description='Estimate gyro biases from movie.')
 parser.add_argument('--movie', required=True, help='movie file')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
 parser.add_argument('--skip-frames', type=int, default=0, help='skip n initial frames')
+parser.add_argument('--no-equalize', action='store_true', help='do not equalize value')
+parser.add_argument('--draw-keypoints', action='store_true', help='draw keypoints on output')
 parser.add_argument('--draw-masks', action='store_true', help='draw stabilization masks')
 args = parser.parse_args()
 
 file = args.movie
 scale = args.scale
 skip_frames = args.skip_frames
+
+# pathname work
+abspath = os.path.abspath(file)
+filename, ext = os.path.splitext(abspath)
+output_csv = filename + ".csv"
+output_avi = filename + "_smooth.avi"
 
 try:
     print "Opening ", args.movie
@@ -52,7 +65,7 @@ h = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT) * scale )
 outfourcc = cv2.cv.CV_FOURCC('M', 'J', 'P', 'G')
 #outfourcc = cv2.cv.CV_FOURCC('X', 'V', 'I', 'D')
 #outfourcc = cv2.VideoWriter_fourcc(*'XVID')
-output = cv2.VideoWriter("output.avi", outfourcc, fps, (w, h))
+output = cv2.VideoWriter(output_avi, outfourcc, fps, (w, h))
 
 # find affine transform between matching keypoints in pixel
 # coordinate space.  fullAffine=True means unconstrained to
@@ -240,6 +253,9 @@ abs_y = 0.0
 result = []
 stop_count = 0
 
+if not args.no_equalize:
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+
 while True:
     counter += 1
 
@@ -266,8 +282,9 @@ while True:
 
     method = cv2.INTER_AREA
     #method = cv2.INTER_LANCZOS4
-    frame = cv2.resize(frame, (0,0), fx=scale, fy=scale,
-                     interpolation=method)
+    frame_scale = cv2.resize(frame, (0,0), fx=scale, fy=scale,
+                             interpolation=method)
+    cv2.imshow('scaled orig', frame_scale)
 
     # experimental undistortion
     K_Mobius_1080p = np.array( [[1362.1,    0.0, 980.8],
@@ -288,28 +305,38 @@ while True:
     K_1080_16x9 = K_720_16x9 * (1080.0 / 720.0)
     K_1080_16x9[2,2] = 1.0
 
+    dist_none = [0.0, 0.0, 0.0, 0.0, 0.0]
     dist_mobius = [-0.36207197, 0.14627927, -0.00674558, 0.0008926, -0.02635695]
-    dist_gopro = [ -0.18957, 0.037319, 0.0, 0.0, -0.00337 ] # ???
+    dist_gopro1 = [ -0.18957, 0.037319, 0.0, 0.0, -0.00337 ] # ???
+    dist_gopro2 = [ -0.25761, 0.087709, 0.0, 0.0, -0.015219 ] # works for 8/12 rgb
 
-    K = K_Mobius_1080p * args.scale
+    # K = K_960_3x4 * args.scale
+    K = K_1080_16x9 * args.scale
+    # K = K_Mobius_1080p * args.scale
     K[2,2] = 1.0
-    frame = cv2.undistort(frame, K, np.array(dist_mobius))
-    cv2.imshow('undistort', frame)
-
+    dist = dist_none
+    frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
+    if not args.no_equalize:
+        frame_undist = r.aeq_value(frame_undist)
+        
     process_hsv = False
     if process_hsv:
         # Convert BGR to HSV
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        hsv = cv2.cvtColor(frame_undist, cv2.COLOR_BGR2HSV)
         hue,s,v = cv2.split(hsv)
         cv2.imshow('hue', hue)
         cv2.imshow('saturation', s)
         cv2.imshow('value', v)
         image = hue
     else:
-        image = frame
+        image = frame_undist
 
-    kp_list = detector.detect(image)
-    kp_list, des_list = detector.compute(image, kp_list)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    if not args.no_equalize:
+        gray = clahe.apply(gray)
+
+    kp_list = detector.detect(gray)
+    kp_list, des_list = detector.compute(gray, kp_list)
 
     if len(kp_list_last):
         matches = matcher.knnMatch(des_list, trainDescriptors=des_list_last, k=2)
@@ -433,15 +460,13 @@ while True:
     affine_last = np.array( [ row1, row2 ] )
     # print affine_new
 
-    rows, cols, depth = frame.shape
-    new_frame = cv2.warpAffine(frame, affine_new, (cols,rows))
+    rows, cols, depth = frame_undist.shape
+    new_frame = cv2.warpAffine(frame_undist, affine_new, (cols,rows))
 
-    do_draw_keypoints = True
-    if do_draw_keypoints:
-        res1 = cv2.drawKeypoints(frame, filtered, color=(0,255,0), flags=0)
-        #res2 = cv2.drawKeypoints(hue, filtered, color=(0,255,0), flags=0)
+    if True:
+        res1 = cv2.drawKeypoints(frame_undist, filtered, color=(0,255,0), flags=0)
     else:
-        res1 = frame
+        res1 = frame_undist
 
     kp_list_last = kp_list
     des_list_last = des_list
@@ -459,8 +484,7 @@ while True:
         accum = overlay(new_frame, base, motion_mask)
 
     final = accum
-    do_draw_keypoints_on_output = True
-    if do_draw_keypoints_on_output:
+    if args.draw_keypoints:
         new_filtered = []
         if affine_new != None:
             affine_T = affine_new.T
@@ -480,7 +504,7 @@ while True:
 
 cv2.destroyAllWindows()
 
-with open('output.csv', 'wb') as myfile:
+with open(output_csv, 'wb') as myfile:
     for line in result:
         myfile.write(str(line[0]))
         for field in line[1:]:
