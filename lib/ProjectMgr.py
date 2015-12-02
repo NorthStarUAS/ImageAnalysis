@@ -506,7 +506,10 @@ class ProjectMgr():
                 if image.kp_used[i]:
                     coord = g(uv)
                     # coord[0] is the 3 element vector
-                    image.coord_list.append(coord[0])
+                    if not np.isnan(coord[0][0]):
+                        image.coord_list.append(coord[0])
+                    else:
+                        image.coord_list.append(np.zeros(3))
                 else:
                     image.coord_list.append(np.zeros(3))
             bar.next()
