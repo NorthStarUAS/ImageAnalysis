@@ -70,6 +70,7 @@ def compute_surface_outliers():
         image.feat_3d = []
         image.feat_uv = []
         image.feat_match_idx = []
+        image.feat_map = {}
     
     # iterate through the sba match dictionary and build a per-image
     # list of 3d feature points with corresponding 2d uv coordinates
@@ -79,10 +80,14 @@ def compute_surface_outliers():
         ned = match[0]
         for p in match[1:]:
             image = proj.image_list[ p[0] ]
-            image.feat_3d.append( ned )
-            image.feat_uv.append( list(image.kp_list[p[1]].pt) )
-            # print " ", image.kp_list[p[1]].pt
-            image.feat_match_idx.append( i )
+            uv = list(image.kp_list[p[1]].pt)
+            key = "%.2f-%.2f" % (uv[0], uv[1])
+            if True or not key in image.feat_map:
+                image.feat_3d.append( ned )
+                image.feat_uv.append( list(image.kp_list[p[1]].pt) )
+                # print " ", image.kp_list[p[1]].pt
+                image.feat_match_idx.append( i )
+                image.feat_map[key] = i
    
     print "Processing images..."
     report = []

@@ -63,7 +63,7 @@ for image in proj.image_list:
     image.kp_remap = {}
     for i, kp in enumerate(image.kp_list):
         if image.kp_used[i]:
-            key = "%.2f-%.2f" % (kp.pt[0], kp.pt[1])
+            key = "%.3f-%.3f" % (kp.pt[0], kp.pt[1])
             if not key in image.kp_remap:
                 image.kp_remap[key] = i
             # else:
@@ -84,15 +84,19 @@ for i1 in proj.image_list:
             idx2 = pair[1]
             uv1 = list(i1.kp_list[idx1].pt)
             uv2 = list(i2.kp_list[idx2].pt)
-            key1 = "%.2f-%.2f" % (uv1[0], uv1[1])
-            key2 = "%.2f-%.2f" % (uv2[0], uv2[1])
+            key1 = "%.3f-%.3f" % (uv1[0], uv1[1])
+            key2 = "%.3f-%.3f" % (uv2[0], uv2[1])
+            if j == 1 and idx2 == 1360:
+                print key1, key2
+            if j == 1 and idx2 == 3212:
+                print key1, key2
             # print key1, key2
             new_idx1 = i1.kp_remap[key1]
             new_idx2 = i2.kp_remap[key2]
             if False and idx1 != new_idx1:
                 print "1: %d -> %d" % (idx1, new_idx1)
                 new_uv1 = list(i1.kp_list[new_idx1].pt)
-                print "  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv1[0], uv1[1],
+                print "  [%.3f, %.3f] -> [%.3f, %.3f]" % (uv1[0], uv1[1],
                                                           new_uv1[0],
                                                           new_uv1[1])
                 if not np.allclose(uv1, new_uv1):
@@ -100,13 +104,28 @@ for i1 in proj.image_list:
             if False and idx2 != new_idx2:
                 print "2: %d -> %d" % (idx2, new_idx2)
                 new_uv2 = list(i2.kp_list[new_idx2].pt)
-                print "  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv2[0], uv2[1],
+                print "  [%.3f, %.3f] -> [%.3f, %.3f]" % (uv2[0], uv2[1],
                                                           new_uv2[0],
                                                           new_uv2[1])
                 if not np.allclose(uv2, new_uv2):
                     print "OOPS!"
             matches[k] = [new_idx1, new_idx2]                
                 
+print "Eliminating duplicates..."
+# after collapsing by uv coordinate, we could be left with duplicate
+# matches (mached at different scales, but same exact point.)
+for i1 in proj.image_list:
+    for j, matches in enumerate(i1.match_list):
+        i2 = proj.image_list[j]
+        tmp_dict = {}
+        new_matches = []
+        for k, pair in enumerate(matches):
+            key = "%d-%d" % (pair[0], pair[1])
+            if not key in tmp_dict:
+                tmp_dict[key] = True
+                new_matches.append(pair)
+        i1.match_list[j] = new_matches
+
 print "Constructing unified match structure..."
 # create an initial pair-wise match list
 matches_direct = []
@@ -127,7 +146,7 @@ for i, i1 in enumerate(proj.image_list):
 # if there are bad matches this can over-constrain the problem or tie
 # the pieces together too tightly/incorrectly and lead to nans.)
 count = 0
-done = True
+done = False
 while not done:
     print "Iteration:", count
     count += 1
@@ -151,26 +170,30 @@ while not done:
         else:
             # found a previous reference, append these match items
             existing = matches_new[index]
-            # print existing, "+", match
+            print existing, "+", match
             # only append items that don't already exist in the early
-            # match
+            # match, and only one match per image (!)
             for p in match[1:]:
                 key = "%d-%d" % (p[0], p[1])
                 found = False
                 for e in existing[1:]:
-                    if p[0] == e[0] and p[1] == e[1]:
+                    if p[0] == e[0]:
                         found = True
                         break
                 if not found:
                     # add
                     existing.append(p)
                     matches_lookup[key] = index
-            # print "new:", existing
+            print "new:", existing
+            print 
     if len(matches_new) == len(matches_direct):
         done = True
     else:
         matches_direct = matches_new
- 
+
+for m in matches_direct:
+    print m
+    
 #print match_dict
 count = 0.0
 sum = 0.0
