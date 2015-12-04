@@ -209,7 +209,7 @@ class ProjectMgr():
             else:
                 print "Error: unknown converter =", converter
 
-    def load_image_info(self):
+    def load_image_info(self, force_compute_sizes=False):
         file_list = []
         for file in os.listdir(self.image_dir):
             if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
@@ -226,8 +226,8 @@ class ProjectMgr():
         # already been done
         bar = Bar('Computing image dimensions:', max = len(self.image_list))
         for image in self.image_list:
-            if image.height == 0 or image.width == 0:
-                image.load_rgb()
+            if force_compute_sizes or image.height == 0 or image.width == 0:
+                image.load_rgb(force_resize=True)
                 image.save_meta()
             bar.next()
         bar.finish()
@@ -509,7 +509,16 @@ class ProjectMgr():
                     if not np.isnan(coord[0][0]):
                         image.coord_list.append(coord[0])
                     else:
-                        image.coord_list.append(np.zeros(3))
+                        print "nan alert!"
+                        print "  uv:", uv, "coord:", coord
+                        print "check your image width/height values in the <image>.info files and figure out why they are wrong!"
+                        quit()
+                        #or append zeros which would be a hack until
+                        #figuring out the root cause of the problem
+                        #... if it isn't wrong image dimensions in the
+                        #.info file...
+                        #
+                        #image.coord_list.append(np.zeros(3))
                 else:
                     image.coord_list.append(np.zeros(3))
             bar.next()
