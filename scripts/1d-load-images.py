@@ -18,8 +18,9 @@ import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Load the project\'s images.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--recompute-sizes', action='store_true', help='recompute image sizes')
 
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_image_info()
+proj.load_image_info(force_compute_sizes=args.recompute_sizes)
