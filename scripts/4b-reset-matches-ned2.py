@@ -26,6 +26,7 @@ import SRTM
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--no-grouping', action='store_true', help='don\'t group match cyles')
 
 args = parser.parse_args()
 
@@ -146,7 +147,10 @@ for i, i1 in enumerate(proj.image_list):
 # if there are bad matches this can over-constrain the problem or tie
 # the pieces together too tightly/incorrectly and lead to nans.)
 count = 0
-done = False
+if args.no_grouping:
+    done = True
+else:
+    done = False
 while not done:
     print "Iteration:", count
     count += 1
