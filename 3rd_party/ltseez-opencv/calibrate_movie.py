@@ -19,6 +19,7 @@ import os
 parser = argparse.ArgumentParser(description='Estimate gyro biases from movie.')
 parser.add_argument('--movie', required=True, help='movie file')
 parser.add_argument('--square-size', type=float, default=1.0, help='square size')
+parser.add_argument('--samples', type=int, default=100, help='samples to extract from movie')
 parser.add_argument('--debug', action='store_true', help='draw debugging output')
 args = parser.parse_args()
 
@@ -27,11 +28,12 @@ if __name__ == '__main__':
     import sys
 
     #pattern_size = (9, 6)
-    pattern_size = (9, 7)
+    pattern_size = (9, 6)
     pattern_points = np.zeros( (np.prod(pattern_size), 3), np.float32 )
     pattern_points[:,:2] = np.indices(pattern_size).T.reshape(-1, 2)
     pattern_points *= args.square_size
 
+    tmp_img_points_list = []
     obj_points = []
     img_points = []
     h, w = 0, 0
@@ -44,7 +46,7 @@ if __name__ == '__main__':
         print "error opening video"
         quit()
     print "ok"
-
+    tmp_image_points_list = []
     count = 0
     while True:
         ret, img = capture.read()
@@ -70,14 +72,27 @@ if __name__ == '__main__':
         if not found:
             print 'chessboard not found'
             continue
-        img_points.append(corners.reshape(-1, 2))
-        obj_points.append(pattern_points)
+        tmp_image_points_list.append(corners)
+        #img_points.append(corners.reshape(-1, 2))
+        #obj_points.append(pattern_points)
 
         if 0xFF & cv2.waitKey(5) == 27:
             break
         
         print 'ok'
 
+    # select 'n=samples' of the found frames
+    size = len(tmp_image_points_list)
+    step = int( size / args.samples )
+    if step < 1:
+        step = 1
+    for i in range(0, len(tmp_image_points_list), step):
+        print i
+        corners = tmp_image_points_list[i]
+        img_points.append(corners.reshape(-1, 2))
+        obj_points.append(pattern_points)
+    
+    print np.array(img_points).size
     print "Computing camera calibration (this may take quite a bit of time)..."
     rms, camera_matrix, dist_coefs, rvecs, tvecs = cv2.calibrateCamera(obj_points, img_points, (w, h), None, None)
     np.set_printoptions(suppress=True)
