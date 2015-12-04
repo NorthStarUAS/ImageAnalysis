@@ -145,7 +145,7 @@ def compute_surface_outliers():
                 metric = 0.0
             # print i, metric
             # assemble a list of value vs. index into original match list
-            report.append( (metric, image.feat_match_idx[i]) )
+            report.append( (metric, image.feat_match_idx[i], index) )
 
     average, stddev = meta_stats(report)
     report = sorted(report, key=lambda fields: abs(fields[0]), reverse=True)
@@ -155,7 +155,7 @@ def compute_surface_outliers():
         metric = line[0]
         index = line[1]
         if abs(average - metric) >= args.stddev * stddev:
-            print "index=", index, "metric=", metric
+            print "index=", index, "metric=", metric, "image=", line[2]
             delete_list.append( index )
 
     # set(delete_list) eliminates potential duplicates (if an outlier
