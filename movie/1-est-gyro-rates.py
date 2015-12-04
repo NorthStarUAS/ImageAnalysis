@@ -42,12 +42,10 @@ filename, ext = os.path.splitext(abspath)
 output_csv = filename + ".csv"
 output_avi = filename + "_smooth.avi"
 
+print "Opening ", args.movie
 try:
-    print "Opening ", args.movie
-    #capture = cv2.VideoCapture("video.avi")
-    #capture = cv2.VideoCapture("/home/curt/Dropbox/FRAM/VID_20141106_131255.mp4")
     capture = cv2.VideoCapture(args.movie)
-    #capture = cv2.VideoCapture()
+    #capture = cv2.VideoCapture() # webcam
 except:
     print "error opening video"
 
@@ -268,6 +266,8 @@ while True:
         print "no more frames:", stop_count
         if stop_count > 100:
             break
+    else:
+        stop_count = 0    
 
     if counter < skip_frames:
         if counter % 1000 == 0:
@@ -291,30 +291,30 @@ while True:
                                 [   0.0, 1272.8, 601.3],
                                 [   0.0,    0.0,   1.0]] )
 
-    K_720_16x9 = np.array([ [469.967, 0.0, 640],
-                            [0.0, 467.682, 360],
-                            [0.0, 0.0, 1.0] ] )
+    K_Gopro3_720_16x9 = np.array([ [1165.3,    0.0, 620.6],
+                                   [0.0,    1161.1, 328.1],
+                                   [0.0,       0.0,   1.0] ] )
     # guessed from the 16x9 version
-    K_720_3x4 = np.array([ [469.967, 0.0, 480],
-                          [0.0, 467.682, 360],
-                          [0.0, 0.0, 1.0] ] )
+    K_Gopro3_720_3x4 = np.array([ [1165.3,    0.0, 480],
+                           [0.0,    1165.3, 360],
+                           [0.0,       0.0, 1.0] ] )
 
-    K_960_3x4 = K_720_3x4 * (960.0 / 720.0)
+    K_960_3x4 = K_Gopro3_720_3x4 * (960.0 / 720.0)
     K_960_3x4[2:2] = 1.0
 
-    K_1080_16x9 = K_720_16x9 * (1080.0 / 720.0)
+    K_1080_16x9 = K_Gopro3_720_16x9 * (1080.0 / 720.0)
     K_1080_16x9[2,2] = 1.0
 
     dist_none = [0.0, 0.0, 0.0, 0.0, 0.0]
     dist_mobius = [-0.36207197, 0.14627927, -0.00674558, 0.0008926, -0.02635695]
     dist_gopro1 = [ -0.18957, 0.037319, 0.0, 0.0, -0.00337 ] # ???
     dist_gopro2 = [ -0.25761, 0.087709, 0.0, 0.0, -0.015219 ] # works for 8/12 rgb
+    dist_gopro3_720 = [ -0.36508, 0.22655, 0.0, 0.0, -0.0015674 ] # works for 8/12 rgb
 
-    # K = K_960_3x4 * args.scale
-    K = K_1080_16x9 * args.scale
+    K = K_Gopro3_720_16x9 * args.scale
     # K = K_Mobius_1080p * args.scale
     K[2,2] = 1.0
-    dist = dist_none
+    dist = dist_gopro3_720
     frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
     if not args.no_equalize:
         frame_undist = r.aeq_value(frame_undist)
