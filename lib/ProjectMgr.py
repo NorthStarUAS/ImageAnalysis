@@ -50,7 +50,10 @@ class ProjectMgr():
                                  'star-line-threshold-binarized': 8,
                                  'star-suppress-nonmax-size': 5 }
         self.matcher_params = { 'matcher': 'FLANN', # { FLANN or 'BF' }
-                                'match-ratio': 0.75 }
+                                'match-ratio': 0.75,
+                                'filter': 'fundamental',
+                                'image-fuzz': 40,
+                                'feature-fuzz': 20 }
 
         self.ned_reference_lla = []
         
