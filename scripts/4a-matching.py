@@ -128,7 +128,10 @@ for image in proj.image_list:
 bar.finish()
 
 proj.matcher_params = { 'matcher': args.matcher,
-                        'match-ratio': args.match_ratio }
+                        'match-ratio': args.match_ratio,
+                        'filter': args.filter,
+                        'image-fuzz': args.image_fuzz,
+                        'feature-fuzz': args.feature_fuzz }
 proj.save()
 
 # fire up the matcher
@@ -143,43 +146,45 @@ m.robustGroupMatches(proj.image_list, filter=args.filter,
 # errors may tend to build up as cycle distance increases.)
 Matcher.groupByConnections(proj.image_list)
 
-# build a list of all 'unique' keypoints.  Include an index to each
-# containing image and feature.
-matches_dict = {}
-for i, i1 in enumerate(proj.image_list):
-    for j, matches in enumerate(i1.match_list):
-        if j > i:
-            for pair in matches:
-                key = "%d-%d" % (i, pair[0])
-                m1 = [i, pair[0]]
-                m2 = [j, pair[1]]
-                if key in matches_dict:
-                    feature_dict = matches_dict[key]
-                    feature_dict['pts'].append(m2)
-                else:
-                    feature_dict = {}
-                    feature_dict['pts'] = [m1, m2]
-                    matches_dict[key] = feature_dict
-#print match_dict
-count = 0.0
-sum = 0.0
-for key in matches_dict:
-    sum += len(matches_dict[key]['pts'])
-    count += 1
-if count > 0.1:
-    print "total unique features in image set = %d" % count
-    print "kp average instances = %.4f" % (sum / count)
+do_old_match_consolodation = True
+if do_old_match_consolodation:
+    # build a list of all 'unique' keypoints.  Include an index to each
+    # containing image and feature.
+    matches_dict = {}
+    for i, i1 in enumerate(proj.image_list):
+        for j, matches in enumerate(i1.match_list):
+            if j > i:
+                for pair in matches:
+                    key = "%d-%d" % (i, pair[0])
+                    m1 = [i, pair[0]]
+                    m2 = [j, pair[1]]
+                    if key in matches_dict:
+                        feature_dict = matches_dict[key]
+                        feature_dict['pts'].append(m2)
+                    else:
+                        feature_dict = {}
+                        feature_dict['pts'] = [m1, m2]
+                        matches_dict[key] = feature_dict
+    #print match_dict
+    count = 0.0
+    sum = 0.0
+    for key in matches_dict:
+        sum += len(matches_dict[key]['pts'])
+        count += 1
+    if count > 0.1:
+        print "total unique features in image set = %d" % count
+        print "kp average instances = %.4f" % (sum / count)
 
-# compute an initial guess at the 3d location of each unique feature
-# by averaging the locations of each projection
-for key in matches_dict:
-    feature_dict = matches_dict[key]
-    sum = np.array( [0.0, 0.0, 0.0] )
-    for p in feature_dict['pts']:
-        sum += proj.image_list[ p[0] ].coord_list[ p[1] ]
-    ned = sum / len(feature_dict['pts'])
-    feature_dict['ned'] = ned.tolist()
-    
-f = open(args.project + "/Matches.json", 'w')
-json.dump(matches_dict, f, sort_keys=True)
-f.close()
+    # compute an initial guess at the 3d location of each unique feature
+    # by averaging the locations of each projection
+    for key in matches_dict:
+        feature_dict = matches_dict[key]
+        sum = np.array( [0.0, 0.0, 0.0] )
+        for p in feature_dict['pts']:
+            sum += proj.image_list[ p[0] ].coord_list[ p[1] ]
+        ned = sum / len(feature_dict['pts'])
+        feature_dict['ned'] = ned.tolist()
+
+    f = open(args.project + "/Matches.json", 'w')
+    json.dump(matches_dict, f, sort_keys=True)
+    f.close()
