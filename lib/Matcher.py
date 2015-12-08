@@ -548,16 +548,14 @@ class Matcher():
             kp1 = i1.kp_list[p[0]]
             kp2 = i2.kp_list[p[1]]
             kp_pairs.append( (kp1, kp2) )
-        if i1.img == None:
-            i1.load_rgb()
-        if i2.img == None:
-            i2.load_rgb()
+        img1 = i1.load_gray()
+        img2 = i2.load_gray()
         if status == None:
             status = np.ones(len(kp_pairs), np.bool_)
-        h, w = i1.img.shape
+        h, w = img1.shape[:2]
         scale = 790.0/float(w)
-        si1 = cv2.resize(i1.img, (0,0), fx=scale, fy=scale)
-        si2 = cv2.resize(i2.img, (0,0), fx=scale, fy=scale)
+        si1 = cv2.resize(img1, (0,0), fx=scale, fy=scale)
+        si2 = cv2.resize(img2, (0,0), fx=scale, fy=scale)
         explore_match('find_obj', si1, si2, kp_pairs,
                       hscale=scale, wscale=scale, status=status)
         # status structure will be correct here and represent
@@ -1042,21 +1040,20 @@ class Matcher():
 # the following functions do not have class dependencies but can live
 # here for functional grouping.
 
-def buildConnectionDetail(image_list, matches_dict):
+def buildConnectionDetail(image_list, matches_direct):
     # wipe any existing connection detail
     for image in image_list:
         image.connection_detail = [0] * len(image_list)
-    for key in matches_dict:
-        feature_dict = matches_dict[key]
-        points = feature_dict['pts']
-        ned = matches_dict[key]['ned']
+    for match in matches_direct:
         # record all v. all connections
-        for p in points:
-            for q in points:
-                image_index1 = p[0]
-                image_index2 = q[0]
-                if image_index1 != image_index2:
-                    image_list[image_index1].connection_detail[image_index2] += 1
+        for p in match[1:]:
+            for q in match[1:]:
+                i1 = p[0]
+                i2 = q[0]
+                if i1 != i2:
+                    image_list[i1].connection_detail[i2] += 1
+                    
+def reportConnectionDetail():
     print "Connection detail report"
     print "(will add in extra 3+ way matches to the count when they exist.)"
     for image in image_list:
@@ -1079,16 +1076,17 @@ def bestNeighbor(image, image_list):
                 best_index = i
     return best_index, best_cycle_depth
 
-def groupByConnections(image_list):
+def groupByConnections(image_list, matches_direct):
     # reset the cycle distance for all images
     for image in image_list:
         image.cycle_depth = -1
         
     # compute number of connections per image
+    buildConnectionDetail(image_list, matches_direct)
     for image in image_list:
         image.connections = 0
-        for pairs in image.match_list:
-            if len(pairs) >= 8:
+        for pair_count in image.connection_detail:
+            if pair_count >= 8:
                 image.connections += 1
         if image.connections > 1:
             print "%s connections: %d" % (image.name, image.connections)
