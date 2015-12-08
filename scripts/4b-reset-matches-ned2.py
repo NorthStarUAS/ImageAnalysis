@@ -64,7 +64,7 @@ for image in proj.image_list:
     image.kp_remap = {}
     for i, kp in enumerate(image.kp_list):
         if image.kp_used[i]:
-            key = "%.3f-%.3f" % (kp.pt[0], kp.pt[1])
+            key = "%.2f-%.2f" % (kp.pt[0], kp.pt[1])
             if not key in image.kp_remap:
                 image.kp_remap[key] = i
             # else:
@@ -85,8 +85,8 @@ for i1 in proj.image_list:
             idx2 = pair[1]
             uv1 = list(i1.kp_list[idx1].pt)
             uv2 = list(i2.kp_list[idx2].pt)
-            key1 = "%.3f-%.3f" % (uv1[0], uv1[1])
-            key2 = "%.3f-%.3f" % (uv2[0], uv2[1])
+            key1 = "%.2f-%.2f" % (uv1[0], uv1[1])
+            key2 = "%.2f-%.2f" % (uv2[0], uv2[1])
             if j == 1 and idx2 == 1360:
                 print key1, key2
             if j == 1 and idx2 == 3212:
@@ -97,7 +97,7 @@ for i1 in proj.image_list:
             if False and idx1 != new_idx1:
                 print "1: %d -> %d" % (idx1, new_idx1)
                 new_uv1 = list(i1.kp_list[new_idx1].pt)
-                print "  [%.3f, %.3f] -> [%.3f, %.3f]" % (uv1[0], uv1[1],
+                print "  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv1[0], uv1[1],
                                                           new_uv1[0],
                                                           new_uv1[1])
                 if not np.allclose(uv1, new_uv1):
@@ -105,7 +105,7 @@ for i1 in proj.image_list:
             if False and idx2 != new_idx2:
                 print "2: %d -> %d" % (idx2, new_idx2)
                 new_uv2 = list(i2.kp_list[new_idx2].pt)
-                print "  [%.3f, %.3f] -> [%.3f, %.3f]" % (uv2[0], uv2[1],
+                print "  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv2[0], uv2[1],
                                                           new_uv2[0],
                                                           new_uv2[1])
                 if not np.allclose(uv2, new_uv2):
