@@ -1062,7 +1062,8 @@ def reportConnectionDetail():
             if count > 0:
                 print "  ", image_list[i].name, count
 
-
+# return the neighbor that is closest to the root node of the
+# placement tree (i.e. smallest cycle_depth.
 def bestNeighbor(image, image_list):
     best_cycle_depth = len(image_list) + 1
     best_index = None
@@ -1091,15 +1092,16 @@ def groupByConnections(image_list, matches_direct):
         if image.connections > 1:
             print "%s connections: %d" % (image.name, image.connections)
 
+    last_cycle_depth = len(image_list) + 1
     group_list = []
     group = []
     done = False
     while not done:
         done = True
         best_index = None
+        # find an unplaced image with a placed neighbor that is the
+        # closest conection to the root of the placement tree.
         best_cycle_depth = len(image_list) + 1
-        # find an unplaced image with a placed neighbor that has
-        # the most connections to other images
         for i, image in enumerate(image_list):
             if image.cycle_depth < 0:
                 index, cycle_depth = bestNeighbor(image, image_list)
@@ -1114,11 +1116,12 @@ def groupByConnections(image_list, matches_direct):
                 group_list.append(group)
                 # and start a new group
                 group = []
-                cycle_depth = 0
+                best_cycle_depth = last_cycle_depth + 1
+            else:
+                best_cycle_depth = 0
             # now find an unplaced image that has the most connections
             # to other images (new cycle start)
             max_connections = None
-            best_cycle_depth = 0
             for i, image in enumerate(image_list):
                 if image.cycle_depth < 0:
                     if (max_connections == None or image.connections > max_connections):
@@ -1129,13 +1132,14 @@ def groupByConnections(image_list, matches_direct):
         if best_index != None:
             image = image_list[best_index]
             image.cycle_depth = best_cycle_depth
+            last_cycle_depth = best_cycle_depth
             #print "Adding %s (cycles = %d)" % (image.name, best_cycle_depth)
             group.append(image)
 
     print "Group (cycles) report:"
     for group in group_list:
-        if len(group) < 2:
-            continue
+        #if len(group) < 2:
+        #    continue
         print "group (size=%d):" % (len(group)),
         for image in group:
             print "%s(%d)" % (image.name, image.cycle_depth),
