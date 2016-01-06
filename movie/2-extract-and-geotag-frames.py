@@ -20,7 +20,7 @@ parser.add_argument('--movie', required=False, help='original movie if extractin
 parser.add_argument('--movie-log', required=True, help='movie log file')
 parser.add_argument('--resample-hz', type=float, default=30.0, help='resample rate (hz)')
 parser.add_argument('--apm-log', help='APM tlog converted to csv')
-parser.add_argument('--aura-log', help='Aura imu.txt file')
+parser.add_argument('--aura-dir', help='Aura flight log directory')
 args = parser.parse_args()
 
 r2d = 180.0 / math.pi
@@ -110,18 +110,34 @@ if args.apm_log:
                     print "ERROR: GPS time went backwards:", timestamp, last_time
             elif tokens[7] == 'mavlink_terrain_report_t':
                 agl = float(tokens[15])
-elif args.aura_log:
+elif args.aura_dir:
     # load Aura flight log
-    with open(args.aura_log, 'rb') as f:
+    imu_file = args.aura_dir + "/imu.txt"
+    gps_file = args.aura_dir + "/gps.txt"
+    last_time = 0.0
+    with open(imu_file, 'rb') as f:
         for line in f:
             tokens = line.rstrip().split()
             timestamp = float(tokens[0])
             if timestamp > last_time:
                 flight_imu.append( [tokens[0], tokens[1], tokens[2],
-                                    tokens[3]] )
-                last_time = timestamp
+                                    tokens[3], 0.0, 0.0, 0.0] )
             else:
                 print "ERROR: time went backwards:", timestamp, last_time
+            last_time = timestamp
+    last_time = 0.0
+    with open(gps_file, 'rb') as f:
+        for line in f:
+            #print line
+            tokens = line.rstrip().split()
+            timestamp = float(tokens[0])
+            #print timestamp, last_time
+            if timestamp > last_time:
+                flight_gps.append( [tokens[0], tokens[1], tokens[2],
+                                    tokens[3], 0.0] )
+            else:
+                print "ERROR: time went backwards:", timestamp, last_time
+            last_time = timestamp
 else:
     print "No flight log specified, cannot continue."
     quit()
@@ -153,7 +169,7 @@ flight_imu_pitch = InterpolatedUnivariateSpline(x, flight_imu[:,5])
 flight_imu_yaw = InterpolatedUnivariateSpline(x, flight_imu[:,6])
 if args.apm_log:
     y_spline = flight_imu_r
-elif args.aura_log:
+elif args.aura_dir:
     y_spline = flight_imu_p
 xmin = x.min()
 xmax = x.max()
@@ -285,7 +301,10 @@ plt.figure(1)
 plt.ylabel('roll rate (deg per sec)')
 plt.xlabel('flight time (sec)')
 plt.plot(movie[:,0] + time_shift, movie[:,2]*r2d, label='estimate from flight movie')
-plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
+if args.apm_log:
+    plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
+else:
+    plt.plot(flight_imu[:,0], flight_imu[:,1]*r2d, label='flight data log')
 #plt.plot(movie_interp[:,1])
 #plt.plot(flight_interp[:,1])
 plt.legend()
