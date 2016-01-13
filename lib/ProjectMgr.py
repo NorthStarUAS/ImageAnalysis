@@ -50,7 +50,10 @@ class ProjectMgr():
                                  'star-line-threshold-binarized': 8,
                                  'star-suppress-nonmax-size': 5 }
         self.matcher_params = { 'matcher': 'FLANN', # { FLANN or 'BF' }
-                                'match-ratio': 0.75 }
+                                'match-ratio': 0.75,
+                                'filter': 'fundamental',
+                                'image-fuzz': 40,
+                                'feature-fuzz': 20 }
 
         self.ned_reference_lla = []
         
@@ -195,7 +198,7 @@ class ProjectMgr():
             name_in = self.source_dir + "/" + file
             name_out = self.image_dir + "/" + file
             if converter == 'imagemagick':
-                command = "convert -resize %d%% %s %s" % ( int(scale*100.0), name_in, name_out )
+                command = 'convert -resize %d%% "%s" "%s"' % ( int(scale*100.0), name_in, name_out )
                 print command
                 commands.getstatusoutput( command )
             elif converter == 'opencv':
@@ -474,9 +477,9 @@ class ProjectMgr():
             IK = np.linalg.inv(K)
             
             # build a regular grid of uv coordinates
-            size = 16
-            u_grid = np.linspace(0, image.width, size+1)
-            v_grid = np.linspace(0, image.height, size+1)
+            size = 32
+            u_grid = np.linspace(0, image.width-1, size+1)
+            v_grid = np.linspace(0, image.height-1, size+1)
             uv_raw = []
             for u in u_grid:
                 for v in v_grid:
@@ -484,12 +487,33 @@ class ProjectMgr():
                     
             # undistort the grid of points
             uv_grid = self.undistort_uvlist(image, uv_raw)
+
+            # filter crazy values when can happen out at the very fringes
+            half_width = image.width * 0.5
+            half_height = image.height * 0.5
+            uv_filt = []
+            for p in uv_grid:
+                if p[0] < -half_width or p[0] > image.width + half_width:
+                    print "rejecting width outlier:", p
+                    continue
+                if p[1] < -half_height or p[1] > image.height + half_height:
+                    print "rejecting height outlier:", p
+                    continue
+                uv_filt.append(p)
             
             # project the grid out into vectors
-            vec_list = self.projectVectors(IK, image, uv_grid)
+            vec_list = self.projectVectors(IK, image, uv_filt)
 
             # intersect the vectors with the surface to find the 3d points
             coord_list = sss.interpolate_vectors(image.camera_pose, vec_list)
+
+            # filter the coordinate list for bad interpolation
+            coord_filt = []
+            for i in reversed(range(len(coord_list))):
+                if np.isnan(coord_list[i][0]):
+                    print "rejecting ground interpolation fault:", uv_filt[i]
+                    coord_list.pop(i)
+                    uv_filt.pop(i)
 
             # build the multidimenstional interpolator that relates
             # undistored uv coordinates to their 3d location.  Note we
@@ -497,7 +521,7 @@ class ProjectMgr():
             # their 3d locations and interpolate from the raw uv's,
             # but we already have a convenient list of undistored uv
             # points.
-            g = scipy.interpolate.LinearNDInterpolator(uv_grid, coord_list)
+            g = scipy.interpolate.LinearNDInterpolator(uv_filt, coord_list)
 
             # interpolate all the keypoints now to approximate their
             # 3d locations
@@ -510,17 +534,17 @@ class ProjectMgr():
                         image.coord_list.append(coord[0])
                     else:
                         print "nan alert!"
+                        print "a feature is too close to an edge and undistorting puts it in a weird place."
                         print "  uv:", uv, "coord:", coord
-                        print "check your image width/height values in the <image>.info files and figure out why they are wrong!"
-                        quit()
+                        print "  orig:", image.kp_list[i].pt
                         #or append zeros which would be a hack until
                         #figuring out the root cause of the problem
                         #... if it isn't wrong image dimensions in the
                         #.info file...
                         #
-                        #image.coord_list.append(np.zeros(3))
+                        image.coord_list.append(np.zeros(3)*np.nan)
                 else:
-                    image.coord_list.append(np.zeros(3))
+                    image.coord_list.append(np.zeros(3)*np.nan)
             bar.next()
         bar.finish()
                 

@@ -26,6 +26,7 @@ parser.add_argument('--order', default='sequential',
                     choices=['sequential', 'fewest-matches'],
                     help='project directory')
 parser.add_argument('--image', default="", help='show specific image matches')
+parser.add_argument('--index', type=int, help='show specific image by index')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
@@ -40,12 +41,24 @@ m = Matcher.Matcher()
 
 order = 'fewest-matches'
 
-if args.image != "":
+if args.image:
     i1 = proj.findImageByName(args.image)
-    for j, i2 in enumerate(proj.image_list):
-        if len(i1.match_list[j]):
-            print "Showing %s vs %s" % (i1.name, i2.name)
-            status = m.showMatch(i1, i2, i1.match_list[j])
+    if i1 != None:
+        for j, i2 in enumerate(proj.image_list):
+            if len(i1.match_list[j]):
+                print "Showing %s vs %s" % (i1.name, i2.name)
+                status = m.showMatch(i1, i2, i1.match_list[j])
+    else:
+        print "Cannot locate:", args.image
+elif args.index:
+    i1 = proj.image_list[args.index]
+    if i1 != None:
+        for j, i2 in enumerate(proj.image_list):
+            if len(i1.match_list[j]):
+                print "Showing %s vs %s" % (i1.name, i2.name)
+                status = m.showMatch(i1, i2, i1.match_list[j])
+    else:
+        print "Cannot locate:", args.index
 elif args.order == 'sequential':
     for i, i1 in enumerate(proj.image_list):
         for j, i2 in enumerate(proj.image_list):
