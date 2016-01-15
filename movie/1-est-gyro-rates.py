@@ -316,7 +316,11 @@ while True:
     K[2,2] = 1.0
     # dist = dist_gopro3_720
     dist = dist_mobius
-    frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
+    distort = False
+    if distort:
+        frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
+    else:
+        frame_undist = frame_scale    
     if not args.no_equalize:
         frame_undist = r.aeq_value(frame_undist)
         

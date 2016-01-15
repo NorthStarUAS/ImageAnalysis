@@ -90,13 +90,15 @@ for image in proj.image_list:
         image.radius = 1.0
         continue
     for p in image.coord_list:
-        sum += p
+        if not np.isnan(p[0]):
+            sum += p
     image.center = sum / len(image.coord_list)
     max_dist = 0.0
     for p in image.coord_list:
-        dist = np.linalg.norm(image.center - p)
-        if dist > max_dist:
-            max_dist = dist
+        if not np.isnan(p[0]):
+            dist = np.linalg.norm(image.center - p)
+            if dist > max_dist:
+                max_dist = dist
     image.radius = max_dist
     image.save_meta()
     # print "center = %s radius = %.1f" % (image.center, image.radius)
@@ -110,6 +112,7 @@ bar = Bar('Construct KDTrees:',
           max = len(proj.image_list))
 for image in proj.image_list:
     if len(image.coord_list):
+        # print image.coord_list
         image.kdtree = scipy.spatial.KDTree(image.coord_list)
     else:
         image.kdtree = None
@@ -143,8 +146,9 @@ m.robustGroupMatches(proj.image_list, filter=args.filter,
                      review=False)
 
 # compute cycle dist starting from the most connected image (relative
-# errors may tend to build up as cycle distance increases.)
-Matcher.groupByConnections(proj.image_list)
+# errors may tend to build up as cycle distance increases.) (not now
+# since we don't have a matches_direct file yet.)
+# Matcher.groupByConnections(proj.image_list)
 
 do_old_match_consolodation = True
 if do_old_match_consolodation:

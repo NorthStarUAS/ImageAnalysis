@@ -30,7 +30,7 @@ parser.add_argument('--cu', type=float, help='cu')
 parser.add_argument('--cv', type=float, help='cv')
 parser.add_argument('--kcoeffs', type=float, nargs=5,
                     help='distortion parameters k1 ... k5')
-parser.add_argument('--skew', type=float, help='skew')
+parser.add_argument('--skew', type=float, default=0.0, help='skew')
 
 parser.add_argument('--fx-std', type=float, help='fx standard deviation')
 parser.add_argument('--fy-std', type=float, help='fy standard deviation')
@@ -69,11 +69,12 @@ if args.horiz_mm or args.vert_mm or args.focal_len_mm:
     else:
         print "Must set horiz-mm, vert-mm, and focal-len-mm together"
 
-if args.fx or args.fy or args.cu or args.cv or args.kcoeffs or args.skew:
-    if args.fx and args.fy and args.cu and args.cv and args.kcoeffs and args.skew:
+print args
+if args.fx or args.fy or args.cu or args.cv or args.kcoeffs:
+    if args.fx and args.fy and args.cu and args.cv and args.kcoeffs:
         proj.cam.set_calibration_params(args.fx, args.fy, args.cu, args.cv, args.kcoeffs, args.skew)
     else:
-         print "Must set fx, fy, cu, cv, kcoeffs, and skew together"
+         print "Must set fx, fy, cu, cv, and kcoeffs together"
    
 if args.fx_std or args.fy_std or args.cu_std or args.cv_std or args.kcoeffs_std or args.skew_std:
     if args.fx_std and args.fy_std and args.cu_std and args.cv_std and args.kcoeffs_std and args.skew_std:

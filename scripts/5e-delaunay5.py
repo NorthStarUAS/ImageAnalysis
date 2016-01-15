@@ -181,7 +181,7 @@ print "Area coverage = %.1f,%.1f to %.1f,%.1f (%.1f x %.1f meters)" % \
     (x_min, y_min, x_max, y_max, x_max-x_min, y_max-y_min)
 
 # compute number of connections and cycle depth per image
-Matcher.groupByConnections(proj.image_list)
+Matcher.groupByConnections(proj.image_list, matches_sba)
 
 # start with empty triangle lists
 # format: [ [v[0], v[1], v[2], u, v], .... ]

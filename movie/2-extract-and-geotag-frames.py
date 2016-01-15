@@ -272,6 +272,16 @@ if args.movie:
             continue
         if flight_gps_agl(time) < 35.0:
             continue
+        yaw_deg = flight_imu_yaw(time)*r2d
+        while yaw_deg < 0:
+            yaw_deg += 360
+        while yaw_deg > 360:
+            yaw_deg -= 360
+        # reject poses that are too far off N/S headings (temp hack)
+        if yaw_deg > 10 and yaw_deg < 170:
+            continue
+        if yaw_deg > 190 and yaw_deg < 350:
+            continue
         if time > last_time + 1.0:
             last_time = time
             file = basename + "-%06d" % counter + ".jpg"
