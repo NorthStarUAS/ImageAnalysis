@@ -16,11 +16,11 @@ r = Render.Render()
 
 d2r = math.pi / 180.0
 
-match_ratio = 0.6
+match_ratio = 0.75
 max_features = 500
-smooth = 0.001
-catchup = 0.05
-affine_minpts = 15
+smooth = 0.005
+catchup = 0.02
+affine_minpts = 7
 fundamental_tol = 2.0
 
 parser = argparse.ArgumentParser(description='Estimate gyro biases from movie.')
@@ -145,6 +145,27 @@ def filterByFundamental(p1, p2):
         space += " "
     return status, p1, p2
 
+def filterByHomography(p1, p2):
+    inliers = 0
+    total = len(p1)
+    space = ""
+    status = []
+    while inliers < total and total >= 7:
+        M, status = cv2.findHomography(p1, p2, cv2.RANSAC, fundamental_tol)
+        newp1 = []
+        newp2 = []
+        for i, flag in enumerate(status):
+            if flag:
+                newp1.append(p1[i])
+                newp2.append(p2[i])
+        p1 = np.float32(newp1)
+        p2 = np.float32(newp2)
+        inliers = np.sum(status)
+        total = len(status)
+        #print '%s%d / %d  inliers/matched' % (space, np.sum(status), len(status))
+        space += " "
+    return status, p1, p2
+
 def overlay(new_frame, base, motion_mask=None):
     newtmp = cv2.cvtColor(new_frame, cv2.COLOR_BGR2GRAY)
     ret, newmask = cv2.threshold(newtmp, 0, 255, cv2.THRESH_BINARY_INV)
@@ -219,9 +240,32 @@ def motion2(new_frame, base):
     cv2.imshow('motion1', motion_mask)
     return motion_mask
 
+# for ORB
 detector = cv2.ORB(max_features)
+extractor = detector
 norm = cv2.NORM_HAMMING
 matcher = cv2.BFMatcher(norm)
+
+# for Star
+# detector = cv2.StarDetector(16, # maxSize
+#                             20, # responseThreshold
+#                             10, # lineThresholdProjected
+#                             8,  # lineThresholdBinarized
+#                             5, #  suppressNonmaxSize
+#                             )
+# extractor = cv2.DescriptorExtractor_create('ORB')
+#norm = cv2.NORM_HAMMING
+#matcher = cv2.BFMatcher(norm)
+
+# for SIFT
+#detector = cv2.SIFT(nfeatures=max_features, nOctaveLayers=5)
+#extractor = detector
+#norm = cv2.NORM_L2
+#FLANN_INDEX_KDTREE = 1  # bug: flann enums are missing
+#FLANN_INDEX_LSH    = 6
+#flann_params = { 'algorithm': FLANN_INDEX_KDTREE,
+#                 'trees': 5 }
+#matcher = cv2.FlannBasedMatcher(flann_params, {}) # bug : need to pass empty dict (#1329)
 
 accum = None
 kp_list_last = []
@@ -341,9 +385,10 @@ while True:
         gray = clahe.apply(gray)
 
     kp_list = detector.detect(gray)
-    kp_list, des_list = detector.compute(gray, kp_list)
+    kp_list, des_list = extractor.compute(gray, kp_list)
 
-    if len(kp_list_last):
+    if des_list_last != None and len(des_list_last) > 1 and des_list != None and len(des_list) > 1:
+        print len(des_list_last), len(des_list)
         matches = matcher.knnMatch(des_list, trainDescriptors=des_list_last, k=2)
         p1, p2, kp_pairs, idx_pairs, mkp1 = filterMatches(kp_list, kp_list_last, matches)
 
@@ -354,7 +399,7 @@ while True:
         filter_fundamental = True
         if filter_fundamental:
             #print "before = ", len(p1)
-            status, p1, p2 = filterByFundamental(p1, p2)
+            status, p1, p2 = filterByHomography(p1, p2)
             filtered = []
             for i, flag in enumerate(status):
                 if flag:
@@ -365,6 +410,8 @@ while True:
 
     affine = findAffine(p2, p1, fullAffine=False)
     (rot, tx, ty, sx, sy) = decomposeAffine(affine)
+    if abs(rot) > 2:
+        (rot, tx, ty, sx, sy) = (0.0, 0.0, 0.0, 1.0, 1.0)
     #print affine
     #print (rot, tx, ty, sx, sy)
 
