@@ -75,7 +75,7 @@ if args.resample_hz <= 0.001:
 movie = []
 with open(args.movie_log, 'rb') as f:
     for line in f:
-        movie.append( line.rstrip().split() )
+        movie.append( re.split('[,\s]+', line.rstrip()) )
 
 flight_imu = []
 flight_gps = []
@@ -86,7 +86,7 @@ if args.apm_log:
     agl = 0.0
     with open(args.apm_log, 'rb') as f:
         for line in f:
-            tokens = line.rstrip().split(',')
+            tokens = re.split('[,\s]+', line.rstrip())
             if tokens[7] == 'mavlink_attitude_t':
                 timestamp = float(tokens[9])/1000.0
                 if timestamp > last_time:
@@ -117,7 +117,7 @@ elif args.aura_dir:
     last_time = 0.0
     with open(imu_file, 'rb') as f:
         for line in f:
-            tokens = line.rstrip().split()
+            tokens = re.split('[,\s]+', line.rstrip())
             timestamp = float(tokens[0])
             if timestamp > last_time:
                 flight_imu.append( [tokens[0], tokens[1], tokens[2],
@@ -129,7 +129,7 @@ elif args.aura_dir:
     with open(gps_file, 'rb') as f:
         for line in f:
             #print line
-            tokens = line.rstrip().split()
+            tokens = re.split('[,\s]+', line.rstrip())
             timestamp = float(tokens[0])
             #print timestamp, last_time
             if timestamp > last_time:
