@@ -13,7 +13,8 @@ import numpy as np
 import os
 import pyexiv2
 import re
-from scipy.interpolate import InterpolatedUnivariateSpline
+#from scipy.interpolate import InterpolatedUnivariateSpline
+from scipy import interpolate # strait up linear interpolation, nothing fancy
 
 parser = argparse.ArgumentParser(description='correlate movie data to flight data.')
 parser.add_argument('--movie', required=False, help='original movie if extracting frames')
@@ -150,9 +151,9 @@ else:
 movie = np.array(movie, dtype=float)
 movie_interp = []
 x = movie[:,0]
-movie_spl_roll = InterpolatedUnivariateSpline(x, movie[:,2])
-movie_spl_pitch = InterpolatedUnivariateSpline(x, movie[:,3])
-movie_spl_yaw = InterpolatedUnivariateSpline(x, movie[:,4])
+movie_spl_roll = interpolate.interp1d(x, movie[:,2], bounds_error=False, fill_value=0.0)
+movie_spl_pitch = interpolate.interp1d(x, movie[:,3], bounds_error=False, fill_value=0.0)
+movie_spl_yaw = interpolate.interp1d(x, movie[:,4], bounds_error=False, fill_value=0.0)
 xmin = x.min()
 xmax = x.max()
 print "movie range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin)
@@ -165,12 +166,12 @@ print "movie len:", len(movie_interp)
 flight_imu = np.array(flight_imu, dtype=float)
 flight_interp = []
 x = flight_imu[:,0]
-flight_imu_p = InterpolatedUnivariateSpline(x, flight_imu[:,1])
-flight_imu_q = InterpolatedUnivariateSpline(x, flight_imu[:,2])
-flight_imu_r = InterpolatedUnivariateSpline(x, flight_imu[:,3])
-flight_imu_roll = InterpolatedUnivariateSpline(x, flight_imu[:,4])
-flight_imu_pitch = InterpolatedUnivariateSpline(x, flight_imu[:,5])
-flight_imu_yaw = InterpolatedUnivariateSpline(x, flight_imu[:,6])
+flight_imu_p = interpolate.interp1d(x, flight_imu[:,1], bounds_error=False, fill_value=0.0)
+flight_imu_q = interpolate.interp1d(x, flight_imu[:,2], bounds_error=False, fill_value=0.0)
+flight_imu_r = interpolate.interp1d(x, flight_imu[:,3], bounds_error=False, fill_value=0.0)
+flight_imu_roll = interpolate.interp1d(x, flight_imu[:,4], bounds_error=False, fill_value=0.0)
+flight_imu_pitch = interpolate.interp1d(x, flight_imu[:,5], bounds_error=False, fill_value=0.0)
+flight_imu_yaw = interpolate.interp1d(x, flight_imu[:,6], bounds_error=False, fill_value=0.0)
 if args.apm_log:
     y_spline = flight_imu_r
 elif args.aura_dir:
@@ -185,10 +186,10 @@ print "flight len:", len(flight_interp)
 
 flight_gps = np.array(flight_gps, dtype=np.float64)
 x = flight_gps[:,0]
-flight_gps_lat = InterpolatedUnivariateSpline(x, flight_gps[:,1])
-flight_gps_lon = InterpolatedUnivariateSpline(x, flight_gps[:,2])
-flight_gps_alt = InterpolatedUnivariateSpline(x, flight_gps[:,3])
-flight_gps_agl = InterpolatedUnivariateSpline(x, flight_gps[:,4])
+flight_gps_lat = interpolate.interp1d(x, flight_gps[:,1], bounds_error=False, fill_value=0.0)
+flight_gps_lon = interpolate.interp1d(x, flight_gps[:,2], bounds_error=False, fill_value=0.0)
+flight_gps_alt = interpolate.interp1d(x, flight_gps[:,3], bounds_error=False, fill_value=0.0)
+flight_gps_agl = interpolate.interp1d(x, flight_gps[:,4], bounds_error=False, fill_value=0.0)
 
 # compute best correlation between movie and flight data logs
 movie_interp = np.array(movie_interp, dtype=float)
@@ -296,6 +297,7 @@ if args.movie:
             lat_deg = float(flight_gps_lat(time))
             lon_deg = float(flight_gps_lon(time))
             altitude = float(flight_gps_alt(time))
+            print lat_deg, lon_deg, altitude
             GPS = 'Exif.GPSInfo.GPS'
             exif[GPS + 'AltitudeRef']  = '0' if altitude >= 0 else '1'
             exif[GPS + 'Altitude']     = Fraction(altitude)
