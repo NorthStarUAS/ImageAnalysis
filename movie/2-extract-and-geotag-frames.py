@@ -2,7 +2,7 @@
 
 # find our custom built opencv first
 import sys
-sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
+sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
 
 import argparse
 import cv2
@@ -79,7 +79,8 @@ with open(args.movie_log, 'rb') as f:
 
 flight_imu = []
 flight_gps = []
-last_time = -1
+last_imu_time = -1
+last_gps_time = -1
 
 if args.apm_log:
     # load APM flight log
@@ -89,25 +90,26 @@ if args.apm_log:
             tokens = re.split('[,\s]+', line.rstrip())
             if tokens[7] == 'mavlink_attitude_t':
                 timestamp = float(tokens[9])/1000.0
-                if timestamp > last_time:
+                if timestamp > last_imu_time:
                     flight_imu.append( [timestamp,
                                         float(tokens[17]), float(tokens[19]),
                                         float(tokens[21]),
                                         float(tokens[11]), float(tokens[13]),
                                         float(tokens[15])] )
-                    last_time = timestamp
                 else:
-                    print "ERROR: IMU time went backwards:", timestamp, last_time
+                    print "ERROR: IMU time went backwards:", timestamp, last_imu_time
+                last_imu_time = timestamp
             elif tokens[7] == 'mavlink_gps_raw_int_t':
                 timestamp = float(tokens[9])/1000000.0
-                if timestamp > last_time - 1.0:
+                if timestamp > last_gps_time - 1.0:
                     flight_gps.append( [timestamp,
                                         float(tokens[11]) / 10000000.0,
                                         float(tokens[13]) / 10000000.0,
                                         float(tokens[15]) / 1000.0,
                                         agl] )
                 else:
-                    print "ERROR: GPS time went backwards:", timestamp, last_time
+                    print "ERROR: GPS time went backwards:", timestamp, last_gps_time
+                last_gps_time
             elif tokens[7] == 'mavlink_terrain_report_t':
                 agl = float(tokens[15])
 elif args.aura_dir:
