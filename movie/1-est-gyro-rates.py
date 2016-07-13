@@ -2,7 +2,7 @@
 
 # find our custom built opencv first
 import sys
-sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
+sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
 
 import argparse
 import cv2
@@ -30,6 +30,7 @@ parser.add_argument('--skip-frames', type=int, default=0, help='skip n initial f
 parser.add_argument('--no-equalize', action='store_true', help='do not equalize value')
 parser.add_argument('--draw-keypoints', action='store_true', help='draw keypoints on output')
 parser.add_argument('--draw-masks', action='store_true', help='draw stabilization masks')
+parser.add_argument('--stop-count', type=int, default=1, help='how many non-frames to absorb before we decide the movie is over')
 args = parser.parse_args()
 
 file = args.movie
@@ -308,7 +309,7 @@ while True:
         # no frame
         stop_count += 1
         print "no more frames:", stop_count
-        if stop_count > 100:
+        if stop_count > args.stop_count:
             break
     else:
         stop_count = 0    

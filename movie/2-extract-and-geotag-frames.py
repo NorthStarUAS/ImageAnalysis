@@ -21,6 +21,7 @@ parser.add_argument('--movie-log', required=True, help='movie log file')
 parser.add_argument('--resample-hz', type=float, default=30.0, help='resample rate (hz)')
 parser.add_argument('--apm-log', help='APM tlog converted to csv')
 parser.add_argument('--aura-dir', help='Aura flight log directory')
+parser.add_argument('--stop-count', type=int, default=1, help='how many non-frames to absorb before we decide the movie is over')
 args = parser.parse_args()
 
 r2d = 180.0 / math.pi
@@ -90,15 +91,16 @@ if args.apm_log:
             tokens = re.split('[,\s]+', line.rstrip())
             if tokens[7] == 'mavlink_attitude_t':
                 timestamp = float(tokens[9])/1000.0
+                print timestamp
                 if timestamp > last_imu_time:
                     flight_imu.append( [timestamp,
                                         float(tokens[17]), float(tokens[19]),
                                         float(tokens[21]),
                                         float(tokens[11]), float(tokens[13]),
                                         float(tokens[15])] )
+                    last_imu_time = timestamp
                 else:
                     print "ERROR: IMU time went backwards:", timestamp, last_imu_time
-                last_imu_time = timestamp
             elif tokens[7] == 'mavlink_gps_raw_int_t':
                 timestamp = float(tokens[9])/1000000.0
                 if timestamp > last_gps_time - 1.0:
@@ -107,9 +109,9 @@ if args.apm_log:
                                         float(tokens[13]) / 10000000.0,
                                         float(tokens[15]) / 1000.0,
                                         agl] )
+                    last_gps_time = timestamp
                 else:
                     print "ERROR: GPS time went backwards:", timestamp, last_gps_time
-                last_gps_time
             elif tokens[7] == 'mavlink_terrain_report_t':
                 agl = float(tokens[15])
 elif args.aura_dir:
@@ -259,7 +261,7 @@ if args.movie:
             # no frame
             stop_count += 1
             print "no more frames:", stop_count
-            if stop_count > 100:
+            if stop_count > args.stop_count:
                 break
         else:
             stop_count = 0
