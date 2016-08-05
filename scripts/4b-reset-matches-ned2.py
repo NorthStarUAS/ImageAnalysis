@@ -20,7 +20,7 @@ import Pose
 import ProjectMgr
 import SRTM
 
-# Rest all match point locations to their original direct
+# Reset all match point locations to their original direct
 # georeferenced locations based on estimated camera pose and
 # projection onto DEM earth surface
 
@@ -83,10 +83,10 @@ for i1 in proj.image_list:
             # print pair
             idx1 = pair[0]
             idx2 = pair[1]
-            uv1 = list(i1.kp_list[idx1].pt)
-            uv2 = list(i2.kp_list[idx2].pt)
-            key1 = "%.2f-%.2f" % (uv1[0], uv1[1])
-            key2 = "%.2f-%.2f" % (uv2[0], uv2[1])
+            kp1 = i1.kp_list[idx1]
+            kp2 = i2.kp_list[idx2]
+            key1 = "%.2f-%.2f" % (kp1.pt[0], kp1.pt[1])
+            key2 = "%.2f-%.2f" % (kp2.pt[0], kp2.pt[1])
             if j == 1 and idx2 == 1360:
                 print key1, key2
             if j == 1 and idx2 == 3212:
@@ -118,13 +118,19 @@ print "Eliminating duplicates..."
 for i1 in proj.image_list:
     for j, matches in enumerate(i1.match_list):
         i2 = proj.image_list[j]
-        tmp_dict = {}
+        kp_dict = {}
+        pair_dict = {}
         new_matches = []
         for k, pair in enumerate(matches):
             key = "%d-%d" % (pair[0], pair[1])
-            if not key in tmp_dict:
-                tmp_dict[key] = True
-                new_matches.append(pair)
+            if not pair[0] in kp_dict:
+                kp_dict[pair[0]] = True
+                if not key in pair_dict:
+                    pair_dict[key] = True
+                    new_matches.append(pair)
+            else:
+                print "warning skipping keypoint idx", pair[0], "already used in another match."
+                
         i1.match_list[j] = new_matches
 
 print "Constructing unified match structure..."
@@ -195,22 +201,27 @@ while not done:
     else:
         matches_direct = matches_new
 
+# matches_direct format is a 3d_coord, img-feat, img-feat, ...
+# len of 3 means features shows up on 2 images.  We would like
+# to only use features that show up in 3 or more images.
+print "discarding matches that appear in less than 3 images"
+matches_new = []
+for m in matches_direct:
+    if len(m) >= 4:
+        matches_new.append(m)
+matches_direct = matches_new
+
 for m in matches_direct:
     print m
     
-#print match_dict
 count = 0.0
 sum = 0.0
 for match in matches_direct:
     n = len(match)
-    if n >= 3:
-        # len should be 3, 4, etc..
-        sum += (n-1)
-        count += 1
-    else:
-        print "Oops, match with < 2 image references!"
+    sum += (n-1)
+    count += 1
         
-if count > 0.1:
+if count >= 1:
     print "total unique features in image set = %d" % count
     print "keypoint average instances = %.4f" % (sum / count)
 
