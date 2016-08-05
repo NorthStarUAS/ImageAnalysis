@@ -150,7 +150,7 @@ for match in matches_sba:
 avg_height = sum_values / len(matches_sba)
 print "Average elevation = %.1f" % ( avg_height )
 tri = scipy.spatial.Delaunay(np.array(raw_points))
-i = scipy.interpolate.LinearNDInterpolator(tri, raw_values)
+interp = scipy.interpolate.LinearNDInterpolator(tri, raw_values)
 
 # compute min/max range of horizontal surface
 print "Determining coverage area"
@@ -167,14 +167,23 @@ for p in raw_points:
 print "Area coverage = %.1f,%.1f to %.1f,%.1f (%.1f x %.1f meters)" % \
     (x_min, y_min, x_max, y_max, x_max-x_min, y_max-y_min)
 
-# compute number of connections per image
+# now count how many features show up in each image
 for image in proj.image_list:
-    image.connections = 0
-    for pairs in image.match_list:
-        if len(pairs) >= 8:
-            image.connections += 1
-    #if image.connections > 1:
-    #    print "%s connections: %d" % (image.name, image.connections)
+    image.feature_count = 0
+for i, match in enumerate(matches_sba):
+    for j, p in enumerate(match[1:]):
+        if p[1] != [-1, -1]:
+            image = proj.image_list[ p[0] ]
+            image.feature_count += 1
+
+# # compute number of connections per image
+# for image in proj.image_list:
+#     image.connections = 0
+#     for pairs in image.match_list:
+#         if len(pairs) >= 8:
+#             image.connections += 1
+#     #if image.connections > 1:
+#     #    print "%s connections: %d" % (image.name, image.connections)
 
 # construct grid of points for rendering and interpolate elevation
 # from raw mesh
@@ -186,9 +195,9 @@ grid_values = []
 for y in y_list:
     for x in x_list:
         grid_points.append( [x, y] )
-        value = i([x, y])
+        value = interp([x, y])
         if value:
-            grid_values.append( i([x, y]) )
+            grid_values.append( interp([x, y]) )
 
 print "Building grid triangulation..."
 tri = scipy.spatial.Delaunay(np.array(grid_points))
@@ -238,7 +247,7 @@ for tri in tri.simplices:
     for image in proj.image_list:
         ok = True
         # reject images with no connections to the set
-        if image.connections == 0:
+        if image.feature_count == 0:
             ok = False
             continue
         # quick 3d bounding radius rejection
