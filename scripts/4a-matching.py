@@ -28,6 +28,8 @@ parser.add_argument('--matcher', default='FLANN',
                     choices=['FLANN', 'BF'])
 parser.add_argument('--match-ratio', default=0.75, type=float,
                     help='match ratio')
+parser.add_argument('--min-pairs', default=25, type=int,
+                    help='minimum matches between image pairs to keep')
 parser.add_argument('--filter', default='fundamental',
                     choices=['homography', 'fundamental', 'none'],
                     required=True)
@@ -139,7 +141,7 @@ proj.save()
 
 # fire up the matcher
 m = Matcher.Matcher()
-m.min_pairs = 10
+m.min_pairs = args.min_pairs
 m.configure(proj.detector_params, proj.matcher_params)
 m.robustGroupMatches(proj.image_list, filter=args.filter,
                      image_fuzz=args.image_fuzz, feature_fuzz=args.feature_fuzz,
