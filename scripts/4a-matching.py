@@ -30,7 +30,7 @@ parser.add_argument('--match-ratio', default=0.75, type=float,
                     help='match ratio')
 parser.add_argument('--min-pairs', default=25, type=int,
                     help='minimum matches between image pairs to keep')
-parser.add_argument('--filter', default='fundamental',
+parser.add_argument('--filter', default='homography',
                     choices=['homography', 'fundamental', 'none'],
                     required=True)
 parser.add_argument('--image-fuzz', default=40, type=float, help='image fuzz') 
