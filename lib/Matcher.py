@@ -100,7 +100,9 @@ class Matcher():
     def filter_by_homography(self, i1, i2, j, filter):
         clean = True
         
-        tol = float(i1.width) / 400.0 # rejection range in pixels
+        tol = float(i1.width) / 800.0 # rejection range in pixels
+        if tol < 1.0:
+            tol = 1.0
         # print "tol = %.4f" % tol
         matches = i1.match_list[j]
         if len(matches) < self.min_pairs:
@@ -834,7 +836,7 @@ class Matcher():
         # Test fundametal matrix constraint
         for i, i1 in enumerate(self.image_list):
             # rejection range in pixels
-            tol = float(i1.width) / 400.0 + fuzz_factor
+            tol = float(i1.width) / 800.0 + fuzz_factor
             print "tol = %.4f" % tol
             if tol < 0.0:
                 tol = 0.0
