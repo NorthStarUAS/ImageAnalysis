@@ -249,7 +249,7 @@ class ProjectMgr():
             bar.next()
         bar.finish()
 
-    def load_matches(self):
+    def load_match_pairs(self):
         bar = Bar('Loading keypoint (pair) matches:',
                   max = len(self.image_list))
         for image in self.image_list:
