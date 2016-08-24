@@ -38,7 +38,7 @@ proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
 proj.undistort_keypoints()
-proj.load_matches()
+proj.load_match_pairs()
 
 # setup SRTM ground interpolator
 ref = proj.ned_reference_lla
@@ -80,8 +80,9 @@ for image in proj.image_list:
 print "Collapsing keypoints with duplicate uv coordinates..."
 # after feature matching we don't care about other attributes, just
 # the uv coordinate.
-for i1 in proj.image_list:
+for i, i1 in enumerate(proj.image_list):
     for j, matches in enumerate(i1.match_list):
+        count = 0
         i2 = proj.image_list[j]
         for k, pair in enumerate(matches):
             # print pair
@@ -98,45 +99,73 @@ for i1 in proj.image_list:
             # print key1, key2
             new_idx1 = i1.kp_remap[key1]
             new_idx2 = i2.kp_remap[key2]
-            if False and idx1 != new_idx1:
-                print "1: %d -> %d" % (idx1, new_idx1)
+            # count the number of match rewrites
+            if idx1 != new_idx1 or idx2 != new_idx2:
+                count += 1
+            if idx1 != new_idx1:
+                uv1 = list(i1.kp_list[idx1].pt)
                 new_uv1 = list(i1.kp_list[new_idx1].pt)
-                print "  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv1[0], uv1[1],
-                                                          new_uv1[0],
-                                                          new_uv1[1])
                 if not np.allclose(uv1, new_uv1):
-                    print "OOPS!"
-            if False and idx2 != new_idx2:
-                print "2: %d -> %d" % (idx2, new_idx2)
+                    print "OOPS!!!"
+                    print "  index 1: %d -> %d" % (idx1, new_idx1)
+                    print "  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv1[0], uv1[1],
+                                                              new_uv1[0],
+                                                              new_uv1[1])
+            if idx2 != new_idx2:
+                uv2 = list(i2.kp_list[idx2].pt)
                 new_uv2 = list(i2.kp_list[new_idx2].pt)
-                print "  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv2[0], uv2[1],
-                                                          new_uv2[0],
-                                                          new_uv2[1])
                 if not np.allclose(uv2, new_uv2):
                     print "OOPS!"
-            matches[k] = [new_idx1, new_idx2]                
-                
-print "Eliminating duplicates..."
+                    print "  index 2: %d -> %d" % (idx2, new_idx2)
+                    print "  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv2[0], uv2[1],
+                                                              new_uv2[0],
+                                                              new_uv2[1])
+            matches[k] = [new_idx1, new_idx2]
+        if count > 0:
+            print 'Match:', i, 'vs', j, 'matches:', len(matches), 'rewrites:', count
+        
+print "Eliminating pair duplicates..."
 # after collapsing by uv coordinate, we could be left with duplicate
-# matches (mached at different scales, but same exact point.)
-for i1 in proj.image_list:
+# matches (matched at different scales, but same exact point.)
+for i, i1 in enumerate(proj.image_list):
     for j, matches in enumerate(i1.match_list):
         i2 = proj.image_list[j]
-        kp_dict = {}
+        count = 0
         pair_dict = {}
         new_matches = []
         for k, pair in enumerate(matches):
             key = "%d-%d" % (pair[0], pair[1])
-            if not pair[0] in kp_dict:
-                kp_dict[pair[0]] = True
-                if not key in pair_dict:
-                    pair_dict[key] = True
-                    new_matches.append(pair)
+            if not key in pair_dict:
+                pair_dict[key] = True
+                new_matches.append(pair)
             else:
-                print "warning skipping keypoint idx", pair[0], "already used in another match."
-                
+                count += 1
+        if count > 0:
+            print 'Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count
+      
         i1.match_list[j] = new_matches
 
+print "Testing for 1 vs. n keypoint duplicates..."
+# Do we have a keypoing in i1 matching multiple keypoints in i2?
+for i, i1 in enumerate(proj.image_list):
+    for j, matches in enumerate(i1.match_list):
+        i2 = proj.image_list[j]
+        count = 0
+        kp_dict = {}
+        for k, pair in enumerate(matches):
+            if not pair[0] in kp_dict:
+                kp_dict[pair[0]] = pair[1]
+            else:
+                print "Warning keypoint idx", pair[0], "already used in another match."
+                uv2a = list(i2.kp_list[ kp_dict[pair[0]] ].pt)
+                uv2b = list(i2.kp_list[ pair[1] ].pt)
+                if not np.allclose(uv2, new_uv2):
+                    print "  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv2a[0], uv2a[1],
+                                                              uv2b[0], uv2b[1])
+                count += 1
+        if count > 0:
+            print 'Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count
+      
 def update_match_location(match):
     sum = np.array( [0.0, 0.0, 0.0] )
     for p in match[1:]:
@@ -232,12 +261,16 @@ while not done:
 # matches_direct format is a 3d_coord, img-feat, img-feat, ...
 # len of 3 means features shows up on 2 images.  We would like
 # to only use features that show up in 3 or more images.
-print "discarding matches that appear in less than 3 images"
-matches_new = []
-for m in matches_direct:
-    if len(m) >= 4:
-        matches_new.append(m)
-matches_direct = matches_new
+if args.no_grouping:
+    # no grouping so every match len will be 2
+    pass
+else:
+    print "discarding matches that appear in less than 3 images"
+    matches_new = []
+    for m in matches_direct:
+        if len(m) >= 4 or args.no_grouping:
+            matches_new.append(m)
+    matches_direct = matches_new
 
 for m in matches_direct:
     print m
