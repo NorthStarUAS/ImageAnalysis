@@ -252,12 +252,12 @@ print 'weak images:', weak_dict
 
 # mark any features in the weak images list
 for i, match in enumerate(matches_direct):
-    print 'before:', match
+    #print 'before:', match
     for j, p in enumerate(match[1:]):
         if p[0] in weak_dict:
              match[j+1] = [-1, -1]
              mark_sum += 1
-    print 'after:', match
+    #print 'after:', match
 
 if mark_sum > 0:
     result=raw_input('Remove ' + str(mark_sum) + ' outliers from the original matches? (y/n):')
