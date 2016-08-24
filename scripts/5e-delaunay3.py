@@ -121,7 +121,7 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
-proj.load_matches()
+proj.load_match_pairs()
         
 print "Loading match points..."
 f = open(args.project + "/Matches-sba.json", 'r')
