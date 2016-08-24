@@ -1,3 +1,4 @@
+import copy
 import cv2
 import math
 from matplotlib import pyplot as plt
@@ -146,33 +147,41 @@ class Matcher():
                 matches.remove(pair)
         return clean
 
+    def filter_non_reciprocal_pair(self, image_list, i, j):
+        clean = True
+        i1 = image_list[i]
+        i2 = image_list[j]
+        #print "testing %i vs %i" % (i, j)
+        matches = i1.match_list[j]
+        rmatches = i2.match_list[i]
+        before = len(matches)
+        for k, pair in enumerate(matches):
+            rpair = [pair[1], pair[0]]
+            found = False
+            for r in rmatches:
+                #print "%s - %s" % (rpair, r)
+                if rpair == r:
+                    found = True
+                    break
+            if not found:
+                #print "not found =", rpair
+                matches[k] = [-1, -1]
+        for pair in reversed(matches):
+            if pair == [-1, -1]:
+                matches.remove(pair)
+        after = len(matches)
+        if before != after:
+            clean = False
+            print "  (%d vs. %d) matches %d -> %d" % (i, j, before, after)
+        return clean
+
     def filter_non_reciprocal(self, image_list):
         clean = True
         print "Removing non-reciprocal matches:"
         for i, i1 in enumerate(image_list):
             for j, i2 in enumerate(image_list):
-                #print "testing %i vs %i" % (i, j)
-                matches = i1.match_list[j]
-                rmatches = i2.match_list[i]
-                before = len(matches)
-                for k, pair in enumerate(matches):
-                    rpair = [pair[1], pair[0]]
-                    found = False
-                    for r in rmatches:
-                        #print "%s - %s" % (rpair, r)
-                        if rpair == r:
-                            found = True
-                            break
-                    if not found:
-                        #print "not found =", rpair
-                        matches[k] = [-1, -1]
-                for pair in reversed(matches):
-                    if pair == [-1, -1]:
-                        matches.remove(pair)
-                after = len(matches)
-                if before != after:
+                if not filter_non_reciprocal_pair(image_list, i, j):
                     clean = False
-                    print "  (%d vs. %d) matches %d -> %d" % (i, j, before, after)
         return clean
 
     # Iterative Closest Point algorithm
@@ -214,7 +223,7 @@ class Matcher():
                     #print "c1=%s c2=%s" % (c1, c2)
                     pairs.append( [c1, c2] )
 
-            do_plot = True
+            do_plot = False
             if do_plot:
                 # This can be plotted in gnuplot with:
                 # plot "c1.txt", "c2.txt", "vector.txt" u 1:2:($3-$1):($4-$2) title "pairs" with vectors
@@ -288,12 +297,14 @@ class Matcher():
         # run the classic feature distance ratio test
         p1, p2, kp_pairs, idx_pairs = self.filter_by_feature(i1, i2, matches)
         print "after distance ratio test =", len(idx_pairs)
-        
-        # test each individual match pair for proximity to each
-        # other (fine grain distance check)
-        # print "  pairs (before location filter) =", len(idx_pairs)
-        idx_pairs = self.filter_by_location(i1, i2, idx_pairs, feature_fuzz)
-        print "after direct goereference distance test =", len(idx_pairs)
+
+        do_direct_geo_individual_distance_test = False
+        if do_direct_geo_individual_distance_test:
+            # test each individual match pair for proximity to each
+            # other (fine grain distance check)
+            # print "  pairs (before location filter) =", len(idx_pairs)
+            idx_pairs = self.filter_by_location(i1, i2, idx_pairs, feature_fuzz)
+            print "after direct goereference distance test =", len(idx_pairs)
 
         if len(idx_pairs) < self.min_pairs:
             idx_pairs = []
@@ -350,57 +361,6 @@ class Matcher():
         idx_pairs2 = self.basic_matches( i2, i1, des_list2, des_list1,
                                          result2, result1, feature_fuzz )
 
-        old_code = False
-        if old_code:
-            matches1 = self.matcher.knnMatch(np.array(des_list1),
-                                             trainDescriptors=np.array(des_list2),
-                                             k=2)
-            # rewrite the query/train indices (from our query subset)
-            # back to referencing the full set of keypoints
-            for match in matches1:
-                for m in match:
-                    qi = m.queryIdx
-                    m.queryIdx = result1[qi]
-                    ti = m.trainIdx
-                    m.trainIdx = result2[ti]
-            print "initial forward matches =", len(matches1)
-
-            # all vs. all match between overlapping i2 keypoints and i1
-            # keypoints (reverse match)
-            matches2 = self.matcher.knnMatch(np.array(des_list2),
-                                             trainDescriptors=np.array(des_list1),
-                                             k=2)
-            # rewrite the query/train indices (from our query subset)
-            # back to referencing the full set of keypoints
-            for match in matches2:
-                for m in match:
-                    qi = m.queryIdx
-                    m.queryIdx = result2[qi]
-                    ti = m.trainIdx
-                    m.trainIdx = result1[ti]
-            print "initial reverse matches =", len(matches2)
-
-            # run the classic feature distance ratio test
-            p1, p2, kp_pairs, idx_pairs1 = self.filter_by_feature(i1, i2, matches1)
-            p1, p2, kp_pairs, idx_pairs2 = self.filter_by_feature(i2, i1, matches2)
-            print "after distance ratio test =", len(idx_pairs1)
-            print "after distance ratio test =", len(idx_pairs2)
-
-            # test each individual match pair for proximity to each
-            # other (fine grain distance check)
-            # print "  pairs (before location filter) =", len(idx_pairs)
-            idx_pairs1 = self.filter_by_location(i1, i2, idx_pairs1, feature_fuzz)
-            idx_pairs2 = self.filter_by_location(i2, i1, idx_pairs2, feature_fuzz)
-            print "after direct goereference distance test =", len(idx_pairs1)
-            print "after direct goereference distance test =", len(idx_pairs2)
-
-            if len(idx_pairs1) < self.min_pairs:
-                idx_pairs1 = []
-            if len(idx_pairs2) < self.min_pairs:
-                idx_pairs2 = []
-            print "  pairs1 =", len(idx_pairs1)
-            print "  pairs2 =", len(idx_pairs2)
-
         plot_matches = True
         if plot_matches:
             self.plot_matches(i1, i2, idx_pairs1)
@@ -453,6 +413,10 @@ class Matcher():
 
     def robustGroupMatches(self, image_list, filter="fundamental",
                            image_fuzz=40, feature_fuzz=20, review=False):
+        n = len(image_list) - 1
+        n_work = float(n*(n+1)/2)
+        n_count = float(0)
+        
         # find basic matches and filter by match ratio and ned
         # location
         for i, i1 in enumerate(image_list):
@@ -469,26 +433,21 @@ class Matcher():
                 i1.match_list[j], i2.match_list[i] \
                     = self.hybridImageMatches(i1, i2, image_fuzz, feature_fuzz,
                                               review)
-                # self.ICP(i1, i2)
-                
-        done = False
-        while not done:
-            done = True
-            
-            # eliminate any non-reciprocal matches (a good sign they
-            # are bad or weak matches)
-            if not self.filter_non_reciprocal(image_list):
+                n_count += 1
+
                 done = False
-        
-            # filter against a Homography or Fundametal matrix
-            # constraint
-            for i, i1 in enumerate(image_list):
-                for j, i2 in enumerate(image_list):
-                    if i1 == i2:
-                        continue
-                    # print "Matching %s vs %s" % (i1.name, i2.name)
+                while not done:
+                    done = True
+                    if not self.filter_non_reciprocal_pair(image_list, i, j):
+                        done = False
+                    if not self.filter_non_reciprocal_pair(image_list, j, i):
+                        done = False
                     if not self.filter_by_homography(i1, i2, j, filter):
                         done = False
+                    if not self.filter_by_homography(i2, i1, i, filter):
+                        done = False
+                        
+                print "%.1f %% done" % ((n_count / n_work) * 100.0)
 
         # so nothing sneaks through
         self.cullShortMatches(image_list)
@@ -560,6 +519,79 @@ class Matcher():
         si2 = cv2.resize(img2, (0,0), fx=scale, fy=scale)
         explore_match('find_obj', si1, si2, kp_pairs,
                       hscale=scale, wscale=scale, status=status)
+        # status structure will be correct here and represent
+        # in/outlier choices of user
+        cv2.destroyAllWindows()
+
+        # status is an array of booleans that parallels the pair array
+        # and represents the users choice to keep or discard the
+        # respective pairs.
+        return status
+
+    # pasted from stackoverflow.com ....
+    def rotateAndScale(self, img, degreesCCW=30, scaleFactor=1.0 ):
+        (oldY,oldX) = img.shape[:2]
+        
+        # rotate about center of image.
+        M = cv2.getRotationMatrix2D(center=(oldX/2,oldY/2), angle=degreesCCW,
+                                    scale=scaleFactor)
+
+        # choose a new image size.
+        newX, newY = oldX * scaleFactor, oldY * scaleFactor
+        
+        # include this if you want to prevent corners being cut off
+        r = np.deg2rad(degreesCCW)
+        newX, newY = (abs(np.sin(r)*newY) + abs(np.cos(r)*newX),
+                      abs(np.sin(r)*newX) + abs(np.cos(r)*newY))
+
+        # the warpAffine function call, below, basically works like this:
+        # 1. apply the M transformation on each pixel of the original image
+        # 2. save everything that falls within the upper-left "dsize" portion of the resulting image.
+
+        # So I will find the translation that moves the result to the
+        # center of that region.
+        (tx, ty) = ((newX-oldX)/2, (newY-oldY)/2)
+        M[0,2] += tx #third column of matrix holds translation, which takes effect after rotation.
+        M[1,2] += ty
+
+        rotatedImg = cv2.warpAffine(img, M, dsize=(int(newX),int(newY)))
+        return rotatedImg, M
+
+    def copyKeyPoint(self, k):
+        return cv2.KeyPoint(x=k.pt[0], y=k.pt[1],
+                            _size=k.size, _angle=k.angle,
+                            _response=k.response, _octave=k.octave,
+                            _class_id=k.class_id)
+    
+    def showMatchOrient(self, i1, i2, idx_pairs, status=None):
+        #print " -- idx_pairs = " + str(idx_pairs)
+        img1 = i1.load_gray()
+        img2 = i2.load_gray()
+            
+        yaw1 = i1.aircraft_pose['ypr'][0]
+        yaw2 = i2.aircraft_pose['ypr'][0]
+        h, w = img1.shape[:2]
+        scale = 790.0/float(w)
+        si1, M1 = self.rotateAndScale(img1, yaw1, scale)
+        si2, M2 = self.rotateAndScale(img2, yaw2, scale)
+
+        kp_pairs = []
+        for p in idx_pairs:
+            kp1 = self.copyKeyPoint(i1.kp_list[p[0]])
+            p1 = M1.dot( np.hstack((kp1.pt, 1.0)) )[:2]
+            kp1.pt = (p1[0], p1[1])
+            kp2 = self.copyKeyPoint(i2.kp_list[p[1]])
+            p2 = M2.dot( np.hstack((kp2.pt, 1.0)) )[:2]
+            kp2.pt = (p2[0], p2[1])
+            print p1, p2
+            kp_pairs.append( (kp1, kp2) )
+        if status == None:
+            status = np.ones(len(kp_pairs), np.bool_)
+
+        #explore_match('find_obj', si1, si2, kp_pairs,
+        #              hscale=scale, wscale=scale, status=status)
+        explore_match('find_obj', si1, si2, kp_pairs,
+                      hscale=1.0, wscale=1.0, status=status)
         # status structure will be correct here and represent
         # in/outlier choices of user
         cv2.destroyAllWindows()
