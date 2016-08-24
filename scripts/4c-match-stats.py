@@ -29,7 +29,7 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
-proj.load_matches()
+proj.load_match_pairs()
 
 print "Loading original (direct) matches ..."
 matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )

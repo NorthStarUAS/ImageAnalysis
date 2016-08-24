@@ -32,7 +32,7 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
-proj.load_matches()
+proj.load_match_pairs()
 
 # setup SRTM ground interpolator
 ref = proj.ned_reference_lla
@@ -47,7 +47,7 @@ if args.image:
         for j, i2 in enumerate(proj.image_list):
             if len(i1.match_list[j]):
                 print "Showing %s vs %s" % (i1.name, i2.name)
-                status = m.showMatch(i1, i2, i1.match_list[j])
+                status = m.showMatchOrient(i1, i2, i1.match_list[j])
     else:
         print "Cannot locate:", args.image
 elif args.index:
@@ -56,7 +56,7 @@ elif args.index:
         for j, i2 in enumerate(proj.image_list):
             if len(i1.match_list[j]):
                 print "Showing %s vs %s" % (i1.name, i2.name)
-                status = m.showMatch(i1, i2, i1.match_list[j])
+                status = m.showMatchOrient(i1, i2, i1.match_list[j])
     else:
         print "Cannot locate:", args.index
 elif args.order == 'sequential':
@@ -67,7 +67,7 @@ elif args.order == 'sequential':
                 continue
             if len(i1.match_list[j]):
                 print "Showing %s vs %s" % (i1.name, i2.name)
-                status = m.showMatch(i1, i2, i1.match_list[j])
+                status = m.showMatchOrient(i1, i2, i1.match_list[j])
 elif args.order == 'fewest-matches':
     match_list = []
     for i, i1 in enumerate(proj.image_list):
@@ -87,5 +87,4 @@ elif args.order == 'fewest-matches':
         i1 = proj.image_list[i]
         i2 = proj.image_list[j]
         print "Showing %s vs %s (matches=%d)" % (i1.name, i2.name, count)
-        status = m.showMatch(i1, i2, i1.match_list[j])
-              
+        status = m.showMatchOrient(i1, i2, i1.match_list[j])

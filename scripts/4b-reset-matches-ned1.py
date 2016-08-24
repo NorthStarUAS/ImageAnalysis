@@ -33,7 +33,7 @@ proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
 proj.undistort_keypoints()
-proj.load_matches()
+proj.load_match_pairs()
 
 # setup SRTM ground interpolator
 ref = proj.ned_reference_lla
