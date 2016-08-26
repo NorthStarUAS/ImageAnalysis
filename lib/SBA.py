@@ -41,7 +41,6 @@ class SBA():
         # (and a simple list of camera locations for plotting)
         f = open( self.root + '/sba-cams.txt', 'w' )
         for image in image_list:
-            # try #1
             body2cam = image.get_body2cam()
             ned2body = image.get_ned2body()
             Rtotal = body2cam.dot( ned2body )
