@@ -20,6 +20,7 @@ import ProjectMgr
 parser = argparse.ArgumentParser(description='Set the aircraft poses from flight data.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--flight-dir', required=True, help='directory containing ATI flight data')
+parser.add_argument('--shutter-latency', type=float, default=0.7, help='shutter latency from time of trigger to time of picture')
 
 args = parser.parse_args()
 
@@ -33,7 +34,7 @@ c = ATICorrelate.Correlate()
 c.load_all(args.flight_dir, args.project + "/Images")
 best_correlation, best_camera_time_error = c.test_correlations()
 
-proj.interpolateAircraftPositions(c, shutter_latency=0.70,
+proj.interpolateAircraftPositions(c, shutter_latency=args.shutter_latency,
                                   force=True, weight=True)
 
 # compute the project's NED reference location (based on average of
