@@ -23,6 +23,11 @@ import transformations
 
 d2r = math.pi / 180.0       # a helpful constant
 
+parser = argparse.ArgumentParser(description='Keypoint projection.')
+parser.add_argument('--project', required=True, help='project directory')
+
+args = parser.parse_args()
+
 # return a 3d affine tranformation between current camera locations
 # and original camera locations.
 def get_recenter_affine(src_list, dst_list):
@@ -59,13 +64,6 @@ def transform_points( A, pts_list ):
                          float(dst[1][i]),
                          float(dst[2][i]) ] )
     return result
-
-# working on matching features ...
-
-parser = argparse.ArgumentParser(description='Keypoint projection.')
-parser.add_argument('--project', required=True, help='project directory')
-
-args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
@@ -104,6 +102,14 @@ for i, image in enumerate(proj.image_list):
     #print "new ned =", newned
     image.set_camera_pose_sba( ned=newned, ypr=[yaw/d2r, pitch/d2r, roll/d2r] )
 
+# now count how many features show up in each image
+for i in proj.image_list:
+    i.feature_count = 0
+for i, match in enumerate(matches_direct):
+    for j, p in enumerate(match[1:]):
+        image = proj.image_list[ p[0] ]
+        image.feature_count += 1
+
 # compare original camera locations with sba camera locations and
 # derive a transform matrix to 'best fit' the new camera locations
 # over the original ... trusting the original group gps solution as
@@ -112,10 +118,12 @@ for i, image in enumerate(proj.image_list):
 src_list = []
 dst_list = []
 for image in proj.image_list:
-    ned, ypr, quat = image.get_camera_pose_sba()
-    src_list.append(ned)
-    ned, ypr, quat = image.get_camera_pose()
-    dst_list.append(ned)
+    if image.feature_count >= 25:
+        # only consider images that are in the fitted set
+        ned, ypr, quat = image.get_camera_pose_sba()
+        src_list.append(ned)
+        ned, ypr, quat = image.get_camera_pose()
+        dst_list.append(ned)
 A = get_recenter_affine(src_list, dst_list)
 
 # extract the rotation matrix (R) from the affine transform
