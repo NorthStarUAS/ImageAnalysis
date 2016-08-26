@@ -24,7 +24,10 @@ parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--order', default='sequential',
                     choices=['sequential', 'fewest-matches'],
-                    help='project directory')
+                    help='sort order')
+parser.add_argument('--orient', default='aircraft',
+                    choices=['aircraft', 'camera', 'sba'],
+                    help='yaw orientation reference')
 parser.add_argument('--image', default="", help='show specific image matches')
 parser.add_argument('--index', type=int, help='show specific image by index')
 args = parser.parse_args()
@@ -47,7 +50,8 @@ if args.image:
         for j, i2 in enumerate(proj.image_list):
             if len(i1.match_list[j]):
                 print "Showing %s vs %s" % (i1.name, i2.name)
-                status = m.showMatchOrient(i1, i2, i1.match_list[j])
+                status = m.showMatchOrient(i1, i2, i1.match_list[j],
+                                           orient=args.orient)
     else:
         print "Cannot locate:", args.image
 elif args.index:
@@ -56,7 +60,8 @@ elif args.index:
         for j, i2 in enumerate(proj.image_list):
             if len(i1.match_list[j]):
                 print "Showing %s vs %s" % (i1.name, i2.name)
-                status = m.showMatchOrient(i1, i2, i1.match_list[j])
+                status = m.showMatchOrient(i1, i2, i1.match_list[j],
+                                           orient=args.orient)
     else:
         print "Cannot locate:", args.index
 elif args.order == 'sequential':
@@ -67,7 +72,8 @@ elif args.order == 'sequential':
                 continue
             if len(i1.match_list[j]):
                 print "Showing %s vs %s" % (i1.name, i2.name)
-                status = m.showMatchOrient(i1, i2, i1.match_list[j])
+                status = m.showMatchOrient(i1, i2, i1.match_list[j],
+                                           orient=args.orient)
 elif args.order == 'fewest-matches':
     match_list = []
     for i, i1 in enumerate(proj.image_list):
@@ -87,4 +93,5 @@ elif args.order == 'fewest-matches':
         i1 = proj.image_list[i]
         i2 = proj.image_list[j]
         print "Showing %s vs %s (matches=%d)" % (i1.name, i2.name, count)
-        status = m.showMatchOrient(i1, i2, i1.match_list[j])
+        status = m.showMatchOrient(i1, i2, i1.match_list[j],
+                                   orient=args.orient)
