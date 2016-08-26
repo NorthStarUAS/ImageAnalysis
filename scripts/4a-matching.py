@@ -191,6 +191,7 @@ if do_old_match_consolodation:
         ned = sum / len(feature_dict['pts'])
         feature_dict['ned'] = ned.tolist()
 
-    f = open(args.project + "/Matches.json", 'w')
-    json.dump(matches_dict, f, sort_keys=True)
-    f.close()
+    # The Matches.json file should no longer be needed or used.
+    #f = open(args.project + "/Matches.json", 'w')
+    #json.dump(matches_dict, f, sort_keys=True)
+    #f.close()
