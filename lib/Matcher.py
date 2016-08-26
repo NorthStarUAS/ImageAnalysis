@@ -563,13 +563,25 @@ class Matcher():
                             _response=k.response, _octave=k.octave,
                             _class_id=k.class_id)
     
-    def showMatchOrient(self, i1, i2, idx_pairs, status=None):
+    def showMatchOrient(self, i1, i2, idx_pairs, status=None, orient='none'):
         #print " -- idx_pairs = " + str(idx_pairs)
         img1 = i1.load_gray()
         img2 = i2.load_gray()
-            
-        yaw1 = i1.aircraft_pose['ypr'][0]
-        yaw2 = i2.aircraft_pose['ypr'][0]
+
+        print 'orient:', orient
+        if orient == 'aircraft':
+            yaw1 = i1.aircraft_pose['ypr'][0]
+            yaw2 = i2.aircraft_pose['ypr'][0]
+        elif orient == 'camera':
+            yaw1 = i1.camera_pose['ypr'][0]
+            yaw2 = i2.camera_pose['ypr'][0]
+        elif orient == 'sba':
+            yaw1 = i1.camera_pose_sba['ypr'][0]
+            yaw2 = i2.camera_pose_sba['ypr'][0]
+        else:
+            yaw1 = 0.0
+            yaw2 = 0.0
+        print yaw1, yaw2
         h, w = img1.shape[:2]
         scale = 790.0/float(w)
         si1, M1 = self.rotateAndScale(img1, yaw1, scale)
