@@ -236,7 +236,7 @@ while not done:
             # found a previous reference, append these match items
             existing = matches_new[index]
             dist = dist3d(existing[0], match[0])
-            print 'dist:', dist, existing, "+", match
+            # print 'dist:', dist, existing, "+", match
             if dist <= args.fuzz:
                 # only append items that don't already exist in the early
                 # match, and only one match per image (!)
@@ -251,8 +251,8 @@ while not done:
                         # add
                         existing.append(p)
                         matches_lookup[key] = index
-                print "new:", existing
-                print 
+                # print "new:", existing
+                # print 
     if len(matches_new) == len(matches_direct):
         done = True
     else:
@@ -272,8 +272,8 @@ else:
             matches_new.append(m)
     matches_direct = matches_new
 
-for m in matches_direct:
-    print m
+#for m in matches_direct:
+#    print m
     
 count = 0.0
 sum = 0.0
