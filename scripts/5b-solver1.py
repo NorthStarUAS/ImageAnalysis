@@ -39,8 +39,8 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
-proj.load_match_pairs()
 proj.undistort_keypoints()
+proj.load_match_pairs()
 
 m = Matcher.Matcher()
 
@@ -97,6 +97,7 @@ def triangulate(cam_dict):
 
     # parallel to match_dict to accumulate point coordinate sums
     sum_dict = {}
+    count_dict= {}
 
     for i, i1 in enumerate(proj.image_list):
         #rvec1, tvec1 = i1.get_proj()
@@ -147,20 +148,21 @@ def triangulate(cam_dict):
                 print key
                 if key in sum_dict:
                     sum_dict[key] += p
+                    count_dict[key] += 1
                 else:
                     sum_dict[key] = p
+                    count_dict[key] = 1
                 #if not key in matches_dict:
                 #    key = "%d-%d" % (j, match[1])
                 #    print key
                 pnew = p.tolist()
-                print "new=", pnew
-                print "1st guess=", matches_dict[key]['ned']
+                #print "new=", pnew
                 #surface1.append( [pnew[1], pnew[0], -pnew[2]] )
 
     # divide each element of sum_dict by the count of pairs to get the
     # average point location (so sum_dict becomes a location_dict)
-    for key in matches_dict:
-        count = len(matches_dict[key]['pts']) - 1
+    for key in sum_dict:
+        count = count_dict[key]
         sum_dict[key] /= count
 
     # return the new dictionary.
