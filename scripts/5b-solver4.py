@@ -192,36 +192,41 @@ def solvePnP(matches_direct):
         cam_dict[image.name]['ned'] = newned
     return cam_dict
 
-# compute a 3d affine tranformation between current camera locations
-# and original camera locations, then transform the current cameras
-# back.  This way the retain their new relative positioning without
-# walking away from each other in scale or position.
-def recenter(cam_dict):
+# return a 3d affine tranformation between fitted camera locations and
+# original camera locations.
+def get_recenter_affine(cam_dict):
+    print "Fixme: we should only use the set of camera positions referenced by strong matches"
     src = [[], [], [], []]      # current camera locations
     dst = [[], [], [], []]      # original camera locations
     for image in proj.image_list:
-        if image.name in cam_dict:
+        if image.feature_count > 0:
             newned = cam_dict[image.name]['ned']
-        else:
-            newned, ypr, quat = image.get_camera_pose()
-        src[0].append(newned[0])
-        src[1].append(newned[1])
-        src[2].append(newned[2])
-        src[3].append(1.0)
-        origned, ypr, quat = image.get_camera_pose()
-        dst[0].append(origned[0])
-        dst[1].append(origned[1])
-        dst[2].append(origned[2])
-        dst[3].append(1.0)
-        print "%s %s" % (origned, newned)
-    Aff3D = transformations.superimposition_matrix(src, dst, scale=True)
-    print "Aff3D:\n", Aff3D
-    scale, shear, angles, trans, persp = transformations.decompose_matrix(Aff3D)
+            src[0].append(newned[0])
+            src[1].append(newned[1])
+            src[2].append(newned[2])
+            src[3].append(1.0)
+            origned, ypr, quat = image.get_camera_pose()
+            dst[0].append(origned[0])
+            dst[1].append(origned[1])
+            dst[2].append(origned[2])
+            dst[3].append(1.0)
+            print image.name, '%s -> %s' % (origned, newned)
+    A = transformations.superimposition_matrix(src, dst, scale=True)
+    print "Affine 3D:\n", A
+    return A
+
+# transform the camera ned positions with the provided affine matrix
+# to keep all the camera poses best fitted to the original camera
+# locations.  Also rotate the camera poses by the rotational portion
+# of the affine matrix to update the camera alignment.
+def transform_cams(A, cam_dict):
+    # extract the rotational portion of the affine matrix
+    scale, shear, angles, trans, persp = transformations.decompose_matrix(A)
     R = transformations.euler_matrix(*angles)
     print "R:\n", R
-    # rotate, translate, scale the group of camera positions to best
-    # align with original locations
-    update_cams = Aff3D.dot( np.array(src) )
+    # full transform the camera ned positions to best align with
+    # original locations
+    update_cams = A.dot( np.array(src) )
     print update_cams[:3]
     for i, p in enumerate(update_cams.T):
         key = proj.image_list[i].name
@@ -243,31 +248,8 @@ def recenter(cam_dict):
         cam_dict[key]['rvec'] = rvec
         tvec = -np.matrix(Rcam_new) * np.matrix(ned).T
         cam_dict[key]['tvec'] = tvec
-        
-# return a 3d affine tranformation between current camera locations
-# and original camera locations.
-def get_recenter_affine(cam_dict):
-    print "Fixme: we should only use the set of camera positions referenced by strong matches"
-    src = [[], [], [], []]      # current camera locations
-    dst = [[], [], [], []]      # original camera locations
-    for image in proj.image_list:
-        if image.name in cam_dict:
-            newned = cam_dict[image.name]['ned']
-        else:
-            newned, ypr, quat = image.get_camera_pose()
-        src[0].append(newned[0])
-        src[1].append(newned[1])
-        src[2].append(newned[2])
-        src[3].append(1.0)
-        origned, ypr, quat = image.get_camera_pose()
-        dst[0].append(origned[0])
-        dst[1].append(origned[1])
-        dst[2].append(origned[2])
-        dst[3].append(1.0)
-        print "%s %s" % (origned, newned)
-    A = transformations.superimposition_matrix(src, dst, scale=True)
-    return A
 
+# transform all the match point locations
 def transform_points( A, pts_dict ):
     src = [[], [], [], []]
     for key in pts_dict:
@@ -282,6 +264,68 @@ def transform_points( A, pts_dict ):
         result_dict[key] = [ dst[0][i], dst[1][i], dst[2][i] ]
     return result_dict
 
+# mark items that exceed the cutoff reprojection error for deletion
+def mark_outliers(result_list, cutoff, matches_direct):
+    print " marking outliers..."
+    mark_count = 0
+    for line in result_list:
+        # print "line:", line
+        if line[0] > cutoff:
+            print "  outlier index %d-%d err=%.2f" % (line[1], line[2],
+                                                      line[0])
+            #if args.show:
+            #    draw_match(line[1], line[2])
+            match = matches_direct[line[1]]
+            match[line[2]+1] = [-1, -1]
+            mark_count += 1
+
+# delete marked matches
+def delete_marked_matches(matches_direct):
+    print " deleting marked items..."
+    for i in reversed(range(len(matches_direct))):
+        match = matches_direct[i]
+        has_bad_elem = False
+        for j in reversed(range(1, len(match))):
+            p = match[j]
+            if p == [-1, -1]:
+                has_bad_elem = True
+                match.pop(j)
+        if len(match) < 4:
+            print "deleting match that is now in less than 3 images:", match
+            matches_direct.pop(i)
+
+# any image with less than 25 matches has all it's matches marked for
+# deletion
+def mark_weak_images(matches_direct):
+    # count how many features show up in each image
+    for i in proj.image_list:
+        i.feature_count = 0
+    for i, match in enumerate(matches_direct):
+        for j, p in enumerate(match[1:]):
+            if p[1] != [-1, -1]:
+                image = proj.image_list[ p[0] ]
+                image.feature_count += 1
+
+    # make a dict of all images with less than 25 feature matches
+    weak_dict = {}
+    for i, img in enumerate(proj.image_list):
+        if img.feature_count < 25:
+            weak_dict[i] = True
+            if img.feature_count > 0:
+                print 'new weak image:', img.name
+                img.feature_count = 0 # will be zero very soon
+    print 'weak images:', weak_dict
+
+    # mark any features in the weak images list
+    mark_sum = 0
+    for i, match in enumerate(matches_direct):
+        #print 'before:', match
+        for j, p in enumerate(match[1:]):
+            if p[0] in weak_dict:
+                 match[j+1] = [-1, -1]
+                 mark_sum += 1
+        #print 'after:', match
+    
 def plot(surface0, cam0, surface1, cam1):
     fig = plt.figure()
 
@@ -339,6 +383,27 @@ for image in proj.image_list:
 
 count = 0
 while True:
+    print 'iteration:', count
+    # measure our current mean reprojection error and trim mre
+    # outliers from the match set (any points with mre 4x stddev) as
+    # well as any weak images with < 25 matches.
+    (result_list, mre, stddev) \
+        = proj.compute_reprojection_errors(cam_dict, matches_direct)
+    print "after triangulate mre = %.4f stddev = %.4f features = %d" % (mre, stddev, len(matches_direct))
+    if mre <= 1.0:
+        # iterate until mre is some desired value
+        break
+    mark_outliers(result_list, mre + stddev*3, matches_direct)
+    mark_weak_images(matches_direct)
+    delete_marked_matches(matches_direct)
+    
+    # find the 'best fit' camera poses for the triangulation averaged
+    # together.
+    cam_dict = solvePnP(matches_direct)
+    (result_list, mre, stddev) \
+        = proj.compute_reprojection_errors(cam_dict, matches_direct)
+    print "after solvePnP mre = %.4f stddev = %.4f features = %d" % (mre, stddev, len(matches_direct))
+
     # run the triangulation step (modifies matches_direct NED
     # coordinates in place)
     triangulate(matches_direct, cam_dict)
@@ -348,12 +413,8 @@ while True:
         ned = match[0]
         surface1.append( [ned[1], ned[0], -ned[2]] )
 
-    # find the optimal camera poses for the triangulation averaged
-    # together.
-    cam_dict = solvePnP(matches_direct)
-
     # get the affine transformation required to bring the new camera
-    # locations back into a best fit with the original camera
+    # locations back inqto a best fit with the original camera
     # locations
     A = get_recenter_affine(cam_dict)
 
@@ -374,7 +435,11 @@ while True:
         p = cam_dict[key]['ned']
         cam1.append( [ p[1], p[0], -p[2] ] )
 
-    if count % 10 == 0:
-        plot(surface0, cam0, surface1, cam1)
+    do_plot = False
+    if do_plot:
+        if count % 10 == 0:
+            plot(surface0, cam0, surface1, cam1)
+        else:
+            plot(surface0, cam0, surface1, cam1)
 
     count += 1
