@@ -58,10 +58,13 @@ def triangulate(matches_direct, cam_dict):
 
     match_pairs = proj.generate_match_pairs(matches_direct)
 
-    # parallel to match_dict to accumulate point coordinate sums
-    sum_dict = {}
-    count_dict= {}
-
+    # zero the match NED coordinate and initialize the corresponding
+    # count array
+    counters = []
+    for match in matches_direct:
+        match[0] = np.array( [0.0, 0.0, 0.0] )
+        counters.append( 0)
+        
     for i, i1 in enumerate(proj.image_list):
         #rvec1, tvec1 = i1.get_proj()
         rvec1 = cam_dict[i1.name]['rvec']
@@ -97,23 +100,16 @@ def triangulate(matches_direct, cam_dict):
             for k, p in enumerate(points[0:3].T):
                 match = matches_direct[indices[k]]
                 match[0] += p
-                key = "%d-%d" % (i, match[0])
-                print key
-                if key in sum_dict:
-                    sum_dict[key] += p
-                    count_dict[key] += 1
-                else:
-                    sum_dict[key] = p
-                    count_dict[key] = 1
+                counters[indices[k]] += 1
 
-    # divide each element of sum_dict by the count of pairs to get the
-    # average point location (so sum_dict becomes a location_dict)
-    for key in sum_dict:
-        count = count_dict[key]
-        sum_dict[key] /= count
+    # divide each NED coordinate (sum of triangulated point locations)
+    # of matches_direct_dict by the count of references to produce an
+    # average NED coordinate for each match.
+    for i, match in enumerate(matches_direct):
+        match[0] /= counters[i]
 
-    # return the new dictionary.
-    return sum_dict
+    # return the new match structure
+    return matches_direct
 
 
 # Iterate through the project image list and run solvePnP on each
@@ -251,6 +247,7 @@ def recenter(cam_dict):
 # return a 3d affine tranformation between current camera locations
 # and original camera locations.
 def get_recenter_affine(cam_dict):
+    print "Fixme: we should only use the set of camera positions referenced by strong matches"
     src = [[], [], [], []]      # current camera locations
     dst = [[], [], [], []]      # original camera locations
     for image in proj.image_list:
@@ -342,14 +339,14 @@ for image in proj.image_list:
 
 count = 0
 while True:
-    # run the triangulation step
-    newpts_dict = triangulate(matches_direct, cam_dict)
-    #print pts_dict
+    # run the triangulation step (modifies matches_direct NED
+    # coordinates in place)
+    triangulate(matches_direct, cam_dict)
 
     surface1 = []
-    for key in newpts_dict:
-        p = newpts_dict[key]
-        surface1.append( [ p[1], p[0], -p[2] ] )
+    for match in matches_direct:
+        ned = match[0]
+        surface1.append( [ned[1], ned[0], -ned[2]] )
 
     # find the optimal camera poses for the triangulation averaged
     # together.
@@ -360,8 +357,11 @@ while True:
     # locations
     A = get_recenter_affine(cam_dict)
 
-    # transform all the feature points by the affine matrix
-    newspts_dict = transform_points(A, newpts_dict)
+    # transform all the feature points by the affine matrix (modifies
+    # matches_direct NED coordinates in place)
+    # fixme: transform_points(A, matches_direct)
+
+    # fixme: transform camera locations and orientations as well
     
     # run solvePnP now on the updated points (hopefully this will
     # naturally reorient the cameras as needed.)
