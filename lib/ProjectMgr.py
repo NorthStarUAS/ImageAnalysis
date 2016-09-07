@@ -582,10 +582,68 @@ class ProjectMgr():
                     image.coord_list.append(np.zeros(3)*np.nan)
             bar.next()
         bar.finish()
-                
-#
-# Below this point all the code needs to be reviewed/refactored
-#
+        
+    # image mean reprojection error
+    def compute_feature_mre(self, pose, K, image, kp, ned):
+        rvec = pose['rvec']
+        tvec = pose['tvec']
+        R, jac = cv2.Rodrigues(rvec)
+        proj = np.concatenate((R, tvec), axis=1)
+        uvh = K.dot( proj.dot( np.hstack((ned, 1.0)) ).T )
+        #print uvh
+        uvh /= uvh[2]
+        #print uvh
+        #print "%s -> %s" % ( image.img_pts[i], [ np.squeeze(uvh[0,0]), np.squeeze(uvh[1,0]) ] )
+        uv = np.array( [ np.squeeze(uvh[0,0]), np.squeeze(uvh[1,0]) ] )
+        dist = np.linalg.norm(np.array(kp) - uv)
+        return dist
+
+    # group reprojection error for every used feature
+    def compute_reprojection_errors(self, cam_dict, matches_direct):
+        print "Computing reprojection error for all match points..."
+
+        camw, camh = self.cam.get_image_params()
+
+        # iterate through the match dictionary and build a per image list of
+        # obj_pts and img_pts
+        result_list = []
+
+        for i, match in enumerate(matches_direct):
+            ned = match[0]
+            for j, p in enumerate(match[1:]):
+                image = self.image_list[ p[0] ]
+                kp = image.uv_list[ p[1] ] # undistorted uv point
+                scale = float(image.width) / float(camw)
+                dist = self.compute_feature_mre(cam_dict[image.name], self.cam.get_K(scale), image, kp, ned)
+                result_list.append( (dist, i, j) )
+
+        # sort by worst max error first
+        result_list = sorted(result_list, key=lambda fields: fields[0],
+                             reverse=True)
+
+        # compute summary stats
+        sum = 0.0
+        count = len(result_list)
+        
+        # numerically it is better to sum up a list of floatting point
+        # numbers from smallest to biggest (result_list is sorted from
+        # biggest to smallest)
+        for line in reversed(result_list):
+            sum += line[0]
+ 
+        mre = sum / count
+        stddev_sum = 0.0
+        for line in result_list:
+            error = line[0]
+            stddev_sum += (mre-error)*(mre-error)
+        stddev = math.sqrt(stddev_sum / count)
+
+        return result_list, mre, stddev
+           
+# ====================================================================
+# Below this point all the code needs to be reviewed/refactored, it is
+# being kept here as a reference until we know we don't need it.
+# ====================================================================
 
     def setWorldParams(self, ground_alt_m=0.0, yaw_bias=0.0, roll_bias=0.0, pitch_bias=0.0):
         print "Setting ground=%.1f yaw=%.2f roll=%.2f pitch=%.2f"\
