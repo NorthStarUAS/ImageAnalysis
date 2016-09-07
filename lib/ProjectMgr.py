@@ -13,6 +13,7 @@ from progress.bar import Bar
 import scipy.interpolate
 import subprocess
 import sys
+import time
 
 import geojson
 
@@ -250,6 +251,11 @@ class ProjectMgr():
         bar.finish()
 
     def load_match_pairs(self):
+        print "Notice: this routine is depricated for most purposes, unless"
+        print "resetting the match state of the system back to the original"
+        print "set of found matches."
+        print ""
+        time.sleep(2)
         bar = Bar('Loading keypoint (pair) matches:',
                   max = len(self.image_list))
         for image in self.image_list:
@@ -257,6 +263,35 @@ class ProjectMgr():
             bar.next()
         bar.finish()
 
+    # generate a n x n structure of image vs. image pair matches and
+    # return it
+    def generate_match_pairs(self, matches_direct):
+        # generate skeleton structure
+        result = []
+        for i, i1 in enumerate(self.image_list):
+            matches = []
+            for j, i2 in enumerate(self.image_list):
+                matches.append( [] )
+            result.append(matches)
+        # fill in the structure (a match = ned point followed by
+        # image/feat-index, ...)
+        for k, match in enumerate(matches_direct):
+            #print match
+            for p1 in match[1:]:
+                for p2 in match[1:]:
+                    if p1 == p2:
+                        pass
+                        #print 'skip self match'
+                    else:
+                        #print p1, 'vs', p2
+                        i = p1[0]; j = p2[0]
+                        result[i][j].append( [p1[1], p2[1], k] )
+        #for i, i1 in enumerate(self.image_list):
+        #    for j, i2 in enumerate(self.image_list):
+        #        print 'a:', self.image_list[i].match_list[j]
+        #        print 'b:', result[i][j]
+        return result
+                
     def save_images_meta(self):
         for image in self.image_list:
             image.save_meta()
