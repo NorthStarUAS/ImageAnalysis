@@ -195,7 +195,6 @@ def solvePnP(matches_direct):
 # return a 3d affine tranformation between fitted camera locations and
 # original camera locations.
 def get_recenter_affine(cam_dict):
-    print "Fixme: we should only use the set of camera positions referenced by strong matches"
     src = [[], [], [], []]      # current camera locations
     dst = [[], [], [], []]      # original camera locations
     for image in proj.image_list:
@@ -220,10 +219,20 @@ def get_recenter_affine(cam_dict):
 # locations.  Also rotate the camera poses by the rotational portion
 # of the affine matrix to update the camera alignment.
 def transform_cams(A, cam_dict):
+    # construct an array of camera positions
+    src = [[], [], [], []]
+    for image in proj.image_list:
+        new = cam_dict[image.name]['ned']
+        src[0].append(new[0])
+        src[1].append(new[1])
+        src[2].append(new[2])
+        src[3].append(1.0)
+        
     # extract the rotational portion of the affine matrix
     scale, shear, angles, trans, persp = transformations.decompose_matrix(A)
     R = transformations.euler_matrix(*angles)
     print "R:\n", R
+    
     # full transform the camera ned positions to best align with
     # original locations
     update_cams = A.dot( np.array(src) )
@@ -383,29 +392,32 @@ for image in proj.image_list:
 
 count = 0
 while True:
-    print 'iteration:', count
+    # find the 'best fit' camera poses for the triangulation averaged
+    # together.
+    cam_dict = solvePnP(matches_direct)
+
     # measure our current mean reprojection error and trim mre
     # outliers from the match set (any points with mre 4x stddev) as
     # well as any weak images with < 25 matches.
     (result_list, mre, stddev) \
         = proj.compute_reprojection_errors(cam_dict, matches_direct)
-    print "after triangulate mre = %.4f stddev = %.4f features = %d" % (mre, stddev, len(matches_direct))
-    if mre <= 1.0:
-        # iterate until mre is some desired value
-        break
-    mark_outliers(result_list, mre + stddev*3, matches_direct)
+    print "mre = %.4f stddev = %.4f features = %d" % (mre, stddev, len(matches_direct))
+    mark_outliers(result_list, mre + stddev*4, matches_direct)
     mark_weak_images(matches_direct)
     delete_marked_matches(matches_direct)
     
-    # find the 'best fit' camera poses for the triangulation averaged
-    # together.
-    cam_dict = solvePnP(matches_direct)
-    (result_list, mre, stddev) \
-        = proj.compute_reprojection_errors(cam_dict, matches_direct)
-    print "after solvePnP mre = %.4f stddev = %.4f features = %d" % (mre, stddev, len(matches_direct))
+    # get the affine transformation required to bring the new camera
+    # locations back inqto a best fit with the original camera
+    # locations
+    A = get_recenter_affine(cam_dict)
 
-    # run the triangulation step (modifies matches_direct NED
-    # coordinates in place)
+    # thought: this could be done once at the end to fix up the
+    # solution, not every iteration?
+    transform_cams(A, cam_dict)
+    
+    # run the triangulation step (modifies NED coordinates in place).
+    # This computes a best fit for all the feature locations based on
+    # the current best camera poses.
     triangulate(matches_direct, cam_dict)
 
     surface1 = []
@@ -413,10 +425,6 @@ while True:
         ned = match[0]
         surface1.append( [ned[1], ned[0], -ned[2]] )
 
-    # get the affine transformation required to bring the new camera
-    # locations back inqto a best fit with the original camera
-    # locations
-    A = get_recenter_affine(cam_dict)
 
     # transform all the feature points by the affine matrix (modifies
     # matches_direct NED coordinates in place)
