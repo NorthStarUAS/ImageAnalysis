@@ -18,6 +18,8 @@ from scipy import interpolate # strait up linear interpolation, nothing fancy
 
 parser = argparse.ArgumentParser(description='correlate movie data to flight data.')
 parser.add_argument('--movie', required=False, help='original movie if extracting frames')
+parser.add_argument('--hud', required=False, help='original movie if drawing hud')
+parser.add_argument('--scale', type=float, default=1.0, help='scale input')
 parser.add_argument('--movie-log', required=True, help='movie log file')
 parser.add_argument('--resample-hz', type=float, default=30.0, help='resample rate (hz)')
 parser.add_argument('--apm-log', help='APM tlog converted to csv')
@@ -81,8 +83,10 @@ with open(args.movie_log, 'rb') as f:
 
 flight_imu = []
 flight_gps = []
+flight_air = []
 last_imu_time = -1
 last_gps_time = -1
+last_air_time = -1
 
 if args.apm_log:
     # load APM flight log
@@ -117,8 +121,10 @@ if args.apm_log:
                 agl = float(tokens[15])
 elif args.aura_dir:
     # load Aura flight log
-    imu_file = args.aura_dir + "/imu.txt"
-    gps_file = args.aura_dir + "/gps.txt"
+    imu_file = args.aura_dir + "/imu-0.txt"
+    gps_file = args.aura_dir + "/gps-0.txt"
+    air_file = args.aura_dir + "/air-0.txt"
+    
     last_time = 0.0
     with open(imu_file, 'rb') as f:
         for line in f:
@@ -130,6 +136,7 @@ elif args.aura_dir:
             else:
                 print "ERROR: time went backwards:", timestamp, last_time
             last_time = timestamp
+
     last_time = 0.0
     with open(gps_file, 'rb') as f:
         for line in f:
@@ -140,6 +147,20 @@ elif args.aura_dir:
             if timestamp > last_time:
                 flight_gps.append( [tokens[0], tokens[1], tokens[2],
                                     tokens[3], 0.0] )
+            else:
+                print "ERROR: time went backwards:", timestamp, last_time
+            last_time = timestamp
+
+    last_time = 0.0
+    with open(air_file, 'rb') as f:
+        for line in f:
+            #print line
+            tokens = re.split('[,\s]+', line.rstrip())
+            timestamp = float(tokens[0])
+            #print timestamp, last_time
+            if timestamp > last_time:
+                flight_air.append( [tokens[0], tokens[1], tokens[2],
+                                    tokens[3]] )
             else:
                 print "ERROR: time went backwards:", timestamp, last_time
             last_time = timestamp
@@ -190,6 +211,10 @@ flight_gps_lat = interpolate.interp1d(x, flight_gps[:,1], bounds_error=False, fi
 flight_gps_lon = interpolate.interp1d(x, flight_gps[:,2], bounds_error=False, fill_value=0.0)
 flight_gps_alt = interpolate.interp1d(x, flight_gps[:,3], bounds_error=False, fill_value=0.0)
 flight_gps_agl = interpolate.interp1d(x, flight_gps[:,4], bounds_error=False, fill_value=0.0)
+
+flight_air = np.array(flight_air, dtype=np.float64)
+x = flight_air[:,0]
+flight_air_speed = interpolate.interp1d(x, flight_air[:,3], bounds_error=False, fill_value=0.0)
 
 # compute best correlation between movie and flight data logs
 movie_interp = np.array(movie_interp, dtype=float)
@@ -310,6 +335,76 @@ if args.movie:
             head, tail = os.path.split(file)
             f.write("%s,%.8f,%.8f,%.4f,%.4f,%.4f,%.4f\n" % (tail, flight_gps_lat(time), flight_gps_lon(time), flight_gps_alt(time), flight_imu_yaw(time)*r2d, 0.0, 0.0))
     f.close()
+    
+if args.hud:
+    K_RunCamHD2_1920x1080 \
+        = np.array( [[ 971.96149426,   0.        , 957.46750602],
+                     [   0.        , 971.67133264, 516.50578382],
+                     [   0.        ,   0.        ,   1.        ]] )
+    dist_runcamhd2_1920x1080 = [-0.26910665, 0.10580125, 0.00048417, 0.00000925, -0.02321387]
+    K = K_RunCamHD2_1920x1080 * args.scale
+    K[2,2] = 1.0
+    dist = dist_runcamhd2_1920x1080
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    # overlay hud
+    print "Opening ", args.hud
+    try:
+        capture = cv2.VideoCapture(args.hud)
+    except:
+        print "error opening video"
+
+    capture.read()
+    counter += 1
+    print "ok reading first frame"
+
+    fps = capture.get(cv2.cv.CV_CAP_PROP_FPS)
+    print "fps = %.2f" % fps
+    fourcc = int(capture.get(cv2.cv.CV_CAP_PROP_FOURCC))
+    w = capture.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH)
+    h = capture.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT)
+
+    last_time = 0.0
+
+    while True:
+        ret, frame = capture.read()
+        if not ret:
+            # no frame
+            stop_count += 1
+            print "no more frames:", stop_count
+            if stop_count > args.stop_count:
+                break
+        else:
+            stop_count = 0
+            
+        if frame == None:
+            print "Skipping bad frame ..."
+            continue
+        time = float(counter) / fps + time_shift
+        print "frame: ", counter, time
+        counter += 1
+        yaw_deg = flight_imu_yaw(time)*r2d
+        while yaw_deg < 0:
+            yaw_deg += 360
+        while yaw_deg > 360:
+            yaw_deg -= 360
+        lat_deg = float(flight_gps_lat(time))
+        lon_deg = float(flight_gps_lon(time))
+        altitude = float(flight_gps_alt(time))
+        speed = float(flight_air_speed(time))
+        
+        method = cv2.INTER_AREA
+        #method = cv2.INTER_LANCZOS4
+        frame_scale = cv2.resize(frame, (0,0), fx=args.scale, fy=args.scale,
+                                 interpolation=method)
+        frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
+
+        cv2.putText(frame_undist, 'alt = %.0f' % altitude, (100, 100), font, 1.5, (0,255,0), 2,cv2.CV_AA)
+        cv2.putText(frame_undist, 'kts = %.0f' % speed, (100, 150), font, 1.5, (0,255,0), 2,cv2.CV_AA)
+        print lat_deg, lon_deg, altitude
+        cv2.imshow('hud', frame_undist)
+        if 0xFF & cv2.waitKey(5) == 27:
+            break
 
 
 # plot the data ...
