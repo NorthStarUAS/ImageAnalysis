@@ -263,7 +263,7 @@ def compute_sun_ned(lon_deg, lat_deg, alt_m, timestamp):
     n = math.cos(sun.az)
     e = math.sin(sun.az)
     d = -math.sin(sun.alt)
-    print [n, e, d]
+    #print [n, e, d]
     return [n, e, d]
 
 def project_point(K, PROJ, ned):
@@ -343,18 +343,20 @@ def draw_sun(K, PROJ, ned, frame):
     alt_m = float(flight_gps_alt(time))
     timestamp = float(flight_gps_unixtime(time))
     sun_ned = compute_sun_ned(lon_deg, lat_deg, alt_m, timestamp)
-    print sun_ned
+    if sun_ned == None:
+        return
+    #print sun_ned
     uv = project_point(K, PROJ,
                        [ned[0] + sun_ned[0], ned[1] + sun_ned[1], ned[2] + sun_ned[2]])
     if uv != None:
         cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
-        draw_label(frame, 'Sun', uv, font, 0.8, 2)
+        draw_label(frame, 'Sun', uv, font, 0.8, 1)
     # shadow
     uv = project_point(K, PROJ,
                        [ned[0] - sun_ned[0], ned[1] - sun_ned[1], ned[2] - sun_ned[2]])
     if uv != None:
         cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
-        draw_label(frame, 'shadow', uv, font, 0.8, 2)
+        draw_label(frame, 'shadow', uv, font, 0.8, 1)
 
 def draw_velocity_vector(K, PROJ, ned, frame, vel):
     uv = project_point(K, PROJ,
@@ -380,11 +382,7 @@ if args.hud:
                          dtype=float )
     ned2proj = np.linalg.inv(proj2ned)
     
-    cam_ypr = [0.0, -11.0, -2.0] # yaw, pitch, roll
-    body2cam = transformations.quaternion_from_euler(cam_ypr[0] * d2r,
-                                                     cam_ypr[1] * d2r,
-                                                     cam_ypr[2] * d2r,
-                                                     'rzyx')
+    cam_ypr = [-3.0, -12.0, -3.0] # yaw, pitch, roll
     ref = [44.7260320000, -93.0771072000, 0]
 
     # overlay hud
@@ -433,6 +431,11 @@ if args.hud:
         lon_deg = float(flight_gps_lon(time))
         altitude = float(flight_gps_alt(time))
         speed = float(flight_air_speed(time))
+        
+        body2cam = transformations.quaternion_from_euler(cam_ypr[0] * d2r,
+                                                         cam_ypr[1] * d2r,
+                                                         cam_ypr[2] * d2r,
+                                                         'rzyx')
 
         #print 'att:', [yaw_rad, pitch_rad, roll_rad]
         ned2body = transformations.quaternion_from_euler(yaw_rad,
@@ -471,8 +474,27 @@ if args.hud:
         draw_velocity_vector(K, PROJ, ned, frame_undist, [vn, ve, vd])
 
         cv2.imshow('hud', frame_undist)
-        if 0xFF & cv2.waitKey(5) == 27:
+        key = cv2.waitKey(5) & 0xFF
+        if key == 27:
             break
+        elif key == ord('y'):
+            cam_ypr[0] += 0.5
+            print cam_ypr
+        elif key == ord('Y'):
+            cam_ypr[0] -= 0.5
+            print cam_ypr
+        elif key == ord('p'):
+            cam_ypr[1] += 0.5
+            print cam_ypr
+        elif key == ord('P'):
+            cam_ypr[1] -= 0.5
+            print cam_ypr
+        elif key == ord('r'):
+            cam_ypr[2] += 0.5
+            print cam_ypr
+        elif key == ord('R'):
+            cam_ypr[2] -= 0.5
+            print cam_ypr
 
 
 # plot the data ...
