@@ -6,6 +6,8 @@ sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
 
 import argparse
 import cv2
+import datetime
+import ephem
 import math
 import fractions
 from matplotlib import pyplot as plt 
@@ -37,50 +39,6 @@ r2d = 180.0 / math.pi
 counter = 0
 stop_count = 0
 
-class Fraction(fractions.Fraction):
-    """Only create Fractions from floats.
-
-    >>> Fraction(0.3)
-    Fraction(3, 10)
-    >>> Fraction(1.1)
-    Fraction(11, 10)
-    """
-
-    def __new__(cls, value, ignore=None):
-        """Should be compatible with Python 2.6, though untested."""
-        return fractions.Fraction.from_float(value).limit_denominator(99999)
-
-def dms_to_decimal(degrees, minutes, seconds, sign=' '):
-    """Convert degrees, minutes, seconds into decimal degrees.
-
-    >>> dms_to_decimal(10, 10, 10)
-    10.169444444444444
-    >>> dms_to_decimal(8, 9, 10, 'S')
-    -8.152777777777779
-    """
-    return (-1 if sign[0] in 'SWsw' else 1) * (
-        float(degrees)        +
-        float(minutes) / 60   +
-        float(seconds) / 3600
-    )
-
-
-def decimal_to_dms(decimal):
-    """Convert decimal degrees into degrees, minutes, seconds.
-
-    >>> decimal_to_dms(50.445891)
-    [Fraction(50, 1), Fraction(26, 1), Fraction(113019, 2500)]
-    >>> decimal_to_dms(-125.976893)
-    [Fraction(125, 1), Fraction(58, 1), Fraction(92037, 2500)]
-    """
-    remainder, degrees = math.modf(abs(decimal))
-    remainder, minutes = math.modf(remainder * 60)
-    return [Fraction(n) for n in (degrees, minutes, remainder * 60)]
-
-if args.resample_hz <= 0.001:
-    print "Resample rate (hz) needs to be greater than zero."
-    quit()
-    
 # load movie log
 movie = []
 with open(args.movie_log, 'rb') as f:
@@ -153,7 +111,7 @@ elif args.aura_dir:
             #print timestamp, last_time
             if timestamp > last_time:
                 flight_gps.append( [tokens[0], tokens[1], tokens[2],
-                                    tokens[3], 0.0] )
+                                    tokens[3], tokens[7]] )
             else:
                 print "ERROR: time went backwards:", timestamp, last_time
             last_time = timestamp
@@ -230,7 +188,7 @@ x = flight_gps[:,0]
 flight_gps_lat = interpolate.interp1d(x, flight_gps[:,1], bounds_error=False, fill_value=0.0)
 flight_gps_lon = interpolate.interp1d(x, flight_gps[:,2], bounds_error=False, fill_value=0.0)
 flight_gps_alt = interpolate.interp1d(x, flight_gps[:,3], bounds_error=False, fill_value=0.0)
-flight_gps_agl = interpolate.interp1d(x, flight_gps[:,4], bounds_error=False, fill_value=0.0)
+flight_gps_unixtime = interpolate.interp1d(x, flight_gps[:,4], bounds_error=False, fill_value=0.0)
 
 flight_filter = np.array(flight_filter, dtype=float)
 x = flight_filter[:,0]
@@ -284,6 +242,29 @@ if mrsum > 0.001:
     rratio = -mrsum / frsum
 print "pitch ratio:", qratio
 print "yaw ratio:", rratio
+
+def compute_sun_ned(lon_deg, lat_deg, alt_m, timestamp):
+    d = datetime.datetime.utcfromtimestamp(timestamp)
+    #d = datetime.datetime.utcnow()
+    ed = ephem.Date(d)
+    #print 'ephem time utc:', ed
+    #print 'localtime:', ephem.localtime(ed)
+
+    ownship = ephem.Observer()
+    ownship.lon = '%.8f' % lon_deg
+    ownship.lat = '%.8f' % lat_deg
+    ownship.elevation = alt_m
+    ownship.date = ed
+
+    sun = ephem.Sun(ownship)
+    #print sun.ra, sun.dec
+    #print 'sun az/alt:', float(sun.az)*180/3.1415, float(sun.alt)*180/3.1415
+
+    n = math.cos(sun.az)
+    e = math.sin(sun.az)
+    d = -math.sin(sun.alt)
+    print [n, e, d]
+    return [n, e, d]
 
 def project_point(K, PROJ, ned):
     uvh = K.dot( PROJ.dot( [ned[0], ned[1], ned[2], 1.0] ).T )
@@ -355,6 +336,25 @@ def draw_compass_points(K, PROJ, ned, frame):
                        [ned[0] + 0.0, ned[1] - 1.0, ned[2] - 0.02])
     if uv != None:
         draw_label(frame, 'W', uv, font, 1, 2)
+
+def draw_sun(K, PROJ, ned, frame):
+    lat_deg = float(flight_gps_lat(time))
+    lon_deg = float(flight_gps_lon(time))
+    alt_m = float(flight_gps_alt(time))
+    timestamp = float(flight_gps_unixtime(time))
+    sun_ned = compute_sun_ned(lon_deg, lat_deg, alt_m, timestamp)
+    print sun_ned
+    uv = project_point(K, PROJ,
+                       [ned[0] + sun_ned[0], ned[1] + sun_ned[1], ned[2] + sun_ned[2]])
+    if uv != None:
+        cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
+        draw_label(frame, 'Sun', uv, font, 0.8, 2)
+    # shadow
+    uv = project_point(K, PROJ,
+                       [ned[0] - sun_ned[0], ned[1] - sun_ned[1], ned[2] - sun_ned[2]])
+    if uv != None:
+        cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
+        draw_label(frame, 'shadow', uv, font, 0.8, 2)
 
 def draw_velocity_vector(K, PROJ, ned, frame, vel):
     uv = project_point(K, PROJ,
@@ -467,6 +467,7 @@ if args.hud:
 
         draw_horizon(K, PROJ, ned, frame_undist)
         draw_compass_points(K, PROJ, ned, frame_undist)
+        draw_sun(K, PROJ, ned, frame_undist)
         draw_velocity_vector(K, PROJ, ned, frame_undist, [vn, ve, vd])
 
         cv2.imshow('hud', frame_undist)
