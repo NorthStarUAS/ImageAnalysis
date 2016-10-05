@@ -24,8 +24,7 @@ import transformations
 d2r = math.pi / 180.0
 
 parser = argparse.ArgumentParser(description='correlate movie data to flight data.')
-parser.add_argument('--movie', required=False, help='original movie if extracting frames')
-parser.add_argument('--hud', required=False, help='original movie if drawing hud')
+parser.add_argument('--hud', required=True, help='original movie if drawing hud')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
 parser.add_argument('--movie-log', required=True, help='movie log file')
 parser.add_argument('--resample-hz', type=float, default=30.0, help='resample rate (hz)')
@@ -170,7 +169,7 @@ elif args.aura_dir:
                 flight_filter.append( [tokens[0],
                                        tokens[1], tokens[2], tokens[3],
                                        tokens[4], tokens[5], tokens[6],
-                                       tokens[7], tokens[8], tokens[9])
+                                       tokens[7], tokens[8], tokens[9]] )
             else:
                 print "ERROR: time went backwards:", timestamp, last_time
             last_time = timestamp
@@ -214,9 +213,6 @@ x = flight_imu[:,0]
 flight_imu_p = interpolate.interp1d(x, flight_imu[:,1], bounds_error=False, fill_value=0.0)
 flight_imu_q = interpolate.interp1d(x, flight_imu[:,2], bounds_error=False, fill_value=0.0)
 flight_imu_r = interpolate.interp1d(x, flight_imu[:,3], bounds_error=False, fill_value=0.0)
-flight_filter_roll = interpolate.interp1d(x, flight_filter[:,7], bounds_error=False, fill_value=0.0)
-flight_filter_pitch = interpolate.interp1d(x, flight_filter[:,8], bounds_error=False, fill_value=0.0)
-flight_filter_yaw = interpolate.interp1d(x, flight_filter[:,9], bounds_error=False, fill_value=0.0)
 if args.apm_log:
     y_spline = flight_imu_r
 elif args.aura_dir:
@@ -235,6 +231,15 @@ flight_gps_lat = interpolate.interp1d(x, flight_gps[:,1], bounds_error=False, fi
 flight_gps_lon = interpolate.interp1d(x, flight_gps[:,2], bounds_error=False, fill_value=0.0)
 flight_gps_alt = interpolate.interp1d(x, flight_gps[:,3], bounds_error=False, fill_value=0.0)
 flight_gps_agl = interpolate.interp1d(x, flight_gps[:,4], bounds_error=False, fill_value=0.0)
+
+flight_filter = np.array(flight_filter, dtype=float)
+x = flight_filter[:,0]
+flight_filter_vn = interpolate.interp1d(x, flight_filter[:,4], bounds_error=False, fill_value=0.0)
+flight_filter_ve = interpolate.interp1d(x, flight_filter[:,5], bounds_error=False, fill_value=0.0)
+flight_filter_vd = interpolate.interp1d(x, flight_filter[:,6], bounds_error=False, fill_value=0.0)
+flight_filter_roll = interpolate.interp1d(x, flight_filter[:,7], bounds_error=False, fill_value=0.0)
+flight_filter_pitch = interpolate.interp1d(x, flight_filter[:,8], bounds_error=False, fill_value=0.0)
+flight_filter_yaw = interpolate.interp1d(x, flight_filter[:,9], bounds_error=False, fill_value=0.0)
 
 flight_air = np.array(flight_air, dtype=np.float64)
 x = flight_air[:,0]
@@ -280,86 +285,83 @@ if mrsum > 0.001:
 print "pitch ratio:", qratio
 print "yaw ratio:", rratio
 
-if args.movie:
-    # extract frames
-    print "Opening ", args.movie
-    try:
-        capture = cv2.VideoCapture(args.movie)
-    except:
-        print "error opening video"
+def project_point(K, PROJ, ned):
+    uvh = K.dot( PROJ.dot( [ned[0], ned[1], ned[2], 1.0] ).T )
+    if uvh[2] > 0:
+        uvh /= uvh[2]
+        uv = ( int(np.squeeze(uvh[0,0])), int(np.squeeze(uvh[1,0])) )
+        return uv
+    else:
+        return None
 
-    capture.read()
-    counter += 1
-    print "ok reading first frame"
+def draw_horizon(K, PROJ, ned, frame):
+    divs = 10
+    pts = []
+    for i in range(divs + 1):
+        a = (float(i) * 360/float(divs)) * d2r
+        n = math.cos(a)
+        e = math.sin(a)
+        d = 0.0
+        pts.append( [n, e, d] )
 
-    fps = capture.get(cv2.cv.CV_CAP_PROP_FPS)
-    print "fps = %.2f" % fps
-    fourcc = int(capture.get(cv2.cv.CV_CAP_PROP_FOURCC))
-    w = capture.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH)
-    h = capture.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT)
+    for i in range(divs):
+        p1 = pts[i]
+        p2 = pts[i+1]
+        uv1 = project_point(K, PROJ,
+                            [ned[0] + p1[0], ned[1] + p1[1], ned[2] + p1[2]])
+        uv2 = project_point(K, PROJ,
+                            [ned[0] + p2[0], ned[1] + p2[1], ned[2] + p2[2]])
+        if uv1 != None and uv2 != None:
+            cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
 
-    last_time = 0.0
-    abspath = os.path.abspath(args.movie)
-    basename, ext = os.path.splitext(abspath)
-    dirname = os.path.dirname(abspath)
-    meta = dirname + "/image-metadata.txt"
-    print "writing meta data to", meta
-    f = open(meta, 'wb')
-    while True:
-        ret, frame = capture.read()
-        if not ret:
-            # no frame
-            stop_count += 1
-            print "no more frames:", stop_count
-            if stop_count > args.stop_count:
-                break
-        else:
-            stop_count = 0
-            
-        if frame == None:
-            print "Skipping bad frame ..."
-            continue
-        time = float(counter) / fps + time_shift
-        print "frame: ", counter, time
-        counter += 1
-        if time < tmin or time > tmax:
-            continue
-        if flight_gps_agl(time) < 20.0:
-            continue
-        yaw_deg = flight_filter_yaw(time)*r2d
-        while yaw_deg < 0:
-            yaw_deg += 360
-        while yaw_deg > 360:
-            yaw_deg -= 360
-        # reject poses that are too far off N/S headings (temp hack)
-        #if yaw_deg > 10 and yaw_deg < 170:
-        #    continue
-        #if yaw_deg > 190 and yaw_deg < 350:
-        #    continue
-        if time > last_time + 1.0:
-            last_time = time
-            file = basename + "-%06d" % counter + ".jpg"
-            cv2.imwrite(file, frame)
-            # geotag the image
-            exif = pyexiv2.ImageMetadata(file)
-            exif.read()
-            lat_deg = float(flight_gps_lat(time))
-            lon_deg = float(flight_gps_lon(time))
-            altitude = float(flight_gps_alt(time))
-            print lat_deg, lon_deg, altitude
-            GPS = 'Exif.GPSInfo.GPS'
-            exif[GPS + 'AltitudeRef']  = '0' if altitude >= 0 else '1'
-            exif[GPS + 'Altitude']     = Fraction(altitude)
-            exif[GPS + 'Latitude']     = decimal_to_dms(lat_deg)
-            exif[GPS + 'LatitudeRef']  = 'N' if lat_deg >= 0 else 'S'
-            exif[GPS + 'Longitude']    = decimal_to_dms(lon_deg)
-            exif[GPS + 'LongitudeRef'] = 'E' if lon_deg >= 0 else 'W'
-            exif[GPS + 'MapDatum']     = 'WGS-84'
-            exif.write()
-            head, tail = os.path.split(file)
-            f.write("%s,%.8f,%.8f,%.4f,%.4f,%.4f,%.4f\n" % (tail, flight_gps_lat(time), flight_gps_lon(time), flight_gps_alt(time), flight_filter_yaw(time)*r2d, 0.0, 0.0))
-    f.close()
-    
+def draw_label(frame, label, uv, font, font_scale, thickness, center='horiz'):
+        size = cv2.getTextSize(label, font, font_scale, thickness)
+        if center == 'horiz':
+            uv = (uv[0] - (size[0][0] / 2), uv[1])
+        cv2.putText(frame, label, uv, font, font_scale, (0,255,0), thickness, cv2.CV_AA)
+        
+def draw_compass_points(K, PROJ, ned, frame):
+    # 30 Ticks
+    divs = 12
+    pts = []
+    for i in range(divs):
+        a = (float(i) * 360/float(divs)) * d2r
+        n = math.cos(a)
+        e = math.sin(a)
+        uv1 = project_point(K, PROJ,
+                            [ned[0] + n, ned[1] + e, ned[2] - 0.0])
+        uv2 = project_point(K, PROJ,
+                            [ned[0] + n, ned[1] + e, ned[2] - 0.02])
+        if uv1 != None and uv2 != None:
+            cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+
+    # North
+    uv = project_point(K, PROJ,
+                       [ned[0] + 1.0, ned[1] + 0.0, ned[2] - 0.02])
+    if uv != None:
+        draw_label(frame, 'N', uv, font, 1, 2)
+    # South
+    uv = project_point(K, PROJ,
+                       [ned[0] - 1.0, ned[1] + 0.0, ned[2] - 0.02])
+    if uv != None:
+        draw_label(frame, 'S', uv, font, 1, 2)
+    # East
+    uv = project_point(K, PROJ,
+                       [ned[0] + 0.0, ned[1] + 1.0, ned[2] - 0.02])
+    if uv != None:
+        draw_label(frame, 'E', uv, font, 1, 2)
+    # West
+    uv = project_point(K, PROJ,
+                       [ned[0] + 0.0, ned[1] - 1.0, ned[2] - 0.02])
+    if uv != None:
+        draw_label(frame, 'W', uv, font, 1, 2)
+
+def draw_velocity_vector(K, PROJ, ned, frame, vel):
+    uv = project_point(K, PROJ,
+                       [ned[0] + vel[0], ned[1] + vel[1], ned[2]+ vel[2]])
+    if uv != None:
+        cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
+
 if args.hud:
     K_RunCamHD2_1920x1080 \
         = np.array( [[ 971.96149426,   0.        , 957.46750602],
@@ -378,7 +380,7 @@ if args.hud:
                          dtype=float )
     ned2proj = np.linalg.inv(proj2ned)
     
-    cam_ypr = [0.0, 0.0, 0.0]
+    cam_ypr = [0.0, -11.0, -2.0] # yaw, pitch, roll
     body2cam = transformations.quaternion_from_euler(cam_ypr[0] * d2r,
                                                      cam_ypr[1] * d2r,
                                                      cam_ypr[2] * d2r,
@@ -421,44 +423,39 @@ if args.hud:
         time = float(counter) / fps + time_shift
         print "frame: ", counter, time
         counter += 1
-        yaw_rad = flight_filter_yaw(time)
-        yaw_deg = yaw_rad*r2d
-        pitch_rad = flight_filter_pitch(time)
-        roll_rad = flight_filter_roll(time)
-        while yaw_deg < 0:
-            yaw_deg += 360
-        while yaw_deg > 360:
-            yaw_deg -= 360
+        vn = flight_filter_vn(time)
+        ve = flight_filter_ve(time)
+        vd = flight_filter_vd(time)
+        yaw_rad = flight_filter_yaw(time)*d2r
+        pitch_rad = flight_filter_pitch(time)*d2r
+        roll_rad = flight_filter_roll(time)*d2r
         lat_deg = float(flight_gps_lat(time))
         lon_deg = float(flight_gps_lon(time))
         altitude = float(flight_gps_alt(time))
         speed = float(flight_air_speed(time))
 
-        print 'att:', [yaw_rad, pitch_rad, roll_rad]
+        #print 'att:', [yaw_rad, pitch_rad, roll_rad]
         ned2body = transformations.quaternion_from_euler(yaw_rad,
                                                          pitch_rad,
                                                          roll_rad,
                                                          'rzyx')
-        print 'ned2body(q):', ned2body
+        #print 'ned2body(q):', ned2body
         ned2cam_q = transformations.quaternion_multiply(ned2body, body2cam)
         ned2cam = np.matrix(transformations.quaternion_matrix(np.array(ned2cam_q))[:3,:3]).T
-        print 'ned2cam:', ned2cam
+        #print 'ned2cam:', ned2cam
         R = ned2proj.dot( ned2cam )
         rvec, jac = cv2.Rodrigues(R)
         ned = navpy.lla2ned( lat_deg, lon_deg, altitude,
                              ref[0], ref[1], ref[2] )
+        #print 'ned:', ned
         tvec = -np.matrix(R) * np.matrix(ned).T
         R, jac = cv2.Rodrigues(rvec)
         # is this R the same as the earlier R?
         PROJ = np.concatenate((R, tvec), axis=1)
+        #print 'PROJ:', PROJ
         #print lat_deg, lon_deg, altitude, ref[0], ref[1], ref[2]
         #print ned
 
-        uvh = K.dot( PROJ.dot( [1.0, 0.0, 0.0, 1.0] ).T )
-        uvh /= uvh[2]
-        north_uv = ( int(np.squeeze(uvh[0,0])), int(np.squeeze(uvh[1,0])) )
-        print north_uv
-        
         method = cv2.INTER_AREA
         #method = cv2.INTER_LANCZOS4
         frame_scale = cv2.resize(frame, (0,0), fx=args.scale, fy=args.scale,
@@ -467,7 +464,11 @@ if args.hud:
 
         cv2.putText(frame_undist, 'alt = %.0f' % altitude, (100, 100), font, 1.5, (0,255,0), 2,cv2.CV_AA)
         cv2.putText(frame_undist, 'kts = %.0f' % speed, (100, 150), font, 1.5, (0,255,0), 2,cv2.CV_AA)
-        cv2.putText(frame_undist, 'N', north_uv, font, 1.5, (0,255,0), 2,cv2.CV_AA)
+
+        draw_horizon(K, PROJ, ned, frame_undist)
+        draw_compass_points(K, PROJ, ned, frame_undist)
+        draw_velocity_vector(K, PROJ, ned, frame_undist, [vn, ve, vd])
+
         cv2.imshow('hud', frame_undist)
         if 0xFF & cv2.waitKey(5) == 27:
             break
