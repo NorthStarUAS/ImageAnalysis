@@ -21,7 +21,7 @@ max_features = 500
 smooth = 0.005
 catchup = 0.02
 affine_minpts = 7
-fundamental_tol = 2.0
+fundamental_tol = 1.0
 
 parser = argparse.ArgumentParser(description='Estimate gyro biases from movie.')
 parser.add_argument('--movie', required=True, help='movie file')
@@ -336,6 +336,12 @@ while True:
                                 [   0.0, 1272.8, 601.3],
                                 [   0.0,    0.0,   1.0]] )
 
+    K_RunCamHD2_1920x1080 \
+        = np.array( [[ 971.96149426,   0.        , 957.46750602],
+                     [   0.        , 971.67133264, 516.50578382],
+                     [   0.        ,   0.        ,   1.        ]] )
+
+
     K_Gopro3_720_16x9 = np.array([ [1165.3,    0.0, 620.6],
                                    [0.0,    1161.1, 328.1],
                                    [0.0,       0.0,   1.0] ] )
@@ -352,16 +358,21 @@ while True:
 
     dist_none = [0.0, 0.0, 0.0, 0.0, 0.0]
     dist_mobius = [-0.36207197, 0.14627927, -0.00674558, 0.0008926, -0.02635695]
+    dist_runcamhd2_1920x1080 = [-0.26910665, 0.10580125, 0.00048417, 0.00000925, -0.02321387]
     dist_gopro1 = [ -0.18957, 0.037319, 0.0, 0.0, -0.00337 ] # ???
     dist_gopro2 = [ -0.25761, 0.087709, 0.0, 0.0, -0.015219 ] # works for 8/12 rgb
     dist_gopro3_720 = [ -0.36508, 0.22655, 0.0, 0.0, -0.0015674 ] # works for 8/12 rgb
 
     # K = K_Gopro3_720_16x9 * args.scale
-    K = K_Mobius_1080p * args.scale
+    # K = K_Mobius_1080p * args.scale
+    K = K_RunCamHD2_1920x1080 * args.scale
     K[2,2] = 1.0
+    
     # dist = dist_gopro3_720
-    dist = dist_mobius
-    distort = False
+    # dist = dist_mobius
+    dist = dist_runcamhd2_1920x1080
+    
+    distort = True
     if distort:
         frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
     else:
@@ -561,5 +572,5 @@ with open(output_csv, 'wb') as myfile:
     for line in result:
         myfile.write(str(line[0]))
         for field in line[1:]:
-            myfile.write('\t' + str(field))
+            myfile.write(',' + str(field))
         myfile.write('\n')
