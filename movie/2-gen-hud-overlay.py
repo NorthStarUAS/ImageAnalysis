@@ -313,7 +313,16 @@ def draw_label(frame, label, uv, font, font_scale, thickness, center='horiz'):
         if center == 'horiz':
             uv = (uv[0] - (size[0][0] / 2), uv[1])
         cv2.putText(frame, label, uv, font, font_scale, (0,255,0), thickness, cv2.CV_AA)
-        
+
+def draw_labeled_point(K, PROJ, frame, ned, label):
+    uv = project_point(K, PROJ, [ned[0], ned[1], ned[2]])
+    if uv != None:
+        cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
+    uv = project_point(K, PROJ, [ned[0], ned[1], ned[2] - 0.02])
+    if uv != None:
+        draw_label(frame, label, uv, font, 0.8, 1)
+
+                       
 def draw_compass_points(K, PROJ, ned, frame):
     # 30 Ticks
     divs = 12
@@ -331,22 +340,22 @@ def draw_compass_points(K, PROJ, ned, frame):
 
     # North
     uv = project_point(K, PROJ,
-                       [ned[0] + 1.0, ned[1] + 0.0, ned[2] - 0.02])
+                       [ned[0] + 1.0, ned[1] + 0.0, ned[2] - 0.03])
     if uv != None:
         draw_label(frame, 'N', uv, font, 1, 2)
     # South
     uv = project_point(K, PROJ,
-                       [ned[0] - 1.0, ned[1] + 0.0, ned[2] - 0.02])
+                       [ned[0] - 1.0, ned[1] + 0.0, ned[2] - 0.03])
     if uv != None:
         draw_label(frame, 'S', uv, font, 1, 2)
     # East
     uv = project_point(K, PROJ,
-                       [ned[0] + 0.0, ned[1] + 1.0, ned[2] - 0.02])
+                       [ned[0] + 0.0, ned[1] + 1.0, ned[2] - 0.03])
     if uv != None:
         draw_label(frame, 'E', uv, font, 1, 2)
     # West
     uv = project_point(K, PROJ,
-                       [ned[0] + 0.0, ned[1] - 1.0, ned[2] - 0.02])
+                       [ned[0] + 0.0, ned[1] - 1.0, ned[2] - 0.03])
     if uv != None:
         draw_label(frame, 'W', uv, font, 1, 2)
 
@@ -361,29 +370,21 @@ def draw_astro(K, PROJ, ned, frame):
         return
 
     # Sun
-    uv = project_point(K, PROJ,
+    draw_labeled_point(K, PROJ, frame,
                        [ned[0] + sun_ned[0], ned[1] + sun_ned[1],
-                        ned[2] + sun_ned[2]])
-    if uv != None:
-        cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
-        draw_label(frame, 'Sun', uv, font, 0.8, 1)
-        
-    # shadow
-    uv = project_point(K, PROJ,
-                       [ned[0] - sun_ned[0], ned[1] - sun_ned[1],
-                        ned[2] - sun_ned[2]])
-    if uv != None:
-        cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
-        draw_label(frame, 'shadow', uv, font, 0.8, 1)
-        
+                        ned[2] + sun_ned[2]],
+                       'Sun')
+    # shadow (if sun above horizon)
+    if sun_ned[2] < 0.0:
+        draw_labeled_point(K, PROJ, frame,
+                           [ned[0] - sun_ned[0], ned[1] - sun_ned[1],
+                            ned[2] - sun_ned[2]],
+                           'shadow')
     # Moon
-    uv = project_point(K, PROJ,
+    draw_labeled_point(K, PROJ, frame,
                        [ned[0] + moon_ned[0], ned[1] + moon_ned[1],
-                        ned[2] + moon_ned[2]])
-    if uv != None:
-        cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
-        draw_label(frame, 'Moon', uv, font, 0.8, 1)
-        
+                        ned[2] + moon_ned[2]],
+                       'Moon')
 
 def draw_velocity_vector(K, PROJ, ned, frame, vel):
     uv = project_point(K, PROJ,
