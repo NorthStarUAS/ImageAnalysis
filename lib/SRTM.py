@@ -259,9 +259,8 @@ class NEDGround():
 
     # while error > eps: find altitude at current point, new pt = proj
     # vector to current alt.
-    def interpolate_vector(self, pose_dict, v):
-        pose = pose_dict['ned']
-        p = pose[:] # copy hopefully
+    def interpolate_vector(self, ned, v):
+        p = ned[:] # copy hopefully
 
         # sanity check (always assume camera pose is above ground!)
         if v[2] <= 0.0:
@@ -271,17 +270,17 @@ class NEDGround():
         count = 0
         #print "start:", p
         #print "vec:", v
-        #print "pose:", pose
+        #print "ned:", ned
         ground = self.interp([p[0], p[1]])
         error = abs(p[2] + ground[0])
         #print "  p=%s ground=%s error=%s" % (p, ground, error)
         while error > eps and count < 25 and ground[0] > -32768:
-            d_proj = -(pose[2] + ground[0])
+            d_proj = -(ned[2] + ground[0])
             factor = d_proj / v[2]
             n_proj = v[0] * factor
             e_proj = v[1] * factor
             #print "proj = %s %s" % (n_proj, e_proj)
-            p = [ pose[0] + n_proj, pose[1] + e_proj, pose[2] + d_proj ]
+            p = [ ned[0] + n_proj, ned[1] + e_proj, ned[2] + d_proj ]
             #print "new p:", p
             ground = self.interp([p[0], p[1]])
             error = abs(p[2] + ground[0])
@@ -295,11 +294,11 @@ class NEDGround():
             return np.zeros(3)*np.nan
 
     # return a list of (3d) ground intersection points for the give
-    # vector list and camera pose.
-    def interpolate_vectors(self, pose, v_list):
-        pose_ned = pose['ned']
+    # vector list and camera pose.  Vectors are already transformed
+    # into ned orientation.
+    def interpolate_vectors(self, ned, v_list):
         pt_list = []
         for v in v_list:
-            p = self.interpolate_vector(pose, v)
+            p = self.interpolate_vector(ned, v.flatten())
             pt_list.append(p)
         return pt_list
