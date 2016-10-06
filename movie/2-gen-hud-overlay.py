@@ -323,7 +323,7 @@ def draw_label(frame, label, uv, font, font_scale, thickness, center='horiz',
         cv2.putText(frame, label, uv, font, font_scale, (0,255,0),
                     thickness, cv2.CV_AA)
 
-def draw_labeled_point(K, PROJ, frame, ned, label, side='above'):
+def draw_labeled_point(K, PROJ, frame, ned, label, scale=1, side='above'):
     uv = project_point(K, PROJ, [ned[0], ned[1], ned[2]])
     if uv != None:
         cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
@@ -332,7 +332,7 @@ def draw_labeled_point(K, PROJ, frame, ned, label, side='above'):
     else:
         uv = project_point(K, PROJ, [ned[0], ned[1], ned[2] + 0.02])
     if uv != None:
-        draw_label(frame, label, uv, font, 0.8, 1, side=side)
+        draw_label(frame, label, uv, font, scale, 1, side=side)
 
 def draw_lla_point(K, PROJ, frame, ned, lla, label):
     pt_ned = navpy.lla2ned( lla[0], lla[1], lla[2], ref[0], ref[1], ref[2] )
@@ -342,6 +342,7 @@ def draw_lla_point(K, PROJ, frame, ned, lla, label):
     m2sm = 0.000621371
     dist_sm = dist * m2sm
     if dist_sm <= 15.0:
+        scale = 1.0 - dist_sm / 25.0
         if dist_sm <= 7.5:
             label += " (%.1f)" % dist_sm
         # normalize, and draw relative to aircraft ned so that label
@@ -352,7 +353,7 @@ def draw_lla_point(K, PROJ, frame, ned, lla, label):
         draw_labeled_point(K, PROJ, frame,
                            [ned[0] + rel_ned[0], ned[1] + rel_ned[1],
                             ned[2] + rel_ned[2]],
-                            label, side='below')
+                            label, scale=scale, side='below')
     
 def draw_compass_points(K, PROJ, ned, frame):
     # 30 Ticks
@@ -410,7 +411,7 @@ def draw_astro(K, PROJ, ned, frame):
         draw_labeled_point(K, PROJ, frame,
                            [ned[0] - sun_ned[0], ned[1] - sun_ned[1],
                             ned[2] - sun_ned[2]],
-                           'shadow')
+                           'shadow', scale=0.7)
     # Moon
     draw_labeled_point(K, PROJ, frame,
                        [ned[0] + moon_ned[0], ned[1] + moon_ned[1],
@@ -430,12 +431,26 @@ def draw_airports(K, PROJ, frame):
     draw_lla_point(K, PROJ, frame, ned, kfcm, 'KFCM')
     kane = [ 45.145000, -93.211403, 278 ]
     draw_lla_point(K, PROJ, frame, ned, kane, 'KANE')
+    klvn = [ 44.627899, -93.228104, 293 ]
+    draw_lla_point(K, PROJ, frame, ned, klvn, 'KLVN')
+    kmic = [ 45.062000, -93.353897, 265 ]
+    draw_lla_point(K, PROJ, frame, ned, kmic, 'KMIC')
     mn45 = [ 44.566101, -93.132202, 290 ]
     draw_lla_point(K, PROJ, frame, ned, mn45, 'MN45')
-    
+    mn58 = [ 44.697701, -92.864098, 250 ]
+    draw_lla_point(K, PROJ, frame, ned, mn58, 'MN58')
+    mn18 = [ 45.187199, -93.130501, 276 ]
+    draw_lla_point(K, PROJ, frame, ned, mn18, 'MN18')
+
+vel_filt = [0.0, 0.0, 0.0]
 def draw_velocity_vector(K, PROJ, ned, frame, vel):
+    tf = 0.05
+    for i in range(3):
+        vel_filt[i] = (1.0 - tf) * vel_filt[i] + tf * vel[i]
+        
     uv = project_point(K, PROJ,
-                       [ned[0] + vel[0], ned[1] + vel[1], ned[2]+ vel[2]])
+                       [ned[0] + vel_filt[0], ned[1] + vel_filt[1],
+                        ned[2]+ vel_filt[2]])
     if uv != None:
         cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
 
@@ -542,8 +557,8 @@ if args.movie:
                                  interpolation=method)
         frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
 
-        cv2.putText(frame_undist, 'alt = %.0f' % altitude, (100, 100), font, 1.5, (0,255,0), 2,cv2.CV_AA)
-        cv2.putText(frame_undist, 'kts = %.0f' % speed, (100, 150), font, 1.5, (0,255,0), 2,cv2.CV_AA)
+        cv2.putText(frame_undist, 'alt = %.0f' % altitude, (100, 100), font, 1, (0,255,0), 2,cv2.CV_AA)
+        cv2.putText(frame_undist, 'kts = %.0f' % speed, (100, 150), font, 1, (0,255,0), 2,cv2.CV_AA)
 
         draw_horizon(K, PROJ, ned, frame_undist)
         draw_compass_points(K, PROJ, ned, frame_undist)
