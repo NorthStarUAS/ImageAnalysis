@@ -467,6 +467,20 @@ class Image():
                                                      'rzyx')
         self.camera_pose = { 'ned': ned, 'ypr': ypr, 'quat': quat.tolist() }
 
+    # set the camera pose using rvec, tvec (rodrigues) which is the
+    # output of certain cv2 functions like solvePnP()
+    def rvec_to_body2ned(self, rvec):
+        # print "rvec=", rvec
+        Rned2cam, jac = cv2.Rodrigues(rvec)
+
+        # Our Rcam matrix (in our ned coordinate system) is body2cam * Rned,
+        # so solvePnP returns this combination.  We can extract Rned by
+        # premultiplying by cam2body aka inv(body2cam).
+        cam2body = self.get_cam2body()
+        Rned2body = cam2body.dot(Rned2cam)
+        Rbody2ned = np.matrix(Rned2body).T
+        return Rbody2ned
+
     def get_camera_pose(self):
         p = self.camera_pose
         if p and 'ned' in p and 'ypr' in p:
