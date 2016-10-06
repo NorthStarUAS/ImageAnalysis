@@ -308,21 +308,52 @@ def draw_horizon(K, PROJ, ned, frame):
         if uv1 != None and uv2 != None:
             cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
 
-def draw_label(frame, label, uv, font, font_scale, thickness, center='horiz'):
+def draw_label(frame, label, uv, font, font_scale, thickness, center='horiz',
+               side='above'):
         size = cv2.getTextSize(label, font, font_scale, thickness)
         if center == 'horiz':
-            uv = (uv[0] - (size[0][0] / 2), uv[1])
-        cv2.putText(frame, label, uv, font, font_scale, (0,255,0), thickness, cv2.CV_AA)
+            u = uv[0] - (size[0][0] / 2)
+        else:
+            u = uv[0]
+        if side == 'above':
+            v = uv[1]
+        else:
+            v = uv[1] + size[0][1]
+        uv = (u, v)
+        cv2.putText(frame, label, uv, font, font_scale, (0,255,0),
+                    thickness, cv2.CV_AA)
 
-def draw_labeled_point(K, PROJ, frame, ned, label):
+def draw_labeled_point(K, PROJ, frame, ned, label, side='above'):
     uv = project_point(K, PROJ, [ned[0], ned[1], ned[2]])
     if uv != None:
         cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
-    uv = project_point(K, PROJ, [ned[0], ned[1], ned[2] - 0.02])
+    if side == 'above':
+        uv = project_point(K, PROJ, [ned[0], ned[1], ned[2] - 0.02])
+    else:
+        uv = project_point(K, PROJ, [ned[0], ned[1], ned[2] + 0.02])
     if uv != None:
-        draw_label(frame, label, uv, font, 0.8, 1)
+        draw_label(frame, label, uv, font, 0.8, 1, side=side)
 
-                       
+def draw_lla_point(K, PROJ, frame, ned, lla, label):
+    pt_ned = navpy.lla2ned( lla[0], lla[1], lla[2], ref[0], ref[1], ref[2] )
+    rel_ned = [ pt_ned[0] - ned[0], pt_ned[1] - ned[1], pt_ned[2] - ned[2] ]
+    dist = math.sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1]
+                     + rel_ned[2]*rel_ned[2])
+    m2sm = 0.000621371
+    dist_sm = dist * m2sm
+    if dist_sm <= 15.0:
+        if dist_sm <= 7.5:
+            label += " (%.1f)" % dist_sm
+        # normalize, and draw relative to aircraft ned so that label
+        # separation works better
+        rel_ned[0] /= dist
+        rel_ned[1] /= dist
+        rel_ned[2] /= dist
+        draw_labeled_point(K, PROJ, frame,
+                           [ned[0] + rel_ned[0], ned[1] + rel_ned[1],
+                            ned[2] + rel_ned[2]],
+                            label, side='below')
+    
 def draw_compass_points(K, PROJ, ned, frame):
     # 30 Ticks
     divs = 12
@@ -386,6 +417,22 @@ def draw_astro(K, PROJ, ned, frame):
                         ned[2] + moon_ned[2]],
                        'Moon')
 
+def draw_airports(K, PROJ, frame):
+    kmsp = [ 44.882000, -93.221802, 256 ]
+    draw_lla_point(K, PROJ, frame, ned, kmsp, 'KMSP')
+    ksgs = [ 44.857101, -93.032898, 250 ]
+    draw_lla_point(K, PROJ, frame, ned, ksgs, 'KSGS')
+    kstp = [ 44.934502, -93.059998, 215 ]
+    draw_lla_point(K, PROJ, frame, ned, kstp, 'KSTP')
+    my52 = [ 44.718601, -93.044098, 281 ]
+    draw_lla_point(K, PROJ, frame, ned, my52, 'MY52')
+    kfcm = [ 44.827202, -93.457100, 276 ]
+    draw_lla_point(K, PROJ, frame, ned, kfcm, 'KFCM')
+    kane = [ 45.145000, -93.211403, 278 ]
+    draw_lla_point(K, PROJ, frame, ned, kane, 'KANE')
+    mn45 = [ 44.566101, -93.132202, 290 ]
+    draw_lla_point(K, PROJ, frame, ned, mn45, 'MN45')
+    
 def draw_velocity_vector(K, PROJ, ned, frame, vel):
     uv = project_point(K, PROJ,
                        [ned[0] + vel[0], ned[1] + vel[1], ned[2]+ vel[2]])
@@ -501,6 +548,7 @@ if args.movie:
         draw_horizon(K, PROJ, ned, frame_undist)
         draw_compass_points(K, PROJ, ned, frame_undist)
         draw_astro(K, PROJ, ned, frame_undist)
+        draw_airports(K, PROJ, frame_undist)
         draw_velocity_vector(K, PROJ, ned, frame_undist, [vn, ve, vd])
 
         cv2.imshow('hud', frame_undist)
