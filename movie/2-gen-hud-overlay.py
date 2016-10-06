@@ -19,6 +19,9 @@ import re
 #from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy import interpolate # strait up linear interpolation, nothing fancy
 
+from props import PropertyNode, getNode
+import props_json
+
 sys.path.append('../lib')
 import transformations
 
@@ -26,9 +29,8 @@ import transformations
 d2r = math.pi / 180.0
 
 parser = argparse.ArgumentParser(description='correlate movie data to flight data.')
-parser.add_argument('--hud', required=True, help='original movie if drawing hud')
+parser.add_argument('--movie', required=True, help='original movie')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
-parser.add_argument('--movie-log', required=True, help='movie log file')
 parser.add_argument('--resample-hz', type=float, default=30.0, help='resample rate (hz)')
 parser.add_argument('--apm-log', help='APM tlog converted to csv')
 parser.add_argument('--aura-dir', help='Aura flight log directory')
@@ -39,9 +41,22 @@ r2d = 180.0 / math.pi
 counter = 0
 stop_count = 0
 
+# pathname work
+abspath = os.path.abspath(args.movie)
+filename, ext = os.path.splitext(abspath)
+movie_log = filename + ".csv"
+movie_config = filename + ".json"
+
+# load config file if it exists
+config = PropertyNode()
+props_json.load(movie_config, config)
+cam_yaw = config.getFloat('cam_yaw_deg')
+cam_pitch = config.getFloat('cam_pitch_deg')
+cam_roll = config.getFloat('cam_roll_deg')
+
 # load movie log
 movie = []
-with open(args.movie_log, 'rb') as f:
+with open(movie_log, 'rb') as f:
     for line in f:
         movie.append( re.split('[,\s]+', line.rstrip()) )
 
@@ -243,7 +258,7 @@ if mrsum > 0.001:
 print "pitch ratio:", qratio
 print "yaw ratio:", rratio
 
-def compute_sun_ned(lon_deg, lat_deg, alt_m, timestamp):
+def compute_sun_moon_ned(lon_deg, lat_deg, alt_m, timestamp):
     d = datetime.datetime.utcfromtimestamp(timestamp)
     #d = datetime.datetime.utcnow()
     ed = ephem.Date(d)
@@ -257,18 +272,16 @@ def compute_sun_ned(lon_deg, lat_deg, alt_m, timestamp):
     ownship.date = ed
 
     sun = ephem.Sun(ownship)
-    #print sun.ra, sun.dec
-    #print 'sun az/alt:', float(sun.az)*180/3.1415, float(sun.alt)*180/3.1415
+    moon = ephem.Moon(ownship)
 
-    n = math.cos(sun.az)
-    e = math.sin(sun.az)
-    d = -math.sin(sun.alt)
-    #print [n, e, d]
-    return [n, e, d]
+    sun_ned = [ math.cos(sun.az), math.sin(sun.az), -math.sin(sun.alt) ]
+    moon_ned = [ math.cos(moon.az), math.sin(moon.az), -math.sin(moon.alt) ]
+
+    return sun_ned, moon_ned
 
 def project_point(K, PROJ, ned):
     uvh = K.dot( PROJ.dot( [ned[0], ned[1], ned[2], 1.0] ).T )
-    if uvh[2] > 0:
+    if uvh[2] > 0.1:
         uvh /= uvh[2]
         uv = ( int(np.squeeze(uvh[0,0])), int(np.squeeze(uvh[1,0])) )
         return uv
@@ -337,26 +350,40 @@ def draw_compass_points(K, PROJ, ned, frame):
     if uv != None:
         draw_label(frame, 'W', uv, font, 1, 2)
 
-def draw_sun(K, PROJ, ned, frame):
+def draw_astro(K, PROJ, ned, frame):
     lat_deg = float(flight_gps_lat(time))
     lon_deg = float(flight_gps_lon(time))
     alt_m = float(flight_gps_alt(time))
     timestamp = float(flight_gps_unixtime(time))
-    sun_ned = compute_sun_ned(lon_deg, lat_deg, alt_m, timestamp)
-    if sun_ned == None:
+    sun_ned, moon_ned = compute_sun_moon_ned(lon_deg, lat_deg, alt_m,
+                                             timestamp)
+    if sun_ned == None or moon_ned == None:
         return
-    #print sun_ned
+
+    # Sun
     uv = project_point(K, PROJ,
-                       [ned[0] + sun_ned[0], ned[1] + sun_ned[1], ned[2] + sun_ned[2]])
+                       [ned[0] + sun_ned[0], ned[1] + sun_ned[1],
+                        ned[2] + sun_ned[2]])
     if uv != None:
         cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
         draw_label(frame, 'Sun', uv, font, 0.8, 1)
+        
     # shadow
     uv = project_point(K, PROJ,
-                       [ned[0] - sun_ned[0], ned[1] - sun_ned[1], ned[2] - sun_ned[2]])
+                       [ned[0] - sun_ned[0], ned[1] - sun_ned[1],
+                        ned[2] - sun_ned[2]])
     if uv != None:
         cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
         draw_label(frame, 'shadow', uv, font, 0.8, 1)
+        
+    # Moon
+    uv = project_point(K, PROJ,
+                       [ned[0] + moon_ned[0], ned[1] + moon_ned[1],
+                        ned[2] + moon_ned[2]])
+    if uv != None:
+        cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
+        draw_label(frame, 'Moon', uv, font, 0.8, 1)
+        
 
 def draw_velocity_vector(K, PROJ, ned, frame, vel):
     uv = project_point(K, PROJ,
@@ -364,7 +391,7 @@ def draw_velocity_vector(K, PROJ, ned, frame, vel):
     if uv != None:
         cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
 
-if args.hud:
+if args.movie:
     K_RunCamHD2_1920x1080 \
         = np.array( [[ 971.96149426,   0.        , 957.46750602],
                      [   0.        , 971.67133264, 516.50578382],
@@ -381,14 +408,16 @@ if args.hud:
     proj2ned = np.array( [[0, 0, 1], [1, 0, 0], [0, 1, 0]],
                          dtype=float )
     ned2proj = np.linalg.inv(proj2ned)
-    
-    cam_ypr = [-3.0, -12.0, -3.0] # yaw, pitch, roll
-    ref = [44.7260320000, -93.0771072000, 0]
+
+    #cam_ypr = [-3.0, -12.0, -3.0] # yaw, pitch, roll
+    #ref = [44.7260320000, -93.0771072000, 0]
+    ref = [ flight_gps[0][1], flight_gps[0][2], 0.0 ]
+    print 'ned ref:', ref
 
     # overlay hud
-    print "Opening ", args.hud
+    print "Opening ", args.movie
     try:
-        capture = cv2.VideoCapture(args.hud)
+        capture = cv2.VideoCapture(args.movie)
     except:
         print "error opening video"
 
@@ -431,11 +460,11 @@ if args.hud:
         lon_deg = float(flight_gps_lon(time))
         altitude = float(flight_gps_alt(time))
         speed = float(flight_air_speed(time))
-        
-        body2cam = transformations.quaternion_from_euler(cam_ypr[0] * d2r,
-                                                         cam_ypr[1] * d2r,
-                                                         cam_ypr[2] * d2r,
-                                                         'rzyx')
+
+        body2cam = transformations.quaternion_from_euler( cam_yaw * d2r,
+                                                          cam_pitch * d2r,
+                                                          cam_roll * d2r,
+                                                          'rzyx')
 
         #print 'att:', [yaw_rad, pitch_rad, roll_rad]
         ned2body = transformations.quaternion_from_euler(yaw_rad,
@@ -470,7 +499,7 @@ if args.hud:
 
         draw_horizon(K, PROJ, ned, frame_undist)
         draw_compass_points(K, PROJ, ned, frame_undist)
-        draw_sun(K, PROJ, ned, frame_undist)
+        draw_astro(K, PROJ, ned, frame_undist)
         draw_velocity_vector(K, PROJ, ned, frame_undist, [vn, ve, vd])
 
         cv2.imshow('hud', frame_undist)
@@ -478,23 +507,29 @@ if args.hud:
         if key == 27:
             break
         elif key == ord('y'):
-            cam_ypr[0] += 0.5
-            print cam_ypr
+            cam_yaw += 0.5
+            config.setFloat('cam_yaw_deg', cam_yaw)
+            props_json.save(movie_config, config)
         elif key == ord('Y'):
-            cam_ypr[0] -= 0.5
-            print cam_ypr
+            cam_yaw -= 0.5
+            config.setFloat('cam_yaw_deg', cam_yaw)
+            props_json.save(movie_config, config)
         elif key == ord('p'):
-            cam_ypr[1] += 0.5
-            print cam_ypr
+            cam_pitch += 0.5
+            config.setFloat('cam_pitch_deg', cam_pitch)
+            props_json.save(movie_config, config)
         elif key == ord('P'):
-            cam_ypr[1] -= 0.5
-            print cam_ypr
+            cam_pitch -= 0.5
+            config.setFloat('cam_pitch_deg', cam_pitch)
+            props_json.save(movie_config, config)
         elif key == ord('r'):
-            cam_ypr[2] += 0.5
-            print cam_ypr
+            cam_roll -= 0.5
+            config.setFloat('cam_roll_deg', cam_roll)
+            props_json.save(movie_config, config)
         elif key == ord('R'):
-            cam_ypr[2] -= 0.5
-            print cam_ypr
+            cam_roll += 0.5
+            config.setFloat('cam_roll_deg', cam_roll)
+            props_json.save(movie_config, config)
 
 
 # plot the data ...
