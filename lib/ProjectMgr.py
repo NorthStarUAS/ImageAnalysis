@@ -251,10 +251,10 @@ class ProjectMgr():
         bar.finish()
 
     def load_match_pairs(self):
+        print ""
         print "Notice: this routine is depricated for most purposes, unless"
         print "resetting the match state of the system back to the original"
         print "set of found matches."
-        print ""
         time.sleep(2)
         bar = Bar('Loading keypoint (pair) matches:',
                   max = len(self.image_list))
@@ -430,20 +430,37 @@ class ProjectMgr():
             
         return uv_distorted
     
+    def compute_kp_usage(self, all=False):
+        print "Determing feature usage in matching pairs..."
+        # but they may have different scaling or other attributes important
+        # during feature matching
+        if all:
+            for image in self.image_list:
+                image.kp_used = np.ones(len(image.kp_list), np.bool_)
+        else:
+            for image in self.image_list:
+                image.kp_used = np.zeros(len(image.kp_list), np.bool_)
+            for i1 in self.image_list:
+                for j, matches in enumerate(i1.match_list):
+                    i2 = self.image_list[j]
+                    for k, pair in enumerate(matches):
+                        i1.kp_used[ pair[0] ] = True
+                        i2.kp_used[ pair[1] ] = True
+                    
+    def compute_kp_usage_new(self, matches_direct):
+        print "Determing feature usage in matching pairs..."
+        for image in self.image_list:
+            image.kp_used = np.zeros(len(image.kp_list), np.bool_)
+        for match in matches_direct:
+            for p in match[1:]:
+                image = self.image_list[ p[0] ]
+                image.kp_used[ p[1] ] = True
+                    
     # project the list of (u, v) pixels from image space into camera
     # space, remap that to a vector in ned space (for camera
     # ypr=[0,0,0], and then transform that by the camera pose, returns
     # the vector from the camera, through the pixel, into ned space
-    def projectVectors(self, IK, image, uv_list, pose='direct'):
-        if pose == 'direct':
-            body2ned = image.get_body2ned() # IR
-        elif pose == 'sba':
-            body2ned = image.get_body2ned_sba() # IR
-        # M is a transform to map the lens coordinate system (at zero
-        # roll/pitch/yaw to the ned coordinate system at zero
-        # roll/pitch/yaw).  It is essentially a +90 pitch followed by
-        # +90 roll (or equivalently a +90 yaw followed by +90 pitch.)
-        cam2body = image.get_cam2body()
+    def projectVectors(self, IK, body2ned, cam2body, uv_list, pose='direct'):
         proj_list = []
         for uv in uv_list:
             uvh = np.array([uv[0], uv[1], 1.0])
@@ -475,23 +492,6 @@ class ProjectMgr():
             pt_list.append(p)
         return pt_list
 
-    def compute_kp_usage(self, all=False):
-        print "Determing feature usage in matching pairs..."
-        # but they may have different scaling or other attributes important
-        # during feature matching
-        if all:
-            for image in self.image_list:
-                image.kp_used = np.ones(len(image.kp_list), np.bool_)
-        else:
-            for image in self.image_list:
-                image.kp_used = np.zeros(len(image.kp_list), np.bool_)
-            for i1 in self.image_list:
-                for j, matches in enumerate(i1.match_list):
-                    i2 = self.image_list[j]
-                    for k, pair in enumerate(matches):
-                        i1.kp_used[ pair[0] ] = True
-                        i2.kp_used[ pair[1] ] = True
-                    
     # build an interpolation table for 'fast' projection of keypoints
     # into 3d world space
     #
@@ -502,7 +502,7 @@ class ProjectMgr():
     # 5. use linearndinterpolator ... g = scipy.interpolate.LinearNDInterpolator([[0,0],[1,0],[0,1],[1,1]], [[0,4,8],[1,3,2],[2,2,-4],[4,1,0]])
     #    with origin uv vs. 3d location to build a table
     # 6. interpolate original uv coordinates to 3d locations
-    def fastProjectKeypointsTo3d(self, sss):
+    def fastProjectKeypointsTo3d(self, sss, cam_dict=None):
         bar = Bar('Projecting keypoints to 3d:',
                   max = len(self.image_list))
         for image in self.image_list:
@@ -537,10 +537,26 @@ class ProjectMgr():
                 uv_filt.append(p)
             
             # project the grid out into vectors
-            vec_list = self.projectVectors(IK, image, uv_filt)
+            if cam_dict == None:
+                body2ned = image.get_body2ned() # IR
+            else:
+                body2ned = image.rvec_to_body2ned(cam_dict[image.name]['rvec'])
+                
+            # M is a transform to map the lens coordinate system (at
+            # zero roll/pitch/yaw to the ned coordinate system at zero
+            # roll/pitch/yaw).  It is essentially a +90 pitch followed
+            # by +90 roll (or equivalently a +90 yaw followed by +90
+            # pitch.)
+            cam2body = image.get_cam2body()
+            
+            vec_list = self.projectVectors(IK, body2ned, cam2body, uv_filt)
 
             # intersect the vectors with the surface to find the 3d points
-            coord_list = sss.interpolate_vectors(image.camera_pose, vec_list)
+            if cam_dict == None:
+                ned = image.camera_pose['ned']
+            else:
+                ned = cam_dict[image.name]['ned']
+            coord_list = sss.interpolate_vectors(ned, vec_list)
 
             # filter the coordinate list for bad interpolation
             coord_filt = []
