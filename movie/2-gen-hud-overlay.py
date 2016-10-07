@@ -442,6 +442,14 @@ def draw_airports(K, PROJ, frame):
     mn18 = [ 45.187199, -93.130501, 276 ]
     draw_lla_point(K, PROJ, frame, ned, mn18, 'MN18')
 
+def draw_nose(K, PROJ, ned, frame, body2ned):
+    vec = transformations.quaternion_transform(body2ned, [1.0, 0.0, 0.0])
+    uv = project_point(K, PROJ,
+                       [ned[0] + vec[0], ned[1] + vec[1], ned[2]+ vec[2]])
+    if uv != None:
+        cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
+
+    
 vel_filt = [0.0, 0.0, 0.0]
 def draw_velocity_vector(K, PROJ, ned, frame, vel):
     tf = 0.05
@@ -534,6 +542,8 @@ if args.movie:
                                                          pitch_rad,
                                                          roll_rad,
                                                          'rzyx')
+        body2ned = transformations.quaternion_inverse(ned2body)
+        
         #print 'ned2body(q):', ned2body
         ned2cam_q = transformations.quaternion_multiply(ned2body, body2cam)
         ned2cam = np.matrix(transformations.quaternion_matrix(np.array(ned2cam_q))[:3,:3]).T
@@ -565,7 +575,8 @@ if args.movie:
         draw_astro(K, PROJ, ned, frame_undist)
         draw_airports(K, PROJ, frame_undist)
         draw_velocity_vector(K, PROJ, ned, frame_undist, [vn, ve, vd])
-
+        draw_nose(K, PROJ, ned, frame_undist, body2ned)
+        
         cv2.imshow('hud', frame_undist)
         key = cv2.waitKey(5) & 0xFF
         if key == 27:
