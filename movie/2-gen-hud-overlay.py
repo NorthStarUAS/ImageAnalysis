@@ -46,7 +46,7 @@ abspath = os.path.abspath(args.movie)
 filename, ext = os.path.splitext(abspath)
 movie_log = filename + ".csv"
 movie_config = filename + ".json"
-output_avi = filename + "_hud.mov"
+output_avi = filename + "_hud.avi"
 
 # load config file if it exists
 config = PropertyNode()
@@ -464,15 +464,25 @@ def draw_velocity_vector(K, PROJ, ned, frame, vel):
         cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
 
 if args.movie:
+    K_Mobius_1080p \
+        = np.array( [[1362.1,    0.0, 980.8],
+                     [   0.0, 1272.8, 601.3],
+                     [   0.0,    0.0,   1.0]] )
+    dist_mobius = [-0.36207197, 0.14627927, -0.00674558, 0.0008926, -0.02635695]
+
     K_RunCamHD2_1920x1080 \
         = np.array( [[ 971.96149426,   0.        , 957.46750602],
                      [   0.        , 971.67133264, 516.50578382],
                      [   0.        ,   0.        ,   1.        ]] )
     dist_runcamhd2_1920x1080 = [-0.26910665, 0.10580125, 0.00048417, 0.00000925, -0.02321387]
-    K = K_RunCamHD2_1920x1080 * args.scale
+    
+    # K = K_RunCamHD2_1920x1080 * args.scale
+    # K[2,2] = 1.0
+    # dist = dist_runcamhd2_1920x1080
+
+    K = K_Mobius_1080p * args.scale
     K[2,2] = 1.0
-    print K
-    dist = dist_runcamhd2_1920x1080
+    dist = dist_mobius
 
     font = cv2.FONT_HERSHEY_SIMPLEX
 
@@ -504,9 +514,12 @@ if args.movie:
     h = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT) * args.scale )
 
     #outfourcc = cv2.cv.CV_FOURCC('M', 'J', 'P', 'G')
-    outfourcc = cv2.cv.CV_FOURCC('H', '2', '6', '4')
+    #outfourcc = cv2.cv.CV_FOURCC('H', '2', '6', '4')
+    #outfourcc = cv2.cv.CV_FOURCC('X', '2', '6', '4')
+    outfourcc = cv2.cv.CV_FOURCC('X', 'V', 'I', 'D')
+    # outfourcc = 0x21
     print outfourcc, fps, w, h
-    output = cv2.VideoWriter(output_avi, outfourcc, fps, (w, h))
+    output = cv2.VideoWriter(output_avi, outfourcc, fps, (w, h), isColor=True)
 
     last_time = 0.0
 
