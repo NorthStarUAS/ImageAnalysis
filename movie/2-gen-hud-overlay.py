@@ -46,6 +46,7 @@ abspath = os.path.abspath(args.movie)
 filename, ext = os.path.splitext(abspath)
 movie_log = filename + ".csv"
 movie_config = filename + ".json"
+output_avi = filename + "_hud.mov"
 
 # load config file if it exists
 config = PropertyNode()
@@ -499,8 +500,13 @@ if args.movie:
     fps = capture.get(cv2.cv.CV_CAP_PROP_FPS)
     print "fps = %.2f" % fps
     fourcc = int(capture.get(cv2.cv.CV_CAP_PROP_FOURCC))
-    w = capture.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH)
-    h = capture.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT)
+    w = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH) * args.scale )
+    h = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT) * args.scale )
+
+    #outfourcc = cv2.cv.CV_FOURCC('M', 'J', 'P', 'G')
+    outfourcc = cv2.cv.CV_FOURCC('H', '2', '6', '4')
+    print outfourcc, fps, w, h
+    output = cv2.VideoWriter(output_avi, outfourcc, fps, (w, h))
 
     last_time = 0.0
 
@@ -578,6 +584,8 @@ if args.movie:
         draw_nose(K, PROJ, ned, frame_undist, body2ned)
         
         cv2.imshow('hud', frame_undist)
+        output.write(frame_undist)
+        
         key = cv2.waitKey(5) & 0xFF
         if key == 27:
             break
@@ -606,39 +614,41 @@ if args.movie:
             config.setFloat('cam_roll_deg', cam_roll)
             props_json.save(movie_config, config)
 
+cv2.destroyAllWindows()
 
-# plot the data ...
-plt.figure(1)
-plt.ylabel('roll rate (deg per sec)')
-plt.xlabel('flight time (sec)')
-plt.plot(movie[:,0] + time_shift, movie[:,2]*r2d, label='estimate from flight movie')
-if args.apm_log:
+if args.plot:
+    # plot the data ...
+    plt.figure(1)
+    plt.ylabel('roll rate (deg per sec)')
+    plt.xlabel('flight time (sec)')
+    plt.plot(movie[:,0] + time_shift, movie[:,2]*r2d, label='estimate from flight movie')
+    if args.apm_log:
+        plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
+    else:
+        plt.plot(flight_imu[:,0], flight_imu[:,1]*r2d, label='flight data log')
+    #plt.plot(movie_interp[:,1])
+    #plt.plot(flight_interp[:,1])
+    plt.legend()
+
+    plt.figure(2)
+    plt.plot(ycorr)
+
+    plt.figure(3)
+    plt.ylabel('pitch rate (deg per sec)')
+    plt.xlabel('flight time (sec)')
+    plt.plot(movie[:,0] + time_shift, (movie[:,3]/qratio)*r2d, label='estimate from flight movie')
+    plt.plot(flight_imu[:,0], flight_imu[:,2]*r2d, label='flight data log')
+    #plt.plot(movie_interp[:,1])
+    #plt.plot(flight_interp[:,1])
+    plt.legend()
+
+    plt.figure(4)
+    plt.ylabel('yaw rate (deg per sec)')
+    plt.xlabel('flight time (sec)')
+    plt.plot(movie[:,0] + time_shift, (movie[:,4]/rratio)*r2d, label='estimate from flight movie')
     plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
-else:
-    plt.plot(flight_imu[:,0], flight_imu[:,1]*r2d, label='flight data log')
-#plt.plot(movie_interp[:,1])
-#plt.plot(flight_interp[:,1])
-plt.legend()
+    #plt.plot(movie_interp[:,1])
+    #plt.plot(flight_interp[:,1])
+    plt.legend()
 
-plt.figure(2)
-plt.plot(ycorr)
-
-plt.figure(3)
-plt.ylabel('pitch rate (deg per sec)')
-plt.xlabel('flight time (sec)')
-plt.plot(movie[:,0] + time_shift, (movie[:,3]/qratio)*r2d, label='estimate from flight movie')
-plt.plot(flight_imu[:,0], flight_imu[:,2]*r2d, label='flight data log')
-#plt.plot(movie_interp[:,1])
-#plt.plot(flight_interp[:,1])
-plt.legend()
-
-plt.figure(4)
-plt.ylabel('yaw rate (deg per sec)')
-plt.xlabel('flight time (sec)')
-plt.plot(movie[:,0] + time_shift, (movie[:,4]/rratio)*r2d, label='estimate from flight movie')
-plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
-#plt.plot(movie_interp[:,1])
-#plt.plot(flight_interp[:,1])
-plt.legend()
-
-plt.show()
+    plt.show()
