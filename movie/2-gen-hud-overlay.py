@@ -309,6 +309,33 @@ def draw_horizon(K, PROJ, ned, frame):
         if uv1 != None and uv2 != None:
             cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
 
+def ladder_helper(q0, a0, a1):
+    q1 = transformations.quaternion_from_euler(a1*d2r, a0*d2r, 0.0, 'rzyx')
+    q = transformations.quaternion_multiply(q1, q0)
+    v = transformations.quaternion_transform(q, [1.0, 0.0, 0.0])
+    uv = project_point(K, PROJ,
+                        [ned[0] + v[0], ned[1] + v[1], ned[2] + v[2]])
+    return uv
+
+def draw_pitch_ladder(K, PROJ, ned, frame, yaw_rad):
+    a1 = 2.0
+    a2 = 5.0
+    q0 = transformations.quaternion_about_axis(yaw_rad, [0.0, 0.0, -1.0])
+    for a0 in range(-25,25,5):
+        q1 = transformations.quaternion_from_euler(-a2*d2r, a0*d2r, 0.0, 'rzyx')
+        print 'q1:', q1
+        q = transformations.quaternion_multiply(q1, q0)
+        v1 = transformations.quaternion_transform(q, [1.0, 0.0, 0.0])
+        q2 = transformations.quaternion_from_euler(a2*d2r, a0*d2r, 0.0, 'rzyx')
+        q = transformations.quaternion_multiply(q2, q0)
+        v2 = transformations.quaternion_transform(q, [1.0, 0.0, 0.0])
+        uv1 = project_point(K, PROJ,
+                            [ned[0] + v1[0], ned[1] + v1[1], ned[2] + v1[2]])
+        uv2 = project_point(K, PROJ,
+                            [ned[0] + v2[0], ned[1] + v2[1], ned[2] + v2[2]])
+        if uv1 != None and uv2 != None:
+            cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+
 def draw_label(frame, label, uv, font, font_scale, thickness, center='horiz',
                side='above'):
         size = cv2.getTextSize(label, font, font_scale, thickness)
@@ -445,6 +472,7 @@ def draw_airports(K, PROJ, frame):
 
 def draw_nose(K, PROJ, ned, frame, body2ned):
     vec = transformations.quaternion_transform(body2ned, [1.0, 0.0, 0.0])
+    print 'nose vec:', vec
     uv = project_point(K, PROJ,
                        [ned[0] + vec[0], ned[1] + vec[1], ned[2]+ vec[2]])
     if uv != None:
@@ -471,16 +499,16 @@ if args.movie:
     # dist = [-0.36207197, 0.14627927, -0.00674558, 0.0008926, -0.02635695]
 
     # RunCamHD2 1920x1080
-    # K = np.array( [[ 971.96149426,   0.        , 957.46750602],
-    #                [   0.        , 971.67133264, 516.50578382],
-    #                [   0.        ,   0.        ,   1.        ]] )
-    # dist = [-0.26910665, 0.10580125, 0.00048417, 0.00000925, -0.02321387]
+    K = np.array( [[ 971.96149426,   0.        , 957.46750602],
+                   [   0.        , 971.67133264, 516.50578382],
+                   [   0.        ,   0.        ,   1.        ]] )
+    dist = [-0.26910665, 0.10580125, 0.00048417, 0.00000925, -0.02321387]
 
     # Runcamhd2 1920x1440
-    K = [[ 1296.11187055,     0.        ,   955.43024994],
-         [    0.        ,  1296.01457451,   691.47053988],
-         [    0.        ,     0.        ,     1.        ]]
-    dist = [-0.28250371, 0.14064665, 0.00061846, 0.00014488, -0.05106045]
+    # K = np.array( [[ 1296.11187055,     0.        ,   955.43024994],
+    #                [    0.        ,  1296.01457451,   691.47053988],
+    #                [    0.        ,     0.        ,     1.        ]] )
+    # dist = [-0.28250371, 0.14064665, 0.00061846, 0.00014488, -0.05106045]
     
     K = K * args.scale
     K[2,2] = 1.0
@@ -592,6 +620,7 @@ if args.movie:
 
         draw_horizon(K, PROJ, ned, frame_undist)
         draw_compass_points(K, PROJ, ned, frame_undist)
+        draw_pitch_ladder(K, PROJ, ned, frame_undist, yaw_rad)
         draw_astro(K, PROJ, ned, frame_undist)
         draw_airports(K, PROJ, frame_undist)
         draw_velocity_vector(K, PROJ, ned, frame_undist, [vn, ve, vd])
