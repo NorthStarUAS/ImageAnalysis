@@ -310,7 +310,7 @@ def draw_horizon(K, PROJ, ned, frame):
             cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
 
 def ladder_helper(q0, a0, a1):
-    q1 = transformations.quaternion_from_euler(a1*d2r, a0*d2r, 0.0, 'rzyx')
+    q1 = transformations.quaternion_from_euler(-a1*d2r, -a0*d2r, 0.0, 'rzyx')
     q = transformations.quaternion_multiply(q1, q0)
     v = transformations.quaternion_transform(q, [1.0, 0.0, 0.0])
     uv = project_point(K, PROJ,
@@ -319,48 +319,105 @@ def ladder_helper(q0, a0, a1):
 
 def draw_pitch_ladder(K, PROJ, ned, frame, yaw_rad):
     a1 = 2.0
-    a2 = 5.0
+    a2 = 8.0
     q0 = transformations.quaternion_about_axis(yaw_rad, [0.0, 0.0, -1.0])
-    for a0 in range(-25,25,5):
-        q1 = transformations.quaternion_from_euler(-a2*d2r, a0*d2r, 0.0, 'rzyx')
-        print 'q1:', q1
-        q = transformations.quaternion_multiply(q1, q0)
-        v1 = transformations.quaternion_transform(q, [1.0, 0.0, 0.0])
-        q2 = transformations.quaternion_from_euler(a2*d2r, a0*d2r, 0.0, 'rzyx')
-        q = transformations.quaternion_multiply(q2, q0)
-        v2 = transformations.quaternion_transform(q, [1.0, 0.0, 0.0])
-        uv1 = project_point(K, PROJ,
-                            [ned[0] + v1[0], ned[1] + v1[1], ned[2] + v1[2]])
-        uv2 = project_point(K, PROJ,
-                            [ned[0] + v2[0], ned[1] + v2[1], ned[2] + v2[2]])
+    for a0 in range(5,35,5):
+        # above horizon
+        
+        # right horizontal
+        uv1 = ladder_helper(q0, a0, a1)
+        uv2 = ladder_helper(q0, a0, a2)
+        if uv1 != None and uv2 != None:
+            cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+            du = uv2[0] - uv1[0]
+            dv = uv2[1] - uv1[1]
+            uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
+            draw_label(frame, "%d" % a0, uv, font, 0.6, 1)
+        # right tick
+        uv1 = ladder_helper(q0, a0-0.5, a1)
+        uv2 = ladder_helper(q0, a0, a1)
+        if uv1 != None and uv2 != None:
+            cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+        # left horizontal
+        uv1 = ladder_helper(q0, a0, -a1)
+        uv2 = ladder_helper(q0, a0, -a2)
+        if uv1 != None and uv2 != None:
+            cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+            du = uv2[0] - uv1[0]
+            dv = uv2[1] - uv1[1]
+            uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
+            draw_label(frame, "%d" % a0, uv, font, 0.6, 1)
+        # left tick
+        uv1 = ladder_helper(q0, a0-0.5, -a1)
+        uv2 = ladder_helper(q0, a0, -a1)
+        if uv1 != None and uv2 != None:
+            cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+            
+        # below horizon
+        
+        # right horizontal
+        uv1 = ladder_helper(q0, -a0, a1)
+        uv2 = ladder_helper(q0, -a0-0.5, a2)
+        if uv1 != None and uv2 != None:
+            du = uv2[0] - uv1[0]
+            dv = uv2[1] - uv1[1]
+            for i in range(0,3):
+                tmp1 = ( uv1[0] + int(0.375*i*du), uv1[1] + int(0.375*i*dv) )
+                tmp2 = ( tmp1[0] + int(0.25*du), tmp1[1] + int(0.25*dv) )
+                cv2.line(frame, tmp1, tmp2, (0,240,0), 1, cv2.CV_AA)
+            uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
+            draw_label(frame, "%d" % a0, uv, font, 0.6, 1)
+
+        # right tick
+        uv1 = ladder_helper(q0, -a0+0.5, a1)
+        uv2 = ladder_helper(q0, -a0, a1)
+        if uv1 != None and uv2 != None:
+            cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+        # left horizontal
+        uv1 = ladder_helper(q0, -a0, -a1)
+        uv2 = ladder_helper(q0, -a0-0.5, -a2)
+        if uv1 != None and uv2 != None:
+            du = uv2[0] - uv1[0]
+            dv = uv2[1] - uv1[1]
+            for i in range(0,3):
+                tmp1 = ( uv1[0] + int(0.375*i*du), uv1[1] + int(0.375*i*dv) )
+                tmp2 = ( tmp1[0] + int(0.25*du), tmp1[1] + int(0.25*dv) )
+                cv2.line(frame, tmp1, tmp2, (0,240,0), 1, cv2.CV_AA)
+            uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
+            draw_label(frame, "%d" % a0, uv, font, 0.6, 1)
+        # left tick
+        uv1 = ladder_helper(q0, -a0+0.5, -a1)
+        uv2 = ladder_helper(q0, -a0, -a1)
         if uv1 != None and uv2 != None:
             cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
 
-def draw_label(frame, label, uv, font, font_scale, thickness, center='horiz',
-               side='above'):
+def draw_label(frame, label, uv, font, font_scale, thickness, horiz='center',
+               vert='center'):
         size = cv2.getTextSize(label, font, font_scale, thickness)
-        if center == 'horiz':
+        if horiz == 'center':
             u = uv[0] - (size[0][0] / 2)
         else:
             u = uv[0]
-        if side == 'above':
+        if vert == 'above':
             v = uv[1]
-        else:
+        elif vert == 'below':
             v = uv[1] + size[0][1]
+        elif vert == 'center':
+            v = uv[1] + (size[0][1] / 2)
         uv = (u, v)
         cv2.putText(frame, label, uv, font, font_scale, (0,255,0),
                     thickness, cv2.CV_AA)
 
-def draw_labeled_point(K, PROJ, frame, ned, label, scale=1, side='above'):
+def draw_labeled_point(K, PROJ, frame, ned, label, scale=1, vert='above'):
     uv = project_point(K, PROJ, [ned[0], ned[1], ned[2]])
     if uv != None:
         cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
-    if side == 'above':
+    if vert == 'above':
         uv = project_point(K, PROJ, [ned[0], ned[1], ned[2] - 0.02])
     else:
         uv = project_point(K, PROJ, [ned[0], ned[1], ned[2] + 0.02])
     if uv != None:
-        draw_label(frame, label, uv, font, scale, 1, side=side)
+        draw_label(frame, label, uv, font, scale, 1, vert=vert)
 
 def draw_lla_point(K, PROJ, frame, ned, lla, label):
     pt_ned = navpy.lla2ned( lla[0], lla[1], lla[2], ref[0], ref[1], ref[2] )
@@ -381,7 +438,7 @@ def draw_lla_point(K, PROJ, frame, ned, lla, label):
         draw_labeled_point(K, PROJ, frame,
                            [ned[0] + rel_ned[0], ned[1] + rel_ned[1],
                             ned[2] + rel_ned[2]],
-                            label, scale=scale, side='below')
+                            label, scale=scale, vert='below')
     
 def draw_compass_points(K, PROJ, ned, frame):
     # 30 Ticks
@@ -402,22 +459,22 @@ def draw_compass_points(K, PROJ, ned, frame):
     uv = project_point(K, PROJ,
                        [ned[0] + 1.0, ned[1] + 0.0, ned[2] - 0.03])
     if uv != None:
-        draw_label(frame, 'N', uv, font, 1, 2)
+        draw_label(frame, 'N', uv, font, 1, 2, vert='above')
     # South
     uv = project_point(K, PROJ,
                        [ned[0] - 1.0, ned[1] + 0.0, ned[2] - 0.03])
     if uv != None:
-        draw_label(frame, 'S', uv, font, 1, 2)
+        draw_label(frame, 'S', uv, font, 1, 2, vert='above')
     # East
     uv = project_point(K, PROJ,
                        [ned[0] + 0.0, ned[1] + 1.0, ned[2] - 0.03])
     if uv != None:
-        draw_label(frame, 'E', uv, font, 1, 2)
+        draw_label(frame, 'E', uv, font, 1, 2, vert='above')
     # West
     uv = project_point(K, PROJ,
                        [ned[0] + 0.0, ned[1] - 1.0, ned[2] - 0.03])
     if uv != None:
-        draw_label(frame, 'W', uv, font, 1, 2)
+        draw_label(frame, 'W', uv, font, 1, 2, vert='above')
 
 def draw_astro(K, PROJ, ned, frame):
     lat_deg = float(flight_gps_lat(time))
@@ -472,7 +529,6 @@ def draw_airports(K, PROJ, frame):
 
 def draw_nose(K, PROJ, ned, frame, body2ned):
     vec = transformations.quaternion_transform(body2ned, [1.0, 0.0, 0.0])
-    print 'nose vec:', vec
     uv = project_point(K, PROJ,
                        [ned[0] + vec[0], ned[1] + vec[1], ned[2]+ vec[2]])
     if uv != None:
