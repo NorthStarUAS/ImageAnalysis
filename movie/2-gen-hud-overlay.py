@@ -65,6 +65,7 @@ flight_imu = []
 flight_gps = []
 flight_filter = []
 flight_air = []
+flight_ap = []
 last_imu_time = -1
 last_gps_time = -1
 
@@ -105,6 +106,7 @@ elif args.aura_dir:
     gps_file = args.aura_dir + "/gps-0.txt"
     filter_file = args.aura_dir + "/filter-0.txt"
     air_file = args.aura_dir + "/air-0.txt"
+    ap_file = args.aura_dir + "/ap-0.txt"
     
     last_time = 0.0
     with open(imu_file, 'rb') as f:
@@ -158,6 +160,19 @@ elif args.aura_dir:
             if timestamp > last_time:
                 flight_air.append( [tokens[0], tokens[1], tokens[2],
                                     tokens[3]] )
+            else:
+                print "ERROR: time went backwards:", timestamp, last_time
+            last_time = timestamp
+            
+    last_time = 0.0
+    with open(ap_file, 'rb') as f:
+        for line in f:
+            #print line
+            tokens = re.split('[,\s]+', line.rstrip())
+            timestamp = float(tokens[0])
+            #print timestamp, last_time
+            if timestamp > last_time:
+                flight_ap.append( tokens )
             else:
                 print "ERROR: time went backwards:", timestamp, last_time
             last_time = timestamp
@@ -218,6 +233,11 @@ flight_filter_yaw = interpolate.interp1d(x, flight_filter[:,9], bounds_error=Fal
 flight_air = np.array(flight_air, dtype=np.float64)
 x = flight_air[:,0]
 flight_air_speed = interpolate.interp1d(x, flight_air[:,3], bounds_error=False, fill_value=0.0)
+
+flight_ap = np.array(flight_ap, dtype=np.float64)
+x = flight_ap[:,0]
+flight_ap_roll = interpolate.interp1d(x, flight_ap[:,2], bounds_error=False, fill_value=0.0)
+flight_ap_pitch = interpolate.interp1d(x, flight_ap[:,5], bounds_error=False, fill_value=0.0)
 
 # compute best correlation between movie and flight data logs
 movie_interp = np.array(movie_interp, dtype=float)
@@ -390,6 +410,78 @@ def draw_pitch_ladder(K, PROJ, ned, frame, yaw_rad):
         uv2 = ladder_helper(q0, -a0, -a1)
         if uv1 != None and uv2 != None:
             cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+
+def rotate_pt(p, center, a):
+    x = math.cos(a) * (p[0]-center[0]) - math.sin(a) * (p[1]-center[1]) + center[0]
+
+    y = math.sin(a) * (p[0]-center[0]) + math.cos(a) * (p[1]-center[1]) + center[1]
+    return (int(x), int(y))
+    
+def draw_vbars(K, PROJ, ned, frame, yaw_rad, ap_roll, ap_pitch):
+    a1 = 10.0
+    a2 = 1.5
+    a3 = 3.0
+    q0 = transformations.quaternion_about_axis(yaw_rad, [0.0, 0.0, -1.0])
+    a0 = ap_pitch
+
+    # center point
+    center = ladder_helper(q0, a0, 0.0)
+    
+    # right vbar
+    tmp1 = ladder_helper(q0, a0-a3, a1)
+    tmp2 = ladder_helper(q0, a0-a3, a1+a3)
+    tmp3 = ladder_helper(q0, a0-a2, a1+a3)
+    uv1 = rotate_pt(tmp1, center, ap_roll*d2r - cam_roll*d2r)
+    uv2 = rotate_pt(tmp2, center, ap_roll*d2r - cam_roll*d2r)
+    uv3 = rotate_pt(tmp2, center, ap_roll*d2r - cam_roll*d2r)
+    if uv1 != None and uv2 != None and uv3 != None:
+        cv2.line(frame, center, uv1, (0,240,0), 1, cv2.CV_AA)
+        cv2.line(frame, center, uv3, (0,240,0), 1, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+        cv2.line(frame, uv1, uv3, (0,240,0), 1, cv2.CV_AA)
+        cv2.line(frame, uv2, uv3, (0,240,0), 1, cv2.CV_AA)
+    # left vbar
+    tmp1 = ladder_helper(q0, a0-a3, -a1)
+    tmp2 = ladder_helper(q0, a0-a3, -a1-a3)
+    tmp3 = ladder_helper(q0, a0-a2, -a1-a3)
+    uv1 = rotate_pt(tmp1, center, ap_roll*d2r - cam_roll*d2r)
+    uv2 = rotate_pt(tmp2, center, ap_roll*d2r - cam_roll*d2r)
+    uv3 = rotate_pt(tmp2, center, ap_roll*d2r - cam_roll*d2r)
+    if uv1 != None and uv2 != None and uv3 != None:
+        cv2.line(frame, center, uv1, (0,240,0), 1, cv2.CV_AA)
+        cv2.line(frame, center, uv3, (0,240,0), 1, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+        cv2.line(frame, uv1, uv3, (0,240,0), 1, cv2.CV_AA)
+        cv2.line(frame, uv2, uv3, (0,240,0), 1, cv2.CV_AA)
+
+def draw_bird(K, PROJ, ned, frame, yaw_rad, pitch_rad, roll_rad):
+    a1 = 10.0
+    a2 = 3.0
+    a2 = 3.0
+    q0 = transformations.quaternion_about_axis(yaw_rad, [0.0, 0.0, -1.0])
+    a0 = pitch_rad*r2d
+
+    # center point
+    center = ladder_helper(q0, pitch_rad*r2d, 0.0)
+    
+    # right vbar
+    tmp1 = ladder_helper(q0, a0-a2, a1)
+    tmp2 = ladder_helper(q0, a0-a2, a1-a2)
+    uv1 = rotate_pt(tmp1, center, roll_rad - cam_roll*d2r)
+    uv2 = rotate_pt(tmp2, center, roll_rad - cam_roll*d2r)
+    if uv1 != None and uv2 != None:
+        cv2.line(frame, center, uv1, (0,240,0), 1, cv2.CV_AA)
+        cv2.line(frame, center, uv2, (0,240,0), 1, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+    # left vbar
+    tmp1 = ladder_helper(q0, a0-a2, -a1)
+    tmp2 = ladder_helper(q0, a0-a2, -a1+a2)
+    uv1 = rotate_pt(tmp1, center, roll_rad - cam_roll*d2r)
+    uv2 = rotate_pt(tmp2, center, roll_rad - cam_roll*d2r)
+    if uv1 != None and uv2 != None:
+        cv2.line(frame, center, uv1, (0,240,0), 1, cv2.CV_AA)
+        cv2.line(frame, center, uv2, (0,240,0), 1, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
 
 def draw_label(frame, label, uv, font, font_scale, thickness, horiz='center',
                vert='center'):
@@ -635,6 +727,8 @@ if args.movie:
         lon_deg = float(flight_gps_lon(time))
         altitude = float(flight_gps_alt(time))
         speed = float(flight_air_speed(time))
+        ap_roll = float(flight_ap_roll(time))
+        ap_pitch = float(flight_ap_pitch(time))
 
         body2cam = transformations.quaternion_from_euler( cam_yaw * d2r,
                                                           cam_pitch * d2r,
@@ -677,10 +771,12 @@ if args.movie:
         draw_horizon(K, PROJ, ned, frame_undist)
         draw_compass_points(K, PROJ, ned, frame_undist)
         draw_pitch_ladder(K, PROJ, ned, frame_undist, yaw_rad)
+        draw_vbars(K, PROJ, ned, frame_undist, yaw_rad, ap_roll, ap_pitch)
+        draw_bird(K, PROJ, ned, frame_undist, yaw_rad, pitch_rad, roll_rad)
         draw_astro(K, PROJ, ned, frame_undist)
         draw_airports(K, PROJ, frame_undist)
         draw_velocity_vector(K, PROJ, ned, frame_undist, [vn, ve, vd])
-        draw_nose(K, PROJ, ned, frame_undist, body2ned)
+        #draw_nose(K, PROJ, ned, frame_undist, body2ned)
         
         cv2.imshow('hud', frame_undist)
         output.write(frame_undist)
