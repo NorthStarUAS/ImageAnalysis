@@ -192,6 +192,11 @@ elif args.aura_dir:
             timestamp = float(tokens[0])
             #print timestamp, last_time
             if timestamp > last_time:
+                hdg = float(tokens[1])
+                hdg_x = math.cos(hdg*d2r)
+                hdg_y = math.sin(hdg*d2r)
+                tokens.append(hdg_x)
+                tokens.append(hdg_y)
                 flight_ap.append( tokens )
             else:
                 print "ERROR: time went backwards:", timestamp, last_time
@@ -263,6 +268,8 @@ flight_pilot_auto = interpolate.interp1d(x, flight_pilot[:,8], bounds_error=Fals
 flight_ap = np.array(flight_ap, dtype=np.float64)
 x = flight_ap[:,0]
 flight_ap_hdg = interpolate.interp1d(x, flight_ap[:,1], bounds_error=False, fill_value=0.0)
+flight_ap_hdg_x = interpolate.interp1d(x, flight_ap[:,8], bounds_error=False, fill_value=0.0)
+flight_ap_hdg_y = interpolate.interp1d(x, flight_ap[:,9], bounds_error=False, fill_value=0.0)
 flight_ap_roll = interpolate.interp1d(x, flight_ap[:,2], bounds_error=False, fill_value=0.0)
 flight_ap_pitch = interpolate.interp1d(x, flight_ap[:,5], bounds_error=False, fill_value=0.0)
 
@@ -810,7 +817,10 @@ if args.movie:
         lon_deg = float(flight_gps_lon(time))
         altitude = float(flight_gps_alt(time))
         speed = float(flight_air_speed(time))
-        ap_hdg = float(flight_ap_hdg(time))
+        #ap_hdg = float(flight_ap_hdg(time))
+        ap_hdg_x = float(flight_ap_hdg_x(time))
+        ap_hdg_y = float(flight_ap_hdg_y(time))
+        ap_hdg = math.atan2(ap_hdg_y, ap_hdg_x)*r2d
         ap_roll = float(flight_ap_roll(time))
         ap_pitch = float(flight_ap_pitch(time))
         auto = float(flight_pilot_auto(time))
