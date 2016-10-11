@@ -47,6 +47,7 @@ abspath = os.path.abspath(args.movie)
 filename, ext = os.path.splitext(abspath)
 movie_log = filename + ".csv"
 movie_config = filename + ".json"
+tmp_avi = filename + "_tmp.avi"
 output_avi = filename + "_hud.avi"
 
 # load config file if it exists
@@ -539,8 +540,8 @@ def draw_bird(K, PROJ, ned, frame, yaw_rad, pitch_rad, roll_rad):
     # right vbar
     tmp1 = ladder_helper(q0, a0-a2, a1)
     tmp2 = ladder_helper(q0, a0-a2, a1-a2)
-    uv1 = rotate_pt(tmp1, center, roll_rad - cam_roll*d2r)
-    uv2 = rotate_pt(tmp2, center, roll_rad - cam_roll*d2r)
+    uv1 = rotate_pt(tmp1, center, roll_rad)
+    uv2 = rotate_pt(tmp2, center, roll_rad)
     if uv1 != None and uv2 != None:
         cv2.line(frame, center, uv1, color, size, cv2.CV_AA)
         cv2.line(frame, center, uv2, color, size, cv2.CV_AA)
@@ -548,8 +549,8 @@ def draw_bird(K, PROJ, ned, frame, yaw_rad, pitch_rad, roll_rad):
     # left vbar
     tmp1 = ladder_helper(q0, a0-a2, -a1)
     tmp2 = ladder_helper(q0, a0-a2, -a1+a2)
-    uv1 = rotate_pt(tmp1, center, roll_rad - cam_roll*d2r)
-    uv2 = rotate_pt(tmp2, center, roll_rad - cam_roll*d2r)
+    uv1 = rotate_pt(tmp1, center, roll_rad)
+    uv2 = rotate_pt(tmp2, center, roll_rad)
     if uv1 != None and uv2 != None:
         cv2.line(frame, center, uv1, color, size, cv2.CV_AA)
         cv2.line(frame, center, uv2, color, size, cv2.CV_AA)
@@ -783,7 +784,7 @@ if args.movie:
     outfourcc = cv2.cv.CV_FOURCC('X', 'V', 'I', 'D')
     # outfourcc = 0x21
     print outfourcc, fps, w, h
-    output = cv2.VideoWriter(output_avi, outfourcc, fps, (w, h), isColor=True)
+    output = cv2.VideoWriter(tmp_avi, outfourcc, fps, (w, h), isColor=True)
 
     last_time = 0.0
 
@@ -910,6 +911,14 @@ if args.movie:
             props_json.save(movie_config, config)
 
 cv2.destroyAllWindows()
+
+# now run ffmpeg as an external command to combine original audio
+# track with new overlay video
+
+# ex: ffmpeg -i opencv.avi -i orig.mov -c copy -map 0:v -map 1:a final.avi
+
+from subprocess import call
+call(["ffmpeg", "-i", tmp_avi, "-i", args.movie, "-c", "copy", "-map", "0:v", "-map", "1:a", output_avi])
 
 if args.plot:
     # plot the data ...
