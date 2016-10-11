@@ -417,44 +417,50 @@ def rotate_pt(p, center, a):
     y = math.sin(a) * (p[0]-center[0]) + math.cos(a) * (p[1]-center[1]) + center[1]
     return (int(x), int(y))
     
-def draw_vbars(K, PROJ, ned, frame, yaw_rad, ap_roll, ap_pitch):
+def draw_vbars(K, PROJ, ned, frame, yaw_rad, pitch_rad, ap_roll, ap_pitch):
+    color = (186, 85, 211)      # medium orchid
     a1 = 10.0
     a2 = 1.5
     a3 = 3.0
     q0 = transformations.quaternion_about_axis(yaw_rad, [0.0, 0.0, -1.0])
     a0 = ap_pitch
 
+    # rotation point (about nose)
+    rot = ladder_helper(q0, pitch_rad*r2d, 0.0)
+
     # center point
-    center = ladder_helper(q0, a0, 0.0)
+    tmp1 = ladder_helper(q0, a0, 0.0)
+    center = rotate_pt(tmp1, rot, ap_roll*d2r - cam_roll*d2r)
     
     # right vbar
     tmp1 = ladder_helper(q0, a0-a3, a1)
     tmp2 = ladder_helper(q0, a0-a3, a1+a3)
     tmp3 = ladder_helper(q0, a0-a2, a1+a3)
-    uv1 = rotate_pt(tmp1, center, ap_roll*d2r - cam_roll*d2r)
-    uv2 = rotate_pt(tmp2, center, ap_roll*d2r - cam_roll*d2r)
-    uv3 = rotate_pt(tmp2, center, ap_roll*d2r - cam_roll*d2r)
+    uv1 = rotate_pt(tmp1, rot, ap_roll*d2r - cam_roll*d2r)
+    uv2 = rotate_pt(tmp2, rot, ap_roll*d2r - cam_roll*d2r)
+    uv3 = rotate_pt(tmp3, rot, ap_roll*d2r - cam_roll*d2r)
     if uv1 != None and uv2 != None and uv3 != None:
-        cv2.line(frame, center, uv1, (0,240,0), 1, cv2.CV_AA)
-        cv2.line(frame, center, uv3, (0,240,0), 1, cv2.CV_AA)
-        cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
-        cv2.line(frame, uv1, uv3, (0,240,0), 1, cv2.CV_AA)
-        cv2.line(frame, uv2, uv3, (0,240,0), 1, cv2.CV_AA)
+        cv2.line(frame, center, uv1, color, 1, cv2.CV_AA)
+        cv2.line(frame, center, uv3, color, 1, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, color, 1, cv2.CV_AA)
+        cv2.line(frame, uv1, uv3, color, 1, cv2.CV_AA)
+        cv2.line(frame, uv2, uv3, color, 1, cv2.CV_AA)
     # left vbar
     tmp1 = ladder_helper(q0, a0-a3, -a1)
     tmp2 = ladder_helper(q0, a0-a3, -a1-a3)
     tmp3 = ladder_helper(q0, a0-a2, -a1-a3)
-    uv1 = rotate_pt(tmp1, center, ap_roll*d2r - cam_roll*d2r)
-    uv2 = rotate_pt(tmp2, center, ap_roll*d2r - cam_roll*d2r)
-    uv3 = rotate_pt(tmp2, center, ap_roll*d2r - cam_roll*d2r)
+    uv1 = rotate_pt(tmp1, rot, ap_roll*d2r - cam_roll*d2r)
+    uv2 = rotate_pt(tmp2, rot, ap_roll*d2r - cam_roll*d2r)
+    uv3 = rotate_pt(tmp3, rot, ap_roll*d2r - cam_roll*d2r)
     if uv1 != None and uv2 != None and uv3 != None:
-        cv2.line(frame, center, uv1, (0,240,0), 1, cv2.CV_AA)
-        cv2.line(frame, center, uv3, (0,240,0), 1, cv2.CV_AA)
-        cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
-        cv2.line(frame, uv1, uv3, (0,240,0), 1, cv2.CV_AA)
-        cv2.line(frame, uv2, uv3, (0,240,0), 1, cv2.CV_AA)
+        cv2.line(frame, center, uv1, color, 1, cv2.CV_AA)
+        cv2.line(frame, center, uv3, color, 1, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, color, 1, cv2.CV_AA)
+        cv2.line(frame, uv1, uv3, color, 1, cv2.CV_AA)
+        cv2.line(frame, uv2, uv3, color, 1, cv2.CV_AA)
 
 def draw_bird(K, PROJ, ned, frame, yaw_rad, pitch_rad, roll_rad):
+    color = (50, 255, 255)     # yellow
     a1 = 10.0
     a2 = 3.0
     a2 = 3.0
@@ -470,18 +476,18 @@ def draw_bird(K, PROJ, ned, frame, yaw_rad, pitch_rad, roll_rad):
     uv1 = rotate_pt(tmp1, center, roll_rad - cam_roll*d2r)
     uv2 = rotate_pt(tmp2, center, roll_rad - cam_roll*d2r)
     if uv1 != None and uv2 != None:
-        cv2.line(frame, center, uv1, (0,240,0), 1, cv2.CV_AA)
-        cv2.line(frame, center, uv2, (0,240,0), 1, cv2.CV_AA)
-        cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+        cv2.line(frame, center, uv1, color, 1, cv2.CV_AA)
+        cv2.line(frame, center, uv2, color, 1, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, color, 1, cv2.CV_AA)
     # left vbar
     tmp1 = ladder_helper(q0, a0-a2, -a1)
     tmp2 = ladder_helper(q0, a0-a2, -a1+a2)
     uv1 = rotate_pt(tmp1, center, roll_rad - cam_roll*d2r)
     uv2 = rotate_pt(tmp2, center, roll_rad - cam_roll*d2r)
     if uv1 != None and uv2 != None:
-        cv2.line(frame, center, uv1, (0,240,0), 1, cv2.CV_AA)
-        cv2.line(frame, center, uv2, (0,240,0), 1, cv2.CV_AA)
-        cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+        cv2.line(frame, center, uv1, color, 1, cv2.CV_AA)
+        cv2.line(frame, center, uv2, color, 1, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, color, 1, cv2.CV_AA)
 
 def draw_label(frame, label, uv, font, font_scale, thickness, horiz='center',
                vert='center'):
@@ -771,12 +777,13 @@ if args.movie:
         draw_horizon(K, PROJ, ned, frame_undist)
         draw_compass_points(K, PROJ, ned, frame_undist)
         draw_pitch_ladder(K, PROJ, ned, frame_undist, yaw_rad)
-        draw_vbars(K, PROJ, ned, frame_undist, yaw_rad, ap_roll, ap_pitch)
-        draw_bird(K, PROJ, ned, frame_undist, yaw_rad, pitch_rad, roll_rad)
         draw_astro(K, PROJ, ned, frame_undist)
         draw_airports(K, PROJ, frame_undist)
         draw_velocity_vector(K, PROJ, ned, frame_undist, [vn, ve, vd])
         #draw_nose(K, PROJ, ned, frame_undist, body2ned)
+        draw_vbars(K, PROJ, ned, frame_undist, yaw_rad, pitch_rad,
+                   ap_roll, ap_pitch)
+        draw_bird(K, PROJ, ned, frame_undist, yaw_rad, pitch_rad, roll_rad)
         
         cv2.imshow('hud', frame_undist)
         output.write(frame_undist)
