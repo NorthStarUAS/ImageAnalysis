@@ -65,6 +65,7 @@ flight_imu = []
 flight_gps = []
 flight_filter = []
 flight_air = []
+flight_pilot = []
 flight_ap = []
 last_imu_time = -1
 last_gps_time = -1
@@ -106,6 +107,7 @@ elif args.aura_dir:
     gps_file = args.aura_dir + "/gps-0.txt"
     filter_file = args.aura_dir + "/filter-0.txt"
     air_file = args.aura_dir + "/air-0.txt"
+    pilot_file = args.aura_dir + "/pilot-0.txt"
     ap_file = args.aura_dir + "/ap-0.txt"
     
     last_time = 0.0
@@ -160,6 +162,19 @@ elif args.aura_dir:
             if timestamp > last_time:
                 flight_air.append( [tokens[0], tokens[1], tokens[2],
                                     tokens[3]] )
+            else:
+                print "ERROR: time went backwards:", timestamp, last_time
+            last_time = timestamp
+            
+    last_time = 0.0
+    with open(pilot_file, 'rb') as f:
+        for line in f:
+            #print line
+            tokens = re.split('[,\s]+', line.rstrip())
+            timestamp = float(tokens[0])
+            #print timestamp, last_time
+            if timestamp > last_time:
+                flight_pilot.append( tokens )
             else:
                 print "ERROR: time went backwards:", timestamp, last_time
             last_time = timestamp
@@ -233,6 +248,10 @@ flight_filter_yaw = interpolate.interp1d(x, flight_filter[:,9], bounds_error=Fal
 flight_air = np.array(flight_air, dtype=np.float64)
 x = flight_air[:,0]
 flight_air_speed = interpolate.interp1d(x, flight_air[:,3], bounds_error=False, fill_value=0.0)
+
+flight_pilot = np.array(flight_pilot, dtype=np.float64)
+x = flight_pilot[:,0]
+flight_pilot_auto = interpolate.interp1d(x, flight_pilot[:,8], bounds_error=False, fill_value=0.0)
 
 flight_ap = np.array(flight_ap, dtype=np.float64)
 x = flight_ap[:,0]
@@ -678,6 +697,7 @@ def draw_nose(K, PROJ, ned, frame, body2ned):
                        [ned[0] + vec[0], ned[1] + vec[1], ned[2]+ vec[2]])
     if uv != None:
         cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
+        cv2.circle(frame, uv, 10, (0,240,0), 1, cv2.CV_AA)
 
     
 vel_filt = [0.0, 0.0, 0.0]
@@ -783,6 +803,7 @@ if args.movie:
         ap_hdg = float(flight_ap_hdg(time))
         ap_roll = float(flight_ap_roll(time))
         ap_pitch = float(flight_ap_pitch(time))
+        auto = float(flight_pilot_auto(time))
 
         body2cam = transformations.quaternion_from_euler( cam_yaw * d2r,
                                                           cam_pitch * d2r,
@@ -828,12 +849,14 @@ if args.movie:
         draw_astro(K, PROJ, ned, frame_undist)
         draw_airports(K, PROJ, frame_undist)
         draw_velocity_vector(K, PROJ, ned, frame_undist, [vn, ve, vd])
-        #draw_nose(K, PROJ, ned, frame_undist, body2ned)
-        draw_vbars(K, PROJ, ned, frame_undist, yaw_rad, pitch_rad,
-                   ap_roll, ap_pitch)
-        draw_heading_bug(K, PROJ, ned, frame_undist, ap_hdg)
-        draw_bird(K, PROJ, ned, frame_undist, yaw_rad, pitch_rad, roll_rad)
-        draw_course(K, PROJ, ned, frame_undist, vn, ve)
+        if auto > 0:
+            draw_nose(K, PROJ, ned, frame_undist, body2ned)
+        else:
+            draw_vbars(K, PROJ, ned, frame_undist, yaw_rad, pitch_rad,
+                       ap_roll, ap_pitch)
+            draw_heading_bug(K, PROJ, ned, frame_undist, ap_hdg)
+            draw_bird(K, PROJ, ned, frame_undist, yaw_rad, pitch_rad, roll_rad)
+            draw_course(K, PROJ, ned, frame_undist, vn, ve)
         
         cv2.imshow('hud', frame_undist)
         output.write(frame_undist)
