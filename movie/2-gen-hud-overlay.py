@@ -432,15 +432,15 @@ def draw_vbars(K, PROJ, ned, frame, yaw_rad, pitch_rad, ap_roll, ap_pitch):
 
     # center point
     tmp1 = ladder_helper(q0, a0, 0.0)
-    center = rotate_pt(tmp1, rot, ap_roll*d2r - cam_roll*d2r)
+    center = rotate_pt(tmp1, rot, ap_roll*d2r)
     
     # right vbar
     tmp1 = ladder_helper(q0, a0-a3, a1)
     tmp2 = ladder_helper(q0, a0-a3, a1+a3)
     tmp3 = ladder_helper(q0, a0-a2, a1+a3)
-    uv1 = rotate_pt(tmp1, rot, ap_roll*d2r - cam_roll*d2r)
-    uv2 = rotate_pt(tmp2, rot, ap_roll*d2r - cam_roll*d2r)
-    uv3 = rotate_pt(tmp3, rot, ap_roll*d2r - cam_roll*d2r)
+    uv1 = rotate_pt(tmp1, rot, ap_roll*d2r)
+    uv2 = rotate_pt(tmp2, rot, ap_roll*d2r)
+    uv3 = rotate_pt(tmp3, rot, ap_roll*d2r)
     if uv1 != None and uv2 != None and uv3 != None:
         cv2.line(frame, center, uv1, color, size, cv2.CV_AA)
         cv2.line(frame, center, uv3, color, size, cv2.CV_AA)
@@ -451,9 +451,9 @@ def draw_vbars(K, PROJ, ned, frame, yaw_rad, pitch_rad, ap_roll, ap_pitch):
     tmp1 = ladder_helper(q0, a0-a3, -a1)
     tmp2 = ladder_helper(q0, a0-a3, -a1-a3)
     tmp3 = ladder_helper(q0, a0-a2, -a1-a3)
-    uv1 = rotate_pt(tmp1, rot, ap_roll*d2r - cam_roll*d2r)
-    uv2 = rotate_pt(tmp2, rot, ap_roll*d2r - cam_roll*d2r)
-    uv3 = rotate_pt(tmp3, rot, ap_roll*d2r - cam_roll*d2r)
+    uv1 = rotate_pt(tmp1, rot, ap_roll*d2r)
+    uv2 = rotate_pt(tmp2, rot, ap_roll*d2r)
+    uv3 = rotate_pt(tmp3, rot, ap_roll*d2r)
     if uv1 != None and uv2 != None and uv3 != None:
         cv2.line(frame, center, uv1, color, size, cv2.CV_AA)
         cv2.line(frame, center, uv3, color, size, cv2.CV_AA)
@@ -478,8 +478,8 @@ def draw_heading_bug(K, PROJ, ned, frame, ap_hdg):
     for i, p in enumerate(pts):
         if p == None or center == None:
             return
-        else:
-            pts[i] = rotate_pt(pts[i], center, -cam_roll*d2r)
+        #else:
+        #    pts[i] = rotate_pt(pts[i], center, -cam_roll*d2r)
     cv2.line(frame, pts[0], pts[1], color, size, cv2.CV_AA)
     cv2.line(frame, pts[1], pts[2], color, size, cv2.CV_AA)
     cv2.line(frame, pts[2], pts[3], color, size, cv2.CV_AA)
@@ -694,16 +694,16 @@ def draw_velocity_vector(K, PROJ, ned, frame, vel):
 
 if args.movie:
     # Mobius 1080p
-    # K = np.array( [[1362.1,    0.0, 980.8],
-    #                [   0.0, 1272.8, 601.3],
-    #                [   0.0,    0.0,   1.0]] )
-    # dist = [-0.36207197, 0.14627927, -0.00674558, 0.0008926, -0.02635695]
+    K = np.array( [[1362.1,    0.0, 980.8],
+                   [   0.0, 1272.8, 601.3],
+                   [   0.0,    0.0,   1.0]] )
+    dist = [-0.36207197, 0.14627927, -0.00674558, 0.0008926, -0.02635695]
 
     # RunCamHD2 1920x1080
-    K = np.array( [[ 971.96149426,   0.        , 957.46750602],
-                   [   0.        , 971.67133264, 516.50578382],
-                   [   0.        ,   0.        ,   1.        ]] )
-    dist = [-0.26910665, 0.10580125, 0.00048417, 0.00000925, -0.02321387]
+    # K = np.array( [[ 971.96149426,   0.        , 957.46750602],
+    #                [   0.        , 971.67133264, 516.50578382],
+    #                [   0.        ,   0.        ,   1.        ]] )
+    # dist = [-0.26910665, 0.10580125, 0.00048417, 0.00000925, -0.02321387]
 
     # Runcamhd2 1920x1440
     # K = np.array( [[ 1296.11187055,     0.        ,   955.43024994],
