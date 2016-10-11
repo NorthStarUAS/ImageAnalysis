@@ -236,6 +236,7 @@ flight_air_speed = interpolate.interp1d(x, flight_air[:,3], bounds_error=False, 
 
 flight_ap = np.array(flight_ap, dtype=np.float64)
 x = flight_ap[:,0]
+flight_ap_hdg = interpolate.interp1d(x, flight_ap[:,1], bounds_error=False, fill_value=0.0)
 flight_ap_roll = interpolate.interp1d(x, flight_ap[:,2], bounds_error=False, fill_value=0.0)
 flight_ap_pitch = interpolate.interp1d(x, flight_ap[:,5], bounds_error=False, fill_value=0.0)
 
@@ -419,6 +420,7 @@ def rotate_pt(p, center, a):
     
 def draw_vbars(K, PROJ, ned, frame, yaw_rad, pitch_rad, ap_roll, ap_pitch):
     color = (186, 85, 211)      # medium orchid
+    size = 2
     a1 = 10.0
     a2 = 1.5
     a3 = 3.0
@@ -440,11 +442,11 @@ def draw_vbars(K, PROJ, ned, frame, yaw_rad, pitch_rad, ap_roll, ap_pitch):
     uv2 = rotate_pt(tmp2, rot, ap_roll*d2r - cam_roll*d2r)
     uv3 = rotate_pt(tmp3, rot, ap_roll*d2r - cam_roll*d2r)
     if uv1 != None and uv2 != None and uv3 != None:
-        cv2.line(frame, center, uv1, color, 1, cv2.CV_AA)
-        cv2.line(frame, center, uv3, color, 1, cv2.CV_AA)
-        cv2.line(frame, uv1, uv2, color, 1, cv2.CV_AA)
-        cv2.line(frame, uv1, uv3, color, 1, cv2.CV_AA)
-        cv2.line(frame, uv2, uv3, color, 1, cv2.CV_AA)
+        cv2.line(frame, center, uv1, color, size, cv2.CV_AA)
+        cv2.line(frame, center, uv3, color, size, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+        cv2.line(frame, uv1, uv3, color, size, cv2.CV_AA)
+        cv2.line(frame, uv2, uv3, color, size, cv2.CV_AA)
     # left vbar
     tmp1 = ladder_helper(q0, a0-a3, -a1)
     tmp2 = ladder_helper(q0, a0-a3, -a1-a3)
@@ -453,14 +455,45 @@ def draw_vbars(K, PROJ, ned, frame, yaw_rad, pitch_rad, ap_roll, ap_pitch):
     uv2 = rotate_pt(tmp2, rot, ap_roll*d2r - cam_roll*d2r)
     uv3 = rotate_pt(tmp3, rot, ap_roll*d2r - cam_roll*d2r)
     if uv1 != None and uv2 != None and uv3 != None:
-        cv2.line(frame, center, uv1, color, 1, cv2.CV_AA)
-        cv2.line(frame, center, uv3, color, 1, cv2.CV_AA)
-        cv2.line(frame, uv1, uv2, color, 1, cv2.CV_AA)
-        cv2.line(frame, uv1, uv3, color, 1, cv2.CV_AA)
-        cv2.line(frame, uv2, uv3, color, 1, cv2.CV_AA)
+        cv2.line(frame, center, uv1, color, size, cv2.CV_AA)
+        cv2.line(frame, center, uv3, color, size, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+        cv2.line(frame, uv1, uv3, color, size, cv2.CV_AA)
+        cv2.line(frame, uv2, uv3, color, size, cv2.CV_AA)
+
+def draw_heading_bug(K, PROJ, ned, frame, ap_hdg):
+    color = (186, 85, 211)      # medium orchid
+    size = 2
+    a = math.atan2(ve, vn)
+    q0 = transformations.quaternion_about_axis(ap_hdg*d2r, [0.0, 0.0, -1.0])
+    center = ladder_helper(q0, 0, 0)
+    pts = []
+    pts.append( ladder_helper(q0, 0, 2.0) )
+    pts.append( ladder_helper(q0, 0.0, -2.0) )
+    pts.append( ladder_helper(q0, 1.5, -2.0) )
+    pts.append( ladder_helper(q0, 1.5, -1.0) )
+    pts.append( center )
+    pts.append( ladder_helper(q0, 1.5, 1.0) )
+    pts.append( ladder_helper(q0, 1.5, 2.0) )
+    for i, p in enumerate(pts):
+        if p == None or center == None:
+            return
+        else:
+            pts[i] = rotate_pt(pts[i], center, -cam_roll*d2r)
+    cv2.line(frame, pts[0], pts[1], color, size, cv2.CV_AA)
+    cv2.line(frame, pts[1], pts[2], color, size, cv2.CV_AA)
+    cv2.line(frame, pts[2], pts[3], color, size, cv2.CV_AA)
+    cv2.line(frame, pts[3], pts[4], color, size, cv2.CV_AA)
+    cv2.line(frame, pts[4], pts[5], color, size, cv2.CV_AA)
+    cv2.line(frame, pts[5], pts[6], color, size, cv2.CV_AA)
+    cv2.line(frame, pts[6], pts[0], color, size, cv2.CV_AA)
+    #pts = np.array( pts, np.int32 )
+    #pts = pts.reshape((-1,1,2))
+    #cv2.polylines(frame, pts, True, color, size, cv2.CV_AA)
 
 def draw_bird(K, PROJ, ned, frame, yaw_rad, pitch_rad, roll_rad):
     color = (50, 255, 255)     # yellow
+    size = 2
     a1 = 10.0
     a2 = 3.0
     a2 = 3.0
@@ -476,18 +509,32 @@ def draw_bird(K, PROJ, ned, frame, yaw_rad, pitch_rad, roll_rad):
     uv1 = rotate_pt(tmp1, center, roll_rad - cam_roll*d2r)
     uv2 = rotate_pt(tmp2, center, roll_rad - cam_roll*d2r)
     if uv1 != None and uv2 != None:
-        cv2.line(frame, center, uv1, color, 1, cv2.CV_AA)
-        cv2.line(frame, center, uv2, color, 1, cv2.CV_AA)
-        cv2.line(frame, uv1, uv2, color, 1, cv2.CV_AA)
+        cv2.line(frame, center, uv1, color, size, cv2.CV_AA)
+        cv2.line(frame, center, uv2, color, size, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
     # left vbar
     tmp1 = ladder_helper(q0, a0-a2, -a1)
     tmp2 = ladder_helper(q0, a0-a2, -a1+a2)
     uv1 = rotate_pt(tmp1, center, roll_rad - cam_roll*d2r)
     uv2 = rotate_pt(tmp2, center, roll_rad - cam_roll*d2r)
     if uv1 != None and uv2 != None:
-        cv2.line(frame, center, uv1, color, 1, cv2.CV_AA)
-        cv2.line(frame, center, uv2, color, 1, cv2.CV_AA)
-        cv2.line(frame, uv1, uv2, color, 1, cv2.CV_AA)
+        cv2.line(frame, center, uv1, color, size, cv2.CV_AA)
+        cv2.line(frame, center, uv2, color, size, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+
+def draw_course(K, PROJ, ned, frame, vn, ve):
+    color = (50, 255, 255)     # yellow
+    size = 2
+    a = math.atan2(ve, vn)
+    q0 = transformations.quaternion_about_axis(a, [0.0, 0.0, -1.0])
+    tmp1 = ladder_helper(q0, 0, 0)
+    tmp2 = ladder_helper(q0, 1.5, 1.0)
+    tmp3 = ladder_helper(q0, 1.5, -1.0)
+    if tmp1 != None and tmp2 != None and tmp3 != None :
+        uv2 = rotate_pt(tmp2, tmp1, -cam_roll*d2r)
+        uv3 = rotate_pt(tmp3, tmp1, -cam_roll*d2r)
+        cv2.line(frame, tmp1, uv2, color, size, cv2.CV_AA)
+        cv2.line(frame, tmp1, uv3, color, size, cv2.CV_AA)
 
 def draw_label(frame, label, uv, font, font_scale, thickness, horiz='center',
                vert='center'):
@@ -733,6 +780,7 @@ if args.movie:
         lon_deg = float(flight_gps_lon(time))
         altitude = float(flight_gps_alt(time))
         speed = float(flight_air_speed(time))
+        ap_hdg = float(flight_ap_hdg(time))
         ap_roll = float(flight_ap_roll(time))
         ap_pitch = float(flight_ap_pitch(time))
 
@@ -783,7 +831,9 @@ if args.movie:
         #draw_nose(K, PROJ, ned, frame_undist, body2ned)
         draw_vbars(K, PROJ, ned, frame_undist, yaw_rad, pitch_rad,
                    ap_roll, ap_pitch)
+        draw_heading_bug(K, PROJ, ned, frame_undist, ap_hdg)
         draw_bird(K, PROJ, ned, frame_undist, yaw_rad, pitch_rad, roll_rad)
+        draw_course(K, PROJ, ned, frame_undist, vn, ve)
         
         cv2.imshow('hud', frame_undist)
         output.write(frame_undist)
