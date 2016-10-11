@@ -35,6 +35,7 @@ parser.add_argument('--resample-hz', type=float, default=30.0, help='resample ra
 parser.add_argument('--apm-log', help='APM tlog converted to csv')
 parser.add_argument('--aura-dir', help='Aura flight log directory')
 parser.add_argument('--stop-count', type=int, default=1, help='how many non-frames to absorb before we decide the movie is over')
+parser.add_argument('--plot', help='Plot stuff at the end of the run')
 args = parser.parse_args()
 
 r2d = 180.0 / math.pi
@@ -144,10 +145,14 @@ elif args.aura_dir:
             timestamp = float(tokens[0])
             #print timestamp, last_time
             if timestamp > last_time:
+                yaw = float(tokens[9])
+                yaw_x = math.cos(yaw*d2r)
+                yaw_y = math.sin(yaw*d2r)
                 flight_filter.append( [tokens[0],
                                        tokens[1], tokens[2], tokens[3],
                                        tokens[4], tokens[5], tokens[6],
-                                       tokens[7], tokens[8], tokens[9]] )
+                                       tokens[7], tokens[8], tokens[9],
+                                       yaw_x, yaw_y] )
             else:
                 print "ERROR: time went backwards:", timestamp, last_time
             last_time = timestamp
@@ -244,6 +249,8 @@ flight_filter_vd = interpolate.interp1d(x, flight_filter[:,6], bounds_error=Fals
 flight_filter_roll = interpolate.interp1d(x, flight_filter[:,7], bounds_error=False, fill_value=0.0)
 flight_filter_pitch = interpolate.interp1d(x, flight_filter[:,8], bounds_error=False, fill_value=0.0)
 flight_filter_yaw = interpolate.interp1d(x, flight_filter[:,9], bounds_error=False, fill_value=0.0)
+flight_filter_yaw_x = interpolate.interp1d(x, flight_filter[:,10], bounds_error=False, fill_value=0.0)
+flight_filter_yaw_y = interpolate.interp1d(x, flight_filter[:,11], bounds_error=False, fill_value=0.0)
 
 flight_air = np.array(flight_air, dtype=np.float64)
 x = flight_air[:,0]
@@ -793,7 +800,10 @@ if args.movie:
         vn = flight_filter_vn(time)
         ve = flight_filter_ve(time)
         vd = flight_filter_vd(time)
-        yaw_rad = flight_filter_yaw(time)*d2r
+        #yaw_rad = flight_filter_yaw(time)*d2r 
+        yaw_x = flight_filter_yaw_x(time)
+        yaw_y = flight_filter_yaw_y(time)
+        yaw_rad = math.atan2(yaw_y, yaw_x)
         pitch_rad = flight_filter_pitch(time)*d2r
         roll_rad = flight_filter_roll(time)*d2r
         lat_deg = float(flight_gps_lat(time))
