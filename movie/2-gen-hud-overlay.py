@@ -47,8 +47,13 @@ abspath = os.path.abspath(args.movie)
 filename, ext = os.path.splitext(abspath)
 movie_log = filename + ".csv"
 movie_config = filename + ".json"
-tmp_avi = filename + "_tmp.avi"
-output_avi = filename + "_hud.avi"
+# combinations that seem to work on linux
+# ext = avi, fourcc = MJPG
+# ext = avi, fourcc = XVID
+# ext = mov, fourcc = MP4V
+
+tmp_movie = filename + "_tmp.mov"
+output_movie = filename + "_hud.mov"
 
 # load config file if it exists
 config = PropertyNode()
@@ -273,6 +278,7 @@ flight_ap_hdg_x = interpolate.interp1d(x, flight_ap[:,8], bounds_error=False, fi
 flight_ap_hdg_y = interpolate.interp1d(x, flight_ap[:,9], bounds_error=False, fill_value=0.0)
 flight_ap_roll = interpolate.interp1d(x, flight_ap[:,2], bounds_error=False, fill_value=0.0)
 flight_ap_pitch = interpolate.interp1d(x, flight_ap[:,5], bounds_error=False, fill_value=0.0)
+flight_ap_speed = interpolate.interp1d(x, flight_ap[:,7], bounds_error=False, fill_value=0.0)
 
 # compute best correlation between movie and flight data logs
 movie_interp = np.array(movie_interp, dtype=float)
@@ -727,18 +733,44 @@ def draw_velocity_vector(K, PROJ, ned, frame, vel):
     if uv != None:
         cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
 
+def draw_speed_tape(K, PROJ, ned, frame, airspeed, ap_speed):
+    color = (0,240,0)
+    size = 1
+    pad = 5
+    h, w, d = frame.shape
+    # reference point
+    cy = int(h * 0.5)
+    cx = int(w * 0.2)
+    # current airspeed
+    label = "%.0f" % airspeed
+    lsize = cv2.getTextSize(label, font, 0.7, 1)
+    xsize = lsize[0][0] + pad
+    ysize = lsize[0][1] + pad
+    uv = ( int(cx + ysize*0.7), cy + lsize[0][1] / 2)
+    cv2.putText(frame, label, uv, font, 0.7, (0,255,0), 1, cv2.CV_AA)
+    uv1 = (cx, cy)
+    uv2 = (cx + int(ysize*0.7),         cy - ysize / 2 )
+    uv3 = (cx + int(ysize*0.7) + xsize, cy - ysize / 2 )
+    uv4 = (cx + int(ysize*0.7) + xsize, cy + ysize / 2 )
+    uv5 = (cx + int(ysize*0.7),         cy + ysize / 2 )
+    cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+    cv2.line(frame, uv2, uv3, color, size, cv2.CV_AA)
+    cv2.line(frame, uv3, uv4, color, size, cv2.CV_AA)
+    cv2.line(frame, uv4, uv5, color, size, cv2.CV_AA)
+    cv2.line(frame, uv5, uv1, color, size, cv2.CV_AA)
+        
 if args.movie:
     # Mobius 1080p
-    K = np.array( [[1362.1,    0.0, 980.8],
-                   [   0.0, 1272.8, 601.3],
-                   [   0.0,    0.0,   1.0]] )
-    dist = [-0.36207197, 0.14627927, -0.00674558, 0.0008926, -0.02635695]
+    # K = np.array( [[1362.1,    0.0, 980.8],
+    #                [   0.0, 1272.8, 601.3],
+    #                [   0.0,    0.0,   1.0]] )
+    # dist = [-0.36207197, 0.14627927, -0.00674558, 0.0008926, -0.02635695]
 
     # RunCamHD2 1920x1080
-    # K = np.array( [[ 971.96149426,   0.        , 957.46750602],
-    #                [   0.        , 971.67133264, 516.50578382],
-    #                [   0.        ,   0.        ,   1.        ]] )
-    # dist = [-0.26910665, 0.10580125, 0.00048417, 0.00000925, -0.02321387]
+    K = np.array( [[ 971.96149426,   0.        , 957.46750602],
+                   [   0.        , 971.67133264, 516.50578382],
+                   [   0.        ,   0.        ,   1.        ]] )
+    dist = [-0.26910665, 0.10580125, 0.00048417, 0.00000925, -0.02321387]
 
     # Runcamhd2 1920x1440
     # K = np.array( [[ 1296.11187055,     0.        ,   955.43024994],
@@ -781,10 +813,10 @@ if args.movie:
     #outfourcc = cv2.cv.CV_FOURCC('M', 'J', 'P', 'G')
     #outfourcc = cv2.cv.CV_FOURCC('H', '2', '6', '4')
     #outfourcc = cv2.cv.CV_FOURCC('X', '2', '6', '4')
-    outfourcc = cv2.cv.CV_FOURCC('X', 'V', 'I', 'D')
-    # outfourcc = 0x21
+    #outfourcc = cv2.cv.CV_FOURCC('X', 'V', 'I', 'D')
+    outfourcc = cv2.cv.CV_FOURCC('M', 'P', '4', 'V')
     print outfourcc, fps, w, h
-    output = cv2.VideoWriter(tmp_avi, outfourcc, fps, (w, h), isColor=True)
+    output = cv2.VideoWriter(tmp_movie, outfourcc, fps, (w, h), isColor=True)
 
     last_time = 0.0
 
@@ -817,13 +849,14 @@ if args.movie:
         lat_deg = float(flight_gps_lat(time))
         lon_deg = float(flight_gps_lon(time))
         altitude = float(flight_gps_alt(time))
-        speed = float(flight_air_speed(time))
+        airspeed = float(flight_air_speed(time))
         #ap_hdg = float(flight_ap_hdg(time))
         ap_hdg_x = float(flight_ap_hdg_x(time))
         ap_hdg_y = float(flight_ap_hdg_y(time))
         ap_hdg = math.atan2(ap_hdg_y, ap_hdg_x)*r2d
         ap_roll = float(flight_ap_roll(time))
         ap_pitch = float(flight_ap_pitch(time))
+        ap_speed = float(flight_ap_pitch(time))
         auto = float(flight_pilot_auto(time))
 
         body2cam = transformations.quaternion_from_euler( cam_yaw * d2r,
@@ -862,7 +895,7 @@ if args.movie:
         frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
 
         cv2.putText(frame_undist, 'alt = %.0f' % altitude, (100, 100), font, 1, (0,255,0), 2,cv2.CV_AA)
-        cv2.putText(frame_undist, 'kts = %.0f' % speed, (100, 150), font, 1, (0,255,0), 2,cv2.CV_AA)
+        # cv2.putText(frame_undist, 'kts = %.0f' % airspeed, (100, 150), font, 1, (0,255,0), 2,cv2.CV_AA)
 
         draw_horizon(K, PROJ, ned, frame_undist)
         draw_compass_points(K, PROJ, ned, frame_undist)
@@ -870,7 +903,8 @@ if args.movie:
         draw_astro(K, PROJ, ned, frame_undist)
         draw_airports(K, PROJ, frame_undist)
         draw_velocity_vector(K, PROJ, ned, frame_undist, [vn, ve, vd])
-        if auto > 0:
+        draw_speed_tape(K, PROJ, ned, frame_undist, airspeed, ap_speed)
+        if auto < 0:
             draw_nose(K, PROJ, ned, frame_undist, body2ned)
         else:
             draw_vbars(K, PROJ, ned, frame_undist, yaw_rad, pitch_rad,
@@ -910,6 +944,7 @@ if args.movie:
             config.setFloat('cam_roll_deg', cam_roll)
             props_json.save(movie_config, config)
 
+output.release()
 cv2.destroyAllWindows()
 
 # now run ffmpeg as an external command to combine original audio
@@ -918,7 +953,7 @@ cv2.destroyAllWindows()
 # ex: ffmpeg -i opencv.avi -i orig.mov -c copy -map 0:v -map 1:a final.avi
 
 from subprocess import call
-call(["ffmpeg", "-i", tmp_avi, "-i", args.movie, "-c", "copy", "-map", "0:v", "-map", "1:a", output_avi])
+call(["ffmpeg", "-i", tmp_movie, "-i", args.movie, "-c", "copy", "-map", "0:v", "-map", "1:a", output_movie])
 
 if args.plot:
     # plot the data ...
