@@ -735,19 +735,24 @@ def draw_velocity_vector(K, PROJ, ned, frame, vel):
 
 def draw_speed_tape(K, PROJ, ned, frame, airspeed, ap_speed):
     color = (0,240,0)
+    fontsize = 0.5
     size = 1
     pad = 5
     h, w, d = frame.shape
+    
     # reference point
     cy = int(h * 0.5)
     cx = int(w * 0.2)
+    miny = cx
+    maxy = h - cx
+    
     # current airspeed
     label = "%.0f" % airspeed
-    lsize = cv2.getTextSize(label, font, 0.7, 1)
+    lsize = cv2.getTextSize(label, font, fontsize, 1)
     xsize = lsize[0][0] + pad
     ysize = lsize[0][1] + pad
     uv = ( int(cx + ysize*0.7), cy + lsize[0][1] / 2)
-    cv2.putText(frame, label, uv, font, 0.7, (0,255,0), 1, cv2.CV_AA)
+    cv2.putText(frame, label, uv, font, fontsize, (0,255,0), 1, cv2.CV_AA)
     uv1 = (cx, cy)
     uv2 = (cx + int(ysize*0.7),         cy - ysize / 2 )
     uv3 = (cx + int(ysize*0.7) + xsize, cy - ysize / 2 )
@@ -758,7 +763,21 @@ def draw_speed_tape(K, PROJ, ned, frame, airspeed, ap_speed):
     cv2.line(frame, uv3, uv4, color, size, cv2.CV_AA)
     cv2.line(frame, uv4, uv5, color, size, cv2.CV_AA)
     cv2.line(frame, uv5, uv1, color, size, cv2.CV_AA)
-        
+
+    # speed tics
+    spacing = lsize[0][1]
+    
+    uv1 = (cx, cy - int((0 - airspeed) * spacing))
+    uv2 = (cx, cy - int((60 - airspeed) * spacing))
+    cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+    for i in range(0, 65, 5):
+        offset = int((i - airspeed) * spacing)
+        uv1 = (cx, cy - offset)
+        uv2 = (cx - 6, cy - offset)
+        uv3 = (cx - 8 - lsize[0][0], cy - offset + lsize[0][1] / 2)
+        cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+        cv2.putText(frame, "%d" % i, uv3, font, fontsize, (0,255,0), 1, cv2.CV_AA)
+  
 if args.movie:
     # Mobius 1080p
     # K = np.array( [[1362.1,    0.0, 980.8],
