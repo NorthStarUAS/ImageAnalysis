@@ -47,6 +47,7 @@ ac3d_steps = 8
 # compute the uv grid for each image and project each point out into
 # ned space, then intersect each vector with the srtm ground.
 
+depth = 0.0
 camw, camh = proj.cam.get_image_params()
 for image in proj.image_list:
     print image.name
@@ -64,17 +65,18 @@ for image in proj.image_list:
         for u in u_list:
             grid_list.append( [u, v] )
     
-    proj_list = proj.projectVectors( IK, image, grid_list )
+    proj_list = proj.projectVectors( IK, image.get_body2ned(), image.get_cam2body(), grid_list )
     #print "proj_list:\n", proj_list
-    pts_ned = sss.interpolate_vectors(image.camera_pose, proj_list)
+    pts_ned = sss.interpolate_vectors(image.camera_pose['ned'], proj_list)
     #print "pts_3d (ned):\n", pts_ned
 
     # convert ned to xyz and stash the result for each image
     image.grid_list = []
     for p in pts_ned:
-        image.grid_list.append( [p[1], p[0], -p[2]] )
+        image.grid_list.append( [p[1], p[0], -(p[2]+depth)] )
+    depth -= 0.1                # favor last pictures above earlier ones
     
 # call the ac3d generator
 AC3D.generate(proj.image_list, src_dir=proj.source_dir,
               project_dir=args.project, base_name='direct',
-              version=1.0, trans=0.0, resolution=args.texture_resolution)
+              version=1.0, trans=0.1, resolution=args.texture_resolution)
