@@ -113,7 +113,11 @@ elif args.aura_dir:
     # load Aura flight log
     imu_file = args.aura_dir + "/imu-0.txt"
     gps_file = args.aura_dir + "/gps-0.txt"
-    filter_file = args.aura_dir + "/filter-0.txt"
+    if os.path.exists(args.aura_dir + "/filter-post.txt"):
+        print "Notice: found a post process filter file so using it!"
+        filter_file = args.aura_dir + "/filter-post.txt"
+    else:
+        filter_file = args.aura_dir + "/filter-0.txt"
     air_file = args.aura_dir + "/air-0.txt"
     pilot_file = args.aura_dir + "/pilot-0.txt"
     ap_file = args.aura_dir + "/ap-0.txt"
