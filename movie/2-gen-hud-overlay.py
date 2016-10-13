@@ -171,8 +171,7 @@ elif args.aura_dir:
             timestamp = float(tokens[0])
             #print timestamp, last_time
             if timestamp > last_time:
-                flight_air.append( [tokens[0], tokens[1], tokens[2],
-                                    tokens[3]] )
+                flight_air.append( tokens )
             else:
                 print "ERROR: time went backwards:", timestamp, last_time
             last_time = timestamp
@@ -266,6 +265,7 @@ flight_filter_yaw_y = interpolate.interp1d(x, flight_filter[:,11], bounds_error=
 flight_air = np.array(flight_air, dtype=np.float64)
 x = flight_air[:,0]
 flight_air_speed = interpolate.interp1d(x, flight_air[:,3], bounds_error=False, fill_value=0.0)
+flight_air_true_alt = interpolate.interp1d(x, flight_air[:,5], bounds_error=False, fill_value=0.0)
 
 flight_pilot = np.array(flight_pilot, dtype=np.float64)
 x = flight_pilot[:,0]
@@ -795,20 +795,21 @@ def draw_speed_tape(K, PROJ, ned, frame, airspeed, ap_speed):
 
     # speed bug
     offset = int((ap_speed - airspeed) * spacing)
-    uv1 = (cx,                  cy - offset)
-    uv2 = (cx + int(ysize*0.7), cy - offset - ysize / 2 )
-    uv3 = (cx + int(ysize*0.7), cy - offset - ysize )
-    uv4 = (cx,                  cy - offset - ysize )
-    uv5 = (cx,                  cy - offset + ysize )
-    uv6 = (cx + int(ysize*0.7), cy - offset + ysize )
-    uv7 = (cx + int(ysize*0.7), cy - offset + ysize / 2 )
-    cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
-    cv2.line(frame, uv2, uv3, color, size, cv2.CV_AA)
-    cv2.line(frame, uv3, uv4, color, size, cv2.CV_AA)
-    cv2.line(frame, uv4, uv5, color, size, cv2.CV_AA)
-    cv2.line(frame, uv5, uv6, color, size, cv2.CV_AA)
-    cv2.line(frame, uv6, uv7, color, size, cv2.CV_AA)
-    cv2.line(frame, uv7, uv1, color, size, cv2.CV_AA)
+    if cy - offset >= miny and cy - offset <= maxy:
+        uv1 = (cx,                  cy - offset)
+        uv2 = (cx + int(ysize*0.7), cy - offset - ysize / 2 )
+        uv3 = (cx + int(ysize*0.7), cy - offset - ysize )
+        uv4 = (cx,                  cy - offset - ysize )
+        uv5 = (cx,                  cy - offset + ysize )
+        uv6 = (cx + int(ysize*0.7), cy - offset + ysize )
+        uv7 = (cx + int(ysize*0.7), cy - offset + ysize / 2 )
+        cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+        cv2.line(frame, uv2, uv3, color, size, cv2.CV_AA)
+        cv2.line(frame, uv3, uv4, color, size, cv2.CV_AA)
+        cv2.line(frame, uv4, uv5, color, size, cv2.CV_AA)
+        cv2.line(frame, uv5, uv6, color, size, cv2.CV_AA)
+        cv2.line(frame, uv6, uv7, color, size, cv2.CV_AA)
+        cv2.line(frame, uv7, uv1, color, size, cv2.CV_AA)
       
 def draw_altitude_tape(K, PROJ, ned, frame, alt_m, ap_alt):
     color = (0,240,0)
@@ -828,7 +829,7 @@ def draw_altitude_tape(K, PROJ, ned, frame, alt_m, ap_alt):
     maxrange = int(alt_ft/100)*10 + 30
     
     # current altitude
-    label = "%.0f" % alt_ft
+    label = "%.0f" % (round(alt_ft/10.0) * 10)
     lsize = cv2.getTextSize(label, font, fontsize, 1)
     xsize = lsize[0][0] + pad
     ysize = lsize[0][1] + pad
@@ -874,21 +875,22 @@ def draw_altitude_tape(K, PROJ, ned, frame, alt_m, ap_alt):
             cv2.putText(frame, label, uv3, font, fontsize, color, 1, cv2.CV_AA)
 
     # altitude bug
-    offset = int((ap_speed - airspeed) * spacing)
-    uv1 = (cx,                  cy - offset)
-    uv2 = (cx - int(ysize*0.7), cy - offset - ysize / 2 )
-    uv3 = (cx - int(ysize*0.7), cy - offset - ysize )
-    uv4 = (cx,                  cy - offset - ysize )
-    uv5 = (cx,                  cy - offset + ysize )
-    uv6 = (cx - int(ysize*0.7), cy - offset + ysize )
-    uv7 = (cx - int(ysize*0.7), cy - offset + ysize / 2 )
-    cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
-    cv2.line(frame, uv2, uv3, color, size, cv2.CV_AA)
-    cv2.line(frame, uv3, uv4, color, size, cv2.CV_AA)
-    cv2.line(frame, uv4, uv5, color, size, cv2.CV_AA)
-    cv2.line(frame, uv5, uv6, color, size, cv2.CV_AA)
-    cv2.line(frame, uv6, uv7, color, size, cv2.CV_AA)
-    cv2.line(frame, uv7, uv1, color, size, cv2.CV_AA)
+    offset = int((ap_alt - alt_ft)/10.0 * spacing)
+    if cy - offset >= miny and cy - offset <= maxy:
+        uv1 = (cx,                  cy - offset)
+        uv2 = (cx - int(ysize*0.7), cy - offset - ysize / 2 )
+        uv3 = (cx - int(ysize*0.7), cy - offset - ysize )
+        uv4 = (cx,                  cy - offset - ysize )
+        uv5 = (cx,                  cy - offset + ysize )
+        uv6 = (cx - int(ysize*0.7), cy - offset + ysize )
+        uv7 = (cx - int(ysize*0.7), cy - offset + ysize / 2 )
+        cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+        cv2.line(frame, uv2, uv3, color, size, cv2.CV_AA)
+        cv2.line(frame, uv3, uv4, color, size, cv2.CV_AA)
+        cv2.line(frame, uv4, uv5, color, size, cv2.CV_AA)
+        cv2.line(frame, uv5, uv6, color, size, cv2.CV_AA)
+        cv2.line(frame, uv6, uv7, color, size, cv2.CV_AA)
+        cv2.line(frame, uv7, uv1, color, size, cv2.CV_AA)
   
 if args.movie:
     # Mobius 1080p
@@ -979,7 +981,7 @@ if args.movie:
         roll_rad = flight_filter_roll(time)*d2r
         lat_deg = float(flight_gps_lat(time))
         lon_deg = float(flight_gps_lon(time))
-        altitude = float(flight_gps_alt(time))
+        altitude = float(flight_air_true_alt(time))
         airspeed = float(flight_air_speed(time))
         #ap_hdg = float(flight_ap_hdg(time))
         ap_hdg_x = float(flight_ap_hdg_x(time))
