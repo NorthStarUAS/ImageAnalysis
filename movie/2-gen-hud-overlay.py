@@ -36,6 +36,7 @@ parser.add_argument('--apm-log', help='APM tlog converted to csv')
 parser.add_argument('--aura-dir', help='Aura flight log directory')
 parser.add_argument('--stop-count', type=int, default=1, help='how many non-frames to absorb before we decide the movie is over')
 parser.add_argument('--plot', help='Plot stuff at the end of the run')
+parser.add_argument('--old-auto', action='store_true', help='Old auto/manual switch sense')
 args = parser.parse_args()
 
 r2d = 180.0 / math.pi
@@ -563,10 +564,17 @@ def draw_bird(K, PROJ, ned, frame, yaw_rad, pitch_rad, roll_rad):
         cv2.line(frame, center, uv2, color, size, cv2.CV_AA)
         cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
 
+filter_vn = 0.0
+filter_ve = 0.0
+tf_vel = 0.9
 def draw_course(K, PROJ, ned, frame, vn, ve):
+    global filter_vn
+    global filter_ve
     color = (50, 255, 255)     # yellow
     size = 2
-    a = math.atan2(ve, vn)
+    filter_vn = (1.0 - tf_vel) * filter_vn + tf_vel * vn
+    filter_ve = (1.0 - tf_vel) * filter_ve + tf_vel * ve
+    a = math.atan2(filter_ve, filter_vn)
     q0 = transformations.quaternion_about_axis(a, [0.0, 0.0, -1.0])
     tmp1 = ladder_helper(q0, 0, 0)
     tmp2 = ladder_helper(q0, 1.5, 1.0)
@@ -734,9 +742,9 @@ def draw_velocity_vector(K, PROJ, ned, frame, vel):
     if uv != None:
         cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
 
-def draw_speed_tape(K, PROJ, ned, frame, airspeed, ap_speed):
+def draw_speed_tape(K, PROJ, ned, frame, airspeed, ap_speed, flight_mode):
     color = (0,240,0)
-    fontsize = 0.5
+    fontsize = 0.6
     size = 1
     pad = 5
     h, w, d = frame.shape
@@ -795,7 +803,7 @@ def draw_speed_tape(K, PROJ, ned, frame, airspeed, ap_speed):
 
     # speed bug
     offset = int((ap_speed - airspeed) * spacing)
-    if cy - offset >= miny and cy - offset <= maxy:
+    if flight_mode == 'auto' and cy - offset >= miny and cy - offset <= maxy:
         uv1 = (cx,                  cy - offset)
         uv2 = (cx + int(ysize*0.7), cy - offset - ysize / 2 )
         uv3 = (cx + int(ysize*0.7), cy - offset - ysize )
@@ -811,9 +819,9 @@ def draw_speed_tape(K, PROJ, ned, frame, airspeed, ap_speed):
         cv2.line(frame, uv6, uv7, color, size, cv2.CV_AA)
         cv2.line(frame, uv7, uv1, color, size, cv2.CV_AA)
       
-def draw_altitude_tape(K, PROJ, ned, frame, alt_m, ap_alt):
+def draw_altitude_tape(K, PROJ, ned, frame, alt_m, ap_alt, flight_mode):
     color = (0,240,0)
-    fontsize = 0.5
+    fontsize = 0.6
     size = 1
     pad = 5
     h, w, d = frame.shape
@@ -876,7 +884,7 @@ def draw_altitude_tape(K, PROJ, ned, frame, alt_m, ap_alt):
 
     # altitude bug
     offset = int((ap_alt - alt_ft)/10.0 * spacing)
-    if cy - offset >= miny and cy - offset <= maxy:
+    if flight_mode == 'auto' and cy - offset >= miny and cy - offset <= maxy:
         uv1 = (cx,                  cy - offset)
         uv2 = (cx - int(ysize*0.7), cy - offset - ysize / 2 )
         uv3 = (cx - int(ysize*0.7), cy - offset - ysize )
@@ -991,7 +999,11 @@ if args.movie:
         ap_pitch = float(flight_ap_pitch(time))
         ap_speed = float(flight_ap_speed(time))
         ap_alt = float(flight_ap_alt(time))
-        auto = float(flight_pilot_auto(time))
+        auto_switch = float(flight_pilot_auto(time))
+        if (not args.old_auto and auto_switch < 0) or (args.old_auto and auto_switch > 0):
+            flight_mode = 'manual'
+        else:
+            flight_mode = 'auto'            
 
         body2cam = transformations.quaternion_from_euler( cam_yaw * d2r,
                                                           cam_pitch * d2r,
@@ -1037,9 +1049,11 @@ if args.movie:
         draw_astro(K, PROJ, ned, frame_undist)
         draw_airports(K, PROJ, frame_undist)
         draw_velocity_vector(K, PROJ, ned, frame_undist, [vn, ve, vd])
-        draw_speed_tape(K, PROJ, ned, frame_undist, airspeed, ap_speed)
-        draw_altitude_tape(K, PROJ, ned, frame_undist, altitude, ap_alt)
-        if auto < 0:
+        draw_speed_tape(K, PROJ, ned, frame_undist,
+                        airspeed, ap_speed, flight_mode)
+        draw_altitude_tape(K, PROJ, ned, frame_undist,
+                           altitude, ap_alt, flight_mode)
+        if flight_mode == 'manual':
             draw_nose(K, PROJ, ned, frame_undist, body2ned)
         else:
             draw_vbars(K, PROJ, ned, frame_undist, yaw_rad, pitch_rad,

@@ -75,6 +75,16 @@ def triangulate(matches_direct, cam_dict):
             matches = match_pairs[i][j]
             if (j <= i) or (len(matches) == 0):
                 continue
+            # distance between two cameras
+            ned1 = np.array(cam_dict[i1.name]['ned'])
+            ned2 = np.array(cam_dict[i2.name]['ned'])
+            dist = np.linalg.norm(ned2 - ned1)
+            if dist < 40:
+                # idea: the closer together two poses are, the greater
+                # the triangulation error will be relative to small
+                # attitude errors.  If we only compare more distance
+                # camera views the solver will be more stable.
+                continue
             #rvec2, tvec2 = i2.get_proj()
             rvec2 = cam_dict[i2.name]['rvec']
             tvec2 = cam_dict[i2.name]['tvec']
@@ -106,7 +116,12 @@ def triangulate(matches_direct, cam_dict):
     # of matches_direct_dict by the count of references to produce an
     # average NED coordinate for each match.
     for i, match in enumerate(matches_direct):
-        match[0] /= counters[i]
+        if counters[i] > 0:
+            match[0] /= counters[i]
+        else:
+            print 'invalid match from images too close to each other:', match
+            for j in range(1, len(match)):
+                match[j] = [-1, -1]
 
     # return the new match structure
     return matches_direct
@@ -383,12 +398,13 @@ for image in proj.image_list:
 
 # iterate through the image list and build the camera pose dictionary
 # (and a simple list of camera locations for plotting)
-cam_dict = {}
-for image in proj.image_list:
-    rvec, tvec = image.get_proj()
-    cam_dict[image.name] = {}
-    cam_dict[image.name]['rvec'] = rvec
-    cam_dict[image.name]['tvec'] = tvec
+# cam_dict = {}
+# for image in proj.image_list:
+#     rvec, tvec, ned = image.get_proj()
+#     cam_dict[image.name] = {}
+#     cam_dict[image.name]['rvec'] = rvec
+#     cam_dict[image.name]['tvec'] = tvec
+#     cam_dict[image.name]['ned'] = ned
 
 count = 0
 while True:
@@ -419,6 +435,8 @@ while True:
     # This computes a best fit for all the feature locations based on
     # the current best camera poses.
     triangulate(matches_direct, cam_dict)
+    # triangulate can also mark bad matches
+    delete_marked_matches(matches_direct)
 
     surface1 = []
     for match in matches_direct:

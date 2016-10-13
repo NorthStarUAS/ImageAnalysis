@@ -607,7 +607,9 @@ class ProjectMgr():
         proj = np.concatenate((R, tvec), axis=1)
         uvh = K.dot( proj.dot( np.hstack((ned, 1.0)) ).T )
         #print uvh
-        uvh /= uvh[2]
+        # note: -uvh[2] means the point is behind the image plane not in
+        # front of it
+        uvh /= abs(uvh[2])
         #print uvh
         #print "%s -> %s" % ( image.img_pts[i], [ np.squeeze(uvh[0,0]), np.squeeze(uvh[1,0]) ] )
         uv = np.array( [ np.squeeze(uvh[0,0]), np.squeeze(uvh[1,0]) ] )

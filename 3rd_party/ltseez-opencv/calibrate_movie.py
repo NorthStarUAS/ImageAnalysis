@@ -28,7 +28,7 @@ if __name__ == '__main__':
     import sys
 
     #pattern_size = (9, 6)
-    pattern_size = (9, 6)
+    pattern_size = (9, 7)
     pattern_points = np.zeros( (np.prod(pattern_size), 3), np.float32 )
     pattern_points[:,:2] = np.indices(pattern_size).T.reshape(-1, 2)
     pattern_points *= args.square_size
@@ -86,7 +86,8 @@ if __name__ == '__main__':
     step = int( size / args.samples )
     if step < 1:
         step = 1
-    for i in range(0, len(tmp_image_points_list), step):
+    print "size:", size, "step:", step
+    for i in range(0, size, step):
         print i
         corners = tmp_image_points_list[i]
         img_points.append(corners.reshape(-1, 2))
