@@ -127,7 +127,8 @@ elif args.aura_dir:
                 flight_imu.append( [tokens[0], tokens[1], tokens[2],
                                     tokens[3], 0.0, 0.0, 0.0] )
             else:
-                print "ERROR: time went backwards:", timestamp, last_time
+                # print "ERROR: time went backwards:", timestamp, last_time
+                pass
             last_time = timestamp
 
     last_time = 0.0
@@ -141,7 +142,8 @@ elif args.aura_dir:
                 flight_gps.append( [tokens[0], tokens[1], tokens[2],
                                     tokens[3], tokens[7]] )
             else:
-                print "ERROR: time went backwards:", timestamp, last_time
+                # print "ERROR: time went backwards:", timestamp, last_time
+                pass
             last_time = timestamp
 
     last_time = 0.0
@@ -161,7 +163,8 @@ elif args.aura_dir:
                                        tokens[7], tokens[8], tokens[9],
                                        yaw_x, yaw_y] )
             else:
-                print "ERROR: time went backwards:", timestamp, last_time
+                # print "ERROR: time went backwards:", timestamp, last_time
+                pass
             last_time = timestamp
 
     last_time = 0.0
@@ -187,7 +190,8 @@ elif args.aura_dir:
             if timestamp > last_time:
                 flight_pilot.append( tokens )
             else:
-                print "ERROR: time went backwards:", timestamp, last_time
+                # print "ERROR: time went backwards:", timestamp, last_time
+                pass
             last_time = timestamp
             
     last_time = 0.0
@@ -205,7 +209,8 @@ elif args.aura_dir:
                 tokens.append(hdg_y)
                 flight_ap.append( tokens )
             else:
-                print "ERROR: time went backwards:", timestamp, last_time
+                # print "ERROR: time went backwards:", timestamp, last_time
+                pass
             last_time = timestamp
 else:
     print "No flight log specified, cannot continue."
@@ -732,7 +737,7 @@ def draw_nose(K, PROJ, ned, frame, body2ned):
     
 vel_filt = [0.0, 0.0, 0.0]
 def draw_velocity_vector(K, PROJ, ned, frame, vel):
-    tf = 0.05
+    tf = 0.1
     for i in range(3):
         vel_filt[i] = (1.0 - tf) * vel_filt[i] + tf * vel[i]
         
