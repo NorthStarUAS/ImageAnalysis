@@ -113,7 +113,11 @@ elif args.aura_dir:
     # load Aura flight log
     imu_file = args.aura_dir + "/imu-0.txt"
     gps_file = args.aura_dir + "/gps-0.txt"
-    filter_file = args.aura_dir + "/filter-0.txt"
+    if os.path.exists(args.aura_dir + "/filter-post.txt"):
+        print "Notice: using filter-post.txt file because it exists!"
+        filter_file = args.aura_dir + "/filter-post.txt"
+    else:
+        filter_file = args.aura_dir + "/filter-0.txt"
     air_file = args.aura_dir + "/air-0.txt"
     pilot_file = args.aura_dir + "/pilot-0.txt"
     ap_file = args.aura_dir + "/ap-0.txt"
@@ -571,7 +575,7 @@ def draw_bird(K, PROJ, ned, frame, yaw_rad, pitch_rad, roll_rad):
 
 filter_vn = 0.0
 filter_ve = 0.0
-tf_vel = 0.9
+tf_vel = 0.5
 def draw_course(K, PROJ, ned, frame, vn, ve):
     global filter_vn
     global filter_ve
@@ -737,7 +741,7 @@ def draw_nose(K, PROJ, ned, frame, body2ned):
     
 vel_filt = [0.0, 0.0, 0.0]
 def draw_velocity_vector(K, PROJ, ned, frame, vel):
-    tf = 0.1
+    tf = 0.2
     for i in range(3):
         vel_filt[i] = (1.0 - tf) * vel_filt[i] + tf * vel[i]
         
@@ -1107,7 +1111,12 @@ cv2.destroyAllWindows()
 # ex: ffmpeg -i opencv.avi -i orig.mov -c copy -map 0:v -map 1:a final.avi
 
 from subprocess import call
-call(["ffmpeg", "-i", tmp_movie, "-i", args.movie, "-c", "copy", "-map", "0:v", "-map", "1:a", output_movie])
+result = call(["ffmpeg", "-i", tmp_movie, "-i", args.movie, "-c", "copy", "-map", "0:v", "-map", "1:a", output_movie])
+print "ffmpeg result code:", result
+if result == 0:
+    print "removing temp movie:", tmp_movie
+    os.remove(tmp_movie)
+    print "output movie:", output_movie
 
 if args.plot:
     # plot the data ...
