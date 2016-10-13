@@ -277,6 +277,7 @@ flight_ap_hdg = interpolate.interp1d(x, flight_ap[:,1], bounds_error=False, fill
 flight_ap_hdg_x = interpolate.interp1d(x, flight_ap[:,8], bounds_error=False, fill_value=0.0)
 flight_ap_hdg_y = interpolate.interp1d(x, flight_ap[:,9], bounds_error=False, fill_value=0.0)
 flight_ap_roll = interpolate.interp1d(x, flight_ap[:,2], bounds_error=False, fill_value=0.0)
+flight_ap_alt = interpolate.interp1d(x, flight_ap[:,3], bounds_error=False, fill_value=0.0)
 flight_ap_pitch = interpolate.interp1d(x, flight_ap[:,5], bounds_error=False, fill_value=0.0)
 flight_ap_speed = interpolate.interp1d(x, flight_ap[:,7], bounds_error=False, fill_value=0.0)
 
@@ -743,8 +744,8 @@ def draw_speed_tape(K, PROJ, ned, frame, airspeed, ap_speed):
     # reference point
     cy = int(h * 0.5)
     cx = int(w * 0.2)
-    miny = cx
-    maxy = h - cx
+    miny = int(h * 0.2)
+    maxy = int(h - miny)
     
     # current airspeed
     label = "%.0f" % airspeed
@@ -752,7 +753,7 @@ def draw_speed_tape(K, PROJ, ned, frame, airspeed, ap_speed):
     xsize = lsize[0][0] + pad
     ysize = lsize[0][1] + pad
     uv = ( int(cx + ysize*0.7), cy + lsize[0][1] / 2)
-    cv2.putText(frame, label, uv, font, fontsize, (0,255,0), 1, cv2.CV_AA)
+    cv2.putText(frame, label, uv, font, fontsize, color, 1, cv2.CV_AA)
     uv1 = (cx, cy)
     uv2 = (cx + int(ysize*0.7),         cy - ysize / 2 )
     uv3 = (cx + int(ysize*0.7) + xsize, cy - ysize / 2 )
@@ -766,17 +767,128 @@ def draw_speed_tape(K, PROJ, ned, frame, airspeed, ap_speed):
 
     # speed tics
     spacing = lsize[0][1]
-    
-    uv1 = (cx, cy - int((0 - airspeed) * spacing))
-    uv2 = (cx, cy - int((60 - airspeed) * spacing))
+    y = cy - int((0 - airspeed) * spacing)
+    if y < miny: y = miny
+    if y > maxy: y = maxy
+    uv1 = (cx, y)
+    y = cy - int((60 - airspeed) * spacing)
+    if y < miny: y = miny
+    if y > maxy: y = maxy
+    uv2 = (cx, y)
     cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+    for i in range(0, 65, 1):
+        offset = int((i - airspeed) * spacing)
+        if cy - offset >= miny and cy - offset <= maxy:
+            uv1 = (cx, cy - offset)
+            if i % 5 == 0:
+                uv2 = (cx - 6, cy - offset)
+            else:
+                uv2 = (cx - 4, cy - offset)
+            cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
     for i in range(0, 65, 5):
         offset = int((i - airspeed) * spacing)
-        uv1 = (cx, cy - offset)
-        uv2 = (cx - 6, cy - offset)
-        uv3 = (cx - 8 - lsize[0][0], cy - offset + lsize[0][1] / 2)
-        cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
-        cv2.putText(frame, "%d" % i, uv3, font, fontsize, (0,255,0), 1, cv2.CV_AA)
+        if cy - offset >= miny and cy - offset <= maxy:
+            label = "%d" % i
+            lsize = cv2.getTextSize(label, font, fontsize, 1)
+            uv3 = (cx - 8 - lsize[0][0], cy - offset + lsize[0][1] / 2)
+            cv2.putText(frame, label, uv3, font, fontsize, color, 1, cv2.CV_AA)
+
+    # speed bug
+    offset = int((ap_speed - airspeed) * spacing)
+    uv1 = (cx,                  cy - offset)
+    uv2 = (cx + int(ysize*0.7), cy - offset - ysize / 2 )
+    uv3 = (cx + int(ysize*0.7), cy - offset - ysize )
+    uv4 = (cx,                  cy - offset - ysize )
+    uv5 = (cx,                  cy - offset + ysize )
+    uv6 = (cx + int(ysize*0.7), cy - offset + ysize )
+    uv7 = (cx + int(ysize*0.7), cy - offset + ysize / 2 )
+    cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+    cv2.line(frame, uv2, uv3, color, size, cv2.CV_AA)
+    cv2.line(frame, uv3, uv4, color, size, cv2.CV_AA)
+    cv2.line(frame, uv4, uv5, color, size, cv2.CV_AA)
+    cv2.line(frame, uv5, uv6, color, size, cv2.CV_AA)
+    cv2.line(frame, uv6, uv7, color, size, cv2.CV_AA)
+    cv2.line(frame, uv7, uv1, color, size, cv2.CV_AA)
+      
+def draw_altitude_tape(K, PROJ, ned, frame, alt_m, ap_alt):
+    color = (0,240,0)
+    fontsize = 0.5
+    size = 1
+    pad = 5
+    h, w, d = frame.shape
+    
+    # reference point
+    cy = int(h * 0.5)
+    cx = int(w * 0.8)
+    miny = int(h * 0.2)
+    maxy = int(h - miny)
+    
+    alt_ft = alt_m / 0.3048
+    minrange = int(alt_ft/100)*10 - 30
+    maxrange = int(alt_ft/100)*10 + 30
+    
+    # current altitude
+    label = "%.0f" % alt_ft
+    lsize = cv2.getTextSize(label, font, fontsize, 1)
+    xsize = lsize[0][0] + pad
+    ysize = lsize[0][1] + pad
+    uv = ( int(cx - ysize*0.7 - lsize[0][0]), cy + lsize[0][1] / 2)
+    cv2.putText(frame, label, uv, font, fontsize, color, 1, cv2.CV_AA)
+    uv1 = (cx, cy)
+    uv2 = (cx - int(ysize*0.7),         cy - ysize / 2 )
+    uv3 = (cx - int(ysize*0.7) - xsize, cy - ysize / 2 )
+    uv4 = (cx - int(ysize*0.7) - xsize, cy + ysize / 2 )
+    uv5 = (cx - int(ysize*0.7),         cy + ysize / 2 )
+    cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+    cv2.line(frame, uv2, uv3, color, size, cv2.CV_AA)
+    cv2.line(frame, uv3, uv4, color, size, cv2.CV_AA)
+    cv2.line(frame, uv4, uv5, color, size, cv2.CV_AA)
+    cv2.line(frame, uv5, uv1, color, size, cv2.CV_AA)
+
+    # msl tics
+    spacing = lsize[0][1]
+    y = cy - int((minrange*10 - alt_ft)/10 * spacing)
+    if y < miny: y = miny
+    if y > maxy: y = maxy
+    uv1 = (cx, y)
+    y = cy - int((maxrange*10 - alt_ft)/10 * spacing)
+    if y < miny: y = miny
+    if y > maxy: y = maxy
+    uv2 = (cx, y)
+    cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+    for i in range(minrange, maxrange, 1):
+        offset = int((i*10 - alt_ft)/10 * spacing)
+        if cy - offset >= miny and cy - offset <= maxy:
+            uv1 = (cx, cy - offset)
+            if i % 5 == 0:
+                uv2 = (cx + 6, cy - offset)
+            else:
+                uv2 = (cx + 4, cy - offset)
+            cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+    for i in range(minrange, maxrange, 5):
+        offset = int((i*10 - alt_ft)/10 * spacing)
+        if cy - offset >= miny and cy - offset <= maxy:
+            label = "%d" % (i*10)
+            lsize = cv2.getTextSize(label, font, fontsize, 1)
+            uv3 = (cx + 8 , cy - offset + lsize[0][1] / 2)
+            cv2.putText(frame, label, uv3, font, fontsize, color, 1, cv2.CV_AA)
+
+    # altitude bug
+    offset = int((ap_speed - airspeed) * spacing)
+    uv1 = (cx,                  cy - offset)
+    uv2 = (cx - int(ysize*0.7), cy - offset - ysize / 2 )
+    uv3 = (cx - int(ysize*0.7), cy - offset - ysize )
+    uv4 = (cx,                  cy - offset - ysize )
+    uv5 = (cx,                  cy - offset + ysize )
+    uv6 = (cx - int(ysize*0.7), cy - offset + ysize )
+    uv7 = (cx - int(ysize*0.7), cy - offset + ysize / 2 )
+    cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+    cv2.line(frame, uv2, uv3, color, size, cv2.CV_AA)
+    cv2.line(frame, uv3, uv4, color, size, cv2.CV_AA)
+    cv2.line(frame, uv4, uv5, color, size, cv2.CV_AA)
+    cv2.line(frame, uv5, uv6, color, size, cv2.CV_AA)
+    cv2.line(frame, uv6, uv7, color, size, cv2.CV_AA)
+    cv2.line(frame, uv7, uv1, color, size, cv2.CV_AA)
   
 if args.movie:
     # Mobius 1080p
@@ -875,7 +987,8 @@ if args.movie:
         ap_hdg = math.atan2(ap_hdg_y, ap_hdg_x)*r2d
         ap_roll = float(flight_ap_roll(time))
         ap_pitch = float(flight_ap_pitch(time))
-        ap_speed = float(flight_ap_pitch(time))
+        ap_speed = float(flight_ap_speed(time))
+        ap_alt = float(flight_ap_alt(time))
         auto = float(flight_pilot_auto(time))
 
         body2cam = transformations.quaternion_from_euler( cam_yaw * d2r,
@@ -913,7 +1026,7 @@ if args.movie:
                                  interpolation=method)
         frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
 
-        cv2.putText(frame_undist, 'alt = %.0f' % altitude, (100, 100), font, 1, (0,255,0), 2,cv2.CV_AA)
+        # cv2.putText(frame_undist, 'alt = %.0f' % altitude, (100, 100), font, 1, (0,255,0), 2,cv2.CV_AA)
         # cv2.putText(frame_undist, 'kts = %.0f' % airspeed, (100, 150), font, 1, (0,255,0), 2,cv2.CV_AA)
 
         draw_horizon(K, PROJ, ned, frame_undist)
@@ -923,6 +1036,7 @@ if args.movie:
         draw_airports(K, PROJ, frame_undist)
         draw_velocity_vector(K, PROJ, ned, frame_undist, [vn, ve, vd])
         draw_speed_tape(K, PROJ, ned, frame_undist, airspeed, ap_speed)
+        draw_altitude_tape(K, PROJ, ned, frame_undist, altitude, ap_alt)
         if auto < 0:
             draw_nose(K, PROJ, ned, frame_undist, body2ned)
         else:
