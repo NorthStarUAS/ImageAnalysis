@@ -63,6 +63,7 @@ h = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT) * scale )
 #outfourcc = cv2.cv.CV_FOURCC('F', 'M', 'P', '4')
 outfourcc = cv2.cv.CV_FOURCC('M', 'J', 'P', 'G')
 #outfourcc = cv2.cv.CV_FOURCC('X', 'V', 'I', 'D')
+#outfourcc = cv2.cv.CV_FOURCC('X', '2', '6', '4')
 #outfourcc = cv2.VideoWriter_fourcc(*'XVID')
 output = cv2.VideoWriter(output_avi, outfourcc, fps, (w, h))
 

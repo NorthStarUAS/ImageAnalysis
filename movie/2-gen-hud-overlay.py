@@ -36,7 +36,7 @@ parser.add_argument('--apm-log', help='APM tlog converted to csv')
 parser.add_argument('--aura-dir', help='Aura flight log directory')
 parser.add_argument('--stop-count', type=int, default=1, help='how many non-frames to absorb before we decide the movie is over')
 parser.add_argument('--plot', help='Plot stuff at the end of the run')
-parser.add_argument('--old-auto', action='store_true', help='Old auto/manual switch sense')
+parser.add_argument('--auto-switch', choices=['old', 'new', 'none'], default='new', help='auto/manual switch logic helper')
 args = parser.parse_args()
 
 r2d = 180.0 / math.pi
@@ -276,6 +276,8 @@ flight_air = np.array(flight_air, dtype=np.float64)
 x = flight_air[:,0]
 flight_air_speed = interpolate.interp1d(x, flight_air[:,3], bounds_error=False, fill_value=0.0)
 flight_air_true_alt = interpolate.interp1d(x, flight_air[:,5], bounds_error=False, fill_value=0.0)
+flight_air_alpha = interpolate.interp1d(x, flight_air[:,11], bounds_error=False, fill_value=0.0)
+flight_air_beta = interpolate.interp1d(x, flight_air[:,12], bounds_error=False, fill_value=0.0)
 
 flight_pilot = np.array(flight_pilot, dtype=np.float64)
 x = flight_pilot[:,0]
@@ -389,10 +391,10 @@ def ladder_helper(q0, a0, a1):
                         [ned[0] + v[0], ned[1] + v[1], ned[2] + v[2]])
     return uv
 
-def draw_pitch_ladder(K, PROJ, ned, frame, yaw_rad):
+def draw_pitch_ladder(K, PROJ, ned, frame, yaw_rad, beta_rad):
     a1 = 2.0
     a2 = 8.0
-    q0 = transformations.quaternion_about_axis(yaw_rad, [0.0, 0.0, -1.0])
+    q0 = transformations.quaternion_about_axis(yaw_rad - beta_rad, [0.0, 0.0, -1.0])
     for a0 in range(5,35,5):
         # above horizon
         
@@ -916,11 +918,17 @@ if args.movie:
     #                [   0.0,    0.0,   1.0]] )
     # dist = [-0.36207197, 0.14627927, -0.00674558, 0.0008926, -0.02635695]
 
+    # Mobius UMN-003 1920x1080
+    K = np.array( [[ 1401.21111735,     0.       ,    904.25404757],
+                   [    0.        ,  1400.2530882,    490.12157373],
+                   [    0.        ,     0.       ,      1.        ]] )
+    dist = [-0.39012303,  0.19687255, -0.00069657,  0.00465592, -0.05845262]
+
     # RunCamHD2 1920x1080
-    K = np.array( [[ 971.96149426,   0.        , 957.46750602],
-                   [   0.        , 971.67133264, 516.50578382],
-                   [   0.        ,   0.        ,   1.        ]] )
-    dist = [-0.26910665, 0.10580125, 0.00048417, 0.00000925, -0.02321387]
+    # K = np.array( [[ 971.96149426,   0.        , 957.46750602],
+    #                [   0.        , 971.67133264, 516.50578382],
+    #                [   0.        ,   0.        ,   1.        ]] )
+    # dist = [-0.26910665, 0.10580125, 0.00048417, 0.00000925, -0.02321387]
 
     # Runcamhd2 1920x1440
     # K = np.array( [[ 1296.11187055,     0.        ,   955.43024994],
@@ -1000,6 +1008,8 @@ if args.movie:
         lon_deg = float(flight_gps_lon(time))
         altitude = float(flight_air_true_alt(time))
         airspeed = float(flight_air_speed(time))
+        alpha = float(flight_air_alpha(time))
+        beta_rad = float(flight_air_beta(time))*d2r
         #ap_hdg = float(flight_ap_hdg(time))
         ap_hdg_x = float(flight_ap_hdg_x(time))
         ap_hdg_y = float(flight_ap_hdg_y(time))
@@ -1009,7 +1019,9 @@ if args.movie:
         ap_speed = float(flight_ap_speed(time))
         ap_alt = float(flight_ap_alt(time))
         auto_switch = float(flight_pilot_auto(time))
-        if (not args.old_auto and auto_switch < 0) or (args.old_auto and auto_switch > 0):
+        if args.auto_switch == 'none':
+            flight_mode = 'manual'
+        elif (not args.auto_switch == 'new' and auto_switch < 0) or (args.auto_switch == 'old' and auto_switch > 0):
             flight_mode = 'manual'
         else:
             flight_mode = 'auto'            
@@ -1054,7 +1066,7 @@ if args.movie:
 
         draw_horizon(K, PROJ, ned, frame_undist)
         draw_compass_points(K, PROJ, ned, frame_undist)
-        draw_pitch_ladder(K, PROJ, ned, frame_undist, yaw_rad)
+        draw_pitch_ladder(K, PROJ, ned, frame_undist, yaw_rad, beta_rad)
         draw_astro(K, PROJ, ned, frame_undist)
         draw_airports(K, PROJ, frame_undist)
         draw_velocity_vector(K, PROJ, ned, frame_undist, [vn, ve, vd])
