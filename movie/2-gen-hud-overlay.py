@@ -394,7 +394,7 @@ def ladder_helper(q0, a0, a1):
 def draw_pitch_ladder(K, PROJ, ned, frame, yaw_rad, beta_rad):
     a1 = 2.0
     a2 = 8.0
-    q0 = transformations.quaternion_about_axis(yaw_rad - beta_rad, [0.0, 0.0, -1.0])
+    q0 = transformations.quaternion_about_axis(yaw_rad - beta_rad + 0.05, [0.0, 0.0, -1.0])
     for a0 in range(5,35,5):
         # above horizon
         
@@ -790,7 +790,7 @@ def draw_speed_tape(K, PROJ, ned, frame, airspeed, ap_speed, flight_mode):
     if y < miny: y = miny
     if y > maxy: y = maxy
     uv1 = (cx, y)
-    y = cy - int((60 - airspeed) * spacing)
+    y = cy - int((70 - airspeed) * spacing)
     if y < miny: y = miny
     if y > maxy: y = maxy
     uv2 = (cx, y)
@@ -1009,7 +1009,7 @@ if args.movie:
         altitude = float(flight_air_true_alt(time))
         airspeed = float(flight_air_speed(time))
         alpha = float(flight_air_alpha(time))
-        beta_rad = float(flight_air_beta(time))*d2r
+        beta_rad = float(flight_air_beta(time))*d2r * 1.25
         #ap_hdg = float(flight_ap_hdg(time))
         ap_hdg_x = float(flight_ap_hdg_x(time))
         ap_hdg_y = float(flight_ap_hdg_y(time))
