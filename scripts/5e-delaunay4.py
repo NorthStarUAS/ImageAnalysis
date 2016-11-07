@@ -131,10 +131,8 @@ proj.load_features()
 proj.load_match_pairs()
         
 print "Loading match points (sba)..."
-matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
-#f = open(args.project + "/Matches-sba.json", 'r')
-#matches_sba = json.load(f)
-#f.close()
+#matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
+matches_sba = pickle.load( open( args.project + "/matches_direct", "rb" ) )
 
 # iterate through the sba match dictionary and build a list of feature
 # points and heights (in x=east,y=north,z=up coordinates)

@@ -43,9 +43,8 @@ if not args.direct:
 # image mean reprojection error
 def compute_feature_mre(K, image, kp, ned):
     if image.PROJ == None:
-        # rvec, tvec = image.get_proj()   # original direct pose
         if args.direct:
-            rvec, tvec = image.get_proj() # fitted pose
+            rvec, tvec = image.get_proj() # original direct pose
         else:
             rvec, tvec = image.get_proj_sba() # fitted pose
         R, jac = cv2.Rodrigues(rvec)

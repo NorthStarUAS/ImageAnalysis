@@ -2,15 +2,12 @@
 
 # find our custom built opencv first
 import sys
-sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
+sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
 
 
 import argparse
 import numpy as np
 import cv2
-
-# local modules
-# from common import splitfn
 
 # built-in modules
 import os
@@ -19,16 +16,23 @@ import os
 parser = argparse.ArgumentParser(description='Estimate gyro biases from movie.')
 parser.add_argument('--movie', required=True, help='movie file')
 parser.add_argument('--square-size', type=float, default=1.0, help='square size')
-parser.add_argument('--samples', type=int, default=100, help='samples to extract from movie')
+parser.add_argument('--samples', type=int, default=150, help='samples to extract from movie')
 parser.add_argument('--debug', action='store_true', help='draw debugging output')
 args = parser.parse_args()
 
 
 if __name__ == '__main__':
     import sys
+    import time
 
+    if args.samples > 200:
+        print "100 samples is relatively quick.  200 might take 20-30 minutes to crunch.  Anything above that requires extreme patience!"
+        time.sleep(5)
+        
     #pattern_size = (9, 6)
-    pattern_size = (9, 7)
+    #pattern_size = (9, 7)
+    pattern_size = (8, 6)
+
     pattern_points = np.zeros( (np.prod(pattern_size), 3), np.float32 )
     pattern_points[:,:2] = np.indices(pattern_size).T.reshape(-1, 2)
     pattern_points *= args.square_size
@@ -66,8 +70,6 @@ if __name__ == '__main__':
             cv2.cornerSubPix(gray, corners, (5, 5), (-1, -1), term)
         if args.debug:
             cv2.drawChessboardCorners(gray, pattern_size, corners, found)
-            path, basefile = os.path.split(fn)
-            name, ext = os.path.splitext(basefile)
             cv2.imshow('corners', gray)
         if not found:
             print 'chessboard not found'
@@ -86,14 +88,13 @@ if __name__ == '__main__':
     step = int( size / args.samples )
     if step < 1:
         step = 1
-    print "size:", size, "step:", step
-    for i in range(0, size, step):
-        print i
+    for i in range(0, len(tmp_image_points_list), step):
+        print 'using frame:', i
         corners = tmp_image_points_list[i]
         img_points.append(corners.reshape(-1, 2))
         obj_points.append(pattern_points)
     
-    print np.array(img_points).size
+    print 'Total points:', np.array(img_points).size
     print "Computing camera calibration (this may take quite a bit of time)..."
     rms, camera_matrix, dist_coefs, rvecs, tvecs = cv2.calibrateCamera(obj_points, img_points, (w, h), None, None)
     np.set_printoptions(suppress=True)

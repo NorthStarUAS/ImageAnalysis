@@ -68,10 +68,10 @@ def transform_points( A, pts_list ):
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
-proj.load_match_pairs()
+#proj.load_match_pairs()
 proj.undistort_keypoints()
 
-m = Matcher.Matcher()
+#m = Matcher.Matcher()
 
 matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )
 print "unique features:", len(matches_direct)
