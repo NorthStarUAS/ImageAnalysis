@@ -419,10 +419,15 @@ class HUD:
             a = (float(i) * 360/float(divs)) * d2r
             n = math.cos(a)
             e = math.sin(a)
-            uv1 = self.project_point([self.ned[0] + n, self.ned[1] + e, self.ned[2] - 0.0])
-            uv2 = self.project_point([self.ned[0] + n, self.ned[1] + e, self.ned[2] - 0.02])
+            uv1 = self.project_point([self.ned[0] + n,
+                                      self.ned[1] + e,
+                                      self.ned[2] - 0.0])
+            uv2 = self.project_point([self.ned[0] + n,
+                                      self.ned[1] + e,
+                                      self.ned[2] - 0.02])
             if uv1 != None and uv2 != None:
-                cv2.line(self.frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width,
+                         cv2.CV_AA)
 
         # North
         uv = self.project_point([self.ned[0] + 1.0, self.ned[1] + 0.0, self.ned[2] - 0.03])
@@ -510,7 +515,7 @@ class HUD:
         if uv != None:
             cv2.circle(self.frame, uv, 4, (0,240,0), 1, cv2.CV_AA)
 
-    def draw_speed_tape(self, airspeed, ap_speed, flight_mode):
+    def draw_speed_tape(self, airspeed, ap_speed, units_label, flight_mode):
         color = (0,240,0)
         size = 1
         pad = 5 + self.line_width*2
@@ -568,6 +573,11 @@ class HUD:
                 uv3 = (cx - 8 - lsize[0][0], cy - offset + lsize[0][1] / 2)
                 cv2.putText(self.frame, label, uv3, self.font, self.font_size, color, self.line_width, cv2.CV_AA)
 
+        # units
+        lsize = cv2.getTextSize(units_label, self.font, self.font_size, self.line_width)
+        uv = (cx - int(lsize[0][1]*0.5), maxy + lsize[0][1] + self.line_width*2)
+        cv2.putText(self.frame, units_label, uv, self.font, self.font_size, color, self.line_width, cv2.CV_AA)
+
         # speed bug
         offset = int((ap_speed - airspeed) * spacing)
         if flight_mode == 'auto' and cy - offset >= miny and cy - offset <= maxy:
@@ -586,7 +596,7 @@ class HUD:
             cv2.line(self.frame, uv6, uv7, color, self.line_width, cv2.CV_AA)
             cv2.line(self.frame, uv7, uv1, color, self.line_width, cv2.CV_AA)
 
-    def draw_altitude_tape(self, alt_m, ap_alt, flight_mode):
+    def draw_altitude_tape(self, altitude, ap_alt, units_label, flight_mode):
         color = (0,240,0)
         size = 1
         pad = 5 + self.line_width*2
@@ -598,12 +608,11 @@ class HUD:
         miny = int(h * 0.2)
         maxy = int(h - miny)
 
-        alt_ft = alt_m / 0.3048
-        minrange = int(alt_ft/100)*10 - 30
-        maxrange = int(alt_ft/100)*10 + 30
+        minrange = int(altitude/100)*10 - 30
+        maxrange = int(altitude/100)*10 + 30
 
         # current altitude
-        label = "%.0f" % (round(alt_ft/10.0) * 10)
+        label = "%.0f" % (round(altitude/10.0) * 10)
         lsize = cv2.getTextSize(label, self.font, self.font_size, self.line_width)
         xsize = lsize[0][0] + pad
         ysize = lsize[0][1] + pad
@@ -622,17 +631,17 @@ class HUD:
 
         # msl tics
         spacing = lsize[0][1]
-        y = cy - int((minrange*10 - alt_ft)/10 * spacing)
+        y = cy - int((minrange*10 - altitude)/10 * spacing)
         if y < miny: y = miny
         if y > maxy: y = maxy
         uv1 = (cx, y)
-        y = cy - int((maxrange*10 - alt_ft)/10 * spacing)
+        y = cy - int((maxrange*10 - altitude)/10 * spacing)
         if y < miny: y = miny
         if y > maxy: y = maxy
         uv2 = (cx, y)
         cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
         for i in range(minrange, maxrange, 1):
-            offset = int((i*10 - alt_ft)/10 * spacing)
+            offset = int((i*10 - altitude)/10 * spacing)
             if cy - offset >= miny and cy - offset <= maxy:
                 uv1 = (cx, cy - offset)
                 if i % 5 == 0:
@@ -641,15 +650,20 @@ class HUD:
                     uv2 = (cx + 4, cy - offset)
                 cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
         for i in range(minrange, maxrange, 5):
-            offset = int((i*10 - alt_ft)/10 * spacing)
+            offset = int((i*10 - altitude)/10 * spacing)
             if cy - offset >= miny and cy - offset <= maxy:
                 label = "%d" % (i*10)
                 lsize = cv2.getTextSize(label, self.font, self.font_size, self.line_width)
                 uv3 = (cx + 8 , cy - offset + lsize[0][1] / 2)
                 cv2.putText(self.frame, label, uv3, self.font, self.font_size, color, self.line_width, cv2.CV_AA)
 
+        # units
+        lsize = cv2.getTextSize(units_label, self.font, self.font_size, self.line_width)
+        uv = (cx - int(lsize[0][1]*0.5), maxy + lsize[0][1] + self.line_width*2)
+        cv2.putText(self.frame, units_label, uv, self.font, self.font_size, color, self.line_width, cv2.CV_AA)
+
         # altitude bug
-        offset = int((ap_alt - alt_ft)/10.0 * spacing)
+        offset = int((ap_alt - altitude)/10.0 * spacing)
         if flight_mode == 'auto' and cy - offset >= miny and cy - offset <= maxy:
             uv1 = (cx,                  cy - offset)
             uv2 = (cx - int(ysize*0.7), cy - offset - ysize / 2 )

@@ -25,8 +25,12 @@ import transformations
 
 import hud
 
-# a helpful constant
+# helpful constants
 d2r = math.pi / 180.0
+mps2kt = 1.94384
+kt2mps = 1 / mps2kt
+ft2m = 0.3048
+m2ft = 1 / ft2m
 
 # default sizes of primatives
 render_w = 1920
@@ -42,6 +46,8 @@ parser.add_argument('--aura-dir', help='Aura flight log directory')
 parser.add_argument('--stop-count', type=int, default=1, help='how many non-frames to absorb before we decide the movie is over')
 parser.add_argument('--plot', help='Plot stuff at the end of the run')
 parser.add_argument('--auto-switch', choices=['old', 'new', 'none'], default='new', help='auto/manual switch logic helper')
+parser.add_argument('--airspeed-units', choices=['kt', 'mps'], default='kt', help='display units for airspeed')
+parser.add_argument('--altitude-units', choices=['ft', 'm'], default='ft', help='display units for airspeed')
 args = parser.parse_args()
 
 r2d = 180.0 / math.pi
@@ -408,7 +414,7 @@ if args.movie:
     last_time = 0.0
 
     # set primative sizes based on rendered resolution.
-    hud.set_line_width( int(round(float(h) / 350.0)) )
+    hud.set_line_width( int(round(float(h) / 400.0)) )
     hud.set_font_size( float(h) / 900.0 )
     
     while True:
@@ -439,8 +445,8 @@ if args.movie:
         roll_rad = flight_filter_roll(time)*d2r
         lat_deg = float(flight_gps_lat(time))
         lon_deg = float(flight_gps_lon(time))
-        altitude = float(flight_air_true_alt(time))
-        airspeed = float(flight_air_speed(time))
+        altitude_m = float(flight_air_true_alt(time))
+        airspeed_kt = float(flight_air_speed(time))
         alpha_rad = float(flight_air_alpha(time))*d2r * 1.25
         beta_rad = float(flight_air_beta(time))*d2r * 1.25 - 0.05
         #ap_hdg = float(flight_ap_hdg(time))
@@ -477,7 +483,7 @@ if args.movie:
         #print 'ned2cam:', ned2cam
         R = ned2proj.dot( ned2cam )
         rvec, jac = cv2.Rodrigues(R)
-        ned = navpy.lla2ned( lat_deg, lon_deg, altitude,
+        ned = navpy.lla2ned( lat_deg, lon_deg, altitude_m,
                              ref[0], ref[1], ref[2] )
         #print 'ned:', ned
         tvec = -np.matrix(R) * np.matrix(ned).T
@@ -511,8 +517,16 @@ if args.movie:
                        float(flight_gps_unixtime(time)))
         hud.draw_airports()
         hud.draw_velocity_vector([vn, ve, vd])
-        hud.draw_speed_tape(airspeed, ap_speed, flight_mode)
-        hud.draw_altitude_tape(altitude, ap_alt, flight_mode)
+        if args.airspeed_units == 'mps':
+            airspeed = airspeed_kt * kt2mps
+        else:
+            airspeed = airspeed_kt
+        hud.draw_speed_tape(airspeed, ap_speed, args.airspeed_units.capitalize(), flight_mode)
+        if args.altitude_units == 'm':
+            altitude = altitude_m
+        else:
+            altitude = altitude_m * m2ft
+        hud.draw_altitude_tape(altitude, ap_alt, args.altitude_units.capitalize(), flight_mode)
         if flight_mode == 'manual':
             hud.draw_nose(body2ned)
         else:
