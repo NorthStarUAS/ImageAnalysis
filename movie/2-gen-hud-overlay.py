@@ -28,9 +28,16 @@ import transformations
 # a helpful constant
 d2r = math.pi / 180.0
 
+# default sizes of primatives
+render_w = 1920
+render_h = 1080
+line_width = 1
+font_size = 0.6
+
 parser = argparse.ArgumentParser(description='correlate movie data to flight data.')
 parser.add_argument('--movie', required=True, help='original movie')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
+parser.add_argument('--alpha', type=float, default=0.75, help='hud alpha blend')
 parser.add_argument('--resample-hz', type=float, default=30.0, help='resample rate (hz)')
 parser.add_argument('--apm-log', help='APM tlog converted to csv')
 parser.add_argument('--aura-dir', help='Aura flight log directory')
@@ -381,7 +388,7 @@ def draw_horizon(K, PROJ, ned, frame):
         uv2 = project_point(K, PROJ,
                             [ned[0] + p2[0], ned[1] + p2[1], ned[2] + p2[2]])
         if uv1 != None and uv2 != None:
-            cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+            cv2.line(frame, uv1, uv2, (0,240,0), line_width, cv2.CV_AA)
 
 def ladder_helper(q0, a0, a1):
     q1 = transformations.quaternion_from_euler(-a1*d2r, -a0*d2r, 0.0, 'rzyx')
@@ -394,7 +401,9 @@ def ladder_helper(q0, a0, a1):
 def draw_pitch_ladder(K, PROJ, ned, frame, yaw_rad, beta_rad):
     a1 = 2.0
     a2 = 8.0
-    q0 = transformations.quaternion_about_axis(yaw_rad - beta_rad + 0.05, [0.0, 0.0, -1.0])
+    #slide_rad = yaw_rad - beta_rad
+    slide_rad = yaw_rad
+    q0 = transformations.quaternion_about_axis(slide_rad, [0.0, 0.0, -1.0])
     for a0 in range(5,35,5):
         # above horizon
         
@@ -402,30 +411,30 @@ def draw_pitch_ladder(K, PROJ, ned, frame, yaw_rad, beta_rad):
         uv1 = ladder_helper(q0, a0, a1)
         uv2 = ladder_helper(q0, a0, a2)
         if uv1 != None and uv2 != None:
-            cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+            cv2.line(frame, uv1, uv2, (0,240,0), line_width, cv2.CV_AA)
             du = uv2[0] - uv1[0]
             dv = uv2[1] - uv1[1]
             uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
-            draw_label(frame, "%d" % a0, uv, font, 0.6, 1)
+            draw_label(frame, "%d" % a0, uv, font, font_size, line_width)
         # right tick
         uv1 = ladder_helper(q0, a0-0.5, a1)
         uv2 = ladder_helper(q0, a0, a1)
         if uv1 != None and uv2 != None:
-            cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+            cv2.line(frame, uv1, uv2, (0,240,0), line_width, cv2.CV_AA)
         # left horizontal
         uv1 = ladder_helper(q0, a0, -a1)
         uv2 = ladder_helper(q0, a0, -a2)
         if uv1 != None and uv2 != None:
-            cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+            cv2.line(frame, uv1, uv2, (0,240,0), line_width, cv2.CV_AA)
             du = uv2[0] - uv1[0]
             dv = uv2[1] - uv1[1]
             uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
-            draw_label(frame, "%d" % a0, uv, font, 0.6, 1)
+            draw_label(frame, "%d" % a0, uv, font, font_size, line_width)
         # left tick
         uv1 = ladder_helper(q0, a0-0.5, -a1)
         uv2 = ladder_helper(q0, a0, -a1)
         if uv1 != None and uv2 != None:
-            cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+            cv2.line(frame, uv1, uv2, (0,240,0), line_width, cv2.CV_AA)
             
         # below horizon
         
@@ -440,13 +449,13 @@ def draw_pitch_ladder(K, PROJ, ned, frame, yaw_rad, beta_rad):
                 tmp2 = ( tmp1[0] + int(0.25*du), tmp1[1] + int(0.25*dv) )
                 cv2.line(frame, tmp1, tmp2, (0,240,0), 1, cv2.CV_AA)
             uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
-            draw_label(frame, "%d" % a0, uv, font, 0.6, 1)
+            draw_label(frame, "%d" % a0, uv, font, font_size, line_width)
 
         # right tick
         uv1 = ladder_helper(q0, -a0+0.5, a1)
         uv2 = ladder_helper(q0, -a0, a1)
         if uv1 != None and uv2 != None:
-            cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+            cv2.line(frame, uv1, uv2, (0,240,0), line_width, cv2.CV_AA)
         # left horizontal
         uv1 = ladder_helper(q0, -a0, -a1)
         uv2 = ladder_helper(q0, -a0-0.5, -a2)
@@ -456,14 +465,33 @@ def draw_pitch_ladder(K, PROJ, ned, frame, yaw_rad, beta_rad):
             for i in range(0,3):
                 tmp1 = ( uv1[0] + int(0.375*i*du), uv1[1] + int(0.375*i*dv) )
                 tmp2 = ( tmp1[0] + int(0.25*du), tmp1[1] + int(0.25*dv) )
-                cv2.line(frame, tmp1, tmp2, (0,240,0), 1, cv2.CV_AA)
+                cv2.line(frame, tmp1, tmp2, (0,240,0), line_width, cv2.CV_AA)
             uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
-            draw_label(frame, "%d" % a0, uv, font, 0.6, 1)
+            draw_label(frame, "%d" % a0, uv, font, font_size, line_width)
         # left tick
         uv1 = ladder_helper(q0, -a0+0.5, -a1)
         uv2 = ladder_helper(q0, -a0, -a1)
         if uv1 != None and uv2 != None:
-            cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+            cv2.line(frame, uv1, uv2, (0,240,0), line_width, cv2.CV_AA)
+
+def draw_flight_path_marker(K, PROJ, ned, frame, pitch_rad, alpha_rad,
+                         yaw_rad, beta_rad):
+    q0 = transformations.quaternion_about_axis(yaw_rad + beta_rad, [0.0, 0.0, -1.0])
+    a0 = (pitch_rad - alpha_rad) * r2d
+    uv = ladder_helper(q0, a0, 0)
+    if uv != None:
+        r1 = int(round(render_w / 100))
+        r2 = int(round(render_w / 50))
+        uv1 = (uv[0]+r1, uv[1])
+        uv2 = (uv[0]+r2, uv[1])
+        uv3 = (uv[0]-r1, uv[1])
+        uv4 = (uv[0]-r2, uv[1])
+        uv5 = (uv[0], uv[1]-r1)
+        uv6 = (uv[0], uv[1]-r2)
+        cv2.circle(frame, uv, r1, (0,240,0), line_width, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, (0,240,0), line_width, cv2.CV_AA)
+        cv2.line(frame, uv3, uv4, (0,240,0), line_width, cv2.CV_AA)
+        cv2.line(frame, uv5, uv6, (0,240,0), line_width, cv2.CV_AA)
 
 def rotate_pt(p, center, a):
     x = math.cos(a) * (p[0]-center[0]) - math.sin(a) * (p[1]-center[1]) + center[0]
@@ -473,7 +501,7 @@ def rotate_pt(p, center, a):
     
 def draw_vbars(K, PROJ, ned, frame, yaw_rad, pitch_rad, ap_roll, ap_pitch):
     color = (186, 85, 211)      # medium orchid
-    size = 2
+    size = line_width
     a1 = 10.0
     a2 = 1.5
     a3 = 3.0
@@ -495,11 +523,11 @@ def draw_vbars(K, PROJ, ned, frame, yaw_rad, pitch_rad, ap_roll, ap_pitch):
     uv2 = rotate_pt(tmp2, rot, ap_roll*d2r)
     uv3 = rotate_pt(tmp3, rot, ap_roll*d2r)
     if uv1 != None and uv2 != None and uv3 != None:
-        cv2.line(frame, center, uv1, color, size, cv2.CV_AA)
-        cv2.line(frame, center, uv3, color, size, cv2.CV_AA)
-        cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
-        cv2.line(frame, uv1, uv3, color, size, cv2.CV_AA)
-        cv2.line(frame, uv2, uv3, color, size, cv2.CV_AA)
+        cv2.line(frame, center, uv1, color, line_width, cv2.CV_AA)
+        cv2.line(frame, center, uv3, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv1, uv3, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv2, uv3, color, line_width, cv2.CV_AA)
     # left vbar
     tmp1 = ladder_helper(q0, a0-a3, -a1)
     tmp2 = ladder_helper(q0, a0-a3, -a1-a3)
@@ -508,11 +536,11 @@ def draw_vbars(K, PROJ, ned, frame, yaw_rad, pitch_rad, ap_roll, ap_pitch):
     uv2 = rotate_pt(tmp2, rot, ap_roll*d2r)
     uv3 = rotate_pt(tmp3, rot, ap_roll*d2r)
     if uv1 != None and uv2 != None and uv3 != None:
-        cv2.line(frame, center, uv1, color, size, cv2.CV_AA)
-        cv2.line(frame, center, uv3, color, size, cv2.CV_AA)
-        cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
-        cv2.line(frame, uv1, uv3, color, size, cv2.CV_AA)
-        cv2.line(frame, uv2, uv3, color, size, cv2.CV_AA)
+        cv2.line(frame, center, uv1, color, line_width, cv2.CV_AA)
+        cv2.line(frame, center, uv3, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv1, uv3, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv2, uv3, color, line_width, cv2.CV_AA)
 
 def draw_heading_bug(K, PROJ, ned, frame, ap_hdg):
     color = (186, 85, 211)      # medium orchid
@@ -533,16 +561,16 @@ def draw_heading_bug(K, PROJ, ned, frame, ap_hdg):
             return
         #else:
         #    pts[i] = rotate_pt(pts[i], center, -cam_roll*d2r)
-    cv2.line(frame, pts[0], pts[1], color, size, cv2.CV_AA)
-    cv2.line(frame, pts[1], pts[2], color, size, cv2.CV_AA)
-    cv2.line(frame, pts[2], pts[3], color, size, cv2.CV_AA)
-    cv2.line(frame, pts[3], pts[4], color, size, cv2.CV_AA)
-    cv2.line(frame, pts[4], pts[5], color, size, cv2.CV_AA)
-    cv2.line(frame, pts[5], pts[6], color, size, cv2.CV_AA)
-    cv2.line(frame, pts[6], pts[0], color, size, cv2.CV_AA)
+    cv2.line(frame, pts[0], pts[1], color, line_width, cv2.CV_AA)
+    cv2.line(frame, pts[1], pts[2], color, line_width, cv2.CV_AA)
+    cv2.line(frame, pts[2], pts[3], color, line_width, cv2.CV_AA)
+    cv2.line(frame, pts[3], pts[4], color, line_width, cv2.CV_AA)
+    cv2.line(frame, pts[4], pts[5], color, line_width, cv2.CV_AA)
+    cv2.line(frame, pts[5], pts[6], color, line_width, cv2.CV_AA)
+    cv2.line(frame, pts[6], pts[0], color, line_width, cv2.CV_AA)
     #pts = np.array( pts, np.int32 )
     #pts = pts.reshape((-1,1,2))
-    #cv2.polylines(frame, pts, True, color, size, cv2.CV_AA)
+    #cv2.polylines(frame, pts, True, color, line_width, cv2.CV_AA)
 
 def draw_bird(K, PROJ, ned, frame, yaw_rad, pitch_rad, roll_rad):
     color = (50, 255, 255)     # yellow
@@ -562,18 +590,18 @@ def draw_bird(K, PROJ, ned, frame, yaw_rad, pitch_rad, roll_rad):
     uv1 = rotate_pt(tmp1, center, roll_rad)
     uv2 = rotate_pt(tmp2, center, roll_rad)
     if uv1 != None and uv2 != None:
-        cv2.line(frame, center, uv1, color, size, cv2.CV_AA)
-        cv2.line(frame, center, uv2, color, size, cv2.CV_AA)
-        cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+        cv2.line(frame, center, uv1, color, line_width, cv2.CV_AA)
+        cv2.line(frame, center, uv2, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, color, line_width, cv2.CV_AA)
     # left vbar
     tmp1 = ladder_helper(q0, a0-a2, -a1)
     tmp2 = ladder_helper(q0, a0-a2, -a1+a2)
     uv1 = rotate_pt(tmp1, center, roll_rad)
     uv2 = rotate_pt(tmp2, center, roll_rad)
     if uv1 != None and uv2 != None:
-        cv2.line(frame, center, uv1, color, size, cv2.CV_AA)
-        cv2.line(frame, center, uv2, color, size, cv2.CV_AA)
-        cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+        cv2.line(frame, center, uv1, color, line_width, cv2.CV_AA)
+        cv2.line(frame, center, uv2, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, color, line_width, cv2.CV_AA)
 
 filter_vn = 0.0
 filter_ve = 0.0
@@ -593,8 +621,8 @@ def draw_course(K, PROJ, ned, frame, vn, ve):
     if tmp1 != None and tmp2 != None and tmp3 != None :
         uv2 = rotate_pt(tmp2, tmp1, -cam_roll*d2r)
         uv3 = rotate_pt(tmp3, tmp1, -cam_roll*d2r)
-        cv2.line(frame, tmp1, uv2, color, size, cv2.CV_AA)
-        cv2.line(frame, tmp1, uv3, color, size, cv2.CV_AA)
+        cv2.line(frame, tmp1, uv2, color, line_width, cv2.CV_AA)
+        cv2.line(frame, tmp1, uv3, color, line_width, cv2.CV_AA)
 
 def draw_label(frame, label, uv, font, font_scale, thickness, horiz='center',
                vert='center'):
@@ -664,22 +692,22 @@ def draw_compass_points(K, PROJ, ned, frame):
     uv = project_point(K, PROJ,
                        [ned[0] + 1.0, ned[1] + 0.0, ned[2] - 0.03])
     if uv != None:
-        draw_label(frame, 'N', uv, font, 1, 2, vert='above')
+        draw_label(frame, 'N', uv, font, 1, line_width, vert='above')
     # South
     uv = project_point(K, PROJ,
                        [ned[0] - 1.0, ned[1] + 0.0, ned[2] - 0.03])
     if uv != None:
-        draw_label(frame, 'S', uv, font, 1, 2, vert='above')
+        draw_label(frame, 'S', uv, font, 1, line_width, vert='above')
     # East
     uv = project_point(K, PROJ,
                        [ned[0] + 0.0, ned[1] + 1.0, ned[2] - 0.03])
     if uv != None:
-        draw_label(frame, 'E', uv, font, 1, 2, vert='above')
+        draw_label(frame, 'E', uv, font, 1, line_width, vert='above')
     # West
     uv = project_point(K, PROJ,
                        [ned[0] + 0.0, ned[1] - 1.0, ned[2] - 0.03])
     if uv != None:
-        draw_label(frame, 'W', uv, font, 1, 2, vert='above')
+        draw_label(frame, 'W', uv, font, 1, line_width, vert='above')
 
 def draw_astro(K, PROJ, ned, frame):
     lat_deg = float(flight_gps_lat(time))
@@ -736,9 +764,11 @@ def draw_nose(K, PROJ, ned, frame, body2ned):
     vec = transformations.quaternion_transform(body2ned, [1.0, 0.0, 0.0])
     uv = project_point(K, PROJ,
                        [ned[0] + vec[0], ned[1] + vec[1], ned[2]+ vec[2]])
+    r1 = int(round(render_w / 150))
+    r2 = int(round(render_w / 75))
     if uv != None:
-        cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
-        cv2.circle(frame, uv, 10, (0,240,0), 1, cv2.CV_AA)
+        cv2.circle(frame, uv, r1, (0,240,0), line_width, cv2.CV_AA)
+        cv2.circle(frame, uv, r2, (0,240,0), line_width, cv2.CV_AA)
 
     
 vel_filt = [0.0, 0.0, 0.0]
@@ -751,13 +781,12 @@ def draw_velocity_vector(K, PROJ, ned, frame, vel):
                        [ned[0] + vel_filt[0], ned[1] + vel_filt[1],
                         ned[2]+ vel_filt[2]])
     if uv != None:
-        cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
+        cv2.circle(frame, uv, 4, (0,240,0), 1, cv2.CV_AA)
 
 def draw_speed_tape(K, PROJ, ned, frame, airspeed, ap_speed, flight_mode):
     color = (0,240,0)
-    fontsize = 0.6
     size = 1
-    pad = 5
+    pad = 5 + line_width*2
     h, w, d = frame.shape
     
     # reference point
@@ -768,21 +797,21 @@ def draw_speed_tape(K, PROJ, ned, frame, airspeed, ap_speed, flight_mode):
     
     # current airspeed
     label = "%.0f" % airspeed
-    lsize = cv2.getTextSize(label, font, fontsize, 1)
+    lsize = cv2.getTextSize(label, font, font_size, line_width)
     xsize = lsize[0][0] + pad
     ysize = lsize[0][1] + pad
     uv = ( int(cx + ysize*0.7), cy + lsize[0][1] / 2)
-    cv2.putText(frame, label, uv, font, fontsize, color, 1, cv2.CV_AA)
+    cv2.putText(frame, label, uv, font, font_size, color, line_width, cv2.CV_AA)
     uv1 = (cx, cy)
     uv2 = (cx + int(ysize*0.7),         cy - ysize / 2 )
     uv3 = (cx + int(ysize*0.7) + xsize, cy - ysize / 2 )
-    uv4 = (cx + int(ysize*0.7) + xsize, cy + ysize / 2 )
-    uv5 = (cx + int(ysize*0.7),         cy + ysize / 2 )
-    cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
-    cv2.line(frame, uv2, uv3, color, size, cv2.CV_AA)
-    cv2.line(frame, uv3, uv4, color, size, cv2.CV_AA)
-    cv2.line(frame, uv4, uv5, color, size, cv2.CV_AA)
-    cv2.line(frame, uv5, uv1, color, size, cv2.CV_AA)
+    uv4 = (cx + int(ysize*0.7) + xsize, cy + ysize / 2 + 1 )
+    uv5 = (cx + int(ysize*0.7),         cy + ysize / 2 + 1)
+    cv2.line(frame, uv1, uv2, color, line_width, cv2.CV_AA)
+    cv2.line(frame, uv2, uv3, color, line_width, cv2.CV_AA)
+    cv2.line(frame, uv3, uv4, color, line_width, cv2.CV_AA)
+    cv2.line(frame, uv4, uv5, color, line_width, cv2.CV_AA)
+    cv2.line(frame, uv5, uv1, color, line_width, cv2.CV_AA)
 
     # speed tics
     spacing = lsize[0][1]
@@ -794,7 +823,7 @@ def draw_speed_tape(K, PROJ, ned, frame, airspeed, ap_speed, flight_mode):
     if y < miny: y = miny
     if y > maxy: y = maxy
     uv2 = (cx, y)
-    cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+    cv2.line(frame, uv1, uv2, color, line_width, cv2.CV_AA)
     for i in range(0, 65, 1):
         offset = int((i - airspeed) * spacing)
         if cy - offset >= miny and cy - offset <= maxy:
@@ -803,14 +832,14 @@ def draw_speed_tape(K, PROJ, ned, frame, airspeed, ap_speed, flight_mode):
                 uv2 = (cx - 6, cy - offset)
             else:
                 uv2 = (cx - 4, cy - offset)
-            cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+            cv2.line(frame, uv1, uv2, color, line_width, cv2.CV_AA)
     for i in range(0, 65, 5):
         offset = int((i - airspeed) * spacing)
         if cy - offset >= miny and cy - offset <= maxy:
             label = "%d" % i
-            lsize = cv2.getTextSize(label, font, fontsize, 1)
+            lsize = cv2.getTextSize(label, font, font_size, line_width)
             uv3 = (cx - 8 - lsize[0][0], cy - offset + lsize[0][1] / 2)
-            cv2.putText(frame, label, uv3, font, fontsize, color, 1, cv2.CV_AA)
+            cv2.putText(frame, label, uv3, font, font_size, color, line_width, cv2.CV_AA)
 
     # speed bug
     offset = int((ap_speed - airspeed) * spacing)
@@ -822,19 +851,18 @@ def draw_speed_tape(K, PROJ, ned, frame, airspeed, ap_speed, flight_mode):
         uv5 = (cx,                  cy - offset + ysize )
         uv6 = (cx + int(ysize*0.7), cy - offset + ysize )
         uv7 = (cx + int(ysize*0.7), cy - offset + ysize / 2 )
-        cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
-        cv2.line(frame, uv2, uv3, color, size, cv2.CV_AA)
-        cv2.line(frame, uv3, uv4, color, size, cv2.CV_AA)
-        cv2.line(frame, uv4, uv5, color, size, cv2.CV_AA)
-        cv2.line(frame, uv5, uv6, color, size, cv2.CV_AA)
-        cv2.line(frame, uv6, uv7, color, size, cv2.CV_AA)
-        cv2.line(frame, uv7, uv1, color, size, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv2, uv3, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv3, uv4, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv4, uv5, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv5, uv6, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv6, uv7, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv7, uv1, color, line_width, cv2.CV_AA)
       
 def draw_altitude_tape(K, PROJ, ned, frame, alt_m, ap_alt, flight_mode):
     color = (0,240,0)
-    fontsize = 0.6
     size = 1
-    pad = 5
+    pad = 5 + line_width*2
     h, w, d = frame.shape
     
     # reference point
@@ -849,21 +877,21 @@ def draw_altitude_tape(K, PROJ, ned, frame, alt_m, ap_alt, flight_mode):
     
     # current altitude
     label = "%.0f" % (round(alt_ft/10.0) * 10)
-    lsize = cv2.getTextSize(label, font, fontsize, 1)
+    lsize = cv2.getTextSize(label, font, font_size, line_width)
     xsize = lsize[0][0] + pad
     ysize = lsize[0][1] + pad
     uv = ( int(cx - ysize*0.7 - lsize[0][0]), cy + lsize[0][1] / 2)
-    cv2.putText(frame, label, uv, font, fontsize, color, 1, cv2.CV_AA)
+    cv2.putText(frame, label, uv, font, font_size, color, line_width, cv2.CV_AA)
     uv1 = (cx, cy)
     uv2 = (cx - int(ysize*0.7),         cy - ysize / 2 )
     uv3 = (cx - int(ysize*0.7) - xsize, cy - ysize / 2 )
-    uv4 = (cx - int(ysize*0.7) - xsize, cy + ysize / 2 )
-    uv5 = (cx - int(ysize*0.7),         cy + ysize / 2 )
-    cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
-    cv2.line(frame, uv2, uv3, color, size, cv2.CV_AA)
-    cv2.line(frame, uv3, uv4, color, size, cv2.CV_AA)
-    cv2.line(frame, uv4, uv5, color, size, cv2.CV_AA)
-    cv2.line(frame, uv5, uv1, color, size, cv2.CV_AA)
+    uv4 = (cx - int(ysize*0.7) - xsize, cy + ysize / 2 + 1 )
+    uv5 = (cx - int(ysize*0.7),         cy + ysize / 2 + 1 )
+    cv2.line(frame, uv1, uv2, color, line_width, cv2.CV_AA)
+    cv2.line(frame, uv2, uv3, color, line_width, cv2.CV_AA)
+    cv2.line(frame, uv3, uv4, color, line_width, cv2.CV_AA)
+    cv2.line(frame, uv4, uv5, color, line_width, cv2.CV_AA)
+    cv2.line(frame, uv5, uv1, color, line_width, cv2.CV_AA)
 
     # msl tics
     spacing = lsize[0][1]
@@ -875,7 +903,7 @@ def draw_altitude_tape(K, PROJ, ned, frame, alt_m, ap_alt, flight_mode):
     if y < miny: y = miny
     if y > maxy: y = maxy
     uv2 = (cx, y)
-    cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+    cv2.line(frame, uv1, uv2, color, line_width, cv2.CV_AA)
     for i in range(minrange, maxrange, 1):
         offset = int((i*10 - alt_ft)/10 * spacing)
         if cy - offset >= miny and cy - offset <= maxy:
@@ -884,14 +912,14 @@ def draw_altitude_tape(K, PROJ, ned, frame, alt_m, ap_alt, flight_mode):
                 uv2 = (cx + 6, cy - offset)
             else:
                 uv2 = (cx + 4, cy - offset)
-            cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
+            cv2.line(frame, uv1, uv2, color, line_width, cv2.CV_AA)
     for i in range(minrange, maxrange, 5):
         offset = int((i*10 - alt_ft)/10 * spacing)
         if cy - offset >= miny and cy - offset <= maxy:
             label = "%d" % (i*10)
-            lsize = cv2.getTextSize(label, font, fontsize, 1)
+            lsize = cv2.getTextSize(label, font, font_size, line_width)
             uv3 = (cx + 8 , cy - offset + lsize[0][1] / 2)
-            cv2.putText(frame, label, uv3, font, fontsize, color, 1, cv2.CV_AA)
+            cv2.putText(frame, label, uv3, font, font_size, color, line_width, cv2.CV_AA)
 
     # altitude bug
     offset = int((ap_alt - alt_ft)/10.0 * spacing)
@@ -903,13 +931,13 @@ def draw_altitude_tape(K, PROJ, ned, frame, alt_m, ap_alt, flight_mode):
         uv5 = (cx,                  cy - offset + ysize )
         uv6 = (cx - int(ysize*0.7), cy - offset + ysize )
         uv7 = (cx - int(ysize*0.7), cy - offset + ysize / 2 )
-        cv2.line(frame, uv1, uv2, color, size, cv2.CV_AA)
-        cv2.line(frame, uv2, uv3, color, size, cv2.CV_AA)
-        cv2.line(frame, uv3, uv4, color, size, cv2.CV_AA)
-        cv2.line(frame, uv4, uv5, color, size, cv2.CV_AA)
-        cv2.line(frame, uv5, uv6, color, size, cv2.CV_AA)
-        cv2.line(frame, uv6, uv7, color, size, cv2.CV_AA)
-        cv2.line(frame, uv7, uv1, color, size, cv2.CV_AA)
+        cv2.line(frame, uv1, uv2, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv2, uv3, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv3, uv4, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv4, uv5, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv5, uv6, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv6, uv7, color, line_width, cv2.CV_AA)
+        cv2.line(frame, uv7, uv1, color, line_width, cv2.CV_AA)
   
 if args.movie:
     # Mobius 1080p
@@ -965,19 +993,26 @@ if args.movie:
     fps = capture.get(cv2.cv.CV_CAP_PROP_FPS)
     print "fps = %.2f" % fps
     fourcc = int(capture.get(cv2.cv.CV_CAP_PROP_FOURCC))
-    w = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH) * args.scale )
-    h = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT) * args.scale )
+    render_w = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH) * args.scale )
+    render_h = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT) * args.scale )
 
     #outfourcc = cv2.cv.CV_FOURCC('M', 'J', 'P', 'G')
     #outfourcc = cv2.cv.CV_FOURCC('H', '2', '6', '4')
     #outfourcc = cv2.cv.CV_FOURCC('X', '2', '6', '4')
     #outfourcc = cv2.cv.CV_FOURCC('X', 'V', 'I', 'D')
     outfourcc = cv2.cv.CV_FOURCC('M', 'P', '4', 'V')
-    print outfourcc, fps, w, h
-    output = cv2.VideoWriter(tmp_movie, outfourcc, fps, (w, h), isColor=True)
+    print outfourcc, fps, render_w, render_h
+    output = cv2.VideoWriter(tmp_movie, outfourcc, fps, (render_w, render_h), isColor=True)
 
     last_time = 0.0
 
+    # compute primative sizes based on rendered resolution.  'h' is
+    # assumed to be the smaller dimension.
+    line_width = int(round(float(render_h) / 300.0))
+    if line_width < 1: line_width = 1
+    font_size = float(render_h) / 900.0
+    if font_size < 0.4: font_size = 0.4
+    
     while True:
         ret, frame = capture.read()
         if not ret:
@@ -1008,8 +1043,8 @@ if args.movie:
         lon_deg = float(flight_gps_lon(time))
         altitude = float(flight_air_true_alt(time))
         airspeed = float(flight_air_speed(time))
-        alpha = float(flight_air_alpha(time))
-        beta_rad = float(flight_air_beta(time))*d2r * 1.25
+        alpha_rad = float(flight_air_alpha(time))*d2r * 1.25
+        beta_rad = float(flight_air_beta(time))*d2r * 1.25 - 0.05
         #ap_hdg = float(flight_ap_hdg(time))
         ap_hdg_x = float(flight_ap_hdg_x(time))
         ap_hdg_y = float(flight_ap_hdg_y(time))
@@ -1064,27 +1099,37 @@ if args.movie:
         # cv2.putText(frame_undist, 'alt = %.0f' % altitude, (100, 100), font, 1, (0,255,0), 2,cv2.CV_AA)
         # cv2.putText(frame_undist, 'kts = %.0f' % airspeed, (100, 150), font, 1, (0,255,0), 2,cv2.CV_AA)
 
-        draw_horizon(K, PROJ, ned, frame_undist)
-        draw_compass_points(K, PROJ, ned, frame_undist)
-        draw_pitch_ladder(K, PROJ, ned, frame_undist, yaw_rad, beta_rad)
-        draw_astro(K, PROJ, ned, frame_undist)
-        draw_airports(K, PROJ, frame_undist)
-        draw_velocity_vector(K, PROJ, ned, frame_undist, [vn, ve, vd])
-        draw_speed_tape(K, PROJ, ned, frame_undist,
+        # Create hud draw space
+        hud_frame = frame_undist.copy()
+        
+        draw_horizon(K, PROJ, ned, hud_frame)
+        draw_compass_points(K, PROJ, ned, hud_frame)
+        draw_pitch_ladder(K, PROJ, ned, hud_frame, yaw_rad, beta_rad)
+        draw_flight_path_marker(K, PROJ, ned, hud_frame,
+                                pitch_rad, alpha_rad, yaw_rad, beta_rad)
+        draw_astro(K, PROJ, ned, hud_frame)
+        draw_airports(K, PROJ, hud_frame)
+        draw_velocity_vector(K, PROJ, ned, hud_frame, [vn, ve, vd])
+        draw_speed_tape(K, PROJ, ned, hud_frame,
                         airspeed, ap_speed, flight_mode)
-        draw_altitude_tape(K, PROJ, ned, frame_undist,
+        draw_altitude_tape(K, PROJ, ned, hud_frame,
                            altitude, ap_alt, flight_mode)
         if flight_mode == 'manual':
-            draw_nose(K, PROJ, ned, frame_undist, body2ned)
+            draw_nose(K, PROJ, ned, hud_frame, body2ned)
         else:
-            draw_vbars(K, PROJ, ned, frame_undist, yaw_rad, pitch_rad,
+            draw_vbars(K, PROJ, ned, hud_frame, yaw_rad, pitch_rad,
                        ap_roll, ap_pitch)
-            draw_heading_bug(K, PROJ, ned, frame_undist, ap_hdg)
-            draw_bird(K, PROJ, ned, frame_undist, yaw_rad, pitch_rad, roll_rad)
-            draw_course(K, PROJ, ned, frame_undist, vn, ve)
+            draw_heading_bug(K, PROJ, ned, hud_frame, ap_hdg)
+            draw_bird(K, PROJ, ned, hud_frame, yaw_rad, pitch_rad, roll_rad)
+            draw_course(K, PROJ, ned, hud_frame, vn, ve)
+
+        alpha = args.alpha
+        if alpha < 0: alpha = 0
+        if alpha > 1: alpha = 1
+        cv2.addWeighted(hud_frame, alpha, frame_undist, 1 - alpha, 0, hud_frame)
         
-        cv2.imshow('hud', frame_undist)
-        output.write(frame_undist)
+        cv2.imshow('hud', hud_frame)
+        output.write(hud_frame)
         
         key = cv2.waitKey(5) & 0xFF
         if key == 27:
