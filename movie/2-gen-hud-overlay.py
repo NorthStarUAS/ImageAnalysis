@@ -408,7 +408,7 @@ if args.movie:
     last_time = 0.0
 
     # set primative sizes based on rendered resolution.
-    hud.set_line_width( int(round(float(render_h) / 300.0)) )
+    hud.set_line_width( int(round(float(render_h) / 400.0)) )
     hud.set_font_size( float(render_h) / 900.0 )
     
     while True:
@@ -498,30 +498,32 @@ if args.movie:
         hud_frame = frame_undist.copy()
 
         hud.update_proj(PROJ)
-        hud.draw_horizon(ned, hud_frame)
-        hud.draw_compass_points(ned, hud_frame)
-        hud.draw_pitch_ladder(ned, hud_frame, yaw_rad, beta_rad)
-        hud.draw_flight_path_marker(ned, hud_frame,
+        hud.update_ned(ned)
+        
+        hud.draw_horizon(hud_frame)
+        hud.draw_compass_points(hud_frame)
+        hud.draw_pitch_ladder(hud_frame, yaw_rad, beta_rad)
+        hud.draw_flight_path_marker(hud_frame,
                                     pitch_rad, alpha_rad, yaw_rad, beta_rad)
-        hud.draw_astro(ned, hud_frame,
+        hud.draw_astro(hud_frame,
                        float(flight_gps_lat(time)),
                        float(flight_gps_lon(time)),
                        float(flight_gps_alt(time)),
                        float(flight_gps_unixtime(time)))
-        hud.draw_airports(ned, hud_frame)
-        hud.draw_velocity_vector(ned, hud_frame, [vn, ve, vd])
-        hud.draw_speed_tape(ned, hud_frame,
+        hud.draw_airports(hud_frame)
+        hud.draw_velocity_vector(hud_frame, [vn, ve, vd])
+        hud.draw_speed_tape(hud_frame,
                             airspeed, ap_speed, flight_mode)
-        hud.draw_altitude_tape(ned, hud_frame,
+        hud.draw_altitude_tape(hud_frame,
                                altitude, ap_alt, flight_mode)
         if flight_mode == 'manual':
-            hud.draw_nose(ned, hud_frame, body2ned)
+            hud.draw_nose(hud_frame, body2ned)
         else:
-            hud.draw_vbars(ned, hud_frame, yaw_rad, pitch_rad,
+            hud.draw_vbars(hud_frame, yaw_rad, pitch_rad,
                            ap_roll, ap_pitch)
-            hud.draw_heading_bug(ned, hud_frame, ap_hdg)
-            hud.draw_bird(ned, hud_frame, yaw_rad, pitch_rad, roll_rad)
-            hud.draw_course(ned, hud_frame, vn, ve)
+            hud.draw_heading_bug(hud_frame, ap_hdg)
+            hud.draw_bird(hud_frame, yaw_rad, pitch_rad, roll_rad)
+            hud.draw_course(hud_frame, vn, ve)
 
         alpha = args.alpha
         if alpha < 0: alpha = 0
