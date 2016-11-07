@@ -16,11 +16,17 @@ import transformations
 d2r = math.pi / 180.0
 r2d = 180.0 / math.pi
 
+# color definitions
+green2 = (0, 238, 0)
+medium_orchid = (186, 85, 211)
+yellow = (50, 255, 255)
+
 class HUD:
     def __init__(self, K):
         self.K = K
         self.PROJ = None
         self.line_width = 1
+        self.color = green2
         self.font = cv2.FONT_HERSHEY_SIMPLEX
         self.font_size = 0.6
         self.render_w = 0
@@ -39,6 +45,9 @@ class HUD:
         if self.line_width < 1:
             self.line_width = 1
 
+    def set_color(self, color):
+        self.color = color
+        
     def set_font_size(self, font_size):
         self.font_size = font_size
         if self.font_size < 0.4:
@@ -106,7 +115,7 @@ class HUD:
                                        self.ned[1] + p2[1],
                                        self.ned[2] + p2[2]] )
             if uv1 != None and uv2 != None:
-                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width,
+                cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.CV_AA)
 
     def ladder_helper(self, q0, a0, a1):
@@ -132,7 +141,7 @@ class HUD:
             uv1 = self.ladder_helper(q0, a0, a1)
             uv2 = self.ladder_helper(q0, a0, a2)
             if uv1 != None and uv2 != None:
-                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width,
+                cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.CV_AA)
                 du = uv2[0] - uv1[0]
                 dv = uv2[1] - uv1[1]
@@ -142,13 +151,13 @@ class HUD:
             uv1 = self.ladder_helper(q0, a0-0.5, a1)
             uv2 = self.ladder_helper(q0, a0, a1)
             if uv1 != None and uv2 != None:
-                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width,
+                cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.CV_AA)
             # left horizontal
             uv1 = self.ladder_helper(q0, a0, -a1)
             uv2 = self.ladder_helper(q0, a0, -a2)
             if uv1 != None and uv2 != None:
-                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width,
+                cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.CV_AA)
                 du = uv2[0] - uv1[0]
                 dv = uv2[1] - uv1[1]
@@ -158,7 +167,7 @@ class HUD:
             uv1 = self.ladder_helper(q0, a0-0.5, -a1)
             uv2 = self.ladder_helper(q0, a0, -a1)
             if uv1 != None and uv2 != None:
-                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width,
+                cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.CV_AA)
 
             # below horizon
@@ -172,7 +181,7 @@ class HUD:
                 for i in range(0,3):
                     tmp1 = (uv1[0] + int(0.375*i*du), uv1[1] + int(0.375*i*dv))
                     tmp2 = (tmp1[0] + int(0.25*du), tmp1[1] + int(0.25*dv))
-                    cv2.line(self.frame, tmp1, tmp2, (0,240,0),
+                    cv2.line(self.frame, tmp1, tmp2, self.color,
                              self.line_width, cv2.CV_AA)
                 uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
                 self.draw_label("%d" % a0, uv, self.font_size, self.line_width)
@@ -181,7 +190,7 @@ class HUD:
             uv1 = self.ladder_helper(q0, -a0+0.5, a1)
             uv2 = self.ladder_helper(q0, -a0, a1)
             if uv1 != None and uv2 != None:
-                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width,
+                cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.CV_AA)
             # left horizontal
             uv1 = self.ladder_helper(q0, -a0, -a1)
@@ -192,7 +201,7 @@ class HUD:
                 for i in range(0,3):
                     tmp1 = (uv1[0] + int(0.375*i*du), uv1[1] + int(0.375*i*dv))
                     tmp2 = (tmp1[0] + int(0.25*du), tmp1[1] + int(0.25*dv))
-                    cv2.line(self.frame, tmp1, tmp2, (0,240,0),
+                    cv2.line(self.frame, tmp1, tmp2, self.color,
                              self.line_width, cv2.CV_AA)
                 uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
                 self.draw_label("%d" % a0, uv, self.font_size, self.line_width)
@@ -200,7 +209,7 @@ class HUD:
             uv1 = self.ladder_helper(q0, -a0+0.5, -a1)
             uv2 = self.ladder_helper(q0, -a0, -a1)
             if uv1 != None and uv2 != None:
-                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width,
+                cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.CV_AA)
 
     def draw_flight_path_marker(self, pitch_rad, alpha_rad,
@@ -218,13 +227,13 @@ class HUD:
             uv4 = (uv[0]-r2, uv[1])
             uv5 = (uv[0], uv[1]-r1)
             uv6 = (uv[0], uv[1]-r2)
-            cv2.circle(self.frame, uv, r1, (0,240,0), self.line_width,
+            cv2.circle(self.frame, uv, r1, self.color, self.line_width,
                        cv2.CV_AA)
-            cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width,
+            cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                      cv2.CV_AA)
-            cv2.line(self.frame, uv3, uv4, (0,240,0), self.line_width,
+            cv2.line(self.frame, uv3, uv4, self.color, self.line_width,
                      cv2.CV_AA)
-            cv2.line(self.frame, uv5, uv6, (0,240,0), self.line_width,
+            cv2.line(self.frame, uv5, uv6, self.color, self.line_width,
                      cv2.CV_AA)
 
     def rotate_pt(self, p, center, a):
@@ -234,7 +243,7 @@ class HUD:
         return (int(x), int(y))
 
     def draw_vbars(self, yaw_rad, pitch_rad, ap_roll, ap_pitch):
-        color = (186, 85, 211)      # medium orchid
+        color = medium_orchid
         size = self.line_width
         a1 = 10.0
         a2 = 1.5
@@ -277,7 +286,7 @@ class HUD:
             cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.CV_AA)
 
     def draw_heading_bug(self, ap_hdg):
-        color = (186, 85, 211)      # medium orchid
+        color = medium_orchid
         size = 2
         a = math.atan2(ve, vn)
         q0 = transformations.quaternion_about_axis(ap_hdg*d2r, [0.0, 0.0, -1.0])
@@ -307,7 +316,7 @@ class HUD:
         #cv2.polylines(self.frame, pts, True, color, self.line_width, cv2.CV_AA)
 
     def draw_bird(self, yaw_rad, pitch_rad, roll_rad):
-        color = (50, 255, 255)     # yellow
+        color = yellow
         size = 2
         a1 = 10.0
         a2 = 3.0
@@ -343,7 +352,7 @@ class HUD:
     def draw_course(self, vn, ve):
         global filter_vn
         global filter_ve
-        color = (50, 255, 255)     # yellow
+        color = yellow
         size = 2
         filter_vn = (1.0 - tf_vel) * filter_vn + tf_vel * vn
         filter_ve = (1.0 - tf_vel) * filter_ve + tf_vel * ve
@@ -372,13 +381,13 @@ class HUD:
             elif vert == 'center':
                 v = uv[1] + (size[0][1] / 2)
             uv = (u, v)
-            cv2.putText(self.frame, label, uv, self.font, font_scale, (0,255,0),
-                        thickness, cv2.CV_AA)
+            cv2.putText(self.frame, label, uv, self.font, font_scale,
+                        self.color, thickness, cv2.CV_AA)
 
     def draw_labeled_point(self, ned, label, scale=1, vert='above'):
         uv = self.project_point([ned[0], ned[1], ned[2]])
         if uv != None:
-            cv2.circle(self.frame, uv, 4+self.line_width, (0,240,0),
+            cv2.circle(self.frame, uv, 4+self.line_width, self.color,
                        self.line_width, cv2.CV_AA)
         if vert == 'above':
             uv = self.project_point([ned[0], ned[1], ned[2] - 0.02])
@@ -426,7 +435,7 @@ class HUD:
                                       self.ned[1] + e,
                                       self.ned[2] - 0.02])
             if uv1 != None and uv2 != None:
-                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width,
+                cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.CV_AA)
 
         # North
@@ -501,8 +510,8 @@ class HUD:
         r1 = int(round(self.render_h / 80))
         r2 = int(round(self.render_h / 40))
         if uv != None:
-            cv2.circle(self.frame, uv, r1, (0,240,0), self.line_width, cv2.CV_AA)
-            cv2.circle(self.frame, uv, r2, (0,240,0), self.line_width, cv2.CV_AA)
+            cv2.circle(self.frame, uv, r1, self.color, self.line_width, cv2.CV_AA)
+            cv2.circle(self.frame, uv, r2, self.color, self.line_width, cv2.CV_AA)
 
     def draw_velocity_vector(self, vel):
         tf = 0.2
@@ -513,10 +522,10 @@ class HUD:
                                  self.ned[1] + self.vel_filt[1],
                                  self.ned[2] + self.vel_filt[2]])
         if uv != None:
-            cv2.circle(self.frame, uv, 4, (0,240,0), 1, cv2.CV_AA)
+            cv2.circle(self.frame, uv, 4, self.color, 1, cv2.CV_AA)
 
     def draw_speed_tape(self, airspeed, ap_speed, units_label, flight_mode):
-        color = (0,240,0)
+        color = self.color
         size = 1
         pad = 5 + self.line_width*2
         h, w, d = self.frame.shape
@@ -597,7 +606,7 @@ class HUD:
             cv2.line(self.frame, uv7, uv1, color, self.line_width, cv2.CV_AA)
 
     def draw_altitude_tape(self, altitude, ap_alt, units_label, flight_mode):
-        color = (0,240,0)
+        color = self.color
         size = 1
         pad = 5 + self.line_width*2
         h, w, d = self.frame.shape

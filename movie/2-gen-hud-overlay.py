@@ -373,7 +373,7 @@ if args.movie:
     K[2,2] = 1.0
 
     # overlay hud
-    hud = hud.HUD(K)
+    myhud = hud.HUD(K)
     
     # these are fixed tranforms between ned and camera reference systems
     proj2ned = np.array( [[0, 0, 1], [1, 0, 0], [0, 1, 0]],
@@ -383,7 +383,7 @@ if args.movie:
     #cam_ypr = [-3.0, -12.0, -3.0] # yaw, pitch, roll
     #ref = [44.7260320000, -93.0771072000, 0]
     ref = [ flight_gps[0][1], flight_gps[0][2], 0.0 ]
-    hud.set_ned_ref(flight_gps[0][1], flight_gps[0][2])
+    myhud.set_ned_ref(flight_gps[0][1], flight_gps[0][2])
     print 'ned ref:', ref
 
     print "Opening ", args.movie
@@ -401,7 +401,7 @@ if args.movie:
     fourcc = int(capture.get(cv2.cv.CV_CAP_PROP_FOURCC))
     w = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH) * args.scale )
     h = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT) * args.scale )
-    hud.set_render_size(w, h)
+    myhud.set_render_size(w, h)
     
     #outfourcc = cv2.cv.CV_FOURCC('M', 'J', 'P', 'G')
     #outfourcc = cv2.cv.CV_FOURCC('H', '2', '6', '4')
@@ -414,8 +414,9 @@ if args.movie:
     last_time = 0.0
 
     # set primative sizes based on rendered resolution.
-    hud.set_line_width( int(round(float(h) / 400.0)) )
-    hud.set_font_size( float(h) / 900.0 )
+    myhud.set_line_width( int(round(float(h) / 400.0)) )
+    myhud.set_font_size( float(h) / 900.0 )
+    myhud.set_color( hud.green2 )
     
     while True:
         ret, frame = capture.read()
@@ -503,37 +504,37 @@ if args.movie:
         # Create hud draw space
         hud_frame = frame_undist.copy()
 
-        hud.update_proj(PROJ)
-        hud.update_ned(ned)
-        hud.update_frame(hud_frame)
+        myhud.update_proj(PROJ)
+        myhud.update_ned(ned)
+        myhud.update_frame(hud_frame)
         
-        hud.draw_horizon()
-        hud.draw_compass_points()
-        hud.draw_pitch_ladder(yaw_rad, beta_rad)
-        hud.draw_flight_path_marker(pitch_rad, alpha_rad, yaw_rad, beta_rad)
-        hud.draw_astro(float(flight_gps_lat(time)),
-                       float(flight_gps_lon(time)),
-                       float(flight_gps_alt(time)),
-                       float(flight_gps_unixtime(time)))
-        hud.draw_airports()
-        hud.draw_velocity_vector([vn, ve, vd])
+        myhud.draw_horizon()
+        myhud.draw_compass_points()
+        myhud.draw_pitch_ladder(yaw_rad, beta_rad)
+        myhud.draw_flight_path_marker(pitch_rad, alpha_rad, yaw_rad, beta_rad)
+        myhud.draw_astro(float(flight_gps_lat(time)),
+                     float(flight_gps_lon(time)),
+                     float(flight_gps_alt(time)),
+                     float(flight_gps_unixtime(time)))
+        myhud.draw_airports()
+        myhud.draw_velocity_vector([vn, ve, vd])
         if args.airspeed_units == 'mps':
             airspeed = airspeed_kt * kt2mps
         else:
             airspeed = airspeed_kt
-        hud.draw_speed_tape(airspeed, ap_speed, args.airspeed_units.capitalize(), flight_mode)
+        myhud.draw_speed_tape(airspeed, ap_speed, args.airspeed_units.capitalize(), flight_mode)
         if args.altitude_units == 'm':
             altitude = altitude_m
         else:
             altitude = altitude_m * m2ft
-        hud.draw_altitude_tape(altitude, ap_alt, args.altitude_units.capitalize(), flight_mode)
+        myhud.draw_altitude_tape(altitude, ap_alt, args.altitude_units.capitalize(), flight_mode)
         if flight_mode == 'manual':
-            hud.draw_nose(body2ned)
+            myhud.draw_nose(body2ned)
         else:
-            hud.draw_vbars(yaw_rad, pitch_rad, ap_roll, ap_pitch)
-            hud.draw_heading_bug(ap_hdg)
-            hud.draw_bird(yaw_rad, pitch_rad, roll_rad)
-            hud.draw_course(vn, ve)
+            myhud.draw_vbars(yaw_rad, pitch_rad, ap_roll, ap_pitch)
+            myhud.draw_heading_bug(ap_hdg)
+            myhud.draw_bird(yaw_rad, pitch_rad, roll_rad)
+            myhud.draw_course(vn, ve)
 
         # weighted add of the HUD frame with the original frame to
         # emulate alpha blending
