@@ -28,6 +28,7 @@ class HUD:
         self.ned = [0.0, 0.0, 0.0]
         self.ref = [0.0, 0.0, 0.0]
         self.vel_filt = [0.0, 0.0, 0.0]
+        self.frame = None
 
     def set_render_size(self, w, h):
         self.render_w = w
@@ -46,6 +47,9 @@ class HUD:
     def set_ned_ref(self, lat, lon):
         self.ref = [ lat, lon, 0.0]
 
+    def update_frame(self, frame):
+        self.frame = frame
+        
     def update_ned(self, ned):
         self.ned = ned[:]
 
@@ -82,7 +86,7 @@ class HUD:
         else:
             return None
 
-    def draw_horizon(self, frame):
+    def draw_horizon(self):
         divs = 10
         pts = []
         for i in range(divs + 1):
@@ -98,7 +102,7 @@ class HUD:
             uv1 = self.project_point( [self.ned[0] + p1[0], self.ned[1] + p1[1], self.ned[2] + p1[2]] )
             uv2 = self.project_point( [self.ned[0] + p2[0], self.ned[1] + p2[1], self.ned[2] + p2[2]] )
             if uv1 != None and uv2 != None:
-                cv2.line(frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
 
     def ladder_helper(self, q0, a0, a1, ned):
         q1 = transformations.quaternion_from_euler(-a1*d2r, -a0*d2r, 0.0, 'rzyx')
@@ -107,7 +111,7 @@ class HUD:
         uv = self.project_point( [ned[0] + v[0], ned[1] + v[1], ned[2] + v[2]] )
         return uv
 
-    def draw_pitch_ladder(self, frame, yaw_rad, beta_rad):
+    def draw_pitch_ladder(self, yaw_rad, beta_rad):
         a1 = 2.0
         a2 = 8.0
         #slide_rad = yaw_rad - beta_rad
@@ -120,30 +124,30 @@ class HUD:
             uv1 = self.ladder_helper(q0, a0, a1, self.ned)
             uv2 = self.ladder_helper(q0, a0, a2, self.ned)
             if uv1 != None and uv2 != None:
-                cv2.line(frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
                 du = uv2[0] - uv1[0]
                 dv = uv2[1] - uv1[1]
                 uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
-                self.draw_label(frame, "%d" % a0, uv, self.font_size, self.line_width)
+                self.draw_label("%d" % a0, uv, self.font_size, self.line_width)
             # right tick
             uv1 = self.ladder_helper(q0, a0-0.5, a1, self.ned)
             uv2 = self.ladder_helper(q0, a0, a1, self.ned)
             if uv1 != None and uv2 != None:
-                cv2.line(frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
             # left horizontal
             uv1 = self.ladder_helper(q0, a0, -a1, self.ned)
             uv2 = self.ladder_helper(q0, a0, -a2, self.ned)
             if uv1 != None and uv2 != None:
-                cv2.line(frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
                 du = uv2[0] - uv1[0]
                 dv = uv2[1] - uv1[1]
                 uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
-                self.draw_label(frame, "%d" % a0, uv, self.font_size, self.line_width)
+                self.draw_label("%d" % a0, uv, self.font_size, self.line_width)
             # left tick
             uv1 = self.ladder_helper(q0, a0-0.5, -a1, self.ned)
             uv2 = self.ladder_helper(q0, a0, -a1, self.ned)
             if uv1 != None and uv2 != None:
-                cv2.line(frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
 
             # below horizon
 
@@ -156,15 +160,15 @@ class HUD:
                 for i in range(0,3):
                     tmp1 = ( uv1[0] + int(0.375*i*du), uv1[1] + int(0.375*i*dv) )
                     tmp2 = ( tmp1[0] + int(0.25*du), tmp1[1] + int(0.25*dv) )
-                    cv2.line(frame, tmp1, tmp2, (0,240,0), 1, cv2.CV_AA)
+                    cv2.line(self.frame, tmp1, tmp2, (0,240,0), 1, cv2.CV_AA)
                 uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
-                self.draw_label(frame, "%d" % a0, uv, self.font_size, self.line_width)
+                self.draw_label("%d" % a0, uv, self.font_size, self.line_width)
 
             # right tick
             uv1 = self.ladder_helper(q0, -a0+0.5, a1, self.ned)
             uv2 = self.ladder_helper(q0, -a0, a1, self.ned)
             if uv1 != None and uv2 != None:
-                cv2.line(frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
             # left horizontal
             uv1 = self.ladder_helper(q0, -a0, -a1, self.ned)
             uv2 = self.ladder_helper(q0, -a0-0.5, -a2, self.ned)
@@ -174,16 +178,16 @@ class HUD:
                 for i in range(0,3):
                     tmp1 = ( uv1[0] + int(0.375*i*du), uv1[1] + int(0.375*i*dv) )
                     tmp2 = ( tmp1[0] + int(0.25*du), tmp1[1] + int(0.25*dv) )
-                    cv2.line(frame, tmp1, tmp2, (0,240,0), self.line_width, cv2.CV_AA)
+                    cv2.line(self.frame, tmp1, tmp2, (0,240,0), self.line_width, cv2.CV_AA)
                 uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
-                self.draw_label(frame, "%d" % a0, uv, self.font_size, self.line_width)
+                self.draw_label("%d" % a0, uv, self.font_size, self.line_width)
             # left tick
             uv1 = self.ladder_helper(q0, -a0+0.5, -a1, self.ned)
             uv2 = self.ladder_helper(q0, -a0, -a1, self.ned)
             if uv1 != None and uv2 != None:
-                cv2.line(frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
 
-    def draw_flight_path_marker(self, frame, pitch_rad, alpha_rad,
+    def draw_flight_path_marker(self, pitch_rad, alpha_rad,
                                 yaw_rad, beta_rad):
         q0 = transformations.quaternion_about_axis(yaw_rad + beta_rad, [0.0, 0.0, -1.0])
         a0 = (pitch_rad - alpha_rad) * r2d
@@ -197,10 +201,10 @@ class HUD:
             uv4 = (uv[0]-r2, uv[1])
             uv5 = (uv[0], uv[1]-r1)
             uv6 = (uv[0], uv[1]-r2)
-            cv2.circle(frame, uv, r1, (0,240,0), self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv3, uv4, (0,240,0), self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv5, uv6, (0,240,0), self.line_width, cv2.CV_AA)
+            cv2.circle(self.frame, uv, r1, (0,240,0), self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv3, uv4, (0,240,0), self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv5, uv6, (0,240,0), self.line_width, cv2.CV_AA)
 
     def rotate_pt(self, p, center, a):
         x = math.cos(a) * (p[0]-center[0]) - math.sin(a) * (p[1]-center[1]) + center[0]
@@ -208,7 +212,7 @@ class HUD:
         y = math.sin(a) * (p[0]-center[0]) + math.cos(a) * (p[1]-center[1]) + center[1]
         return (int(x), int(y))
 
-    def draw_vbars(self, frame, yaw_rad, pitch_rad, ap_roll, ap_pitch):
+    def draw_vbars(self, yaw_rad, pitch_rad, ap_roll, ap_pitch):
         color = (186, 85, 211)      # medium orchid
         size = self.line_width
         a1 = 10.0
@@ -232,11 +236,11 @@ class HUD:
         uv2 = rotate_pt(tmp2, rot, ap_roll*d2r)
         uv3 = rotate_pt(tmp3, rot, ap_roll*d2r)
         if uv1 != None and uv2 != None and uv3 != None:
-            cv2.line(frame, center, uv1, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, center, uv3, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv1, uv3, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv2, uv3, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, center, uv1, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, center, uv3, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv1, uv3, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.CV_AA)
         # left vbar
         tmp1 = self.ladder_helper(q0, a0-a3, -a1, self.ned)
         tmp2 = self.ladder_helper(q0, a0-a3, -a1-a3, self.ned)
@@ -245,13 +249,13 @@ class HUD:
         uv2 = rotate_pt(tmp2, rot, ap_roll*d2r)
         uv3 = rotate_pt(tmp3, rot, ap_roll*d2r)
         if uv1 != None and uv2 != None and uv3 != None:
-            cv2.line(frame, center, uv1, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, center, uv3, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv1, uv3, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv2, uv3, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, center, uv1, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, center, uv3, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv1, uv3, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.CV_AA)
 
-    def draw_heading_bug(self, frame, ap_hdg):
+    def draw_heading_bug(self, ap_hdg):
         color = (186, 85, 211)      # medium orchid
         size = 2
         a = math.atan2(ve, vn)
@@ -270,18 +274,18 @@ class HUD:
                 return
             #else:
             #    pts[i] = rotate_pt(pts[i], center, -cam_roll*d2r)
-        cv2.line(frame, pts[0], pts[1], color, self.line_width, cv2.CV_AA)
-        cv2.line(frame, pts[1], pts[2], color, self.line_width, cv2.CV_AA)
-        cv2.line(frame, pts[2], pts[3], color, self.line_width, cv2.CV_AA)
-        cv2.line(frame, pts[3], pts[4], color, self.line_width, cv2.CV_AA)
-        cv2.line(frame, pts[4], pts[5], color, self.line_width, cv2.CV_AA)
-        cv2.line(frame, pts[5], pts[6], color, self.line_width, cv2.CV_AA)
-        cv2.line(frame, pts[6], pts[0], color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, pts[0], pts[1], color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, pts[1], pts[2], color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, pts[2], pts[3], color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, pts[3], pts[4], color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, pts[4], pts[5], color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, pts[5], pts[6], color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, pts[6], pts[0], color, self.line_width, cv2.CV_AA)
         #pts = np.array( pts, np.int32 )
         #pts = pts.reshape((-1,1,2))
-        #cv2.polylines(frame, pts, True, color, self.line_width, cv2.CV_AA)
+        #cv2.polylines(self.frame, pts, True, color, self.line_width, cv2.CV_AA)
 
-    def draw_bird(self, frame, yaw_rad, pitch_rad, roll_rad):
+    def draw_bird(self, yaw_rad, pitch_rad, roll_rad):
         color = (50, 255, 255)     # yellow
         size = 2
         a1 = 10.0
@@ -299,23 +303,23 @@ class HUD:
         uv1 = rotate_pt(tmp1, center, roll_rad)
         uv2 = rotate_pt(tmp2, center, roll_rad)
         if uv1 != None and uv2 != None:
-            cv2.line(frame, center, uv1, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, center, uv2, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, center, uv1, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, center, uv2, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
         # left vbar
         tmp1 = self.ladder_helper(q0, a0-a2, -a1, self.ned)
         tmp2 = self.ladder_helper(q0, a0-a2, -a1+a2, self.ned)
         uv1 = rotate_pt(tmp1, center, roll_rad)
         uv2 = rotate_pt(tmp2, center, roll_rad)
         if uv1 != None and uv2 != None:
-            cv2.line(frame, center, uv1, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, center, uv2, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, center, uv1, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, center, uv2, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
 
     filter_vn = 0.0
     filter_ve = 0.0
     tf_vel = 0.5
-    def draw_course(self, frame, vn, ve):
+    def draw_course(self, vn, ve):
         global filter_vn
         global filter_ve
         color = (50, 255, 255)     # yellow
@@ -330,10 +334,11 @@ class HUD:
         if tmp1 != None and tmp2 != None and tmp3 != None :
             uv2 = rotate_pt(tmp2, tmp1, -cam_roll*d2r)
             uv3 = rotate_pt(tmp3, tmp1, -cam_roll*d2r)
-            cv2.line(frame, tmp1, uv2, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, tmp1, uv3, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, tmp1, uv2, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, tmp1, uv3, color, self.line_width, cv2.CV_AA)
 
-    def draw_label(self, frame, label, uv, font_scale, thickness, horiz='center', vert='center'):
+    def draw_label(self, label, uv, font_scale, thickness,
+                   horiz='center', vert='center'):
             size = cv2.getTextSize(label, self.font, font_scale, thickness)
             if horiz == 'center':
                 u = uv[0] - (size[0][0] / 2)
@@ -346,21 +351,21 @@ class HUD:
             elif vert == 'center':
                 v = uv[1] + (size[0][1] / 2)
             uv = (u, v)
-            cv2.putText(frame, label, uv, self.font, font_scale, (0,255,0),
+            cv2.putText(self.frame, label, uv, self.font, font_scale, (0,255,0),
                         thickness, cv2.CV_AA)
 
-    def draw_labeled_point(self, frame, ned, label, scale=1, vert='above'):
+    def draw_labeled_point(self, ned, label, scale=1, vert='above'):
         uv = self.project_point([ned[0], ned[1], ned[2]])
         if uv != None:
-            cv2.circle(frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
+            cv2.circle(self.frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
         if vert == 'above':
             uv = self.project_point([ned[0], ned[1], ned[2] - 0.02])
         else:
             uv = self.project_point([ned[0], ned[1], ned[2] + 0.02])
         if uv != None:
-            self.draw_label(frame, label, uv, scale, 1, vert=vert)
+            self.draw_label(label, uv, scale, 1, vert=vert)
 
-    def draw_lla_point(self, frame, ned, lla, label):
+    def draw_lla_point(self, ned, lla, label):
         pt_ned = navpy.lla2ned( lla[0], lla[1], lla[2], self.ref[0], self.ref[1], self.ref[2] )
         rel_ned = [ pt_ned[0] - ned[0], pt_ned[1] - ned[1], pt_ned[2] - ned[2] ]
         dist = math.sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1]
@@ -376,12 +381,11 @@ class HUD:
             rel_ned[0] /= dist
             rel_ned[1] /= dist
             rel_ned[2] /= dist
-            self.draw_labeled_point(frame,
-                                    [ned[0] + rel_ned[0], ned[1] + rel_ned[1],
+            self.draw_labeled_point([ned[0] + rel_ned[0], ned[1] + rel_ned[1],
                                      ned[2] + rel_ned[2]],
                                     label, scale=scale, vert='below')
 
-    def draw_compass_points(self, frame):
+    def draw_compass_points(self):
         # 30 Ticks
         divs = 12
         pts = []
@@ -392,76 +396,73 @@ class HUD:
             uv1 = self.project_point([self.ned[0] + n, self.ned[1] + e, self.ned[2] - 0.0])
             uv2 = self.project_point([self.ned[0] + n, self.ned[1] + e, self.ned[2] - 0.02])
             if uv1 != None and uv2 != None:
-                cv2.line(frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, (0,240,0), 1, cv2.CV_AA)
 
         # North
         uv = self.project_point([self.ned[0] + 1.0, self.ned[1] + 0.0, self.ned[2] - 0.03])
         if uv != None:
-            self.draw_label(frame, 'N', uv, 1, self.line_width, vert='above')
+            self.draw_label('N', uv, 1, self.line_width, vert='above')
         # South
         uv = self.project_point([self.ned[0] - 1.0, self.ned[1] + 0.0, self.ned[2] - 0.03])
         if uv != None:
-            self.draw_label(frame, 'S', uv, 1, self.line_width, vert='above')
+            self.draw_label('S', uv, 1, self.line_width, vert='above')
         # East
         uv = self.project_point([self.ned[0] + 0.0, self.ned[1] + 1.0, self.ned[2] - 0.03])
         if uv != None:
-            self.draw_label(frame, 'E', uv, 1, self.line_width, vert='above')
+            self.draw_label('E', uv, 1, self.line_width, vert='above')
         # West
         uv = self.project_point([self.ned[0] + 0.0, self.ned[1] - 1.0, self.ned[2] - 0.03])
         if uv != None:
-            self.draw_label(frame, 'W', uv, 1, self.line_width, vert='above')
+            self.draw_label('W', uv, 1, self.line_width, vert='above')
 
-    def draw_astro(self, frame, lat_deg, lon_deg, alt_m, timestamp):
+    def draw_astro(self, lat_deg, lon_deg, alt_m, timestamp):
         sun_ned, moon_ned = self.compute_sun_moon_ned(lon_deg, lat_deg, alt_m,
                                                       timestamp)
         if sun_ned == None or moon_ned == None:
             return
 
         # Sun
-        self.draw_labeled_point(frame,
-                                [self.ned[0] + sun_ned[0],
+        self.draw_labeled_point([self.ned[0] + sun_ned[0],
                                  self.ned[1] + sun_ned[1],
                                  self.ned[2] + sun_ned[2]],
                                 'Sun')
         # shadow (if sun above horizon)
         if sun_ned[2] < 0.0:
-            self.draw_labeled_point(frame,
-                                    [self.ned[0] - sun_ned[0],
+            self.draw_labeled_point([self.ned[0] - sun_ned[0],
                                      self.ned[1] - sun_ned[1],
                                      self.ned[2] - sun_ned[2]],
                                     'shadow', scale=0.7)
         # Moon
-        self.draw_labeled_point(frame,
-                                [self.ned[0] + moon_ned[0],
+        self.draw_labeled_point([self.ned[0] + moon_ned[0],
                                  self.ned[1] + moon_ned[1],
                                  self.ned[2] + moon_ned[2]],
                                 'Moon')
 
-    def draw_airports(self, frame):
+    def draw_airports(self):
         kmsp = [ 44.882000, -93.221802, 256 ]
-        self.draw_lla_point(frame, self.ned, kmsp, 'KMSP')
+        self.draw_lla_point(self.ned, kmsp, 'KMSP')
         ksgs = [ 44.857101, -93.032898, 250 ]
-        self.draw_lla_point(frame, self.ned, ksgs, 'KSGS')
+        self.draw_lla_point(self.ned, ksgs, 'KSGS')
         kstp = [ 44.934502, -93.059998, 215 ]
-        self.draw_lla_point(frame, self.ned, kstp, 'KSTP')
+        self.draw_lla_point(self.ned, kstp, 'KSTP')
         my52 = [ 44.718601, -93.044098, 281 ]
-        self.draw_lla_point(frame, self.ned, my52, 'MY52')
+        self.draw_lla_point(self.ned, my52, 'MY52')
         kfcm = [ 44.827202, -93.457100, 276 ]
-        self.draw_lla_point(frame, self.ned, kfcm, 'KFCM')
+        self.draw_lla_point(self.ned, kfcm, 'KFCM')
         kane = [ 45.145000, -93.211403, 278 ]
-        self.draw_lla_point(frame, self.ned, kane, 'KANE')
+        self.draw_lla_point(self.ned, kane, 'KANE')
         klvn = [ 44.627899, -93.228104, 293 ]
-        self.draw_lla_point(frame, self.ned, klvn, 'KLVN')
+        self.draw_lla_point(self.ned, klvn, 'KLVN')
         kmic = [ 45.062000, -93.353897, 265 ]
-        self.draw_lla_point(frame, self.ned, kmic, 'KMIC')
+        self.draw_lla_point(self.ned, kmic, 'KMIC')
         mn45 = [ 44.566101, -93.132202, 290 ]
-        self.draw_lla_point(frame, self.ned, mn45, 'MN45')
+        self.draw_lla_point(self.ned, mn45, 'MN45')
         mn58 = [ 44.697701, -92.864098, 250 ]
-        self.draw_lla_point(frame, self.ned, mn58, 'MN58')
+        self.draw_lla_point(self.ned, mn58, 'MN58')
         mn18 = [ 45.187199, -93.130501, 276 ]
-        self.draw_lla_point(frame, self.ned, mn18, 'MN18')
+        self.draw_lla_point(self.ned, mn18, 'MN18')
 
-    def draw_nose(self, frame, body2ned):
+    def draw_nose(self, body2ned):
         vec = transformations.quaternion_transform(body2ned, [1.0, 0.0, 0.0])
         uv = self.project_point([self.ned[0] + vec[0],
                                  self.ned[1] + vec[1],
@@ -469,10 +470,10 @@ class HUD:
         r1 = int(round(self.render_h / 80))
         r2 = int(round(self.render_h / 40))
         if uv != None:
-            cv2.circle(frame, uv, r1, (0,240,0), self.line_width, cv2.CV_AA)
-            cv2.circle(frame, uv, r2, (0,240,0), self.line_width, cv2.CV_AA)
+            cv2.circle(self.frame, uv, r1, (0,240,0), self.line_width, cv2.CV_AA)
+            cv2.circle(self.frame, uv, r2, (0,240,0), self.line_width, cv2.CV_AA)
 
-    def draw_velocity_vector(self, frame, vel):
+    def draw_velocity_vector(self, vel):
         tf = 0.2
         for i in range(3):
             self.vel_filt[i] = (1.0 - tf) * self.vel_filt[i] + tf * vel[i]
@@ -481,13 +482,13 @@ class HUD:
                                  self.ned[1] + self.vel_filt[1],
                                  self.ned[2] + self.vel_filt[2]])
         if uv != None:
-            cv2.circle(frame, uv, 4, (0,240,0), 1, cv2.CV_AA)
+            cv2.circle(self.frame, uv, 4, (0,240,0), 1, cv2.CV_AA)
 
-    def draw_speed_tape(self, frame, airspeed, ap_speed, flight_mode):
+    def draw_speed_tape(self, airspeed, ap_speed, flight_mode):
         color = (0,240,0)
         size = 1
         pad = 5 + self.line_width*2
-        h, w, d = frame.shape
+        h, w, d = self.frame.shape
 
         # reference point
         cy = int(h * 0.5)
@@ -501,17 +502,17 @@ class HUD:
         xsize = lsize[0][0] + pad
         ysize = lsize[0][1] + pad
         uv = ( int(cx + ysize*0.7), cy + lsize[0][1] / 2)
-        cv2.putText(frame, label, uv, self.font, self.font_size, color, self.line_width, cv2.CV_AA)
+        cv2.putText(self.frame, label, uv, self.font, self.font_size, color, self.line_width, cv2.CV_AA)
         uv1 = (cx, cy)
         uv2 = (cx + int(ysize*0.7),         cy - ysize / 2 )
         uv3 = (cx + int(ysize*0.7) + xsize, cy - ysize / 2 )
         uv4 = (cx + int(ysize*0.7) + xsize, cy + ysize / 2 + 1 )
         uv5 = (cx + int(ysize*0.7),         cy + ysize / 2 + 1)
-        cv2.line(frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
-        cv2.line(frame, uv2, uv3, color, self.line_width, cv2.CV_AA)
-        cv2.line(frame, uv3, uv4, color, self.line_width, cv2.CV_AA)
-        cv2.line(frame, uv4, uv5, color, self.line_width, cv2.CV_AA)
-        cv2.line(frame, uv5, uv1, color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, uv3, uv4, color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, uv4, uv5, color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, uv5, uv1, color, self.line_width, cv2.CV_AA)
 
         # speed tics
         spacing = lsize[0][1]
@@ -523,7 +524,7 @@ class HUD:
         if y < miny: y = miny
         if y > maxy: y = maxy
         uv2 = (cx, y)
-        cv2.line(frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
         for i in range(0, 65, 1):
             offset = int((i - airspeed) * spacing)
             if cy - offset >= miny and cy - offset <= maxy:
@@ -532,14 +533,14 @@ class HUD:
                     uv2 = (cx - 6, cy - offset)
                 else:
                     uv2 = (cx - 4, cy - offset)
-                cv2.line(frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
         for i in range(0, 65, 5):
             offset = int((i - airspeed) * spacing)
             if cy - offset >= miny and cy - offset <= maxy:
                 label = "%d" % i
                 lsize = cv2.getTextSize(label, self.font, self.font_size, self.line_width)
                 uv3 = (cx - 8 - lsize[0][0], cy - offset + lsize[0][1] / 2)
-                cv2.putText(frame, label, uv3, self.font, self.font_size, color, self.line_width, cv2.CV_AA)
+                cv2.putText(self.frame, label, uv3, self.font, self.font_size, color, self.line_width, cv2.CV_AA)
 
         # speed bug
         offset = int((ap_speed - airspeed) * spacing)
@@ -551,19 +552,19 @@ class HUD:
             uv5 = (cx,                  cy - offset + ysize )
             uv6 = (cx + int(ysize*0.7), cy - offset + ysize )
             uv7 = (cx + int(ysize*0.7), cy - offset + ysize / 2 )
-            cv2.line(frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv2, uv3, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv3, uv4, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv4, uv5, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv5, uv6, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv6, uv7, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv7, uv1, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv3, uv4, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv4, uv5, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv5, uv6, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv6, uv7, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv7, uv1, color, self.line_width, cv2.CV_AA)
 
-    def draw_altitude_tape(self, frame, alt_m, ap_alt, flight_mode):
+    def draw_altitude_tape(self, alt_m, ap_alt, flight_mode):
         color = (0,240,0)
         size = 1
         pad = 5 + self.line_width*2
-        h, w, d = frame.shape
+        h, w, d = self.frame.shape
 
         # reference point
         cy = int(h * 0.5)
@@ -581,17 +582,17 @@ class HUD:
         xsize = lsize[0][0] + pad
         ysize = lsize[0][1] + pad
         uv = ( int(cx - ysize*0.7 - lsize[0][0]), cy + lsize[0][1] / 2)
-        cv2.putText(frame, label, uv, self.font, self.font_size, color, self.line_width, cv2.CV_AA)
+        cv2.putText(self.frame, label, uv, self.font, self.font_size, color, self.line_width, cv2.CV_AA)
         uv1 = (cx, cy)
         uv2 = (cx - int(ysize*0.7),         cy - ysize / 2 )
         uv3 = (cx - int(ysize*0.7) - xsize, cy - ysize / 2 )
         uv4 = (cx - int(ysize*0.7) - xsize, cy + ysize / 2 + 1 )
         uv5 = (cx - int(ysize*0.7),         cy + ysize / 2 + 1 )
-        cv2.line(frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
-        cv2.line(frame, uv2, uv3, color, self.line_width, cv2.CV_AA)
-        cv2.line(frame, uv3, uv4, color, self.line_width, cv2.CV_AA)
-        cv2.line(frame, uv4, uv5, color, self.line_width, cv2.CV_AA)
-        cv2.line(frame, uv5, uv1, color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, uv3, uv4, color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, uv4, uv5, color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, uv5, uv1, color, self.line_width, cv2.CV_AA)
 
         # msl tics
         spacing = lsize[0][1]
@@ -603,7 +604,7 @@ class HUD:
         if y < miny: y = miny
         if y > maxy: y = maxy
         uv2 = (cx, y)
-        cv2.line(frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
+        cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
         for i in range(minrange, maxrange, 1):
             offset = int((i*10 - alt_ft)/10 * spacing)
             if cy - offset >= miny and cy - offset <= maxy:
@@ -612,14 +613,14 @@ class HUD:
                     uv2 = (cx + 6, cy - offset)
                 else:
                     uv2 = (cx + 4, cy - offset)
-                cv2.line(frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
         for i in range(minrange, maxrange, 5):
             offset = int((i*10 - alt_ft)/10 * spacing)
             if cy - offset >= miny and cy - offset <= maxy:
                 label = "%d" % (i*10)
                 lsize = cv2.getTextSize(label, self.font, self.font_size, self.line_width)
                 uv3 = (cx + 8 , cy - offset + lsize[0][1] / 2)
-                cv2.putText(frame, label, uv3, self.font, self.font_size, color, self.line_width, cv2.CV_AA)
+                cv2.putText(self.frame, label, uv3, self.font, self.font_size, color, self.line_width, cv2.CV_AA)
 
         # altitude bug
         offset = int((ap_alt - alt_ft)/10.0 * spacing)
@@ -631,11 +632,11 @@ class HUD:
             uv5 = (cx,                  cy - offset + ysize )
             uv6 = (cx - int(ysize*0.7), cy - offset + ysize )
             uv7 = (cx - int(ysize*0.7), cy - offset + ysize / 2 )
-            cv2.line(frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv2, uv3, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv3, uv4, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv4, uv5, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv5, uv6, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv6, uv7, color, self.line_width, cv2.CV_AA)
-            cv2.line(frame, uv7, uv1, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv3, uv4, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv4, uv5, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv5, uv6, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv6, uv7, color, self.line_width, cv2.CV_AA)
+            cv2.line(self.frame, uv7, uv1, color, self.line_width, cv2.CV_AA)
 

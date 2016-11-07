@@ -499,31 +499,27 @@ if args.movie:
 
         hud.update_proj(PROJ)
         hud.update_ned(ned)
+        hud.update_frame(hud_frame)
         
-        hud.draw_horizon(hud_frame)
-        hud.draw_compass_points(hud_frame)
-        hud.draw_pitch_ladder(hud_frame, yaw_rad, beta_rad)
-        hud.draw_flight_path_marker(hud_frame,
-                                    pitch_rad, alpha_rad, yaw_rad, beta_rad)
-        hud.draw_astro(hud_frame,
-                       float(flight_gps_lat(time)),
+        hud.draw_horizon()
+        hud.draw_compass_points()
+        hud.draw_pitch_ladder(yaw_rad, beta_rad)
+        hud.draw_flight_path_marker(pitch_rad, alpha_rad, yaw_rad, beta_rad)
+        hud.draw_astro(float(flight_gps_lat(time)),
                        float(flight_gps_lon(time)),
                        float(flight_gps_alt(time)),
                        float(flight_gps_unixtime(time)))
-        hud.draw_airports(hud_frame)
-        hud.draw_velocity_vector(hud_frame, [vn, ve, vd])
-        hud.draw_speed_tape(hud_frame,
-                            airspeed, ap_speed, flight_mode)
-        hud.draw_altitude_tape(hud_frame,
-                               altitude, ap_alt, flight_mode)
+        hud.draw_airports()
+        hud.draw_velocity_vector([vn, ve, vd])
+        hud.draw_speed_tape(airspeed, ap_speed, flight_mode)
+        hud.draw_altitude_tape(altitude, ap_alt, flight_mode)
         if flight_mode == 'manual':
-            hud.draw_nose(hud_frame, body2ned)
+            hud.draw_nose(body2ned)
         else:
-            hud.draw_vbars(hud_frame, yaw_rad, pitch_rad,
-                           ap_roll, ap_pitch)
-            hud.draw_heading_bug(hud_frame, ap_hdg)
-            hud.draw_bird(hud_frame, yaw_rad, pitch_rad, roll_rad)
-            hud.draw_course(hud_frame, vn, ve)
+            hud.draw_vbars(yaw_rad, pitch_rad, ap_roll, ap_pitch)
+            hud.draw_heading_bug(ap_hdg)
+            hud.draw_bird(yaw_rad, pitch_rad, roll_rad)
+            hud.draw_course(vn, ve)
 
         alpha = args.alpha
         if alpha < 0: alpha = 0
