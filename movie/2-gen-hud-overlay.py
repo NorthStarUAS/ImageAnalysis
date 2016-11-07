@@ -35,7 +35,7 @@ render_h = 1080
 parser = argparse.ArgumentParser(description='correlate movie data to flight data.')
 parser.add_argument('--movie', required=True, help='original movie')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
-parser.add_argument('--alpha', type=float, default=0.75, help='hud alpha blend')
+parser.add_argument('--alpha', type=float, default=0.7, help='hud alpha blend')
 parser.add_argument('--resample-hz', type=float, default=30.0, help='resample rate (hz)')
 parser.add_argument('--apm-log', help='APM tlog converted to csv')
 parser.add_argument('--aura-dir', help='Aura flight log directory')
@@ -393,23 +393,23 @@ if args.movie:
     fps = capture.get(cv2.cv.CV_CAP_PROP_FPS)
     print "fps = %.2f" % fps
     fourcc = int(capture.get(cv2.cv.CV_CAP_PROP_FOURCC))
-    render_w = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH) * args.scale )
-    render_h = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT) * args.scale )
-    hud.set_render_size(render_w, render_h)
+    w = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH) * args.scale )
+    h = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT) * args.scale )
+    hud.set_render_size(w, h)
     
     #outfourcc = cv2.cv.CV_FOURCC('M', 'J', 'P', 'G')
     #outfourcc = cv2.cv.CV_FOURCC('H', '2', '6', '4')
     #outfourcc = cv2.cv.CV_FOURCC('X', '2', '6', '4')
     #outfourcc = cv2.cv.CV_FOURCC('X', 'V', 'I', 'D')
     outfourcc = cv2.cv.CV_FOURCC('M', 'P', '4', 'V')
-    print outfourcc, fps, render_w, render_h
-    output = cv2.VideoWriter(tmp_movie, outfourcc, fps, (render_w, render_h), isColor=True)
+    print outfourcc, fps, w, h
+    output = cv2.VideoWriter(tmp_movie, outfourcc, fps, (w, h), isColor=True)
 
     last_time = 0.0
 
     # set primative sizes based on rendered resolution.
-    hud.set_line_width( int(round(float(render_h) / 400.0)) )
-    hud.set_font_size( float(render_h) / 900.0 )
+    hud.set_line_width( int(round(float(h) / 350.0)) )
+    hud.set_font_size( float(h) / 900.0 )
     
     while True:
         ret, frame = capture.read()
@@ -521,6 +521,8 @@ if args.movie:
             hud.draw_bird(yaw_rad, pitch_rad, roll_rad)
             hud.draw_course(vn, ve)
 
+        # weighted add of the HUD frame with the original frame to
+        # emulate alpha blending
         alpha = args.alpha
         if alpha < 0: alpha = 0
         if alpha > 1: alpha = 1

@@ -172,7 +172,8 @@ class HUD:
                 for i in range(0,3):
                     tmp1 = (uv1[0] + int(0.375*i*du), uv1[1] + int(0.375*i*dv))
                     tmp2 = (tmp1[0] + int(0.25*du), tmp1[1] + int(0.25*dv))
-                    cv2.line(self.frame, tmp1, tmp2, (0,240,0), 1, cv2.CV_AA)
+                    cv2.line(self.frame, tmp1, tmp2, (0,240,0),
+                             self.line_width, cv2.CV_AA)
                 uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
                 self.draw_label("%d" % a0, uv, self.font_size, self.line_width)
 
@@ -377,13 +378,14 @@ class HUD:
     def draw_labeled_point(self, ned, label, scale=1, vert='above'):
         uv = self.project_point([ned[0], ned[1], ned[2]])
         if uv != None:
-            cv2.circle(self.frame, uv, 5, (0,240,0), 1, cv2.CV_AA)
+            cv2.circle(self.frame, uv, 4+self.line_width, (0,240,0),
+                       self.line_width, cv2.CV_AA)
         if vert == 'above':
             uv = self.project_point([ned[0], ned[1], ned[2] - 0.02])
         else:
             uv = self.project_point([ned[0], ned[1], ned[2] + 0.02])
         if uv != None:
-            self.draw_label(label, uv, scale, 1, vert=vert)
+            self.draw_label(label, uv, scale, self.line_width, vert=vert)
 
     def draw_lla_point(self, lla, label):
         pt_ned = navpy.lla2ned( lla[0], lla[1], lla[2],
