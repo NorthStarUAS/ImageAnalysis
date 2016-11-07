@@ -30,7 +30,7 @@ import transformations
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--texture-resolution', type=int, default=512, help='texture resolution (should be 2**n, so numbers like 256, 512, 1024, etc.')
-#parser.add_argument('--ground', type=float, help='ground elevation in meters')
+parser.add_argument('--ground', type=float, help='ground elevation in meters')
 
 args = parser.parse_args()
 
@@ -64,17 +64,20 @@ for image in proj.image_list:
     for v in v_list:
         for u in u_list:
             grid_list.append( [u, v] )
-    
+
     proj_list = proj.projectVectors( IK, image.get_body2ned(), image.get_cam2body(), grid_list )
     #print "proj_list:\n", proj_list
-    pts_ned = sss.interpolate_vectors(image.camera_pose['ned'], proj_list)
-    #print "pts_3d (ned):\n", pts_ned
+    if args.ground:
+        pts_ned = proj.intersectVectorsWithGroundPlane(image.camera_pose, args.ground, proj_list)
+    else:
+        pts_ned = sss.interpolate_vectors(image.camera_pose['ned'], proj_list)
+        #print "pts_3d (ned):\n", pts_ned
 
     # convert ned to xyz and stash the result for each image
     image.grid_list = []
     for p in pts_ned:
         image.grid_list.append( [p[1], p[0], -(p[2]+depth)] )
-    depth -= 0.1                # favor last pictures above earlier ones
+    depth -= 0.01                # favor last pictures above earlier ones
     
 # call the ac3d generator
 AC3D.generate(proj.image_list, src_dir=proj.source_dir,

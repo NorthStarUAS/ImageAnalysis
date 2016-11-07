@@ -260,7 +260,7 @@ class NEDGround():
     # while error > eps: find altitude at current point, new pt = proj
     # vector to current alt.
     def interpolate_vector(self, ned, v):
-        print ned
+        #print ned
         p = ned[:] # copy hopefully
 
         # sanity check (always assume camera pose is above ground!)

@@ -101,7 +101,7 @@ class Matcher():
     def filter_by_homography(self, i1, i2, j, filter):
         clean = True
         
-        tol = float(i1.width) / 800.0 # rejection range in pixels
+        tol = float(i1.width) / 400.0 # rejection range in pixels
         if tol < 1.0:
             tol = 1.0
         # print "tol = %.4f" % tol

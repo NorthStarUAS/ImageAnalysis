@@ -99,16 +99,24 @@ class HUD:
         for i in range(divs):
             p1 = pts[i]
             p2 = pts[i+1]
-            uv1 = self.project_point( [self.ned[0] + p1[0], self.ned[1] + p1[1], self.ned[2] + p1[2]] )
-            uv2 = self.project_point( [self.ned[0] + p2[0], self.ned[1] + p2[1], self.ned[2] + p2[2]] )
+            uv1 = self.project_point( [self.ned[0] + p1[0],
+                                       self.ned[1] + p1[1],
+                                       self.ned[2] + p1[2]] )
+            uv2 = self.project_point( [self.ned[0] + p2[0],
+                                       self.ned[1] + p2[1],
+                                       self.ned[2] + p2[2]] )
             if uv1 != None and uv2 != None:
-                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width,
+                         cv2.CV_AA)
 
-    def ladder_helper(self, q0, a0, a1, ned):
-        q1 = transformations.quaternion_from_euler(-a1*d2r, -a0*d2r, 0.0, 'rzyx')
+    def ladder_helper(self, q0, a0, a1):
+        q1 = transformations.quaternion_from_euler(-a1*d2r, -a0*d2r, 0.0,
+                                                   'rzyx')
         q = transformations.quaternion_multiply(q1, q0)
         v = transformations.quaternion_transform(q, [1.0, 0.0, 0.0])
-        uv = self.project_point( [ned[0] + v[0], ned[1] + v[1], ned[2] + v[2]] )
+        uv = self.project_point( [self.ned[0] + v[0],
+                                  self.ned[1] + v[1],
+                                  self.ned[2] + v[2]] )
         return uv
 
     def draw_pitch_ladder(self, yaw_rad, beta_rad):
@@ -121,77 +129,85 @@ class HUD:
             # above horizon
 
             # right horizontal
-            uv1 = self.ladder_helper(q0, a0, a1, self.ned)
-            uv2 = self.ladder_helper(q0, a0, a2, self.ned)
+            uv1 = self.ladder_helper(q0, a0, a1)
+            uv2 = self.ladder_helper(q0, a0, a2)
             if uv1 != None and uv2 != None:
-                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width,
+                         cv2.CV_AA)
                 du = uv2[0] - uv1[0]
                 dv = uv2[1] - uv1[1]
                 uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
                 self.draw_label("%d" % a0, uv, self.font_size, self.line_width)
             # right tick
-            uv1 = self.ladder_helper(q0, a0-0.5, a1, self.ned)
-            uv2 = self.ladder_helper(q0, a0, a1, self.ned)
+            uv1 = self.ladder_helper(q0, a0-0.5, a1)
+            uv2 = self.ladder_helper(q0, a0, a1)
             if uv1 != None and uv2 != None:
-                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width,
+                         cv2.CV_AA)
             # left horizontal
-            uv1 = self.ladder_helper(q0, a0, -a1, self.ned)
-            uv2 = self.ladder_helper(q0, a0, -a2, self.ned)
+            uv1 = self.ladder_helper(q0, a0, -a1)
+            uv2 = self.ladder_helper(q0, a0, -a2)
             if uv1 != None and uv2 != None:
-                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width,
+                         cv2.CV_AA)
                 du = uv2[0] - uv1[0]
                 dv = uv2[1] - uv1[1]
                 uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
                 self.draw_label("%d" % a0, uv, self.font_size, self.line_width)
             # left tick
-            uv1 = self.ladder_helper(q0, a0-0.5, -a1, self.ned)
-            uv2 = self.ladder_helper(q0, a0, -a1, self.ned)
+            uv1 = self.ladder_helper(q0, a0-0.5, -a1)
+            uv2 = self.ladder_helper(q0, a0, -a1)
             if uv1 != None and uv2 != None:
-                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width,
+                         cv2.CV_AA)
 
             # below horizon
 
             # right horizontal
-            uv1 = self.ladder_helper(q0, -a0, a1, self.ned)
-            uv2 = self.ladder_helper(q0, -a0-0.5, a2, self.ned)
+            uv1 = self.ladder_helper(q0, -a0, a1)
+            uv2 = self.ladder_helper(q0, -a0-0.5, a2)
             if uv1 != None and uv2 != None:
                 du = uv2[0] - uv1[0]
                 dv = uv2[1] - uv1[1]
                 for i in range(0,3):
-                    tmp1 = ( uv1[0] + int(0.375*i*du), uv1[1] + int(0.375*i*dv) )
-                    tmp2 = ( tmp1[0] + int(0.25*du), tmp1[1] + int(0.25*dv) )
+                    tmp1 = (uv1[0] + int(0.375*i*du), uv1[1] + int(0.375*i*dv))
+                    tmp2 = (tmp1[0] + int(0.25*du), tmp1[1] + int(0.25*dv))
                     cv2.line(self.frame, tmp1, tmp2, (0,240,0), 1, cv2.CV_AA)
                 uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
                 self.draw_label("%d" % a0, uv, self.font_size, self.line_width)
 
             # right tick
-            uv1 = self.ladder_helper(q0, -a0+0.5, a1, self.ned)
-            uv2 = self.ladder_helper(q0, -a0, a1, self.ned)
+            uv1 = self.ladder_helper(q0, -a0+0.5, a1)
+            uv2 = self.ladder_helper(q0, -a0, a1)
             if uv1 != None and uv2 != None:
-                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width,
+                         cv2.CV_AA)
             # left horizontal
-            uv1 = self.ladder_helper(q0, -a0, -a1, self.ned)
-            uv2 = self.ladder_helper(q0, -a0-0.5, -a2, self.ned)
+            uv1 = self.ladder_helper(q0, -a0, -a1)
+            uv2 = self.ladder_helper(q0, -a0-0.5, -a2)
             if uv1 != None and uv2 != None:
                 du = uv2[0] - uv1[0]
                 dv = uv2[1] - uv1[1]
                 for i in range(0,3):
-                    tmp1 = ( uv1[0] + int(0.375*i*du), uv1[1] + int(0.375*i*dv) )
-                    tmp2 = ( tmp1[0] + int(0.25*du), tmp1[1] + int(0.25*dv) )
-                    cv2.line(self.frame, tmp1, tmp2, (0,240,0), self.line_width, cv2.CV_AA)
+                    tmp1 = (uv1[0] + int(0.375*i*du), uv1[1] + int(0.375*i*dv))
+                    tmp2 = (tmp1[0] + int(0.25*du), tmp1[1] + int(0.25*dv))
+                    cv2.line(self.frame, tmp1, tmp2, (0,240,0),
+                             self.line_width, cv2.CV_AA)
                 uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
                 self.draw_label("%d" % a0, uv, self.font_size, self.line_width)
             # left tick
-            uv1 = self.ladder_helper(q0, -a0+0.5, -a1, self.ned)
-            uv2 = self.ladder_helper(q0, -a0, -a1, self.ned)
+            uv1 = self.ladder_helper(q0, -a0+0.5, -a1)
+            uv2 = self.ladder_helper(q0, -a0, -a1)
             if uv1 != None and uv2 != None:
-                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width,
+                         cv2.CV_AA)
 
     def draw_flight_path_marker(self, pitch_rad, alpha_rad,
                                 yaw_rad, beta_rad):
-        q0 = transformations.quaternion_about_axis(yaw_rad + beta_rad, [0.0, 0.0, -1.0])
+        q0 = transformations.quaternion_about_axis(yaw_rad + beta_rad,
+                                                   [0.0, 0.0, -1.0])
         a0 = (pitch_rad - alpha_rad) * r2d
-        uv = self.ladder_helper(q0, a0, 0, self.ned)
+        uv = self.ladder_helper(q0, a0, 0)
         if uv != None:
             r1 = int(round(self.render_h / 60))
             r2 = int(round(self.render_h / 30))
@@ -201,10 +217,14 @@ class HUD:
             uv4 = (uv[0]-r2, uv[1])
             uv5 = (uv[0], uv[1]-r1)
             uv6 = (uv[0], uv[1]-r2)
-            cv2.circle(self.frame, uv, r1, (0,240,0), self.line_width, cv2.CV_AA)
-            cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width, cv2.CV_AA)
-            cv2.line(self.frame, uv3, uv4, (0,240,0), self.line_width, cv2.CV_AA)
-            cv2.line(self.frame, uv5, uv6, (0,240,0), self.line_width, cv2.CV_AA)
+            cv2.circle(self.frame, uv, r1, (0,240,0), self.line_width,
+                       cv2.CV_AA)
+            cv2.line(self.frame, uv1, uv2, (0,240,0), self.line_width,
+                     cv2.CV_AA)
+            cv2.line(self.frame, uv3, uv4, (0,240,0), self.line_width,
+                     cv2.CV_AA)
+            cv2.line(self.frame, uv5, uv6, (0,240,0), self.line_width,
+                     cv2.CV_AA)
 
     def rotate_pt(self, p, center, a):
         x = math.cos(a) * (p[0]-center[0]) - math.sin(a) * (p[1]-center[1]) + center[0]
@@ -222,16 +242,16 @@ class HUD:
         a0 = ap_pitch
 
         # rotation point (about nose)
-        rot = self.ladder_helper(q0, pitch_rad*r2d, 0.0, self.ned)
+        rot = self.ladder_helper(q0, pitch_rad*r2d, 0.0)
 
         # center point
-        tmp1 = self.ladder_helper(q0, a0, 0.0, self.ned)
+        tmp1 = self.ladder_helper(q0, a0, 0.0)
         center = rotate_pt(tmp1, rot, ap_roll*d2r)
 
         # right vbar
-        tmp1 = self.ladder_helper(q0, a0-a3, a1, self.ned)
-        tmp2 = self.ladder_helper(q0, a0-a3, a1+a3, self.ned)
-        tmp3 = self.ladder_helper(q0, a0-a2, a1+a3, self.ned)
+        tmp1 = self.ladder_helper(q0, a0-a3, a1)
+        tmp2 = self.ladder_helper(q0, a0-a3, a1+a3)
+        tmp3 = self.ladder_helper(q0, a0-a2, a1+a3)
         uv1 = rotate_pt(tmp1, rot, ap_roll*d2r)
         uv2 = rotate_pt(tmp2, rot, ap_roll*d2r)
         uv3 = rotate_pt(tmp3, rot, ap_roll*d2r)
@@ -242,9 +262,9 @@ class HUD:
             cv2.line(self.frame, uv1, uv3, color, self.line_width, cv2.CV_AA)
             cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.CV_AA)
         # left vbar
-        tmp1 = self.ladder_helper(q0, a0-a3, -a1, self.ned)
-        tmp2 = self.ladder_helper(q0, a0-a3, -a1-a3, self.ned)
-        tmp3 = self.ladder_helper(q0, a0-a2, -a1-a3, self.ned)
+        tmp1 = self.ladder_helper(q0, a0-a3, -a1)
+        tmp2 = self.ladder_helper(q0, a0-a3, -a1-a3)
+        tmp3 = self.ladder_helper(q0, a0-a2, -a1-a3)
         uv1 = rotate_pt(tmp1, rot, ap_roll*d2r)
         uv2 = rotate_pt(tmp2, rot, ap_roll*d2r)
         uv3 = rotate_pt(tmp3, rot, ap_roll*d2r)
@@ -260,15 +280,15 @@ class HUD:
         size = 2
         a = math.atan2(ve, vn)
         q0 = transformations.quaternion_about_axis(ap_hdg*d2r, [0.0, 0.0, -1.0])
-        center = self.ladder_helper(q0, 0, 0, self.ned)
+        center = self.ladder_helper(q0, 0, 0)
         pts = []
-        pts.append( self.ladder_helper(q0, 0, 2.0, self.ned) )
-        pts.append( self.ladder_helper(q0, 0.0, -2.0, self.ned) )
-        pts.append( self.ladder_helper(q0, 1.5, -2.0, self.ned) )
-        pts.append( self.ladder_helper(q0, 1.5, -1.0, self.ned) )
+        pts.append( self.ladder_helper(q0, 0, 2.0) )
+        pts.append( self.ladder_helper(q0, 0.0, -2.0) )
+        pts.append( self.ladder_helper(q0, 1.5, -2.0) )
+        pts.append( self.ladder_helper(q0, 1.5, -1.0) )
         pts.append( center )
-        pts.append( self.ladder_helper(q0, 1.5, 1.0, self.ned) )
-        pts.append( self.ladder_helper(q0, 1.5, 2.0, self.ned) )
+        pts.append( self.ladder_helper(q0, 1.5, 1.0) )
+        pts.append( self.ladder_helper(q0, 1.5, 2.0) )
         for i, p in enumerate(pts):
             if p == None or center == None:
                 return
@@ -295,11 +315,11 @@ class HUD:
         a0 = pitch_rad*r2d
 
         # center point
-        center = self.ladder_helper(q0, pitch_rad*r2d, 0.0, self.ned)
+        center = self.ladder_helper(q0, pitch_rad*r2d, 0.0)
 
         # right vbar
-        tmp1 = self.ladder_helper(q0, a0-a2, a1, self.ned)
-        tmp2 = self.ladder_helper(q0, a0-a2, a1-a2, self.ned)
+        tmp1 = self.ladder_helper(q0, a0-a2, a1)
+        tmp2 = self.ladder_helper(q0, a0-a2, a1-a2)
         uv1 = rotate_pt(tmp1, center, roll_rad)
         uv2 = rotate_pt(tmp2, center, roll_rad)
         if uv1 != None and uv2 != None:
@@ -307,8 +327,8 @@ class HUD:
             cv2.line(self.frame, center, uv2, color, self.line_width, cv2.CV_AA)
             cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
         # left vbar
-        tmp1 = self.ladder_helper(q0, a0-a2, -a1, self.ned)
-        tmp2 = self.ladder_helper(q0, a0-a2, -a1+a2, self.ned)
+        tmp1 = self.ladder_helper(q0, a0-a2, -a1)
+        tmp2 = self.ladder_helper(q0, a0-a2, -a1+a2)
         uv1 = rotate_pt(tmp1, center, roll_rad)
         uv2 = rotate_pt(tmp2, center, roll_rad)
         if uv1 != None and uv2 != None:
@@ -328,9 +348,9 @@ class HUD:
         filter_ve = (1.0 - tf_vel) * filter_ve + tf_vel * ve
         a = math.atan2(filter_ve, filter_vn)
         q0 = transformations.quaternion_about_axis(a, [0.0, 0.0, -1.0])
-        tmp1 = self.ladder_helper(q0, 0, 0, self.ned)
-        tmp2 = self.ladder_helper(q0, 1.5, 1.0, self.ned)
-        tmp3 = self.ladder_helper(q0, 1.5, -1.0, self.ned)
+        tmp1 = self.ladder_helper(q0, 0, 0)
+        tmp2 = self.ladder_helper(q0, 1.5, 1.0)
+        tmp3 = self.ladder_helper(q0, 1.5, -1.0)
         if tmp1 != None and tmp2 != None and tmp3 != None :
             uv2 = rotate_pt(tmp2, tmp1, -cam_roll*d2r)
             uv3 = rotate_pt(tmp3, tmp1, -cam_roll*d2r)
@@ -365,9 +385,12 @@ class HUD:
         if uv != None:
             self.draw_label(label, uv, scale, 1, vert=vert)
 
-    def draw_lla_point(self, ned, lla, label):
-        pt_ned = navpy.lla2ned( lla[0], lla[1], lla[2], self.ref[0], self.ref[1], self.ref[2] )
-        rel_ned = [ pt_ned[0] - ned[0], pt_ned[1] - ned[1], pt_ned[2] - ned[2] ]
+    def draw_lla_point(self, lla, label):
+        pt_ned = navpy.lla2ned( lla[0], lla[1], lla[2],
+                                self.ref[0], self.ref[1], self.ref[2] )
+        rel_ned = [ pt_ned[0] - self.ned[0],
+                    pt_ned[1] - self.ned[1],
+                    pt_ned[2] - self.ned[2] ]
         dist = math.sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1]
                          + rel_ned[2]*rel_ned[2])
         m2sm = 0.000621371
@@ -381,8 +404,9 @@ class HUD:
             rel_ned[0] /= dist
             rel_ned[1] /= dist
             rel_ned[2] /= dist
-            self.draw_labeled_point([ned[0] + rel_ned[0], ned[1] + rel_ned[1],
-                                     ned[2] + rel_ned[2]],
+            self.draw_labeled_point([self.ned[0] + rel_ned[0],
+                                     self.ned[1] + rel_ned[1],
+                                     self.ned[2] + rel_ned[2]],
                                     label, scale=scale, vert='below')
 
     def draw_compass_points(self):
@@ -440,27 +464,27 @@ class HUD:
 
     def draw_airports(self):
         kmsp = [ 44.882000, -93.221802, 256 ]
-        self.draw_lla_point(self.ned, kmsp, 'KMSP')
+        self.draw_lla_point(kmsp, 'KMSP')
         ksgs = [ 44.857101, -93.032898, 250 ]
-        self.draw_lla_point(self.ned, ksgs, 'KSGS')
+        self.draw_lla_point(ksgs, 'KSGS')
         kstp = [ 44.934502, -93.059998, 215 ]
-        self.draw_lla_point(self.ned, kstp, 'KSTP')
+        self.draw_lla_point(kstp, 'KSTP')
         my52 = [ 44.718601, -93.044098, 281 ]
-        self.draw_lla_point(self.ned, my52, 'MY52')
+        self.draw_lla_point(my52, 'MY52')
         kfcm = [ 44.827202, -93.457100, 276 ]
-        self.draw_lla_point(self.ned, kfcm, 'KFCM')
+        self.draw_lla_point(kfcm, 'KFCM')
         kane = [ 45.145000, -93.211403, 278 ]
-        self.draw_lla_point(self.ned, kane, 'KANE')
+        self.draw_lla_point(kane, 'KANE')
         klvn = [ 44.627899, -93.228104, 293 ]
-        self.draw_lla_point(self.ned, klvn, 'KLVN')
+        self.draw_lla_point(klvn, 'KLVN')
         kmic = [ 45.062000, -93.353897, 265 ]
-        self.draw_lla_point(self.ned, kmic, 'KMIC')
+        self.draw_lla_point(kmic, 'KMIC')
         mn45 = [ 44.566101, -93.132202, 290 ]
-        self.draw_lla_point(self.ned, mn45, 'MN45')
+        self.draw_lla_point(mn45, 'MN45')
         mn58 = [ 44.697701, -92.864098, 250 ]
-        self.draw_lla_point(self.ned, mn58, 'MN58')
+        self.draw_lla_point(mn58, 'MN58')
         mn18 = [ 45.187199, -93.130501, 276 ]
-        self.draw_lla_point(self.ned, mn18, 'MN18')
+        self.draw_lla_point(mn18, 'MN18')
 
     def draw_nose(self, body2ned):
         vec = transformations.quaternion_transform(body2ned, [1.0, 0.0, 0.0])

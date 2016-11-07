@@ -31,8 +31,9 @@ if __name__ == '__main__':
         
     #pattern_size = (9, 6)
     #pattern_size = (9, 7)
-    pattern_size = (8, 6)
-
+    #pattern_size = (8, 6)
+    pattern_size = (6, 4)
+    
     pattern_points = np.zeros( (np.prod(pattern_size), 3), np.float32 )
     pattern_points[:,:2] = np.indices(pattern_size).T.reshape(-1, 2)
     pattern_points *= args.square_size
