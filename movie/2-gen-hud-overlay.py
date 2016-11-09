@@ -7,14 +7,11 @@ import cv2
 
 import argparse
 import math
-#import fractions
 from matplotlib import pyplot as plt 
 import navpy
 import numpy as np
 import os
-import pyexiv2
 import re
-#from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy import interpolate # strait up linear interpolation, nothing fancy
 
 from props import PropertyNode, getNode
