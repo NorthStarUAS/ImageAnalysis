@@ -24,10 +24,6 @@ import hud
 
 # helpful constants
 d2r = math.pi / 180.0
-mps2kt = 1.94384
-kt2mps = 1 / mps2kt
-ft2m = 0.3048
-m2ft = 1 / ft2m
 
 # default sizes of primatives
 render_w = 1920
@@ -45,6 +41,7 @@ parser.add_argument('--plot', help='Plot stuff at the end of the run')
 parser.add_argument('--auto-switch', choices=['old', 'new', 'none'], default='new', help='auto/manual switch logic helper')
 parser.add_argument('--airspeed-units', choices=['kt', 'mps'], default='kt', help='display units for airspeed')
 parser.add_argument('--altitude-units', choices=['ft', 'm'], default='ft', help='display units for airspeed')
+parser.add_argument('--start-time', type=float, help='fast forward to this flight log time before begining movie render.')
 args = parser.parse_args()
 
 r2d = 180.0 / math.pi
@@ -254,13 +251,6 @@ if args.apm_log:
     y_spline = flight_imu_r
 elif args.aura_dir:
     y_spline = flight_imu_p
-xmin = x.min()
-xmax = x.max()
-print "flight range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin)
-time = xmax - xmin
-for x in np.linspace(xmin, xmax, time*args.resample_hz):
-    flight_interp.append( [x, y_spline(x)] )
-print "flight len:", len(flight_interp)
 
 flight_gps = np.array(flight_gps, dtype=np.float64)
 x = flight_gps[:,0]
@@ -284,8 +274,8 @@ flight_air = np.array(flight_air, dtype=np.float64)
 x = flight_air[:,0]
 flight_air_speed = interpolate.interp1d(x, flight_air[:,3], bounds_error=False, fill_value=0.0)
 flight_air_true_alt = interpolate.interp1d(x, flight_air[:,5], bounds_error=False, fill_value=0.0)
-flight_air_alpha = interpolate.interp1d(x, flight_air[:,11], bounds_error=False, fill_value=0.0)
-flight_air_beta = interpolate.interp1d(x, flight_air[:,12], bounds_error=False, fill_value=0.0)
+#flight_air_alpha = interpolate.interp1d(x, flight_air[:,11], bounds_error=False, fill_value=0.0)
+#flight_air_beta = interpolate.interp1d(x, flight_air[:,12], bounds_error=False, fill_value=0.0)
 
 flight_pilot = np.array(flight_pilot, dtype=np.float64)
 x = flight_pilot[:,0]
@@ -300,6 +290,16 @@ flight_ap_roll = interpolate.interp1d(x, flight_ap[:,2], bounds_error=False, fil
 flight_ap_alt = interpolate.interp1d(x, flight_ap[:,3], bounds_error=False, fill_value=0.0)
 flight_ap_pitch = interpolate.interp1d(x, flight_ap[:,5], bounds_error=False, fill_value=0.0)
 flight_ap_speed = interpolate.interp1d(x, flight_ap[:,7], bounds_error=False, fill_value=0.0)
+
+# run correlation over filter time span
+x = flight_filter[:,0]
+xmin = x.min()
+xmax = x.max()
+print "flight range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin)
+time = xmax - xmin
+for x in np.linspace(xmin, xmax, time*args.resample_hz):
+    flight_interp.append( [x, y_spline(x)] )
+print "flight len:", len(flight_interp)
 
 # compute best correlation between movie and flight data logs
 movie_interp = np.array(movie_interp, dtype=float)
@@ -414,6 +414,7 @@ if args.movie:
     myhud.set_line_width( int(round(float(h) / 400.0)) )
     myhud.set_font_size( float(h) / 900.0 )
     myhud.set_color( hud.green2 )
+    myhud.set_units( args.airspeed_units, args.altitude_units)
     
     while True:
         ret, frame = capture.read()
@@ -432,6 +433,8 @@ if args.movie:
         time = float(counter) / fps + time_shift
         print "frame: ", counter, time
         counter += 1
+        if args.start_time and time < args.start_time:
+            continue
         vn = flight_filter_vn(time)
         ve = flight_filter_ve(time)
         vd = flight_filter_vd(time)
@@ -445,9 +448,8 @@ if args.movie:
         lon_deg = float(flight_gps_lon(time))
         altitude_m = float(flight_air_true_alt(time))
         airspeed_kt = float(flight_air_speed(time))
-        alpha_rad = float(flight_air_alpha(time))*d2r * 1.25
-        beta_rad = float(flight_air_beta(time))*d2r * 1.25 - 0.05
-        #ap_hdg = float(flight_ap_hdg(time))
+        #alpha_rad = float(flight_air_alpha(time))*d2r * 1.25
+        #beta_rad = float(flight_air_beta(time))*d2r * 1.25 - 0.05
         ap_hdg_x = float(flight_ap_hdg_x(time))
         ap_hdg_y = float(flight_ap_hdg_y(time))
         ap_hdg = math.atan2(ap_hdg_y, ap_hdg_x)*r2d
@@ -503,36 +505,17 @@ if args.movie:
 
         myhud.update_proj(PROJ)
         myhud.update_ned(ned)
+        myhud.update_lla([lat_deg, lon_deg, altitude_m])
+        myhud.update_unixtime(flight_gps_unixtime(time))
+        myhud.update_vel(vn, ve, vd)
+        myhud.update_att_rad(roll_rad, pitch_rad, yaw_rad)
+        myhud.update_airdata(airspeed_kt, altitude_m)
+        myhud.update_ap(flight_mode, ap_roll, ap_pitch, ap_hdg,
+                        ap_speed, ap_alt)
         myhud.update_frame(hud_frame)
-        
-        myhud.draw_horizon()
-        myhud.draw_compass_points()
-        myhud.draw_pitch_ladder(yaw_rad, beta_rad)
-        myhud.draw_flight_path_marker(pitch_rad, alpha_rad, yaw_rad, beta_rad)
-        myhud.draw_astro(float(flight_gps_lat(time)),
-                     float(flight_gps_lon(time)),
-                     float(flight_gps_alt(time)),
-                     float(flight_gps_unixtime(time)))
-        myhud.draw_airports()
-        myhud.draw_velocity_vector([vn, ve, vd])
-        if args.airspeed_units == 'mps':
-            airspeed = airspeed_kt * kt2mps
-        else:
-            airspeed = airspeed_kt
-        myhud.draw_speed_tape(airspeed, ap_speed, args.airspeed_units.capitalize(), flight_mode)
-        if args.altitude_units == 'm':
-            altitude = altitude_m
-        else:
-            altitude = altitude_m * m2ft
-        myhud.draw_altitude_tape(altitude, ap_alt, args.altitude_units.capitalize(), flight_mode)
-        if flight_mode == 'manual':
-            myhud.draw_nose(body2ned)
-        else:
-            myhud.draw_vbars(yaw_rad, pitch_rad, ap_roll, ap_pitch)
-            myhud.draw_heading_bug(ap_hdg)
-            myhud.draw_bird(yaw_rad, pitch_rad, roll_rad)
-            myhud.draw_course(vn, ve)
 
+        myhud.draw()
+        
         # weighted add of the HUD frame with the original frame to
         # emulate alpha blending
         alpha = args.alpha
