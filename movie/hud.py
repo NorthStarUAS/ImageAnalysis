@@ -119,6 +119,12 @@ class HUD:
         self.ap_hdg = ap_hdg
         self.ap_speed = ap_speed
         self.ap_altitude = ap_altitude
+
+    def update_pilot(self, aileron, elevator, throttle, rudder):
+        self.aileron = aileron
+        self.elevator = elevator
+        self.throttle = throttle
+        self.rudder = rudder
         
     def compute_sun_moon_ned(self, lon_deg, lat_deg, alt_m, timestamp):
         d = datetime.datetime.utcfromtimestamp(timestamp)
@@ -753,6 +759,38 @@ class HUD:
             cv2.line(self.frame, uv6, uv7, color, self.line_width, cv2.CV_AA)
             cv2.line(self.frame, uv7, uv1, color, self.line_width, cv2.CV_AA)
 
+    # draw stick positions (rc transmitter sticks)
+    def draw_sticks(self):
+        h, w, d = self.frame.shape
+        lx = int(h * 0.1)
+        ly = int(h * 0.8)
+        rx = w - int(h * 0.1)
+        ry = int(h * 0.8)
+        r1 = int(round(h * 0.09))
+        if r1 < 10: r1 = 10
+        r2 = int(round(h * 0.01))
+        if r2 < 2: r2 = 2
+        cv2.circle(self.frame, (lx,ly), r1, self.color, self.line_width,
+                   cv2.CV_AA)
+        cv2.line(self.frame, (lx,ly-r1), (lx,ly+r1), self.color, 1,
+                 cv2.CV_AA)
+        cv2.line(self.frame, (lx-r1,ly), (lx+r1,ly), self.color, 1,
+                 cv2.CV_AA)
+        cv2.circle(self.frame, (rx,ry), r1, self.color, self.line_width,
+                   cv2.CV_AA)
+        cv2.line(self.frame, (rx,ry-r1), (rx,ry+r1), self.color, 1,
+                 cv2.CV_AA)
+        cv2.line(self.frame, (rx-r1,ry), (rx+r1,ry), self.color, 1,
+                 cv2.CV_AA)
+        lsx = lx - int(round(self.rudder * r1))
+        lsy = ly + r1 - int(round(2 * self.throttle * r1))
+        cv2.circle(self.frame, (lsx,lsy), r2, self.color, self.line_width,
+                   cv2.CV_AA)
+        rsx = rx - int(round(self.aileron * r1))
+        rsy = ry - int(round(self.elevator * r1))
+        cv2.circle(self.frame, (rsx,rsy), r2, self.color, self.line_width,
+                   cv2.CV_AA)
+
     # draw the conformal components of the hud (those that should
     # 'stick' to the real world view.
     def draw_conformal(self):
@@ -783,6 +821,7 @@ class HUD:
             ap_altitude = self.ap_altitude * m2ft
         self.draw_altitude_tape(altitude, ap_altitude,
                                 self.altitude_units.capitalize())
+        self.draw_sticks()
 
     # draw autopilot symbology
     def draw_ap(self):

@@ -279,6 +279,10 @@ flight_air_true_alt = interpolate.interp1d(x, flight_air[:,5], bounds_error=Fals
 
 flight_pilot = np.array(flight_pilot, dtype=np.float64)
 x = flight_pilot[:,0]
+flight_pilot_aileron = interpolate.interp1d(x, flight_pilot[:,1], bounds_error=False, fill_value=0.0)
+flight_pilot_elevator = interpolate.interp1d(x, flight_pilot[:,2], bounds_error=False, fill_value=0.0)
+flight_pilot_throttle = interpolate.interp1d(x, flight_pilot[:,3], bounds_error=False, fill_value=0.0)
+flight_pilot_rudder = interpolate.interp1d(x, flight_pilot[:,4], bounds_error=False, fill_value=0.0)
 flight_pilot_auto = interpolate.interp1d(x, flight_pilot[:,8], bounds_error=False, fill_value=0.0)
 
 flight_ap = np.array(flight_ap, dtype=np.float64)
@@ -457,6 +461,10 @@ if args.movie:
         ap_pitch = float(flight_ap_pitch(time))
         ap_speed = float(flight_ap_speed(time))
         ap_alt = float(flight_ap_alt(time))
+        aileron = float(flight_pilot_aileron(time))
+        elevator = float(flight_pilot_elevator(time))
+        throttle = float(flight_pilot_throttle(time))
+        rudder = float(flight_pilot_rudder(time))
         auto_switch = float(flight_pilot_auto(time))
         if args.auto_switch == 'none':
             flight_mode = 'manual'
@@ -512,6 +520,7 @@ if args.movie:
         myhud.update_airdata(airspeed_kt, altitude_m)
         myhud.update_ap(flight_mode, ap_roll, ap_pitch, ap_hdg,
                         ap_speed, ap_alt)
+        myhud.update_pilot(aileron, elevator, throttle, rudder)
         myhud.update_frame(hud_frame)
 
         myhud.draw()
