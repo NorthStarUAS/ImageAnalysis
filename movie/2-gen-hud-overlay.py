@@ -274,8 +274,8 @@ flight_air = np.array(flight_air, dtype=np.float64)
 x = flight_air[:,0]
 flight_air_speed = interpolate.interp1d(x, flight_air[:,3], bounds_error=False, fill_value=0.0)
 flight_air_true_alt = interpolate.interp1d(x, flight_air[:,5], bounds_error=False, fill_value=0.0)
-#flight_air_alpha = interpolate.interp1d(x, flight_air[:,11], bounds_error=False, fill_value=0.0)
-#flight_air_beta = interpolate.interp1d(x, flight_air[:,12], bounds_error=False, fill_value=0.0)
+flight_air_alpha = interpolate.interp1d(x, flight_air[:,11], bounds_error=False, fill_value=0.0)
+flight_air_beta = interpolate.interp1d(x, flight_air[:,12], bounds_error=False, fill_value=0.0)
 
 flight_pilot = np.array(flight_pilot, dtype=np.float64)
 x = flight_pilot[:,0]
@@ -452,8 +452,8 @@ if args.movie:
         lon_deg = float(flight_gps_lon(time))
         altitude_m = float(flight_air_true_alt(time))
         airspeed_kt = float(flight_air_speed(time))
-        #alpha_rad = float(flight_air_alpha(time))*d2r * 1.25
-        #beta_rad = float(flight_air_beta(time))*d2r * 1.25 - 0.05
+        alpha_rad = float(flight_air_alpha(time))*d2r
+        beta_rad = float(flight_air_beta(time))*d2r
         ap_hdg_x = float(flight_ap_hdg_x(time))
         ap_hdg_y = float(flight_ap_hdg_y(time))
         ap_hdg = math.atan2(ap_hdg_y, ap_hdg_x)*r2d
@@ -517,7 +517,7 @@ if args.movie:
         myhud.update_unixtime(flight_gps_unixtime(time))
         myhud.update_vel(vn, ve, vd)
         myhud.update_att_rad(roll_rad, pitch_rad, yaw_rad)
-        myhud.update_airdata(airspeed_kt, altitude_m)
+        myhud.update_airdata(airspeed_kt, altitude_m, alpha_rad, beta_rad)
         myhud.update_ap(flight_mode, ap_roll, ap_pitch, ap_hdg,
                         ap_speed, ap_alt)
         myhud.update_pilot(aileron, elevator, throttle, rudder)

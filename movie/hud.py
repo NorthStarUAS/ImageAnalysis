@@ -57,6 +57,8 @@ class HUD:
         self.ap_hdg = 0
         self.ap_speed = 0
         self.ap_altitude = 0
+        self.alpha_rad = 0
+        self.beta_rad = 0
 
     def set_render_size(self, w, h):
         self.render_w = w
@@ -107,9 +109,11 @@ class HUD:
         self.the_rad = the_rad
         self.psi_rad = psi_rad
 
-    def update_airdata(self, airspeed_kt, altitude_m):
+    def update_airdata(self, airspeed_kt, altitude_m, alpha_rad=0, beta_rad=0):
         self.airspeed_kt = airspeed_kt
         self.altitude_m = altitude_m
+        self.alpha_rad = alpha_rad
+        self.beta_rad = beta_rad
 
     def update_ap(self, flight_mode, ap_roll, ap_pitch, ap_hdg,
                   ap_speed, ap_altitude):
@@ -273,10 +277,10 @@ class HUD:
                 cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.CV_AA)
 
-    def draw_flight_path_marker(self, alpha_rad, beta_rad):
-        q0 = transformations.quaternion_about_axis(self.psi_rad + beta_rad,
+    def draw_flight_path_marker(self):
+        q0 = transformations.quaternion_about_axis(self.psi_rad + self.beta_rad,
                                                    [0.0, 0.0, -1.0])
-        a0 = (self.the_rad - alpha_rad) * r2d
+        a0 = (self.the_rad - self.alpha_rad) * r2d
         uv = self.ladder_helper(q0, a0, 0)
         if uv != None:
             r1 = int(round(self.render_h / 60))
@@ -797,7 +801,7 @@ class HUD:
         self.draw_horizon()
         self.draw_compass_points()
         self.draw_pitch_ladder(beta_rad=0.0)
-        #self.draw_flight_path_marker(alpha_rad, beta_rad)
+        self.draw_flight_path_marker()
         self.draw_astro()
         self.draw_airports()
         self.draw_velocity_vector()
