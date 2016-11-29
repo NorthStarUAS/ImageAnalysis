@@ -79,6 +79,7 @@ flight_gps = []
 flight_filter = []
 flight_air = []
 flight_pilot = []
+flight_act = []
 flight_ap = []
 last_imu_time = -1
 last_gps_time = -1
@@ -125,6 +126,7 @@ elif args.aura_dir:
         filter_file = args.aura_dir + "/filter-0.txt"
     air_file = args.aura_dir + "/air-0.txt"
     pilot_file = args.aura_dir + "/pilot-0.txt"
+    act_file = args.aura_dir + "/act-0.txt"
     ap_file = args.aura_dir + "/ap-0.txt"
     
     last_time = 0.0
@@ -204,6 +206,20 @@ elif args.aura_dir:
             last_time = timestamp
             
     last_time = 0.0
+    with open(act_file, 'rb') as f:
+        for line in f:
+            #print line
+            tokens = re.split('[,\s]+', line.rstrip())
+            timestamp = float(tokens[0])
+            #print timestamp, last_time
+            if timestamp > last_time:
+                flight_act.append( tokens )
+            else:
+                # print "ERROR: time went backwards:", timestamp, last_time
+                pass
+            last_time = timestamp
+            
+    last_time = 0.0
     with open(ap_file, 'rb') as f:
         for line in f:
             #print line
@@ -274,16 +290,24 @@ flight_air = np.array(flight_air, dtype=np.float64)
 x = flight_air[:,0]
 flight_air_speed = interpolate.interp1d(x, flight_air[:,3], bounds_error=False, fill_value=0.0)
 flight_air_true_alt = interpolate.interp1d(x, flight_air[:,5], bounds_error=False, fill_value=0.0)
-flight_air_alpha = interpolate.interp1d(x, flight_air[:,11], bounds_error=False, fill_value=0.0)
-flight_air_beta = interpolate.interp1d(x, flight_air[:,12], bounds_error=False, fill_value=0.0)
+if len(flight_air[0]) >= 13:
+    flight_air_alpha = interpolate.interp1d(x, flight_air[:,11], bounds_error=False, fill_value=0.0)
+    flight_air_beta = interpolate.interp1d(x, flight_air[:,12], bounds_error=False, fill_value=0.0)
 
 flight_pilot = np.array(flight_pilot, dtype=np.float64)
 x = flight_pilot[:,0]
-flight_pilot_aileron = interpolate.interp1d(x, flight_pilot[:,1], bounds_error=False, fill_value=0.0)
-flight_pilot_elevator = interpolate.interp1d(x, flight_pilot[:,2], bounds_error=False, fill_value=0.0)
-flight_pilot_throttle = interpolate.interp1d(x, flight_pilot[:,3], bounds_error=False, fill_value=0.0)
-flight_pilot_rudder = interpolate.interp1d(x, flight_pilot[:,4], bounds_error=False, fill_value=0.0)
+flight_pilot_ail = interpolate.interp1d(x, flight_pilot[:,1], bounds_error=False, fill_value=0.0)
+flight_pilot_ele = interpolate.interp1d(x, flight_pilot[:,2], bounds_error=False, fill_value=0.0)
+flight_pilot_thr = interpolate.interp1d(x, flight_pilot[:,3], bounds_error=False, fill_value=0.0)
+flight_pilot_rud = interpolate.interp1d(x, flight_pilot[:,4], bounds_error=False, fill_value=0.0)
 flight_pilot_auto = interpolate.interp1d(x, flight_pilot[:,8], bounds_error=False, fill_value=0.0)
+
+flight_act = np.array(flight_act, dtype=np.float64)
+x = flight_act[:,0]
+flight_act_ail = interpolate.interp1d(x, flight_act[:,1], bounds_error=False, fill_value=0.0)
+flight_act_ele = interpolate.interp1d(x, flight_act[:,2], bounds_error=False, fill_value=0.0)
+flight_act_thr = interpolate.interp1d(x, flight_act[:,3], bounds_error=False, fill_value=0.0)
+flight_act_rud = interpolate.interp1d(x, flight_act[:,4], bounds_error=False, fill_value=0.0)
 
 flight_ap = np.array(flight_ap, dtype=np.float64)
 x = flight_ap[:,0]
@@ -347,16 +371,16 @@ print "yaw ratio:", rratio
 
 if args.movie:
     # Mobius 1080p
-    # K = np.array( [[1362.1,    0.0, 980.8],
-    #                [   0.0, 1272.8, 601.3],
-    #                [   0.0,    0.0,   1.0]] )
-    # dist = [-0.36207197, 0.14627927, -0.00674558, 0.0008926, -0.02635695]
+    K = np.array( [[1362.1,    0.0, 980.8],
+                   [   0.0, 1272.8, 601.3],
+                   [   0.0,    0.0,   1.0]] )
+    dist = [-0.36207197, 0.14627927, -0.00674558, 0.0008926, -0.02635695]
 
     # Mobius UMN-003 1920x1080
-    K = np.array( [[ 1401.21111735,     0.       ,    904.25404757],
-                   [    0.        ,  1400.2530882,    490.12157373],
-                   [    0.        ,     0.       ,      1.        ]] )
-    dist = [-0.39012303,  0.19687255, -0.00069657,  0.00465592, -0.05845262]
+    # K = np.array( [[ 1401.21111735,     0.       ,    904.25404757],
+    #                [    0.        ,  1400.2530882,    490.12157373],
+    #                [    0.        ,     0.       ,      1.        ]] )
+    # dist = [-0.39012303,  0.19687255, -0.00069657,  0.00465592, -0.05845262]
 
     # RunCamHD2 1920x1080
     # K = np.array( [[ 971.96149426,   0.        , 957.46750602],
@@ -373,8 +397,9 @@ if args.movie:
     K = K * args.scale
     K[2,2] = 1.0
 
-    # overlay hud
-    myhud = hud.HUD(K)
+    # overlay hud(s)
+    hud1 = hud.HUD(K)
+    hud2 = hud.HUD(K)
     
     # these are fixed tranforms between ned and camera reference systems
     proj2ned = np.array( [[0, 0, 1], [1, 0, 0], [0, 1, 0]],
@@ -384,7 +409,8 @@ if args.movie:
     #cam_ypr = [-3.0, -12.0, -3.0] # yaw, pitch, roll
     #ref = [44.7260320000, -93.0771072000, 0]
     ref = [ flight_gps[0][1], flight_gps[0][2], 0.0 ]
-    myhud.set_ned_ref(flight_gps[0][1], flight_gps[0][2])
+    hud1.set_ned_ref(flight_gps[0][1], flight_gps[0][2])
+    hud2.set_ned_ref(flight_gps[0][1], flight_gps[0][2])
     print 'ned ref:', ref
 
     print "Opening ", args.movie
@@ -402,7 +428,8 @@ if args.movie:
     fourcc = int(capture.get(cv2.cv.CV_CAP_PROP_FOURCC))
     w = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH) * args.scale )
     h = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT) * args.scale )
-    myhud.set_render_size(w, h)
+    hud1.set_render_size(w, h)
+    hud2.set_render_size(w, h)
     
     #outfourcc = cv2.cv.CV_FOURCC('M', 'J', 'P', 'G')
     #outfourcc = cv2.cv.CV_FOURCC('H', '2', '6', '4')
@@ -415,10 +442,15 @@ if args.movie:
     last_time = 0.0
 
     # set primative sizes based on rendered resolution.
-    myhud.set_line_width( int(round(float(h) / 400.0)) )
-    myhud.set_font_size( float(h) / 900.0 )
-    myhud.set_color( hud.green2 )
-    myhud.set_units( args.airspeed_units, args.altitude_units)
+    hud1.set_line_width( int(round(float(h) / 400.0)) )
+    hud1.set_font_size( float(h) / 900.0 )
+    hud1.set_color( hud.green2 )
+    hud1.set_units( args.airspeed_units, args.altitude_units)
+
+    hud2.set_line_width( int(round(float(h) / 400.0)) )
+    hud2.set_font_size( float(h) / 900.0 )
+    hud2.set_color( hud.red2 )
+    hud2.set_units( args.airspeed_units, args.altitude_units)
     
     while True:
         ret, frame = capture.read()
@@ -452,23 +484,31 @@ if args.movie:
         lon_deg = float(flight_gps_lon(time))
         altitude_m = float(flight_air_true_alt(time))
         airspeed_kt = float(flight_air_speed(time))
-        alpha_rad = float(flight_air_alpha(time))*d2r
-        beta_rad = float(flight_air_beta(time))*d2r
+        if len(flight_air[0]) >= 13:
+            alpha_rad = float(flight_air_alpha(time))*d2r
+            beta_rad = float(flight_air_beta(time))*d2r
+        else:
+            alpha_rad = None
+            beta_rad = None
         ap_hdg_x = float(flight_ap_hdg_x(time))
         ap_hdg_y = float(flight_ap_hdg_y(time))
         ap_hdg = math.atan2(ap_hdg_y, ap_hdg_x)*r2d
         ap_roll = float(flight_ap_roll(time))
         ap_pitch = float(flight_ap_pitch(time))
         ap_speed = float(flight_ap_speed(time))
-        ap_alt = float(flight_ap_alt(time))
-        aileron = float(flight_pilot_aileron(time))
-        elevator = float(flight_pilot_elevator(time))
-        throttle = float(flight_pilot_throttle(time))
-        rudder = float(flight_pilot_rudder(time))
+        ap_alt_ft = float(flight_ap_alt(time))
+        pilot_ail = float(flight_pilot_ail(time))
+        pilot_ele = float(flight_pilot_ele(time))
+        pilot_thr = float(flight_pilot_thr(time))
+        pilot_rud = float(flight_pilot_rud(time))
         auto_switch = float(flight_pilot_auto(time))
+        act_ail = float(flight_act_ail(time))
+        act_ele = float(flight_act_ele(time))
+        act_thr = float(flight_act_thr(time))
+        act_rud = float(flight_act_rud(time))
         if args.auto_switch == 'none':
             flight_mode = 'manual'
-        elif (not args.auto_switch == 'new' and auto_switch < 0) or (args.auto_switch == 'old' and auto_switch > 0):
+        elif (args.auto_switch == 'new' and auto_switch < 0) or (args.auto_switch == 'old' and auto_switch > 0):
             flight_mode = 'manual'
         else:
             flight_mode = 'auto'            
@@ -509,31 +549,32 @@ if args.movie:
         frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
 
         # Create hud draw space
-        hud_frame = frame_undist.copy()
+        hud1_frame = frame_undist.copy()
 
-        myhud.update_proj(PROJ)
-        myhud.update_ned(ned)
-        myhud.update_lla([lat_deg, lon_deg, altitude_m])
-        myhud.update_unixtime(flight_gps_unixtime(time))
-        myhud.update_vel(vn, ve, vd)
-        myhud.update_att_rad(roll_rad, pitch_rad, yaw_rad)
-        myhud.update_airdata(airspeed_kt, altitude_m, alpha_rad, beta_rad)
-        myhud.update_ap(flight_mode, ap_roll, ap_pitch, ap_hdg,
-                        ap_speed, ap_alt)
-        myhud.update_pilot(aileron, elevator, throttle, rudder)
-        myhud.update_frame(hud_frame)
-
-        myhud.draw()
+        hud1.update_proj(PROJ)
+        hud1.update_cam_att(cam_yaw, cam_pitch, cam_roll)
+        hud1.update_ned(ned)
+        hud1.update_lla([lat_deg, lon_deg, altitude_m])
+        hud1.update_unixtime(flight_gps_unixtime(time))
+        hud1.update_vel(vn, ve, vd)
+        hud1.update_att_rad(roll_rad, pitch_rad, yaw_rad)
+        hud1.update_airdata(airspeed_kt, altitude_m, alpha_rad, beta_rad)
+        hud1.update_ap(flight_mode, ap_roll, ap_pitch, ap_hdg,
+                        ap_speed, ap_alt_ft)
+        hud1.update_pilot(pilot_ail, pilot_ele, pilot_thr, pilot_rud)
+        hud1.update_act(act_ail, act_ele, act_thr, act_rud)
+        hud1.update_frame(hud1_frame)
+        hud1.draw()
         
         # weighted add of the HUD frame with the original frame to
         # emulate alpha blending
         alpha = args.alpha
         if alpha < 0: alpha = 0
         if alpha > 1: alpha = 1
-        cv2.addWeighted(hud_frame, alpha, frame_undist, 1 - alpha, 0, hud_frame)
+        cv2.addWeighted(hud1_frame, alpha, frame_undist, 1 - alpha, 0, hud1_frame)
         
-        cv2.imshow('hud', hud_frame)
-        output.write(hud_frame)
+        cv2.imshow('hud', hud1_frame)
+        output.write(hud1_frame)
         
         key = cv2.waitKey(5) & 0xFF
         if key == 27:

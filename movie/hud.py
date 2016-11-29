@@ -22,6 +22,7 @@ m2ft = 1 / ft2m
 
 # color definitions
 green2 = (0, 238, 0)
+red2 = (238, 0, 0)
 medium_orchid = (186, 85, 211)
 yellow = (50, 255, 255)
 
@@ -29,6 +30,9 @@ class HUD:
     def __init__(self, K):
         self.K = K
         self.PROJ = None
+        self.cam_yaw = 0.0
+        self.cam_pitch = 0.0
+        self.cam_roll = 0.0
         self.line_width = 1
         self.color = green2
         self.font = cv2.FONT_HERSHEY_SIMPLEX
@@ -56,9 +60,20 @@ class HUD:
         self.ap_pitch = 0
         self.ap_hdg = 0
         self.ap_speed = 0
-        self.ap_altitude = 0
+        self.ap_altitude_ft = 0
         self.alpha_rad = 0
         self.beta_rad = 0
+        self.filter_vn = 0.0
+        self.filter_ve = 0.0
+        self.tf_vel = 0.5
+        self.pilot_ail = 0.0
+        self.pilot_ele = 0.0
+        self.pilot_thr = 0.0
+        self.pilot_rud = 0.0
+        self.act_ail = 0.0
+        self.act_ele = 0.0
+        self.act_thr = 0.0
+        self.act_rud = 0.0
 
     def set_render_size(self, w, h):
         self.render_w = w
@@ -99,6 +114,11 @@ class HUD:
     def update_proj(self, PROJ):
         self.PROJ = PROJ
 
+    def update_cam_att(self, cam_yaw, cam_pitch, cam_roll):
+        self.cam_yaw = cam_yaw
+        self.cam_pitch = cam_pitch
+        self.cam_roll = cam_roll
+        
     def update_vel(self, vn, ve, vd):
         self.vn = vn
         self.ve = ve
@@ -116,19 +136,25 @@ class HUD:
         self.beta_rad = beta_rad
 
     def update_ap(self, flight_mode, ap_roll, ap_pitch, ap_hdg,
-                  ap_speed, ap_altitude):
+                  ap_speed, ap_altitude_ft):
         self.flight_mode = flight_mode
         self.ap_roll = ap_roll
         self.ap_pitch = ap_pitch
         self.ap_hdg = ap_hdg
         self.ap_speed = ap_speed
-        self.ap_altitude = ap_altitude
+        self.ap_altitude_ft = ap_altitude_ft
 
     def update_pilot(self, aileron, elevator, throttle, rudder):
-        self.aileron = aileron
-        self.elevator = elevator
-        self.throttle = throttle
-        self.rudder = rudder
+        self.pilot_ail = aileron
+        self.pilot_ele = elevator
+        self.pilot_thr = throttle
+        self.pilot_rud = rudder
+        
+    def update_act(self, aileron, elevator, throttle, rudder):
+        self.act_ail = aileron
+        self.act_ele = elevator
+        self.act_thr = throttle
+        self.act_rud = rudder
         
     def compute_sun_moon_ned(self, lon_deg, lat_deg, alt_m, timestamp):
         d = datetime.datetime.utcfromtimestamp(timestamp)
@@ -278,6 +304,9 @@ class HUD:
                          cv2.CV_AA)
 
     def draw_flight_path_marker(self):
+        if self.alpha_rad == None or self.beta_rad == None:
+            return
+        
         q0 = transformations.quaternion_about_axis(self.psi_rad + self.beta_rad,
                                                    [0.0, 0.0, -1.0])
         a0 = (self.the_rad - self.alpha_rad) * r2d
@@ -321,15 +350,15 @@ class HUD:
 
         # center point
         tmp1 = self.ladder_helper(q0, a0, 0.0)
-        center = rotate_pt(tmp1, rot, self.ap_roll*d2r)
+        center = self.rotate_pt(tmp1, rot, self.ap_roll*d2r)
 
         # right vbar
         tmp1 = self.ladder_helper(q0, a0-a3, a1)
         tmp2 = self.ladder_helper(q0, a0-a3, a1+a3)
         tmp3 = self.ladder_helper(q0, a0-a2, a1+a3)
-        uv1 = rotate_pt(tmp1, rot, self.ap_roll*d2r)
-        uv2 = rotate_pt(tmp2, rot, self.ap_roll*d2r)
-        uv3 = rotate_pt(tmp3, rot, self.ap_roll*d2r)
+        uv1 = self.rotate_pt(tmp1, rot, self.ap_roll*d2r)
+        uv2 = self.rotate_pt(tmp2, rot, self.ap_roll*d2r)
+        uv3 = self.rotate_pt(tmp3, rot, self.ap_roll*d2r)
         if uv1 != None and uv2 != None and uv3 != None:
             cv2.line(self.frame, center, uv1, color, self.line_width, cv2.CV_AA)
             cv2.line(self.frame, center, uv3, color, self.line_width, cv2.CV_AA)
@@ -340,9 +369,9 @@ class HUD:
         tmp1 = self.ladder_helper(q0, a0-a3, -a1)
         tmp2 = self.ladder_helper(q0, a0-a3, -a1-a3)
         tmp3 = self.ladder_helper(q0, a0-a2, -a1-a3)
-        uv1 = rotate_pt(tmp1, rot, self.ap_roll*d2r)
-        uv2 = rotate_pt(tmp2, rot, self.ap_roll*d2r)
-        uv3 = rotate_pt(tmp3, rot, self.ap_roll*d2r)
+        uv1 = self.rotate_pt(tmp1, rot, self.ap_roll*d2r)
+        uv2 = self.rotate_pt(tmp2, rot, self.ap_roll*d2r)
+        uv3 = self.rotate_pt(tmp3, rot, self.ap_roll*d2r)
         if uv1 != None and uv2 != None and uv3 != None:
             cv2.line(self.frame, center, uv1, color, self.line_width, cv2.CV_AA)
             cv2.line(self.frame, center, uv3, color, self.line_width, cv2.CV_AA)
@@ -368,8 +397,6 @@ class HUD:
         for i, p in enumerate(pts):
             if p == None or center == None:
                 return
-            #else:
-            #    pts[i] = rotate_pt(pts[i], center, -cam_roll*d2r)
         cv2.line(self.frame, pts[0], pts[1], color, self.line_width, cv2.CV_AA)
         cv2.line(self.frame, pts[1], pts[2], color, self.line_width, cv2.CV_AA)
         cv2.line(self.frame, pts[2], pts[3], color, self.line_width, cv2.CV_AA)
@@ -377,9 +404,6 @@ class HUD:
         cv2.line(self.frame, pts[4], pts[5], color, self.line_width, cv2.CV_AA)
         cv2.line(self.frame, pts[5], pts[6], color, self.line_width, cv2.CV_AA)
         cv2.line(self.frame, pts[6], pts[0], color, self.line_width, cv2.CV_AA)
-        #pts = np.array( pts, np.int32 )
-        #pts = pts.reshape((-1,1,2))
-        #cv2.polylines(self.frame, pts, True, color, self.line_width, cv2.CV_AA)
 
     def draw_bird(self):
         color = yellow
@@ -396,8 +420,8 @@ class HUD:
         # right vbar
         tmp1 = self.ladder_helper(q0, a0-a2, a1)
         tmp2 = self.ladder_helper(q0, a0-a2, a1-a2)
-        uv1 = rotate_pt(tmp1, center, self.phi_rad)
-        uv2 = rotate_pt(tmp2, center, self.phi_rad)
+        uv1 = self.rotate_pt(tmp1, center, self.phi_rad)
+        uv2 = self.rotate_pt(tmp2, center, self.phi_rad)
         if uv1 != None and uv2 != None:
             cv2.line(self.frame, center, uv1, color, self.line_width, cv2.CV_AA)
             cv2.line(self.frame, center, uv2, color, self.line_width, cv2.CV_AA)
@@ -405,31 +429,26 @@ class HUD:
         # left vbar
         tmp1 = self.ladder_helper(q0, a0-a2, -a1)
         tmp2 = self.ladder_helper(q0, a0-a2, -a1+a2)
-        uv1 = rotate_pt(tmp1, center, self.phi_rad)
-        uv2 = rotate_pt(tmp2, center, self.phi_rad)
+        uv1 = self.rotate_pt(tmp1, center, self.phi_rad)
+        uv2 = self.rotate_pt(tmp2, center, self.phi_rad)
         if uv1 != None and uv2 != None:
             cv2.line(self.frame, center, uv1, color, self.line_width, cv2.CV_AA)
             cv2.line(self.frame, center, uv2, color, self.line_width, cv2.CV_AA)
             cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
 
-    filter_vn = 0.0
-    filter_ve = 0.0
-    tf_vel = 0.5
     def draw_course(self):
-        global filter_vn
-        global filter_ve
         color = yellow
         size = 2
-        filter_vn = (1.0 - tf_vel) * filter_vn + tf_vel * self.vn
-        filter_ve = (1.0 - tf_vel) * filter_ve + tf_vel * self.ve
-        a = math.atan2(filter_ve, filter_vn)
+        self.filter_vn = (1.0 - self.tf_vel) * self.filter_vn + self.tf_vel * self.vn
+        self.filter_ve = (1.0 - self.tf_vel) * self.filter_ve + self.tf_vel * self.ve
+        a = math.atan2(self.filter_ve, self.filter_vn)
         q0 = transformations.quaternion_about_axis(a, [0.0, 0.0, -1.0])
         tmp1 = self.ladder_helper(q0, 0, 0)
         tmp2 = self.ladder_helper(q0, 1.5, 1.0)
         tmp3 = self.ladder_helper(q0, 1.5, -1.0)
         if tmp1 != None and tmp2 != None and tmp3 != None :
-            uv2 = rotate_pt(tmp2, tmp1, -cam_roll*d2r)
-            uv3 = rotate_pt(tmp3, tmp1, -cam_roll*d2r)
+            uv2 = self.rotate_pt(tmp2, tmp1, -self.cam_roll*d2r)
+            uv3 = self.rotate_pt(tmp3, tmp1, -self.cam_roll*d2r)
             cv2.line(self.frame, tmp1, uv2, color, self.line_width, cv2.CV_AA)
             cv2.line(self.frame, tmp1, uv3, color, self.line_width, cv2.CV_AA)
 
@@ -765,6 +784,16 @@ class HUD:
 
     # draw stick positions (rc transmitter sticks)
     def draw_sticks(self):
+        if self.flight_mode == 'auto':
+            aileron = self.act_ail
+            elevator = self.act_ele
+            throttle = self.act_thr
+            rudder = self.act_rud
+        else:
+            aileron = self.pilot_ail
+            elevator = self.pilot_ele
+            throttle = self.pilot_thr
+            rudder = self.pilot_rud
         h, w, d = self.frame.shape
         lx = int(h * 0.1)
         ly = int(h * 0.8)
@@ -786,12 +815,12 @@ class HUD:
                  cv2.CV_AA)
         cv2.line(self.frame, (rx-r1,ry), (rx+r1,ry), self.color, 1,
                  cv2.CV_AA)
-        lsx = lx - int(round(self.rudder * r1))
-        lsy = ly + r1 - int(round(2 * self.throttle * r1))
+        lsx = lx - int(round(rudder * r1))
+        lsy = ly + r1 - int(round(2 * throttle * r1))
         cv2.circle(self.frame, (lsx,lsy), r2, self.color, self.line_width,
                    cv2.CV_AA)
-        rsx = rx - int(round(self.aileron * r1))
-        rsy = ry - int(round(self.elevator * r1))
+        rsx = rx - int(round(aileron * r1))
+        rsy = ry - int(round(elevator * r1))
         cv2.circle(self.frame, (rsx,rsy), r2, self.color, self.line_width,
                    cv2.CV_AA)
 
@@ -819,10 +848,10 @@ class HUD:
                              self.airspeed_units.capitalize())
         if self.altitude_units == 'm':
             altitude = self.altitude_m
-            ap_altitude = self.ap_altitude
+            ap_altitude = self.ap_altitude_ft * ft2m
         else:
             altitude = self.altitude_m * m2ft
-            ap_altitude = self.ap_altitude * m2ft
+            ap_altitude = self.ap_altitude_ft
         self.draw_altitude_tape(altitude, ap_altitude,
                                 self.altitude_units.capitalize())
         self.draw_sticks()
