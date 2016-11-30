@@ -830,7 +830,7 @@ class HUD:
         h, w, d = self.frame.shape
         label = '%.1f' % self.time
         size = cv2.getTextSize(label, self.font, 0.7, self.line_width)
-        uv = (2, h - (size[0][1]*0.5 + 2))
+        uv = (2, h - int(size[0][1]*0.5 + 2))
         cv2.putText(self.frame, label, uv, self.font, 0.7,
                     self.color, self.line_width, cv2.CV_AA)
 

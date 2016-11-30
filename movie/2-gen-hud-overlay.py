@@ -443,8 +443,8 @@ if args.movie:
 
     # set primative sizes based on rendered resolution.
     size = math.sqrt(float(h)*float(w))
-    hud1.set_line_width( int(round(size/400.0)) )
-    hud1.set_font_size( size / 900.0 )
+    hud1.set_line_width( int(round(size/500.0)) )
+    hud1.set_font_size( size / 1000.0 )
     hud1.set_color( hud.green2 )
     hud1.set_units( args.airspeed_units, args.altitude_units)
 
