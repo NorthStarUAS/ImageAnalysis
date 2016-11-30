@@ -40,6 +40,7 @@ class HUD:
         self.render_w = 0
         self.render_h = 0
         self.lla = [0.0, 0.0, 0.0]
+        self.time = 0
         self.unixtime = 0
         self.ned = [0.0, 0.0, 0.0]
         self.ref = [0.0, 0.0, 0.0]
@@ -105,7 +106,8 @@ class HUD:
     def update_lla(self, lla):
         self.lla = lla
 
-    def update_unixtime(self, unixtime):
+    def update_time(self, time, unixtime):
+        self.time = time
         self.unixtime = unixtime
         
     def update_ned(self, ned):
@@ -824,6 +826,14 @@ class HUD:
         cv2.circle(self.frame, (rsx,rsy), r2, self.color, self.line_width,
                    cv2.CV_AA)
 
+    def draw_time(self):
+        h, w, d = self.frame.shape
+        label = '%.1f' % self.time
+        size = cv2.getTextSize(label, self.font, 0.7, self.line_width)
+        uv = (2, h - (size[0][1]*0.5 + 2))
+        cv2.putText(self.frame, label, uv, self.font, 0.7,
+                    self.color, self.line_width, cv2.CV_AA)
+
     # draw the conformal components of the hud (those that should
     # 'stick' to the real world view.
     def draw_conformal(self):
@@ -855,6 +865,7 @@ class HUD:
         self.draw_altitude_tape(altitude, ap_altitude,
                                 self.altitude_units.capitalize())
         self.draw_sticks()
+        self.draw_time()
 
     # draw autopilot symbology
     def draw_ap(self):

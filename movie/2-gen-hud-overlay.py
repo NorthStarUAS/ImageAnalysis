@@ -371,10 +371,10 @@ print "yaw ratio:", rratio
 
 if args.movie:
     # Mobius 1080p
-    K = np.array( [[1362.1,    0.0, 980.8],
-                   [   0.0, 1272.8, 601.3],
-                   [   0.0,    0.0,   1.0]] )
-    dist = [-0.36207197, 0.14627927, -0.00674558, 0.0008926, -0.02635695]
+    # K = np.array( [[1362.1,    0.0, 980.8],
+    #                [   0.0, 1272.8, 601.3],
+    #                [   0.0,    0.0,   1.0]] )
+    # dist = [-0.36207197, 0.14627927, -0.00674558, 0.0008926, -0.02635695]
 
     # Mobius UMN-003 1920x1080
     # K = np.array( [[ 1401.21111735,     0.       ,    904.25404757],
@@ -383,10 +383,10 @@ if args.movie:
     # dist = [-0.39012303,  0.19687255, -0.00069657,  0.00465592, -0.05845262]
 
     # RunCamHD2 1920x1080
-    # K = np.array( [[ 971.96149426,   0.        , 957.46750602],
-    #                [   0.        , 971.67133264, 516.50578382],
-    #                [   0.        ,   0.        ,   1.        ]] )
-    # dist = [-0.26910665, 0.10580125, 0.00048417, 0.00000925, -0.02321387]
+    K = np.array( [[ 971.96149426,   0.        , 957.46750602],
+                   [   0.        , 971.67133264, 516.50578382],
+                   [   0.        ,   0.        ,   1.        ]] )
+    dist = [-0.26910665, 0.10580125, 0.00048417, 0.00000925, -0.02321387]
 
     # Runcamhd2 1920x1440
     # K = np.array( [[ 1296.11187055,     0.        ,   955.43024994],
@@ -442,8 +442,9 @@ if args.movie:
     last_time = 0.0
 
     # set primative sizes based on rendered resolution.
-    hud1.set_line_width( int(round(float(h) / 400.0)) )
-    hud1.set_font_size( float(h) / 900.0 )
+    size = math.sqrt(float(h)*float(w))
+    hud1.set_line_width( int(round(size/400.0)) )
+    hud1.set_font_size( size / 900.0 )
     hud1.set_color( hud.green2 )
     hud1.set_units( args.airspeed_units, args.altitude_units)
 
@@ -555,7 +556,7 @@ if args.movie:
         hud1.update_cam_att(cam_yaw, cam_pitch, cam_roll)
         hud1.update_ned(ned)
         hud1.update_lla([lat_deg, lon_deg, altitude_m])
-        hud1.update_unixtime(flight_gps_unixtime(time))
+        hud1.update_time(time, flight_gps_unixtime(time))
         hud1.update_vel(vn, ve, vd)
         hud1.update_att_rad(roll_rad, pitch_rad, yaw_rad)
         hud1.update_airdata(airspeed_kt, altitude_m, alpha_rad, beta_rad)
