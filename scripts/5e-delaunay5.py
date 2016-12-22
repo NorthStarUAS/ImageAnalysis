@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import sys
-sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
+sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
 
 import argparse
 import commands

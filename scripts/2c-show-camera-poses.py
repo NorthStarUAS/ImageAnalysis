@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import sys
-sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
+sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
 
 import argparse
 import commands
@@ -10,7 +10,7 @@ import fnmatch
 import numpy as np
 import os.path
 import random
-from visual import *
+from vpython import *
 from PIL import Image
 import navpy
 
