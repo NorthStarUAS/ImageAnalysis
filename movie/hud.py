@@ -834,6 +834,10 @@ class HUD:
         cv2.putText(self.frame, label, uv, self.font, 0.7,
                     self.color, self.line_width, cv2.CV_AA)
 
+    # draw actual flight track in 3d
+    def draw_track(self):
+        pass
+        
     # draw the conformal components of the hud (those that should
     # 'stick' to the real world view.
     def draw_conformal(self):

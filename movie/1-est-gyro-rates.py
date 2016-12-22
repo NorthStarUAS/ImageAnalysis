@@ -365,13 +365,13 @@ while True:
     dist_gopro3_720 = [ -0.36508, 0.22655, 0.0, 0.0, -0.0015674 ] # works for 8/12 rgb
 
     # K = K_Gopro3_720_16x9 * args.scale
-    # K = K_Mobius_1080p * args.scale
-    K = K_RunCamHD2_1920x1080 * args.scale
+    K = K_Mobius_1080p * args.scale
+    # K = K_RunCamHD2_1920x1080 * args.scale
     K[2,2] = 1.0
     
     # dist = dist_gopro3_720
-    # dist = dist_mobius
-    dist = dist_runcamhd2_1920x1080
+    dist = dist_mobius
+    # dist = dist_runcamhd2_1920x1080
     
     distort = True
     if distort:
@@ -563,7 +563,8 @@ while True:
     cv2.imshow('bgr', res1)
     cv2.imshow('smooth', new_frame)
     cv2.imshow('final', final)
-    output.write(final)
+    #output.write(final)
+    output.write(res1)
     if 0xFF & cv2.waitKey(5) == 27:
         break
 

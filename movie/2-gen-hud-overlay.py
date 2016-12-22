@@ -17,10 +17,13 @@ from scipy import interpolate # strait up linear interpolation, nothing fancy
 from props import PropertyNode, getNode
 import props_json
 
+from nav.data import flight_data
+
 sys.path.append('../lib')
 import transformations
 
 import hud
+import interp
 
 # helpful constants
 d2r = math.pi / 180.0
@@ -36,6 +39,7 @@ parser.add_argument('--alpha', type=float, default=0.7, help='hud alpha blend')
 parser.add_argument('--resample-hz', type=float, default=30.0, help='resample rate (hz)')
 parser.add_argument('--apm-log', help='APM tlog converted to csv')
 parser.add_argument('--aura-dir', help='Aura flight log directory')
+parser.add_argument('--flight', help='Aura flight log directory')
 parser.add_argument('--stop-count', type=int, default=1, help='how many non-frames to absorb before we decide the movie is over')
 parser.add_argument('--plot', help='Plot stuff at the end of the run')
 parser.add_argument('--auto-switch', choices=['old', 'new', 'none'], default='new', help='auto/manual switch logic helper')
@@ -237,6 +241,9 @@ elif args.aura_dir:
                 # print "ERROR: time went backwards:", timestamp, last_time
                 pass
             last_time = timestamp
+elif args.flight:
+    data = flight_data.load('aura', args.flight)
+    interp.build(data)
 else:
     print "No flight log specified, cannot continue."
     quit()
@@ -257,70 +264,14 @@ for x in np.linspace(xmin, xmax, time*args.resample_hz):
 print "movie len:", len(movie_interp)
 
 # resample flight data
-flight_imu = np.array(flight_imu, dtype=float)
 flight_interp = []
-x = flight_imu[:,0]
-flight_imu_p = interpolate.interp1d(x, flight_imu[:,1], bounds_error=False, fill_value=0.0)
-flight_imu_q = interpolate.interp1d(x, flight_imu[:,2], bounds_error=False, fill_value=0.0)
-flight_imu_r = interpolate.interp1d(x, flight_imu[:,3], bounds_error=False, fill_value=0.0)
 if args.apm_log:
-    y_spline = flight_imu_r
-elif args.aura_dir:
-    y_spline = flight_imu_p
-
-flight_gps = np.array(flight_gps, dtype=np.float64)
-x = flight_gps[:,0]
-flight_gps_lat = interpolate.interp1d(x, flight_gps[:,1], bounds_error=False, fill_value=0.0)
-flight_gps_lon = interpolate.interp1d(x, flight_gps[:,2], bounds_error=False, fill_value=0.0)
-flight_gps_alt = interpolate.interp1d(x, flight_gps[:,3], bounds_error=False, fill_value=0.0)
-flight_gps_unixtime = interpolate.interp1d(x, flight_gps[:,4], bounds_error=False, fill_value=0.0)
-
-flight_filter = np.array(flight_filter, dtype=float)
-x = flight_filter[:,0]
-flight_filter_vn = interpolate.interp1d(x, flight_filter[:,4], bounds_error=False, fill_value=0.0)
-flight_filter_ve = interpolate.interp1d(x, flight_filter[:,5], bounds_error=False, fill_value=0.0)
-flight_filter_vd = interpolate.interp1d(x, flight_filter[:,6], bounds_error=False, fill_value=0.0)
-flight_filter_roll = interpolate.interp1d(x, flight_filter[:,7], bounds_error=False, fill_value=0.0)
-flight_filter_pitch = interpolate.interp1d(x, flight_filter[:,8], bounds_error=False, fill_value=0.0)
-flight_filter_yaw = interpolate.interp1d(x, flight_filter[:,9], bounds_error=False, fill_value=0.0)
-flight_filter_yaw_x = interpolate.interp1d(x, flight_filter[:,10], bounds_error=False, fill_value=0.0)
-flight_filter_yaw_y = interpolate.interp1d(x, flight_filter[:,11], bounds_error=False, fill_value=0.0)
-
-flight_air = np.array(flight_air, dtype=np.float64)
-x = flight_air[:,0]
-flight_air_speed = interpolate.interp1d(x, flight_air[:,3], bounds_error=False, fill_value=0.0)
-flight_air_true_alt = interpolate.interp1d(x, flight_air[:,5], bounds_error=False, fill_value=0.0)
-if len(flight_air[0]) >= 13:
-    flight_air_alpha = interpolate.interp1d(x, flight_air[:,11], bounds_error=False, fill_value=0.0)
-    flight_air_beta = interpolate.interp1d(x, flight_air[:,12], bounds_error=False, fill_value=0.0)
-
-flight_pilot = np.array(flight_pilot, dtype=np.float64)
-x = flight_pilot[:,0]
-flight_pilot_ail = interpolate.interp1d(x, flight_pilot[:,1], bounds_error=False, fill_value=0.0)
-flight_pilot_ele = interpolate.interp1d(x, flight_pilot[:,2], bounds_error=False, fill_value=0.0)
-flight_pilot_thr = interpolate.interp1d(x, flight_pilot[:,3], bounds_error=False, fill_value=0.0)
-flight_pilot_rud = interpolate.interp1d(x, flight_pilot[:,4], bounds_error=False, fill_value=0.0)
-flight_pilot_auto = interpolate.interp1d(x, flight_pilot[:,8], bounds_error=False, fill_value=0.0)
-
-flight_act = np.array(flight_act, dtype=np.float64)
-x = flight_act[:,0]
-flight_act_ail = interpolate.interp1d(x, flight_act[:,1], bounds_error=False, fill_value=0.0)
-flight_act_ele = interpolate.interp1d(x, flight_act[:,2], bounds_error=False, fill_value=0.0)
-flight_act_thr = interpolate.interp1d(x, flight_act[:,3], bounds_error=False, fill_value=0.0)
-flight_act_rud = interpolate.interp1d(x, flight_act[:,4], bounds_error=False, fill_value=0.0)
-
-flight_ap = np.array(flight_ap, dtype=np.float64)
-x = flight_ap[:,0]
-flight_ap_hdg = interpolate.interp1d(x, flight_ap[:,1], bounds_error=False, fill_value=0.0)
-flight_ap_hdg_x = interpolate.interp1d(x, flight_ap[:,8], bounds_error=False, fill_value=0.0)
-flight_ap_hdg_y = interpolate.interp1d(x, flight_ap[:,9], bounds_error=False, fill_value=0.0)
-flight_ap_roll = interpolate.interp1d(x, flight_ap[:,2], bounds_error=False, fill_value=0.0)
-flight_ap_alt = interpolate.interp1d(x, flight_ap[:,3], bounds_error=False, fill_value=0.0)
-flight_ap_pitch = interpolate.interp1d(x, flight_ap[:,5], bounds_error=False, fill_value=0.0)
-flight_ap_speed = interpolate.interp1d(x, flight_ap[:,7], bounds_error=False, fill_value=0.0)
+    y_spline = interp.imu_r
+elif args.flight or args.aura_dir:
+    y_spline = interp.imu_p
 
 # run correlation over filter time span
-x = flight_filter[:,0]
+x = interp.imu_time
 xmin = x.min()
 xmax = x.max()
 print "flight range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin)
@@ -360,8 +311,8 @@ qratio = 1.0
 for x in np.linspace(tmin, tmax, time*args.resample_hz):
     mqsum += abs(movie_spl_pitch(x-time_shift))
     mrsum += abs(movie_spl_yaw(x-time_shift))
-    fqsum += abs(flight_imu_q(x))
-    frsum += abs(flight_imu_r(x))
+    fqsum += abs(interp.imu_q(x))
+    frsum += abs(interp.imu_r(x))
 if fqsum > 0.001:
     qratio = mqsum / fqsum
 if mrsum > 0.001:
@@ -408,9 +359,9 @@ if args.movie:
 
     #cam_ypr = [-3.0, -12.0, -3.0] # yaw, pitch, roll
     #ref = [44.7260320000, -93.0771072000, 0]
-    ref = [ flight_gps[0][1], flight_gps[0][2], 0.0 ]
-    hud1.set_ned_ref(flight_gps[0][1], flight_gps[0][2])
-    hud2.set_ned_ref(flight_gps[0][1], flight_gps[0][2])
+    ref = [ data['gps'][0].lat, data['gps'][0].lon, 0.0 ]
+    hud1.set_ned_ref(data['gps'][0].lat, data['gps'][0].lon)
+    hud2.set_ned_ref(data['gps'][0].lat, data['gps'][0].lon)
     print 'ned ref:', ref
 
     print "Opening ", args.movie
@@ -472,41 +423,41 @@ if args.movie:
         counter += 1
         if args.start_time and time < args.start_time:
             continue
-        vn = flight_filter_vn(time)
-        ve = flight_filter_ve(time)
-        vd = flight_filter_vd(time)
-        #yaw_rad = flight_filter_yaw(time)*d2r 
-        yaw_x = flight_filter_yaw_x(time)
-        yaw_y = flight_filter_yaw_y(time)
-        yaw_rad = math.atan2(yaw_y, yaw_x)
-        pitch_rad = flight_filter_pitch(time)*d2r
-        roll_rad = flight_filter_roll(time)*d2r
-        lat_deg = float(flight_gps_lat(time))
-        lon_deg = float(flight_gps_lon(time))
-        altitude_m = float(flight_air_true_alt(time))
-        airspeed_kt = float(flight_air_speed(time))
-        if len(flight_air[0]) >= 13:
-            alpha_rad = float(flight_air_alpha(time))*d2r
-            beta_rad = float(flight_air_beta(time))*d2r
+        vn = interp.filter_vn(time)
+        ve = interp.filter_ve(time)
+        vd = interp.filter_vd(time)
+        #yaw_rad = interp.filter_yaw(time)*d2r 
+        psix = interp.filter_psix(time)
+        psiy = interp.filter_psiy(time)
+        yaw_rad = math.atan2(psiy, psix)
+        pitch_rad = interp.filter_the(time)
+        roll_rad = interp.filter_phi(time)
+        lat_deg = float(interp.gps_lat(time))
+        lon_deg = float(interp.gps_lon(time))
+        altitude_m = float(interp.air_true_alt(time))
+        airspeed_kt = float(interp.air_speed(time))
+        if False: # 'alpha' in data['air'][0]:
+            alpha_rad = float(interp.air_alpha(time))*d2r
+            beta_rad = float(interp.air_beta(time))*d2r
         else:
             alpha_rad = None
             beta_rad = None
-        ap_hdg_x = float(flight_ap_hdg_x(time))
-        ap_hdg_y = float(flight_ap_hdg_y(time))
-        ap_hdg = math.atan2(ap_hdg_y, ap_hdg_x)*r2d
-        ap_roll = float(flight_ap_roll(time))
-        ap_pitch = float(flight_ap_pitch(time))
-        ap_speed = float(flight_ap_speed(time))
-        ap_alt_ft = float(flight_ap_alt(time))
-        pilot_ail = float(flight_pilot_ail(time))
-        pilot_ele = float(flight_pilot_ele(time))
-        pilot_thr = float(flight_pilot_thr(time))
-        pilot_rud = float(flight_pilot_rud(time))
-        auto_switch = float(flight_pilot_auto(time))
-        act_ail = float(flight_act_ail(time))
-        act_ele = float(flight_act_ele(time))
-        act_thr = float(flight_act_thr(time))
-        act_rud = float(flight_act_rud(time))
+        ap_hdgx = float(interp.ap_hdgx(time))
+        ap_hdgy = float(interp.ap_hdgy(time))
+        ap_hdg = math.atan2(ap_hdgy, ap_hdgx)*r2d
+        ap_roll = float(interp.ap_roll(time))
+        ap_pitch = float(interp.ap_pitch(time))
+        ap_speed = float(interp.ap_speed(time))
+        ap_alt_ft = float(interp.ap_alt(time))
+        pilot_ail = float(interp.pilot_ail(time))
+        pilot_ele = float(interp.pilot_ele(time))
+        pilot_thr = float(interp.pilot_thr(time))
+        pilot_rud = float(interp.pilot_rud(time))
+        auto_switch = float(interp.pilot_auto(time))
+        act_ail = float(interp.act_ail(time))
+        act_ele = float(interp.act_ele(time))
+        act_thr = float(interp.act_thr(time))
+        act_rud = float(interp.act_rud(time))
         if args.auto_switch == 'none':
             flight_mode = 'manual'
         elif (args.auto_switch == 'new' and auto_switch < 0) or (args.auto_switch == 'old' and auto_switch > 0):
@@ -556,7 +507,7 @@ if args.movie:
         hud1.update_cam_att(cam_yaw, cam_pitch, cam_roll)
         hud1.update_ned(ned)
         hud1.update_lla([lat_deg, lon_deg, altitude_m])
-        hud1.update_time(time, flight_gps_unixtime(time))
+        hud1.update_time(time, interp.gps_unixtime(time))
         hud1.update_vel(vn, ve, vd)
         hud1.update_att_rad(roll_rad, pitch_rad, yaw_rad)
         hud1.update_airdata(airspeed_kt, altitude_m, alpha_rad, beta_rad)
