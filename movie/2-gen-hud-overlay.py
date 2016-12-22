@@ -37,8 +37,6 @@ parser.add_argument('--movie', required=True, help='original movie')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
 parser.add_argument('--alpha', type=float, default=0.7, help='hud alpha blend')
 parser.add_argument('--resample-hz', type=float, default=30.0, help='resample rate (hz)')
-parser.add_argument('--apm-log', help='APM tlog converted to csv')
-parser.add_argument('--aura-dir', help='Aura flight log directory')
 parser.add_argument('--flight', help='Aura flight log directory')
 parser.add_argument('--stop-count', type=int, default=1, help='how many non-frames to absorb before we decide the movie is over')
 parser.add_argument('--plot', help='Plot stuff at the end of the run')
@@ -78,170 +76,7 @@ with open(movie_log, 'rb') as f:
     for line in f:
         movie.append( re.split('[,\s]+', line.rstrip()) )
 
-flight_imu = []
-flight_gps = []
-flight_filter = []
-flight_air = []
-flight_pilot = []
-flight_act = []
-flight_ap = []
-last_imu_time = -1
-last_gps_time = -1
-
-if args.apm_log:
-    # load APM flight log
-    agl = 0.0
-    with open(args.apm_log, 'rb') as f:
-        for line in f:
-            tokens = re.split('[,\s]+', line.rstrip())
-            if tokens[7] == 'mavlink_attitude_t':
-                timestamp = float(tokens[9])/1000.0
-                print timestamp
-                if timestamp > last_imu_time:
-                    flight_imu.append( [timestamp,
-                                        float(tokens[17]), float(tokens[19]),
-                                        float(tokens[21]),
-                                        float(tokens[11]), float(tokens[13]),
-                                        float(tokens[15])] )
-                    last_imu_time = timestamp
-                else:
-                    print "ERROR: IMU time went backwards:", timestamp, last_imu_time
-            elif tokens[7] == 'mavlink_gps_raw_int_t':
-                timestamp = float(tokens[9])/1000000.0
-                if timestamp > last_gps_time - 1.0:
-                    flight_gps.append( [timestamp,
-                                        float(tokens[11]) / 10000000.0,
-                                        float(tokens[13]) / 10000000.0,
-                                        float(tokens[15]) / 1000.0,
-                                        agl] )
-                    last_gps_time = timestamp
-                else:
-                    print "ERROR: GPS time went backwards:", timestamp, last_gps_time
-            elif tokens[7] == 'mavlink_terrain_report_t':
-                agl = float(tokens[15])
-elif args.aura_dir:
-    # load Aura flight log
-    imu_file = args.aura_dir + "/imu-0.txt"
-    gps_file = args.aura_dir + "/gps-0.txt"
-    if os.path.exists(args.aura_dir + "/filter-post.txt"):
-        print "Notice: using filter-post.txt file because it exists!"
-        filter_file = args.aura_dir + "/filter-post.txt"
-    else:
-        filter_file = args.aura_dir + "/filter-0.txt"
-    air_file = args.aura_dir + "/air-0.txt"
-    pilot_file = args.aura_dir + "/pilot-0.txt"
-    act_file = args.aura_dir + "/act-0.txt"
-    ap_file = args.aura_dir + "/ap-0.txt"
-    
-    last_time = 0.0
-    with open(imu_file, 'rb') as f:
-        for line in f:
-            tokens = re.split('[,\s]+', line.rstrip())
-            timestamp = float(tokens[0])
-            if timestamp > last_time:
-                flight_imu.append( [tokens[0], tokens[1], tokens[2],
-                                    tokens[3], 0.0, 0.0, 0.0] )
-            else:
-                # print "ERROR: time went backwards:", timestamp, last_time
-                pass
-            last_time = timestamp
-
-    last_time = 0.0
-    with open(gps_file, 'rb') as f:
-        for line in f:
-            #print line
-            tokens = re.split('[,\s]+', line.rstrip())
-            timestamp = float(tokens[0])
-            #print timestamp, last_time
-            if timestamp > last_time:
-                flight_gps.append( [tokens[0], tokens[1], tokens[2],
-                                    tokens[3], tokens[7]] )
-            else:
-                # print "ERROR: time went backwards:", timestamp, last_time
-                pass
-            last_time = timestamp
-
-    last_time = 0.0
-    with open(filter_file, 'rb') as f:
-        for line in f:
-            #print line
-            tokens = re.split('[,\s]+', line.rstrip())
-            timestamp = float(tokens[0])
-            #print timestamp, last_time
-            if timestamp > last_time:
-                yaw = float(tokens[9])
-                yaw_x = math.cos(yaw*d2r)
-                yaw_y = math.sin(yaw*d2r)
-                flight_filter.append( [tokens[0],
-                                       tokens[1], tokens[2], tokens[3],
-                                       tokens[4], tokens[5], tokens[6],
-                                       tokens[7], tokens[8], tokens[9],
-                                       yaw_x, yaw_y] )
-            else:
-                # print "ERROR: time went backwards:", timestamp, last_time
-                pass
-            last_time = timestamp
-
-    last_time = 0.0
-    with open(air_file, 'rb') as f:
-        for line in f:
-            #print line
-            tokens = re.split('[,\s]+', line.rstrip())
-            timestamp = float(tokens[0])
-            #print timestamp, last_time
-            if timestamp > last_time:
-                flight_air.append( tokens )
-            else:
-                print "ERROR: time went backwards:", timestamp, last_time
-            last_time = timestamp
-            
-    last_time = 0.0
-    with open(pilot_file, 'rb') as f:
-        for line in f:
-            #print line
-            tokens = re.split('[,\s]+', line.rstrip())
-            timestamp = float(tokens[0])
-            #print timestamp, last_time
-            if timestamp > last_time:
-                flight_pilot.append( tokens )
-            else:
-                # print "ERROR: time went backwards:", timestamp, last_time
-                pass
-            last_time = timestamp
-            
-    last_time = 0.0
-    with open(act_file, 'rb') as f:
-        for line in f:
-            #print line
-            tokens = re.split('[,\s]+', line.rstrip())
-            timestamp = float(tokens[0])
-            #print timestamp, last_time
-            if timestamp > last_time:
-                flight_act.append( tokens )
-            else:
-                # print "ERROR: time went backwards:", timestamp, last_time
-                pass
-            last_time = timestamp
-            
-    last_time = 0.0
-    with open(ap_file, 'rb') as f:
-        for line in f:
-            #print line
-            tokens = re.split('[,\s]+', line.rstrip())
-            timestamp = float(tokens[0])
-            #print timestamp, last_time
-            if timestamp > last_time:
-                hdg = float(tokens[1])
-                hdg_x = math.cos(hdg*d2r)
-                hdg_y = math.sin(hdg*d2r)
-                tokens.append(hdg_x)
-                tokens.append(hdg_y)
-                flight_ap.append( tokens )
-            else:
-                # print "ERROR: time went backwards:", timestamp, last_time
-                pass
-            last_time = timestamp
-elif args.flight:
+if args.flight:
     data = flight_data.load('aura', args.flight)
     interp.build(data)
 else:
@@ -265,10 +100,8 @@ print "movie len:", len(movie_interp)
 
 # resample flight data
 flight_interp = []
-if args.apm_log:
-    y_spline = interp.imu_r
-elif args.flight or args.aura_dir:
-    y_spline = interp.imu_p
+# y_spline = interp.imu_r     # down facing camera
+y_spline = interp.imu_p     # front facing camera
 
 # run correlation over filter time span
 x = interp.imu_time
@@ -578,12 +411,10 @@ if args.plot:
     plt.ylabel('roll rate (deg per sec)')
     plt.xlabel('flight time (sec)')
     plt.plot(movie[:,0] + time_shift, movie[:,2]*r2d, label='estimate from flight movie')
-    if args.apm_log:
-        plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
-    else:
-        plt.plot(flight_imu[:,0], flight_imu[:,1]*r2d, label='flight data log')
-    #plt.plot(movie_interp[:,1])
-    #plt.plot(flight_interp[:,1])
+    # down facing:
+    # plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
+    # front facing:
+    plt.plot(flight_imu[:,0], flight_imu[:,1]*r2d, label='flight data log')
     plt.legend()
 
     plt.figure(2)
@@ -594,8 +425,6 @@ if args.plot:
     plt.xlabel('flight time (sec)')
     plt.plot(movie[:,0] + time_shift, (movie[:,3]/qratio)*r2d, label='estimate from flight movie')
     plt.plot(flight_imu[:,0], flight_imu[:,2]*r2d, label='flight data log')
-    #plt.plot(movie_interp[:,1])
-    #plt.plot(flight_interp[:,1])
     plt.legend()
 
     plt.figure(4)
@@ -603,8 +432,6 @@ if args.plot:
     plt.xlabel('flight time (sec)')
     plt.plot(movie[:,0] + time_shift, (movie[:,4]/rratio)*r2d, label='estimate from flight movie')
     plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
-    #plt.plot(movie_interp[:,1])
-    #plt.plot(flight_interp[:,1])
     plt.legend()
 
     plt.show()
