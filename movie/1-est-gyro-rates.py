@@ -333,10 +333,6 @@ while True:
     cv2.imshow('scaled orig', frame_scale)
 
     # experimental undistortion
-    K_Mobius_1080p = np.array( [[1362.1,    0.0, 980.8],
-                                [   0.0, 1272.8, 601.3],
-                                [   0.0,    0.0,   1.0]] )
-
     K_RunCamHD2_1920x1080 \
         = np.array( [[ 971.96149426,   0.        , 957.46750602],
                      [   0.        , 971.67133264, 516.50578382],
@@ -358,21 +354,26 @@ while True:
     K_1080_16x9[2,2] = 1.0
 
     dist_none = [0.0, 0.0, 0.0, 0.0, 0.0]
-    dist_mobius = [-0.36207197, 0.14627927, -0.00674558, 0.0008926, -0.02635695]
     dist_runcamhd2_1920x1080 = [-0.26910665, 0.10580125, 0.00048417, 0.00000925, -0.02321387]
     dist_gopro1 = [ -0.18957, 0.037319, 0.0, 0.0, -0.00337 ] # ???
     dist_gopro2 = [ -0.25761, 0.087709, 0.0, 0.0, -0.015219 ] # works for 8/12 rgb
     dist_gopro3_720 = [ -0.36508, 0.22655, 0.0, 0.0, -0.0015674 ] # works for 8/12 rgb
 
-    # K = K_Gopro3_720_16x9 * args.scale
-    K = K_Mobius_1080p * args.scale
-    # K = K_RunCamHD2_1920x1080 * args.scale
+    # Mobius 1920x1080
+    K = np.array( [[1362.1,    0.0, 980.8],
+                   [   0.0, 1272.8, 601.3],
+                   [   0.0,    0.0,   1.0]] )
+    dist = [-0.36207197, 0.14627927, -0.00674558, 0.0008926, -0.02635695]
+
+    # Runcamhd2 1920x1440
+    # K = np.array( [[ 1296.11187055,     0.        ,   955.43024994],
+    #                [    0.        ,  1296.01457451,   691.47053988],
+    #                [    0.        ,     0.        ,     1.        ]] )
+    # dist = [-0.28250371, 0.14064665, 0.00061846, 0.00014488, -0.05106045]
+
+    K = K * args.scale
     K[2,2] = 1.0
-    
-    # dist = dist_gopro3_720
-    dist = dist_mobius
-    # dist = dist_runcamhd2_1920x1080
-    
+
     distort = True
     if distort:
         frame_undist = cv2.undistort(frame_scale, K, np.array(dist))

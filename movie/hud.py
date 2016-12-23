@@ -25,6 +25,7 @@ green2 = (0, 238, 0)
 red2 = (238, 0, 0)
 medium_orchid = (186, 85, 211)
 yellow = (50, 255, 255)
+white = (255, 255, 255)
 
 class HUD:
     def __init__(self, K):
@@ -43,6 +44,8 @@ class HUD:
         self.time = 0
         self.unixtime = 0
         self.ned = [0.0, 0.0, 0.0]
+        self.ned_history = []
+        self.ned_last_time = 0.0
         self.ref = [0.0, 0.0, 0.0]
         self.vn = 0.0
         self.ve = 0.0
@@ -109,9 +112,17 @@ class HUD:
     def update_time(self, time, unixtime):
         self.time = time
         self.unixtime = unixtime
+
+    def update_ned_history(self, ned):
+        if int(self.time) > self.ned_last_time:
+            self.ned_last_time = int(self.time)
+            self.ned_history.append(ned)
+            while len(self.ned_history) > 180:
+                self.ned_history.pop(0)
         
     def update_ned(self, ned):
         self.ned = ned[:]
+        self.update_ned_history(ned)
 
     def update_proj(self, PROJ):
         self.PROJ = PROJ
@@ -181,7 +192,7 @@ class HUD:
 
     def project_point(self, ned):
         uvh = self.K.dot( self.PROJ.dot( [ned[0], ned[1], ned[2], 1.0] ).T )
-        if uvh[2] > 0.1:
+        if uvh[2] > 0.2:
             uvh /= uvh[2]
             uv = ( int(np.squeeze(uvh[0,0])), int(np.squeeze(uvh[1,0])) )
             return uv
@@ -471,17 +482,18 @@ class HUD:
             cv2.putText(self.frame, label, uv, self.font, font_scale,
                         self.color, thickness, cv2.CV_AA)
 
-    def draw_labeled_point(self, ned, label, scale=1, vert='above'):
+    def draw_ned_point(self, ned, label=None, scale=1, vert='above'):
         uv = self.project_point([ned[0], ned[1], ned[2]])
         if uv != None:
             cv2.circle(self.frame, uv, 4+self.line_width, self.color,
                        self.line_width, cv2.CV_AA)
-        if vert == 'above':
-            uv = self.project_point([ned[0], ned[1], ned[2] - 0.02])
-        else:
-            uv = self.project_point([ned[0], ned[1], ned[2] + 0.02])
-        if uv != None:
-            self.draw_label(label, uv, scale, self.line_width, vert=vert)
+        if label:
+            if vert == 'above':
+                uv = self.project_point([ned[0], ned[1], ned[2] - 0.02])
+            else:
+                uv = self.project_point([ned[0], ned[1], ned[2] + 0.02])
+            if uv != None:
+                self.draw_label(label, uv, scale, self.line_width, vert=vert)
 
     def draw_lla_point(self, lla, label):
         pt_ned = navpy.lla2ned( lla[0], lla[1], lla[2],
@@ -502,7 +514,7 @@ class HUD:
             rel_ned[0] /= dist
             rel_ned[1] /= dist
             rel_ned[2] /= dist
-            self.draw_labeled_point([self.ned[0] + rel_ned[0],
+            self.draw_ned_point([self.ned[0] + rel_ned[0],
                                      self.ned[1] + rel_ned[1],
                                      self.ned[2] + rel_ned[2]],
                                     label, scale=scale, vert='below')
@@ -551,21 +563,21 @@ class HUD:
             return
 
         # Sun
-        self.draw_labeled_point([self.ned[0] + sun_ned[0],
-                                 self.ned[1] + sun_ned[1],
-                                 self.ned[2] + sun_ned[2]],
-                                'Sun')
+        self.draw_ned_point([self.ned[0] + sun_ned[0],
+                             self.ned[1] + sun_ned[1],
+                             self.ned[2] + sun_ned[2]],
+                            'Sun')
         # shadow (if sun above horizon)
         if sun_ned[2] < 0.0:
-            self.draw_labeled_point([self.ned[0] - sun_ned[0],
-                                     self.ned[1] - sun_ned[1],
-                                     self.ned[2] - sun_ned[2]],
-                                    'shadow', scale=0.7)
+            self.draw_ned_point([self.ned[0] - sun_ned[0],
+                                 self.ned[1] - sun_ned[1],
+                                 self.ned[2] - sun_ned[2]],
+                                'shadow', scale=0.7)
         # Moon
-        self.draw_labeled_point([self.ned[0] + moon_ned[0],
-                                 self.ned[1] + moon_ned[1],
-                                 self.ned[2] + moon_ned[2]],
-                                'Moon')
+        self.draw_ned_point([self.ned[0] + moon_ned[0],
+                             self.ned[1] + moon_ned[1],
+                             self.ned[2] + moon_ned[2]],
+                            'Moon')
 
     def draw_airports(self):
         kmsp = [ 44.882000, -93.221802, 256 ]
@@ -821,8 +833,8 @@ class HUD:
         lsy = ly + r1 - int(round(2 * throttle * r1))
         cv2.circle(self.frame, (lsx,lsy), r2, self.color, self.line_width,
                    cv2.CV_AA)
-        rsx = rx - int(round(aileron * r1))
-        rsy = ry - int(round(elevator * r1))
+        rsx = rx + int(round(aileron * r1))
+        rsy = ry + int(round(elevator * r1))
         cv2.circle(self.frame, (rsx,rsy), r2, self.color, self.line_width,
                    cv2.CV_AA)
 
@@ -836,11 +848,44 @@ class HUD:
 
     # draw actual flight track in 3d
     def draw_track(self):
-        pass
+        uv_list = []
+        dist_list = []
+        for ned in self.ned_history:
+            dn = self.ned[0] - ned[0]
+            de = self.ned[1] - ned[1]
+            dd = self.ned[2] - ned[2]
+            dist = math.sqrt(dn*dn + de*de + dd*dd)
+            dist_list.append(dist)
+            if dist > 5:
+                uv = self.project_point([ned[0], ned[1], ned[2]])
+            else:
+                uv = None
+            uv_list.append(uv)
+        if len(uv_list) > 1:
+            for i in range(len(uv_list) - 1):
+                dist = dist_list[i]
+                size = int(round(200.0 / dist))
+                if size < 2: size = 2
+                uv1 = uv_list[i]
+                uv2 = uv_list[i+1]
+                if uv1 != None and uv2 != None:
+                    if uv1[0] < -self.render_w * 0.25 and uv2[0] > self.render_w * 1.25:
+                        pass
+                    elif uv2[0] < -self.render_w * 0.25 and uv1[0] > self.render_w * 1.25:
+                        pass
+                    elif abs(uv1[0] - uv2[0]) > self.render_w * 1.5:
+                        pass
+                    else:
+                        cv2.line(self.frame, uv1, uv2, white, self.line_width,
+                                 cv2.CV_AA)
+                if uv1 != None:
+                    cv2.circle(self.frame, uv1, size, white,
+                               self.line_width, cv2.CV_AA)
         
     # draw the conformal components of the hud (those that should
     # 'stick' to the real world view.
     def draw_conformal(self):
+        self.draw_track()
         self.draw_horizon()
         self.draw_compass_points()
         self.draw_pitch_ladder(beta_rad=0.0)
