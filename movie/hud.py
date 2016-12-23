@@ -117,7 +117,7 @@ class HUD:
         if int(self.time) > self.ned_last_time:
             self.ned_last_time = int(self.time)
             self.ned_history.append(ned)
-            while len(self.ned_history) > 180:
+            while len(self.ned_history) > 600:
                 self.ned_history.pop(0)
         
     def update_ned(self, ned):
