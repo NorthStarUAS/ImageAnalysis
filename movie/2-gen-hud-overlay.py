@@ -39,7 +39,7 @@ parser.add_argument('--alpha', type=float, default=0.7, help='hud alpha blend')
 parser.add_argument('--resample-hz', type=float, default=30.0, help='resample rate (hz)')
 parser.add_argument('--flight', help='Aura flight log directory')
 parser.add_argument('--stop-count', type=int, default=1, help='how many non-frames to absorb before we decide the movie is over')
-parser.add_argument('--plot', help='Plot stuff at the end of the run')
+parser.add_argument('--plot', action='store_true', help='Plot stuff at the end of the run')
 parser.add_argument('--auto-switch', choices=['old', 'new', 'none'], default='new', help='auto/manual switch logic helper')
 parser.add_argument('--airspeed-units', choices=['kt', 'mps'], default='kt', help='display units for airspeed')
 parser.add_argument('--altitude-units', choices=['ft', 'm'], default='ft', help='display units for airspeed')
@@ -53,8 +53,9 @@ stop_count = 0
 # pathname work
 abspath = os.path.abspath(args.movie)
 filename, ext = os.path.splitext(abspath)
+dirname = os.path.dirname(args.movie)
 movie_log = filename + ".csv"
-movie_config = filename + ".json"
+camera_config = dirname + "/camera.json"
 # combinations that seem to work on linux
 # ext = avi, fourcc = MJPG
 # ext = avi, fourcc = XVID
@@ -65,7 +66,7 @@ output_movie = filename + "_hud.mov"
 
 # load config file if it exists
 config = PropertyNode()
-props_json.load(movie_config, config)
+props_json.load(camera_config, config)
 cam_yaw = config.getFloat('cam_yaw_deg')
 cam_pitch = config.getFloat('cam_pitch_deg')
 cam_roll = config.getFloat('cam_roll_deg')
@@ -154,29 +155,29 @@ print "pitch ratio:", qratio
 print "yaw ratio:", rratio
 
 if args.movie:
-    # Mobius 1080p
+    # Mobius 1080p (Curt)
     # K = np.array( [[1362.1,    0.0, 980.8],
     #                [   0.0, 1272.8, 601.3],
     #                [   0.0,    0.0,   1.0]] )
     # dist = [-0.36207197, 0.14627927, -0.00674558, 0.0008926, -0.02635695]
 
-    # Mobius UMN-003 1920x1080
+    # Mobius 1920x1080 (UMN 003)
     # K = np.array( [[ 1401.21111735,     0.       ,    904.25404757],
     #                [    0.        ,  1400.2530882,    490.12157373],
     #                [    0.        ,     0.       ,      1.        ]] )
     # dist = [-0.39012303,  0.19687255, -0.00069657,  0.00465592, -0.05845262]
 
-    # RunCamHD2 1920x1080
-    K = np.array( [[ 971.96149426,   0.        , 957.46750602],
-                   [   0.        , 971.67133264, 516.50578382],
-                   [   0.        ,   0.        ,   1.        ]] )
-    dist = [-0.26910665, 0.10580125, 0.00048417, 0.00000925, -0.02321387]
+    # RunCamHD2 1920x1080 (Curt)
+    # K = np.array( [[ 971.96149426,   0.        , 957.46750602],
+    #                [   0.        , 971.67133264, 516.50578382],
+    #                [   0.        ,   0.        ,   1.        ]] )
+    # dist = [-0.26910665, 0.10580125, 0.00048417, 0.00000925, -0.02321387]
 
-    # Runcamhd2 1920x1440
-    # K = np.array( [[ 1296.11187055,     0.        ,   955.43024994],
-    #                [    0.        ,  1296.01457451,   691.47053988],
-    #                [    0.        ,     0.        ,     1.        ]] )
-    # dist = [-0.28250371, 0.14064665, 0.00061846, 0.00014488, -0.05106045]
+    # RunCamHD2 1920x1440 (Curt)
+    K = np.array( [[ 1296.11187055,     0.        ,   955.43024994],
+                   [    0.        ,  1296.01457451,   691.47053988],
+                   [    0.        ,     0.        ,     1.        ]] )
+    dist = [-0.28250371, 0.14064665, 0.00061846, 0.00014488, -0.05106045]
     
     K = K * args.scale
     K[2,2] = 1.0
@@ -226,16 +227,18 @@ if args.movie:
     last_time = 0.0
 
     # set primative sizes based on rendered resolution.
-    size = math.sqrt(float(h)*float(w))
-    hud1.set_line_width( int(round(size/500.0)) )
-    hud1.set_font_size( size / 1000.0 )
+    size = math.sqrt(h*h + w*w)
+    hud1.set_line_width( int(round(size/1000.0)) )
+    hud1.set_font_size( size / 1400.0 )
     hud1.set_color( hud.green2 )
     hud1.set_units( args.airspeed_units, args.altitude_units)
 
-    hud2.set_line_width( int(round(float(h) / 400.0)) )
-    hud2.set_font_size( float(h) / 900.0 )
+    hud2.set_line_width( int(round(size/1000.0)) )
+    hud2.set_font_size( size / 1400.0 )
     hud2.set_color( hud.red2 )
     hud2.set_units( args.airspeed_units, args.altitude_units)
+
+    filt_alt = 0.0
     
     while True:
         ret, frame = capture.read()
@@ -268,6 +271,7 @@ if args.movie:
         lat_deg = float(interp.gps_lat(time))
         lon_deg = float(interp.gps_lon(time))
         altitude_m = float(interp.air_true_alt(time))
+        filt_alt = 0.95 * filt_alt + 0.05 * altitude_m
         airspeed_kt = float(interp.air_speed(time))
         if False: # 'alpha' in data['air'][0]:
             alpha_rad = float(interp.air_alpha(time))*d2r
@@ -316,7 +320,7 @@ if args.movie:
         #print 'ned2cam:', ned2cam
         R = ned2proj.dot( ned2cam )
         rvec, jac = cv2.Rodrigues(R)
-        ned = navpy.lla2ned( lat_deg, lon_deg, altitude_m,
+        ned = navpy.lla2ned( lat_deg, lon_deg, filt_alt,
                              ref[0], ref[1], ref[2] )
         #print 'ned:', ned
         tvec = -np.matrix(R) * np.matrix(ned).T
@@ -336,11 +340,11 @@ if args.movie:
         # Create hud draw space
         hud1_frame = frame_undist.copy()
 
+        hud1.update_time(time, interp.gps_unixtime(time))
         hud1.update_proj(PROJ)
         hud1.update_cam_att(cam_yaw, cam_pitch, cam_roll)
         hud1.update_ned(ned)
         hud1.update_lla([lat_deg, lon_deg, altitude_m])
-        hud1.update_time(time, interp.gps_unixtime(time))
         hud1.update_vel(vn, ve, vd)
         hud1.update_att_rad(roll_rad, pitch_rad, yaw_rad)
         hud1.update_airdata(airspeed_kt, altitude_m, alpha_rad, beta_rad)
@@ -367,27 +371,27 @@ if args.movie:
         elif key == ord('y'):
             cam_yaw += 0.5
             config.setFloat('cam_yaw_deg', cam_yaw)
-            props_json.save(movie_config, config)
+            props_json.save(camera_config, config)
         elif key == ord('Y'):
             cam_yaw -= 0.5
             config.setFloat('cam_yaw_deg', cam_yaw)
-            props_json.save(movie_config, config)
+            props_json.save(camera_config, config)
         elif key == ord('p'):
             cam_pitch += 0.5
             config.setFloat('cam_pitch_deg', cam_pitch)
-            props_json.save(movie_config, config)
+            props_json.save(camera_config, config)
         elif key == ord('P'):
             cam_pitch -= 0.5
             config.setFloat('cam_pitch_deg', cam_pitch)
-            props_json.save(movie_config, config)
+            props_json.save(camera_config, config)
         elif key == ord('r'):
             cam_roll -= 0.5
             config.setFloat('cam_roll_deg', cam_roll)
-            props_json.save(movie_config, config)
+            props_json.save(camera_config, config)
         elif key == ord('R'):
             cam_roll += 0.5
             config.setFloat('cam_roll_deg', cam_roll)
-            props_json.save(movie_config, config)
+            props_json.save(camera_config, config)
 
 output.release()
 cv2.destroyAllWindows()
