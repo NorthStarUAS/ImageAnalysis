@@ -3,7 +3,7 @@ import numpy as np
 # set camera calibration from some hard coded options
 def set_camera_calibration(value):
     if value == 0:
-        name = "Mobius 1080p (Curt)"
+        name = "Mobius 1920x1080 (Curt)"
         K = np.array( [[1362.1,    0.0, 980.8],
                        [   0.0, 1272.8, 601.3],
                        [   0.0,    0.0,   1.0]] )

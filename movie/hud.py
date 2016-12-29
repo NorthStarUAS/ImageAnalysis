@@ -918,7 +918,7 @@ class HUD:
     # draw the conformal components of the hud (those that should
     # 'stick' to the real world view.
     def draw_conformal(self):
-        self.draw_grid()
+        # self.draw_grid()
         self.draw_track()
         self.draw_horizon()
         self.draw_compass_points()
