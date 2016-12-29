@@ -46,6 +46,7 @@ class HUD:
         self.ned = [0.0, 0.0, 0.0]
         self.ned_history = []
         self.ned_last_time = 0.0
+        self.grid = []
         self.ref = [0.0, 0.0, 0.0]
         self.vn = 0.0
         self.ve = 0.0
@@ -59,6 +60,7 @@ class HUD:
         self.altitude_units = 'ft'
         self.airspeed_kt = 0
         self.altitude_m = 0
+        self.ground_m = 0
         self.flight_mode = 'none'
         self.ap_roll = 0
         self.ap_pitch = 0
@@ -103,6 +105,9 @@ class HUD:
     def set_ned_ref(self, lat, lon):
         self.ref = [ lat, lon, 0.0]
 
+    def set_ground_m(self, ground_m):
+        self.ground_m = ground_m
+        
     def update_frame(self, frame):
         self.frame = frame
 
@@ -876,15 +881,44 @@ class HUD:
                     elif abs(uv1[0] - uv2[0]) > self.render_w * 1.5:
                         pass
                     else:
-                        cv2.line(self.frame, uv1, uv2, white, self.line_width,
+                        cv2.line(self.frame, uv1, uv2, white, 1,
                                  cv2.CV_AA)
                 if uv1 != None:
                     cv2.circle(self.frame, uv1, size, white,
                                self.line_width, cv2.CV_AA)
-        
+
+    # draw a 3d reference grid in space
+    def draw_grid(self):
+        if len(self.grid) == 0:
+            # build the grid
+            h = 100
+            v = 75
+            for n in range(-5*h, 5*h+1, h):
+                for e in range(-5*h, 5*h+1, h):
+                    for d in range(int(-self.ground_m) - 4*v, int(-self.ground_m) + 1, v):
+                        self.grid.append( [n, e, d] )
+        uv_list = []
+        dist_list = []
+        for ned in self.grid:
+            dn = self.ned[0] - ned[0]
+            de = self.ned[1] - ned[1]
+            dd = self.ned[2] - ned[2]
+            dist = math.sqrt(dn*dn + de*de + dd*dd)
+            dist_list.append(dist)
+            uv = self.project_point( ned )
+            uv_list.append(uv)
+        for i in range(len(uv_list)):
+            dist = dist_list[i]
+            size = int(round(1000.0 / dist))
+            if size < 1: size = 1
+            uv = uv_list[i]
+            if uv != None:
+                cv2.circle(self.frame, uv, size, white, 1, cv2.CV_AA)
+                    
     # draw the conformal components of the hud (those that should
     # 'stick' to the real world view.
     def draw_conformal(self):
+        self.draw_grid()
         self.draw_track()
         self.draw_horizon()
         self.draw_compass_points()
