@@ -4,7 +4,7 @@
 # reprojection error
 
 import sys
-sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
+sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
 
 import argparse
 import cPickle as pickle
@@ -18,7 +18,7 @@ import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--stddev', type=int, default=3, help='how many stddevs above the mean for auto discarding features')
+parser.add_argument('--stddev', type=float, default=3, help='how many stddevs above the mean for auto discarding features')
 parser.add_argument('--direct', action='store_true', help='analyze direct matches (might help if initial sba fit fails.)')
 parser.add_argument('--strong', action='store_true', help='remove entire match chain, not just the worst offending element.')
 parser.add_argument('--show', action='store_true', help='show most extreme reprojection errors with matches.')
@@ -83,7 +83,8 @@ def compute_reprojection_errors(image_list, cam):
         ned = match[0]
         for j, p in enumerate(match[1:]):
             image = image_list[ p[0] ]
-            kp = image.uv_list[ p[1] ] # undistorted uv point
+            # kp = image.kp_list[p[1]].pt # distorted
+            kp = image.uv_list[ p[1] ]  # undistorted uv point
             scale = float(image.width) / float(camw)
             dist = compute_feature_mre(cam.get_K(scale), image, kp, ned)
             result_list.append( (dist, i, j) )
@@ -93,6 +94,34 @@ def compute_reprojection_errors(image_list, cam):
                          reverse=True)
     return result_list
 
+def show_outliers(result_list, trim_stddev):
+    print "Show outliers..."
+    sum = 0.0
+    count = len(result_list)
+
+    # numerically it is better to sum up a list of floating point
+    # numbers from smallest to biggest (result_list is sorted from
+    # biggest to smallest)
+    for line in reversed(result_list):
+        sum += line[0]
+        
+    # stats on error values
+    print " computing stats..."
+    mre = sum / count
+    stddev_sum = 0.0
+    for line in result_list:
+        error = line[0]
+        stddev_sum += (mre-error)*(mre-error)
+    stddev = math.sqrt(stddev_sum / count)
+    print "mre = %.4f stddev = %.4f" % (mre, stddev)
+
+    for line in result_list:
+        # print "line:", line
+        if line[0] > mre + stddev * trim_stddev:
+            print "  outlier index %d-%d err=%.2f" % (line[1], line[2],
+                                                      line[0])
+            draw_match(line[1], line[2])
+            
 def mark_outliers(result_list, trim_stddev):
     print "Marking outliers..."
     sum = 0.0
@@ -122,8 +151,6 @@ def mark_outliers(result_list, trim_stddev):
         if line[0] > mre + stddev * trim_stddev:
             print "  outlier index %d-%d err=%.2f" % (line[1], line[2],
                                                       line[0])
-            if args.show:
-                draw_match(line[1], line[2])
             match = matches_direct[line[1]]
             match[line[2]+1] = [-1, -1]
             if not args.direct:
@@ -164,14 +191,20 @@ def delete_marked_matches():
             matches_direct.pop(i)
             if not args.direct:
                 matches_sba.pop(i)
-        elif len(match_direct) < 4:
+        elif len(match_direct) < 3:
+            print "deleting match that is now in less than 2 images:", match_direct
+            matches_direct.pop(i)
+            if not args.direct:
+                matches_sba.pop(i)
+        elif False and len(match_direct) < 4:
+            # this is seeming like less and less of a good idea (Jan 3, 2017)
             print "deleting match that is now in less than 3 images:", match_direct
             matches_direct.pop(i)
             if not args.direct:
                 matches_sba.pop(i)
 
 # experimental, draw a visual of a match point in all it's images
-def draw_match(i, bad_index):
+def draw_match(i, index):
     green = (0, 255, 0)
     red = (0, 0, 255)
 
@@ -179,38 +212,39 @@ def draw_match(i, bad_index):
         match = matches_sba[i]
     else:
         match = matches_direct[i]
-    print 'match:', match, 'bad index:', bad_index
+    print 'match:', match, 'index:', index
     for j, m in enumerate(match[1:]):
         print ' ', m, proj.image_list[m[0]]
         img = proj.image_list[m[0]]
-        kp = img.kp_list[m[1]]
-        print ' ', kp.pt
+        # kp = img.kp_list[m[1]].pt # distorted
+        kp = img.uv_list[m[1]]  # undistored
+        print ' ', kp
         rgb = img.load_rgb()
         h, w = rgb.shape[:2]
         crop = True
         range = 300
         if crop:
-            cx = int(round(kp.pt[0]))
-            cy = int(round(kp.pt[1]))
+            cx = int(round(kp[0]))
+            cy = int(round(kp[1]))
             if cx < range:
                 xshift = range - cx
                 cx = range
-            elif cx > w - range:
-                xshift = cx - (w - range)
+            elif cx > (w - range):
+                xshift = (w - range) - cx
                 cx = w - range
             else:
                 xshift = 0
             if cy < range:
                 yshift = range - cy
                 cy = range
-            elif cy > h - range:
-                yshift = cy - (h - range)
+            elif cy > (h - range):
+                yshift = (h - range) - cy
                 cy = h - range
             else:
                 yshift = 0
             print 'size:', w, h, 'shift:', xshift, yshift
             rgb1 = rgb[cy-range:cy+range, cx-range:cx+range]
-            if ( j == bad_index ):
+            if ( j == index ):
                 color = red
             else:
                 color = green
@@ -218,7 +252,7 @@ def draw_match(i, bad_index):
         else:
             scale = 790.0/float(w)
             rgb1 = cv2.resize(rgb, (0,0), fx=scale, fy=scale)
-            cv2.circle(rgb1, (int(round(kp.pt[0]*scale)), int(round(kp.pt[1]*scale))), 2, green, thickness=2)
+            cv2.circle(rgb1, (int(round(kp[0]*scale)), int(round(kp[1]*scale))), 2, green, thickness=2)
         cv2.imshow(img.name, rgb1)
     print 'waiting for keyboard input...'
     key = cv2.waitKey() & 0xff
@@ -226,11 +260,10 @@ def draw_match(i, bad_index):
 
 result_list = compute_reprojection_errors(proj.image_list, proj.cam)
 
-mark_sum = 0
-result_list, mark_count = mark_outliers(result_list, args.stddev)
-while mark_count > 0:
-    mark_sum += mark_count
-    result_list, mark_count = mark_outliers(result_list, args.stddev)
+if args.show:
+    show_outliers(result_list, args.stddev)
+    
+result_list, mark_sum = mark_outliers(result_list, args.stddev)
 
 # now count how many features show up in each image
 for i in proj.image_list:

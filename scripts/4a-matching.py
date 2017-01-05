@@ -28,13 +28,13 @@ parser.add_argument('--matcher', default='FLANN',
                     choices=['FLANN', 'BF'])
 parser.add_argument('--match-ratio', default=0.75, type=float,
                     help='match ratio')
-parser.add_argument('--min-pairs', default=25, type=int,
+parser.add_argument('--min-pairs', default=30, type=int,
                     help='minimum matches between image pairs to keep')
 parser.add_argument('--filter', default='homography',
-                    choices=['homography', 'fundamental', 'none'],
-                    required=True)
+                    choices=['homography', 'fundamental', 'none'])
 parser.add_argument('--image-fuzz', default=40, type=float, help='image fuzz') 
 parser.add_argument('--feature-fuzz', default=20, type=float, help='feature fuzz') 
+parser.add_argument('--ground', type=float, help='ground elevation in meters')
 
 args = parser.parse_args()
 
@@ -43,44 +43,47 @@ proj.load_image_info()
 proj.load_features()
 proj.undistort_keypoints()
 
-# setup SRTM ground interpolator
-ref = proj.ned_reference_lla
-sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
-
-slow_way = False
-if slow_way:
-    camw, camh = proj.cam.get_image_params()
-    bar = Bar('Projecting keypoints to vectors:',
-              max = len(proj.image_list))
-    for image in proj.image_list:
-        scale = float(image.width) / float(camw)
-        K = proj.cam.get_K(scale)
-        IK = np.linalg.inv(K)
-        image.vec_list = proj.projectVectors(IK, image, image.uv_list)
-        bar.next()
-    bar.finish()
-
-    # intersect keypoint vectors with srtm terrain
-    bar = Bar('Vector/terrain intersecting:',
-              max = len(proj.image_list))
-    for image in proj.image_list:
-        image.coord_list = sss.interpolate_vectors(image.camera_pose,
-                                                   image.vec_list)
-        bar.next()
-    bar.finish()
+if args.ground:
+    proj.fastProjectKeypointsToGround(args.ground)
 else:
-    # compute keypoint usage map
-    proj.compute_kp_usage(all=True)
-    
-    # fast way:
-    # 1. make a grid (i.e. 8x8) of uv coordinates covering the whole image
-    # 2. undistort these uv coordinates
-    # 3. project them into vectors
-    # 4. intersect them with the srtm terrain to get ned coordinates
-    # 5. use linearndinterpolator ... g = scipy.interpolate.LinearNDInterpolator([[0,0],[1,0],[0,1],[1,1]], [[0,4,8],[1,3,2],[2,2,-4],[4,1,0]])
-    #    with origin uv vs. 3d location to build a table
-    # 6. interpolate original uv coordinates to 3d locations
-    proj.fastProjectKeypointsTo3d(sss)
+    # setup SRTM ground interpolator
+    ref = proj.ned_reference_lla
+    sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
+
+    slow_way = False
+    if slow_way:
+        camw, camh = proj.cam.get_image_params()
+        bar = Bar('Projecting keypoints to vectors:',
+                  max = len(proj.image_list))
+        for image in proj.image_list:
+            scale = float(image.width) / float(camw)
+            K = proj.cam.get_K(scale)
+            IK = np.linalg.inv(K)
+            image.vec_list = proj.projectVectors(IK, image, image.uv_list)
+            bar.next()
+        bar.finish()
+
+        # intersect keypoint vectors with srtm terrain
+        bar = Bar('Vector/terrain intersecting:',
+                  max = len(proj.image_list))
+        for image in proj.image_list:
+            image.coord_list = sss.interpolate_vectors(image.camera_pose,
+                                                       image.vec_list)
+            bar.next()
+        bar.finish()
+    else:
+        # compute keypoint usage map
+        proj.compute_kp_usage(all=True)
+
+        # fast way:
+        # 1. make a grid (i.e. 8x8) of uv coordinates covering the whole image
+        # 2. undistort these uv coordinates
+        # 3. project them into vectors
+        # 4. intersect them with the srtm terrain to get ned coordinates
+        # 5. use linearndinterpolator ... g = scipy.interpolate.LinearNDInterpolator([[0,0],[1,0],[0,1],[1,1]], [[0,4,8],[1,3,2],[2,2,-4],[4,1,0]])
+        #    with origin uv vs. 3d location to build a table
+        # 6. interpolate original uv coordinates to 3d locations
+        proj.fastProjectKeypointsTo3d(sss)
 
 # compute a bounding sphere for each image
 bar = Bar('Compute bounding spheres:',
@@ -152,7 +155,8 @@ m.robustGroupMatches(proj.image_list, filter=args.filter,
 # since we don't have a matches_direct file yet.)
 # Matcher.groupByConnections(proj.image_list)
 
-do_old_match_consolodation = True
+# The following code is deprecated ...
+do_old_match_consolodation = False
 if do_old_match_consolodation:
     # build a list of all 'unique' keypoints.  Include an index to each
     # containing image and feature.

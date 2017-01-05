@@ -5,6 +5,7 @@ sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
 
 import argparse
 import commands
+import cPickle as pickle
 import cv2
 import fnmatch
 import math
@@ -30,6 +31,8 @@ parser.add_argument('--orient', default='aircraft',
                     help='yaw orientation reference')
 parser.add_argument('--image', default="", help='show specific image matches')
 parser.add_argument('--index', type=int, help='show specific image by index')
+parser.add_argument('--direct', action='store_true', help='show matches_direct')
+parser.add_argument('--sba', action='store_true', help='show matches_sba')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
@@ -64,6 +67,31 @@ elif args.index:
                                            orient=args.orient)
     else:
         print "Cannot locate:", args.index
+elif args.direct or args.sba:
+    if args.direct:
+        matches_list = pickle.load( open( args.project + "/matches_direct", "rb" ) )
+    else:
+        matches_list = pickle.load( open( args.project + "/matches_sba", "rb" ) )
+    for i, i1 in enumerate(proj.image_list):
+        for j, i2 in enumerate(proj.image_list):
+            if j <= i:
+                continue
+            # a little inefficient, but just used for debugging ...
+            matches = []
+            for match in matches_list:
+                p1 = None
+                p2 = None
+                for p in match[1:]:
+                    if p[0] == i:
+                        p1 = p[1]
+                    if p[0] == j:
+                        p2 = p[1]
+                if p1 != None and p2 != None:
+                    matches.append( [p1, p2] )
+            if len(matches):
+                print "Showing (direct) %s vs %s" % (i1.name, i2.name)
+                status = m.showMatchOrient(i1, i2, matches,
+                                           orient=args.orient)
 elif args.order == 'sequential':
     for i, i1 in enumerate(proj.image_list):
         for j, i2 in enumerate(proj.image_list):

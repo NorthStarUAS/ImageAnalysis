@@ -73,11 +73,16 @@ for image in proj.image_list:
 
     # convert ned to xyz and stash the result for each image
     image.grid_list = []
+    ground_sum = 0
     for p in pts_ned:
         image.grid_list.append( [p[1], p[0], -(p[2]+depth)] )
+        ground_sum += -p[2]
     depth -= 0.01                # favor last pictures above earlier ones
     
 # call the ac3d generator
 AC3D.generate(proj.image_list, src_dir=proj.source_dir,
               project_dir=args.project, base_name='direct',
               version=1.0, trans=0.1, resolution=args.texture_resolution)
+
+if not args.ground:
+    print 'Avg ground elevation (SRTM):', ground_sum / len(pts_ned)

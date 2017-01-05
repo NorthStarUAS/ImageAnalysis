@@ -128,11 +128,11 @@ def gen_ac3d_object(f, name, raw_tris):
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
-proj.load_match_pairs()
+#proj.load_match_pairs()
         
 print "Loading match points (sba)..."
-#matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
-matches_sba = pickle.load( open( args.project + "/matches_direct", "rb" ) )
+matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
+#matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )
 
 # iterate through the sba match dictionary and build a list of feature
 # points and heights (in x=east,y=north,z=up coordinates)

@@ -29,10 +29,12 @@ import SRTM
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--no-grouping', action='store_true', help='don\'t group match cyles')
+parser.add_argument('--full-grouping', action='store_true', help='maximal feature grouping (caution: can blow up the sba process for a not-yet-known reason)')
 parser.add_argument('--fuzz', type=float, default=10.0, help='maximum 3d distance for joining match chains')
 
 args = parser.parse_args()
+
+m = Matcher.Matcher()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
@@ -57,29 +59,32 @@ proj.compute_kp_usage()
 # 6. interpolate original uv coordinates to 3d locations
 proj.fastProjectKeypointsTo3d(sss)
 
+# For some features detection algorithms we expect duplicated feature
+# uv coordinates.  These duplicates may have different scaling or
+# other attributes important during feature matching, yet ultimately
+# resolve to the same uv coordinate in an image.
 print "Indexing features by unique uv coordinates..."
-# we typically expect many duplicated feature uv coordinates, but they
-# may have different scaling or other attributes important during
-# feature matching
 for image in proj.image_list:
     print image.name
     # pass one, build a tmp structure of unique keypoints (by uv) and
     # the index of the first instance.
     image.kp_remap = {}
+    used = 0
     for i, kp in enumerate(image.kp_list):
         if image.kp_used[i]:
+            used += 1
             key = "%.2f-%.2f" % (kp.pt[0], kp.pt[1])
             if not key in image.kp_remap:
                 image.kp_remap[key] = i
-            # else:
-            #     print "%d -> %d" % (i, image.kp_remap[key])
-            #     print " ", image.coord_list[i], image.coord_list[image.kp_remap[key]]
-    print " features:", len(image.kp_list)
+            else:
+                print "%d -> %d" % (i, image.kp_remap[key])
+                print " ", image.coord_list[i], image.coord_list[image.kp_remap[key]]
+    print " features used:", used
     print " unique by uv and used:", len(image.kp_remap)
 
-print "Collapsing keypoints with duplicate uv coordinates..."
 # after feature matching we don't care about other attributes, just
 # the uv coordinate.
+print "Collapsing keypoints with duplicate uv coordinates..."
 for i, i1 in enumerate(proj.image_list):
     for j, matches in enumerate(i1.match_list):
         count = 0
@@ -92,10 +97,6 @@ for i, i1 in enumerate(proj.image_list):
             kp2 = i2.kp_list[idx2]
             key1 = "%.2f-%.2f" % (kp1.pt[0], kp1.pt[1])
             key2 = "%.2f-%.2f" % (kp2.pt[0], kp2.pt[1])
-            if j == 1 and idx2 == 1360:
-                print key1, key2
-            if j == 1 and idx2 == 3212:
-                print key1, key2
             # print key1, key2
             new_idx1 = i1.kp_remap[key1]
             new_idx2 = i2.kp_remap[key2]
@@ -103,6 +104,7 @@ for i, i1 in enumerate(proj.image_list):
             if idx1 != new_idx1 or idx2 != new_idx2:
                 count += 1
             if idx1 != new_idx1:
+                # sanity check
                 uv1 = list(i1.kp_list[idx1].pt)
                 new_uv1 = list(i1.kp_list[new_idx1].pt)
                 if not np.allclose(uv1, new_uv1):
@@ -112,6 +114,7 @@ for i, i1 in enumerate(proj.image_list):
                                                               new_uv1[0],
                                                               new_uv1[1])
             if idx2 != new_idx2:
+                # sanity check
                 uv2 = list(i2.kp_list[idx2].pt)
                 new_uv2 = list(i2.kp_list[new_idx2].pt)
                 if not np.allclose(uv2, new_uv2):
@@ -120,13 +123,28 @@ for i, i1 in enumerate(proj.image_list):
                     print "  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv2[0], uv2[1],
                                                               new_uv2[0],
                                                               new_uv2[1])
+            # rewrite matches
             matches[k] = [new_idx1, new_idx2]
         if count > 0:
             print 'Match:', i, 'vs', j, 'matches:', len(matches), 'rewrites:', count
-        
-print "Eliminating pair duplicates..."
+
+# enable the following code to visualize the matches after collapsing
+# identical uv coordinates
+if False:
+    for i, i1 in enumerate(proj.image_list):
+        for j, i2 in enumerate(proj.image_list):
+            if i >= j:
+                # don't repeat reciprocal matches
+                continue
+            if len(i1.match_list[j]):
+                print "Showing %s vs %s" % (i1.name, i2.name)
+                status = m.showMatchOrient(i1, i2, i1.match_list[j],
+                                           orient='aircraft')
+      
 # after collapsing by uv coordinate, we could be left with duplicate
-# matches (matched at different scales, but same exact point.)
+# matches (matched at different scales or other attrivutes, but same
+# exact point.)
+print "Eliminating pair duplicates..."
 for i, i1 in enumerate(proj.image_list):
     for j, matches in enumerate(i1.match_list):
         i2 = proj.image_list[j]
@@ -144,9 +162,22 @@ for i, i1 in enumerate(proj.image_list):
             print 'Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count
       
         i1.match_list[j] = new_matches
+        
+# enable the following code to visualize the matches after eliminating
+# duplicates (duplicates can happen after collapsing uv coordinates.)
+if False:
+    for i, i1 in enumerate(proj.image_list):
+        for j, i2 in enumerate(proj.image_list):
+            if i >= j:
+                # don't repeat reciprocal matches
+                continue
+            if len(i1.match_list[j]):
+                print "Showing %s vs %s" % (i1.name, i2.name)
+                status = m.showMatchOrient(i1, i2, i1.match_list[j],
+                                           orient='aircraft')
 
 print "Testing for 1 vs. n keypoint duplicates..."
-# Do we have a keypoing in i1 matching multiple keypoints in i2?
+# Do we have a keypoint in i1 matching multiple keypoints in i2?
 for i, i1 in enumerate(proj.image_list):
     for j, matches in enumerate(i1.match_list):
         i2 = proj.image_list[j]
@@ -165,7 +196,7 @@ for i, i1 in enumerate(proj.image_list):
                 count += 1
         if count > 0:
             print 'Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count
-      
+
 def update_match_location(match):
     sum = np.array( [0.0, 0.0, 0.0] )
     for p in match[1:]:
@@ -179,9 +210,9 @@ def update_match_location(match):
 print "Constructing unified match structure..."
 # create an initial pair-wise match list
 matches_direct = []
-for i, i1 in enumerate(proj.image_list):
-    # print i1.name
-    for j, matches in enumerate(i1.match_list):
+for i, img in enumerate(proj.image_list):
+    # print img.name
+    for j, matches in enumerate(img.match_list):
         # print proj.image_list[j].name
         if j > i:
             for pair in matches:
@@ -192,6 +223,7 @@ for i, i1 in enumerate(proj.image_list):
                 match.append([j, pair[1]])
                 update_match_location(match)
                 matches_direct.append(match)
+                # print pair, match
 
 # compute the 3d distance between two points
 def dist3d(p0, p1):
@@ -208,10 +240,10 @@ def dist3d(p0, p1):
 # together that shouldn't be linked which really fouls things up.
 
 count = 0
-if args.no_grouping:
-    done = True
-else:
+if args.full_grouping:
     done = False
+else:
+    done = True
 while not done:
     print "Iteration:", count
     count += 1
@@ -258,17 +290,14 @@ while not done:
     else:
         matches_direct = matches_new
 
-# matches_direct format is a 3d_coord, img-feat, img-feat, ...
-# len of 3 means features shows up on 2 images.  We would like
-# to only use features that show up in 3 or more images.
-if args.no_grouping:
-    # no grouping so every match len will be 2
-    pass
-else:
+# matches_direct format is a 3d_coord, img-feat, img-feat, ...  len of
+# 3 means features shows up on 2 images.  If we throw away all 2-image
+# features the solver becomes unstable.
+if False
     print "discarding matches that appear in less than 3 images"
     matches_new = []
     for m in matches_direct:
-        if len(m) >= 4 or args.no_grouping:
+        if len(m) >= 4 or not args.full_grouping:
             matches_new.append(m)
     matches_direct = matches_new
 
@@ -278,8 +307,7 @@ else:
 count = 0.0
 sum = 0.0
 for match in matches_direct:
-    n = len(match)
-    sum += (n-1)
+    sum += len(match) - 1
     count += 1
         
 if count >= 1:
@@ -292,10 +320,10 @@ print "Estimating world coordinates of each keypoint..."
 for match in matches_direct:
     sum = np.array( [0.0, 0.0, 0.0] )
     for p in match[1:]:
-        # print proj.image_list[ p[0] ].coord_list[ p[1] ]
+        if len(match) >= 4: print proj.image_list[ p[0] ].coord_list[ p[1] ]
         sum += proj.image_list[ p[0] ].coord_list[ p[1] ]
     ned = sum / len(match[1:])
-    # print "avg =", ned
+    if len(match) >= 4: print "avg =", ned
     match[0] = ned.tolist()
 
 print "Writing match file ..."

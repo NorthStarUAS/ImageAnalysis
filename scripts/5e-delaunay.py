@@ -1,10 +1,11 @@
 #!/usr/bin/python
 
 import sys
-sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
+sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
 
 import argparse
 import commands
+import cPickle as pickle
 import cv2
 import fnmatch
 import json
@@ -124,9 +125,7 @@ proj.load_features()
 proj.load_match_pairs()
 
 print "Loading match points..."
-f = open(args.project + "/Matches-sba.json", 'r')
-matches_sba = json.load(f)
-f.close()
+matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
 
 # iterate through the sba match dictionary and build a list of feature
 # points
