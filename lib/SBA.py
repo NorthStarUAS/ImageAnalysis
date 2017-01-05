@@ -8,7 +8,7 @@
 # todo, run sba and automatically parse output ...
 
 import sys
-sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
+sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
 
 import numpy as np
 import re
@@ -55,14 +55,14 @@ class SBA():
         f = open( self.root + '/sba-points.txt', 'w' )
         for match in matches_list:
             ned = np.array(match[0])
-            s = "%.4f %.4f %.4f " % (ned[0], ned[1], ned[2])
+            s = "%.4f %.4f %.4f  " % (ned[0], ned[1], ned[2])
             f.write(s)
-            s = "%d " % (len(match[1:]))
+            s = "%d  " % (len(match[1:]))
             f.write(s)
             for p in match[1:]:
                 image_num = p[0]
-                # kp = image_list[image_num].kp_list[p[1]].pt # undistorted
-                kp = image_list[image_num].uv_list[p[1]]      # distorted
+                # kp = image_list[image_num].kp_list[p[1]].pt # distorted
+                kp = image_list[image_num].uv_list[p[1]]      # undistorted
                 s = "%d %.2f %.2f " % (image_num, kp[0], kp[1])
                 f.write(s)
             f.write('\n')
