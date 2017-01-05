@@ -101,10 +101,10 @@ class Matcher():
     def filter_by_homography(self, i1, i2, j, filter):
         clean = True
         
-        tol = float(i1.width) / 400.0 # rejection range in pixels
+        tol = float(i1.width) / 100.0 # rejection range in pixels
         if tol < 1.0:
             tol = 1.0
-        # print "tol = %.4f" % tol
+        # print "tol = %.4f" % tol 
         matches = i1.match_list[j]
         if len(matches) < self.min_pairs:
             i1.match_list[j] = []
@@ -126,9 +126,13 @@ class Matcher():
         #print "p1 = %s" % str(p1)
         #print "p2 = %s" % str(p2)
         if filter == "homography":
-            M, status = cv2.findHomography(p1, p2, cv2.RANSAC, tol)
+            #method = cv2.RANSAC
+            method = cv2.LMEDS
+            M, status = cv2.findHomography(p1, p2, method, tol)
         elif filter == "fundamental":
-            M, status = cv2.findFundamentalMat(p1, p2, cv2.RANSAC, tol)
+            # method = cv2.FM_RANSAC     
+            method = cv2.FM_LMEDS
+            M, status = cv2.findFundamentalMat(p1, p2, method, tol)
         elif filter == "none":
             status = np.ones(len(matches))
         else:
@@ -595,7 +599,7 @@ class Matcher():
             kp2 = self.copyKeyPoint(i2.kp_list[p[1]])
             p2 = M2.dot( np.hstack((kp2.pt, 1.0)) )[:2]
             kp2.pt = (p2[0], p2[1])
-            print p1, p2
+            # print p1, p2
             kp_pairs.append( (kp1, kp2) )
         if status == None:
             status = np.ones(len(kp_pairs), np.bool_)
