@@ -159,8 +159,9 @@ class ProjectMgr():
             self.source_dir = dirs['images-source']
             self.ned_reference_lla = project_dict['ned-reference-lla']
         except:
-            print "load error: " + str(sys.exc_info()[1])
-            print "Notice: unable to read =", project_file
+            if not create_if_needed:
+                print "load error: " + str(sys.exc_info()[1])
+                print "Notice: unable to read =", project_file
             print "Continuing with an empty project configuration"
  
         # load camera configuration
@@ -252,6 +253,7 @@ class ProjectMgr():
 
     def load_match_pairs(self):
         print ""
+        print "ProjectMgr.load_match_pairs():"
         print "Notice: this routine is depricated for most purposes, unless"
         print "resetting the match state of the system back to the original"
         print "set of found matches."
@@ -460,7 +462,7 @@ class ProjectMgr():
     # space, remap that to a vector in ned space (for camera
     # ypr=[0,0,0], and then transform that by the camera pose, returns
     # the vector from the camera, through the pixel, into ned space
-    def projectVectors(self, IK, body2ned, cam2body, uv_list, pose='direct'):
+    def projectVectors(self, IK, body2ned, cam2body, uv_list):
         proj_list = []
         for uv in uv_list:
             uvh = np.array([uv[0], uv[1], 1.0])
@@ -599,6 +601,41 @@ class ProjectMgr():
             bar.next()
         bar.finish()
         
+    def fastProjectKeypointsToGround(self, ground_m, cam_dict=None):
+        bar = Bar('Projecting keypoints to 3d:',
+                  max = len(self.image_list))
+        for image in self.image_list:
+            camw, camh = self.cam.get_image_params()
+            scale = float(image.width) / float(camw)
+            K = self.cam.get_K(scale)
+            IK = np.linalg.inv(K)
+            
+            # project the grid out into vectors
+            if cam_dict == None:
+                body2ned = image.get_body2ned() # IR
+            else:
+                body2ned = image.rvec_to_body2ned(cam_dict[image.name]['rvec'])
+                
+            # M is a transform to map the lens coordinate system (at
+            # zero roll/pitch/yaw to the ned coordinate system at zero
+            # roll/pitch/yaw).  It is essentially a +90 pitch followed
+            # by +90 roll (or equivalently a +90 yaw followed by +90
+            # pitch.)
+            cam2body = image.get_cam2body()
+            
+            vec_list = self.projectVectors(IK, body2ned, cam2body, image.uv_list)
+
+            # intersect the vectors with the surface to find the 3d points
+            if cam_dict == None:
+                pose = image.camera_pose
+            else:
+                pose = cam_dict[image.name]
+            pts_ned = self.intersectVectorsWithGroundPlane(pose, ground_m, vec_list)
+            image.coord_list = pts_ned
+            
+            bar.next()
+        bar.finish()
+
     # image mean reprojection error
     def compute_feature_mre(self, pose, K, image, kp, ned):
         rvec = pose['rvec']
