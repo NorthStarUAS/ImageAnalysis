@@ -368,34 +368,37 @@ class HUD:
 
         # center point
         tmp1 = self.ladder_helper(q0, a0, 0.0)
-        center = self.rotate_pt(tmp1, rot, self.ap_roll*d2r)
+        if tmp1 != None:
+            center = self.rotate_pt(tmp1, rot, self.ap_roll*d2r)
 
         # right vbar
         tmp1 = self.ladder_helper(q0, a0-a3, a1)
         tmp2 = self.ladder_helper(q0, a0-a3, a1+a3)
         tmp3 = self.ladder_helper(q0, a0-a2, a1+a3)
-        uv1 = self.rotate_pt(tmp1, rot, self.ap_roll*d2r)
-        uv2 = self.rotate_pt(tmp2, rot, self.ap_roll*d2r)
-        uv3 = self.rotate_pt(tmp3, rot, self.ap_roll*d2r)
-        if uv1 != None and uv2 != None and uv3 != None:
-            cv2.line(self.frame, center, uv1, color, self.line_width, cv2.CV_AA)
-            cv2.line(self.frame, center, uv3, color, self.line_width, cv2.CV_AA)
-            cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
-            cv2.line(self.frame, uv1, uv3, color, self.line_width, cv2.CV_AA)
-            cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.CV_AA)
+        if tmp1 != None and tmp2 != None and tmp3 != None:
+            uv1 = self.rotate_pt(tmp1, rot, self.ap_roll*d2r)
+            uv2 = self.rotate_pt(tmp2, rot, self.ap_roll*d2r)
+            uv3 = self.rotate_pt(tmp3, rot, self.ap_roll*d2r)
+            if uv1 != None and uv2 != None and uv3 != None:
+                cv2.line(self.frame, center, uv1, color, self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, center, uv3, color, self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv3, color, self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.CV_AA)
         # left vbar
         tmp1 = self.ladder_helper(q0, a0-a3, -a1)
         tmp2 = self.ladder_helper(q0, a0-a3, -a1-a3)
         tmp3 = self.ladder_helper(q0, a0-a2, -a1-a3)
-        uv1 = self.rotate_pt(tmp1, rot, self.ap_roll*d2r)
-        uv2 = self.rotate_pt(tmp2, rot, self.ap_roll*d2r)
-        uv3 = self.rotate_pt(tmp3, rot, self.ap_roll*d2r)
-        if uv1 != None and uv2 != None and uv3 != None:
-            cv2.line(self.frame, center, uv1, color, self.line_width, cv2.CV_AA)
-            cv2.line(self.frame, center, uv3, color, self.line_width, cv2.CV_AA)
-            cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
-            cv2.line(self.frame, uv1, uv3, color, self.line_width, cv2.CV_AA)
-            cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.CV_AA)
+        if tmp1 != None and tmp2 != None and tmp3 != None:
+            uv1 = self.rotate_pt(tmp1, rot, self.ap_roll*d2r)
+            uv2 = self.rotate_pt(tmp2, rot, self.ap_roll*d2r)
+            uv3 = self.rotate_pt(tmp3, rot, self.ap_roll*d2r)
+            if uv1 != None and uv2 != None and uv3 != None:
+                cv2.line(self.frame, center, uv1, color, self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, center, uv3, color, self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv3, color, self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.CV_AA)
 
     def draw_heading_bug(self):
         color = medium_orchid
@@ -438,21 +441,23 @@ class HUD:
         # right vbar
         tmp1 = self.ladder_helper(q0, a0-a2, a1)
         tmp2 = self.ladder_helper(q0, a0-a2, a1-a2)
-        uv1 = self.rotate_pt(tmp1, center, self.phi_rad)
-        uv2 = self.rotate_pt(tmp2, center, self.phi_rad)
-        if uv1 != None and uv2 != None:
-            cv2.line(self.frame, center, uv1, color, self.line_width, cv2.CV_AA)
-            cv2.line(self.frame, center, uv2, color, self.line_width, cv2.CV_AA)
-            cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
+        if tmp1 != None and tmp2 != None:
+            uv1 = self.rotate_pt(tmp1, center, self.phi_rad)
+            uv2 = self.rotate_pt(tmp2, center, self.phi_rad)
+            if uv1 != None and uv2 != None:
+                cv2.line(self.frame, center, uv1, color, self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, center, uv2, color, self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
         # left vbar
         tmp1 = self.ladder_helper(q0, a0-a2, -a1)
         tmp2 = self.ladder_helper(q0, a0-a2, -a1+a2)
-        uv1 = self.rotate_pt(tmp1, center, self.phi_rad)
-        uv2 = self.rotate_pt(tmp2, center, self.phi_rad)
-        if uv1 != None and uv2 != None:
-            cv2.line(self.frame, center, uv1, color, self.line_width, cv2.CV_AA)
-            cv2.line(self.frame, center, uv2, color, self.line_width, cv2.CV_AA)
-            cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
+        if tmp1 != None and tmp2 != None:
+            uv1 = self.rotate_pt(tmp1, center, self.phi_rad)
+            uv2 = self.rotate_pt(tmp2, center, self.phi_rad)
+            if uv1 != None and uv2 != None:
+                cv2.line(self.frame, center, uv1, color, self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, center, uv2, color, self.line_width, cv2.CV_AA)
+                cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.CV_AA)
 
     def draw_course(self):
         color = yellow
@@ -869,7 +874,10 @@ class HUD:
         if len(uv_list) > 1:
             for i in range(len(uv_list) - 1):
                 dist = dist_list[i]
-                size = int(round(200.0 / dist))
+                if dist > 0.0:
+                    size = int(round(200.0 / dist))
+                else:
+                    size = 2
                 if size < 2: size = 2
                 uv1 = uv_list[i]
                 uv2 = uv_list[i+1]
