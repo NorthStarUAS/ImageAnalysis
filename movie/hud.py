@@ -12,6 +12,8 @@ import cv2
 sys.path.append('../lib')
 import transformations
 
+import airports
+
 # helpful constants
 d2r = math.pi / 180.0
 r2d = 180.0 / math.pi
@@ -80,6 +82,7 @@ class HUD:
         self.act_ele = 0.0
         self.act_thr = 0.0
         self.act_rud = 0.0
+        self.airports = []
 
     def set_render_size(self, w, h):
         self.render_w = w
@@ -104,6 +107,8 @@ class HUD:
         
     def set_ned_ref(self, lat, lon):
         self.ref = [ lat, lon, 0.0]
+        if len(self.airports) == 0:
+            self.airports = airports.load('apt.csv', self.ref, 30000)
 
     def set_ground_m(self, ground_m):
         self.ground_m = ground_m
@@ -511,23 +516,24 @@ class HUD:
         rel_ned = [ pt_ned[0] - self.ned[0],
                     pt_ned[1] - self.ned[1],
                     pt_ned[2] - self.ned[2] ]
+        hdist = math.sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1])
         dist = math.sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1]
                          + rel_ned[2]*rel_ned[2])
         m2sm = 0.000621371
-        dist_sm = dist * m2sm
-        if dist_sm <= 15.0:
-            scale = 1.0 - dist_sm / 25.0
-            if dist_sm <= 7.5:
-                label += " (%.1f)" % dist_sm
+        hdist_sm = hdist * m2sm
+        if hdist_sm <= 15.0:
+            scale = 0.7 - (hdist_sm / 15.0) * 0.4
+            if hdist_sm <= 7.5:
+                label += " (%.1f)" % hdist_sm
             # normalize, and draw relative to aircraft ned so that label
             # separation works better
             rel_ned[0] /= dist
             rel_ned[1] /= dist
             rel_ned[2] /= dist
             self.draw_ned_point([self.ned[0] + rel_ned[0],
-                                     self.ned[1] + rel_ned[1],
-                                     self.ned[2] + rel_ned[2]],
-                                    label, scale=scale, vert='below')
+                                 self.ned[1] + rel_ned[1],
+                                 self.ned[2] + rel_ned[2]],
+                                label, scale=scale, vert='below')
 
     def draw_compass_points(self):
         # 30 Ticks
@@ -590,28 +596,8 @@ class HUD:
                             'Moon')
 
     def draw_airports(self):
-        kmsp = [ 44.882000, -93.221802, 256 ]
-        self.draw_lla_point(kmsp, 'KMSP')
-        ksgs = [ 44.857101, -93.032898, 250 ]
-        self.draw_lla_point(ksgs, 'KSGS')
-        kstp = [ 44.934502, -93.059998, 215 ]
-        self.draw_lla_point(kstp, 'KSTP')
-        my52 = [ 44.718601, -93.044098, 281 ]
-        self.draw_lla_point(my52, 'MY52')
-        kfcm = [ 44.827202, -93.457100, 276 ]
-        self.draw_lla_point(kfcm, 'KFCM')
-        kane = [ 45.145000, -93.211403, 278 ]
-        self.draw_lla_point(kane, 'KANE')
-        klvn = [ 44.627899, -93.228104, 293 ]
-        self.draw_lla_point(klvn, 'KLVN')
-        kmic = [ 45.062000, -93.353897, 265 ]
-        self.draw_lla_point(kmic, 'KMIC')
-        mn45 = [ 44.566101, -93.132202, 290 ]
-        self.draw_lla_point(mn45, 'MN45')
-        mn58 = [ 44.697701, -92.864098, 250 ]
-        self.draw_lla_point(mn58, 'MN58')
-        mn18 = [ 45.187199, -93.130501, 276 ]
-        self.draw_lla_point(mn18, 'MN18')
+        for apt in self.airports:
+            self.draw_lla_point([ apt[1], apt[2], apt[3] ], apt[0])
 
     def draw_nose(self):
         ned2body = transformations.quaternion_from_euler(self.psi_rad,
