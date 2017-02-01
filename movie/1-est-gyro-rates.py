@@ -10,9 +10,14 @@ import math
 import numpy as np
 import os
 
+from props import PropertyNode
+import props_json
+
 sys.path.append('../lib')
 import Render
 r = Render.Render()
+
+import cam_calib
 
 d2r = math.pi / 180.0
 
@@ -21,27 +26,67 @@ max_features = 500
 smooth = 0.005
 catchup = 0.02
 affine_minpts = 7
-fundamental_tol = 1.0
+tol = 2.0
 
 parser = argparse.ArgumentParser(description='Estimate gyro biases from movie.')
 parser.add_argument('--movie', required=True, help='movie file')
+parser.add_argument('--select-cam', type=int, help='select camera calibration')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
 parser.add_argument('--skip-frames', type=int, default=0, help='skip n initial frames')
-parser.add_argument('--no-equalize', action='store_true', help='do not equalize value')
+parser.add_argument('--equalize', action='store_true', help='equalize value')
 parser.add_argument('--draw-keypoints', action='store_true', help='draw keypoints on output')
 parser.add_argument('--draw-masks', action='store_true', help='draw stabilization masks')
 parser.add_argument('--stop-count', type=int, default=1, help='how many non-frames to absorb before we decide the movie is over')
 args = parser.parse_args()
 
-file = args.movie
+#file = args.movie
 scale = args.scale
 skip_frames = args.skip_frames
 
 # pathname work
-abspath = os.path.abspath(file)
+abspath = os.path.abspath(args.movie)
 filename, ext = os.path.splitext(abspath)
+dirname = os.path.dirname(args.movie)
 output_csv = filename + ".csv"
 output_avi = filename + "_smooth.avi"
+camera_config = dirname + "/camera.json"
+
+# load config file if it exists
+config = PropertyNode()
+props_json.load(camera_config, config)
+cam_yaw = config.getFloatEnum('mount_ypr', 0)
+cam_pitch = config.getFloatEnum('mount_ypr', 1)
+cam_roll = config.getFloatEnum('mount_ypr', 2)
+
+# setup camera calibration and distortion coefficients
+if args.select_cam:
+    # set the camera calibration from known preconfigured setups
+    name, K, dist = cam_calib.set_camera_calibration(args.select_cam)
+    config.setString('name', name)
+    config.setFloat("fx", K[0][0])
+    config.setFloat("fy", K[1][1])
+    config.setFloat("cu", K[0][2])
+    config.setFloat("cv", K[1][2])
+    for i, d in enumerate(dist):
+        config.setFloatEnum("dist_coeffs", i, d)
+    props_json.save(camera_config, config)
+else:
+    # load the camera calibration from the config file
+    name = config.getString('name')
+    size = config.getLen("dist_coeffs")
+    dist = []
+    for i in range(size):
+        dist.append( config.getFloatEnum("dist_coeffs", i) )
+    K = np.zeros( (3,3) )
+    K[0][0] = config.getFloat("fx")
+    K[1][1] = config.getFloat("fy")
+    K[0][2] = config.getFloat("cu")
+    K[1][2] = config.getFloat("cv")
+    K[2][2] = 1.0
+    print 'Camera:', name
+    
+K = K * args.scale
+K[2,2] = 1.0
 
 print "Opening ", args.movie
 try:
@@ -132,7 +177,7 @@ def filterByFundamental(p1, p2):
     space = ""
     status = []
     while inliers < total and total >= 7:
-        M, status = cv2.findFundamentalMat(p1, p2, cv2.RANSAC, fundamental_tol)
+        M, status = cv2.findFundamentalMat(p1, p2, cv2.LMEDS, tol)
         newp1 = []
         newp2 = []
         for i, flag in enumerate(status):
@@ -153,7 +198,7 @@ def filterByHomography(p1, p2):
     space = ""
     status = []
     while inliers < total and total >= 7:
-        M, status = cv2.findHomography(p1, p2, cv2.RANSAC, fundamental_tol)
+        M, status = cv2.findHomography(p1, p2, cv2.LMEDS, tol)
         newp1 = []
         newp2 = []
         for i, flag in enumerate(status):
@@ -297,7 +342,7 @@ abs_y = 0.0
 result = []
 stop_count = 0
 
-if not args.no_equalize:
+if args.equalize:
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
 
 while True:
@@ -331,55 +376,16 @@ while True:
     frame_scale = cv2.resize(frame, (0,0), fx=scale, fy=scale,
                              interpolation=method)
     cv2.imshow('scaled orig', frame_scale)
-
-    # experimental undistortion
-    K_RunCamHD2_1920x1080 \
-        = np.array( [[ 971.96149426,   0.        , 957.46750602],
-                     [   0.        , 971.67133264, 516.50578382],
-                     [   0.        ,   0.        ,   1.        ]] )
-
-
-    K_Gopro3_720_16x9 = np.array([ [1165.3,    0.0, 620.6],
-                                   [0.0,    1161.1, 328.1],
-                                   [0.0,       0.0,   1.0] ] )
-    # guessed from the 16x9 version
-    K_Gopro3_720_3x4 = np.array([ [1165.3,    0.0, 480],
-                           [0.0,    1165.3, 360],
-                           [0.0,       0.0, 1.0] ] )
-
-    K_960_3x4 = K_Gopro3_720_3x4 * (960.0 / 720.0)
-    K_960_3x4[2:2] = 1.0
-
-    K_1080_16x9 = K_Gopro3_720_16x9 * (1080.0 / 720.0)
-    K_1080_16x9[2,2] = 1.0
-
-    dist_none = [0.0, 0.0, 0.0, 0.0, 0.0]
-    dist_runcamhd2_1920x1080 = [-0.26910665, 0.10580125, 0.00048417, 0.00000925, -0.02321387]
-    dist_gopro1 = [ -0.18957, 0.037319, 0.0, 0.0, -0.00337 ] # ???
-    dist_gopro2 = [ -0.25761, 0.087709, 0.0, 0.0, -0.015219 ] # works for 8/12 rgb
-    dist_gopro3_720 = [ -0.36508, 0.22655, 0.0, 0.0, -0.0015674 ] # works for 8/12 rgb
-
-    # Mobius 1920x1080
-    K = np.array( [[1362.1,    0.0, 980.8],
-                   [   0.0, 1272.8, 601.3],
-                   [   0.0,    0.0,   1.0]] )
-    dist = [-0.36207197, 0.14627927, -0.00674558, 0.0008926, -0.02635695]
-
-    # Runcamhd2 1920x1440
-    # K = np.array( [[ 1296.11187055,     0.        ,   955.43024994],
-    #                [    0.        ,  1296.01457451,   691.47053988],
-    #                [    0.        ,     0.        ,     1.        ]] )
-    # dist = [-0.28250371, 0.14064665, 0.00061846, 0.00014488, -0.05106045]
-
-    K = K * args.scale
-    K[2,2] = 1.0
+    shape = frame_scale.shape
+    tol = shape[1] / 100.0
+    if tol < 1.0: tol = 1.0
 
     distort = True
     if distort:
         frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
     else:
         frame_undist = frame_scale    
-    if not args.no_equalize:
+    if args.equalize:
         frame_undist = r.aeq_value(frame_undist)
         
     process_hsv = False
@@ -395,7 +401,7 @@ while True:
         image = frame_undist
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    if not args.no_equalize:
+    if args.equalize:
         gray = clahe.apply(gray)
 
     kp_list = detector.detect(gray)
@@ -542,7 +548,7 @@ while True:
         accum = new_frame
     else:
         base = cv2.warpAffine(accum, affine_last, (cols, rows))
-        do_motion_fade = False
+        do_motion_fade = True
         if do_motion_fade:
             motion_mask = motion2(new_frame, base)
         else:
@@ -564,8 +570,8 @@ while True:
     cv2.imshow('bgr', res1)
     cv2.imshow('smooth', new_frame)
     cv2.imshow('final', final)
-    #output.write(final)
-    output.write(res1)
+    #output.write(res1)
+    output.write(final)
     if 0xFF & cv2.waitKey(5) == 27:
         break
 
