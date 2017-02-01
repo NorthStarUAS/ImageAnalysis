@@ -521,8 +521,8 @@ class HUD:
                          + rel_ned[2]*rel_ned[2])
         m2sm = 0.000621371
         hdist_sm = hdist * m2sm
-        if hdist_sm <= 15.0:
-            scale = 0.7 - (hdist_sm / 15.0) * 0.4
+        if hdist_sm <= 10.0:
+            scale = 0.7 - (hdist_sm / 10.0) * 0.4
             if hdist_sm <= 7.5:
                 label += " (%.1f)" % hdist_sm
             # normalize, and draw relative to aircraft ned so that label
