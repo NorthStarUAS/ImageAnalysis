@@ -127,7 +127,7 @@ class HUD:
         if int(self.time) > self.ned_last_time:
             self.ned_last_time = int(self.time)
             self.ned_history.append(ned)
-            while len(self.ned_history) > 600:
+            while len(self.ned_history) > 1200:
                 self.ned_history.pop(0)
         
     def update_ned(self, ned):
@@ -439,9 +439,10 @@ class HUD:
         a2 = 3.0
         q0 = transformations.quaternion_about_axis(self.psi_rad, [0.0, 0.0, -1.0])
         a0 = self.the_rad*r2d
-
+        print 'pitch:', a0, 'ap:', self.ap_pitch
+        
         # center point
-        center = self.ladder_helper(q0, self.the_rad*r2d, 0.0)
+        center = self.ladder_helper(q0, a0, 0.0)
 
         # right vbar
         tmp1 = self.ladder_helper(q0, a0-a2, a1)
@@ -873,6 +874,12 @@ class HUD:
                     elif uv2[0] < -self.render_w * 0.25 and uv1[0] > self.render_w * 1.25:
                         pass
                     elif abs(uv1[0] - uv2[0]) > self.render_w * 1.5:
+                        pass
+                    elif uv1[1] < -self.render_h * 0.25 and uv2[1] > self.render_h * 1.25:
+                        pass
+                    elif uv2[1] < -self.render_h * 0.25 and uv1[1] > self.render_h * 1.25:
+                        pass
+                    elif abs(uv1[1] - uv2[1]) > self.render_h * 1.5:
                         pass
                     else:
                         cv2.line(self.frame, uv1, uv2, white, 1,

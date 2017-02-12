@@ -346,6 +346,20 @@ hud2.set_units( args.airspeed_units, args.altitude_units)
 
 filt_alt = None
 
+if time_shift > 0:
+    # catch up the flight path history (in case the movie starts
+    # mid-flight.)  Note: xmin is the starting time of the filter data
+    # set.
+    print 'seeding flight track ...'
+    for time in np.arange(xmin, time_shift, 1.0 / float(fps)):
+        lat_deg = float(interp.filter_lat(time))*r2d
+        lon_deg = float(interp.filter_lon(time))*r2d
+        altitude_m = float(interp.air_true_alt(time))
+        ned = navpy.lla2ned( lat_deg, lon_deg, altitude_m,
+                             ref[0], ref[1], ref[2] )
+        hud1.update_time(time, interp.gps_unixtime(time))
+        hud1.update_ned(ned)
+    
 while True:
     ret, frame = capture.read()
     if not ret:
@@ -422,10 +436,15 @@ while True:
                                                       cam_roll * d2r,
                                                       'rzyx')
 
-    #print 'att:', [yaw_rad, pitch_rad, roll_rad]
-    ned2body = transformations.quaternion_from_euler(yaw_rad,
-                                                     pitch_rad,
-                                                     roll_rad,
+    # this function modifies the parameters you pass in so, avoid
+    # getting our data changed out from under us, by forcing copies (a
+    # = b, wasn't sufficient, but a = float(b) forced a copy.
+    tmp_yaw = float(yaw_rad)
+    tmp_pitch = float(pitch_rad)
+    tmp_roll = float(roll_rad)    
+    ned2body = transformations.quaternion_from_euler(tmp_yaw,
+                                                     tmp_pitch,
+                                                     tmp_roll,
                                                      'rzyx')
     body2ned = transformations.quaternion_inverse(ned2body)
 

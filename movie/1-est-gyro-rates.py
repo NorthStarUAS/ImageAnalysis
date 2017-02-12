@@ -548,7 +548,7 @@ while True:
         accum = new_frame
     else:
         base = cv2.warpAffine(accum, affine_last, (cols, rows))
-        do_motion_fade = True
+        do_motion_fade = False
         if do_motion_fade:
             motion_mask = motion2(new_frame, base)
         else:
