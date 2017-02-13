@@ -203,12 +203,21 @@ ycorr = np.correlate(movie_interp[:,1], flight_interp[:,1], mode='full')
 # display some stats/info
 max_index = np.argmax(ycorr)
 print "max index:", max_index
+
 shift = np.argmax(ycorr) - len(flight_interp)
 print "shift (pos):", shift
 start_diff = flight_interp[0][0] - movie_interp[0][0]
 print "start time diff:", start_diff
 time_shift = start_diff - (shift/args.resample_hz)
 print "movie time shift:", time_shift
+
+# shift_sec = np.argmax(ycorr) / args.resample_hz
+# print "shift (sec):", shift_sec
+# print flight_interp[0][0], movie_interp[0][0]
+# start_diff = flight_interp[0][0] - movie_interp[0][0]
+# print "start time diff:", start_diff
+# time_shift = start_diff + shift_sec
+# print "movie time shift:", time_shift
 
 # estimate  tx, ty vs. r, q multiplier
 tmin = np.amax( [np.amin(movie_interp[:,0]) + time_shift,

@@ -919,14 +919,16 @@ class HUD:
     # draw the conformal components of the hud (those that should
     # 'stick' to the real world view.
     def draw_conformal(self):
-        # self.draw_grid()
-        self.draw_track()
+        # things near infinity
         self.draw_horizon()
         self.draw_compass_points()
+        self.draw_astro()
+        # midrange things
+        self.draw_airports()
+        self.draw_track()
+        # cockpit things
         self.draw_pitch_ladder(beta_rad=0.0)
         self.draw_flight_path_marker()
-        self.draw_astro()
-        self.draw_airports()
         self.draw_velocity_vector()
 
     # draw the fixed indications (that always stay in the same place
