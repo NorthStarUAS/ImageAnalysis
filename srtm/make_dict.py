@@ -3,7 +3,7 @@
 import fileinput
 import json
 
-url_base = 'http://dds.cr.usgs.gov/srtm/version2_1/SRTM3'
+url_base = 'https://dds.cr.usgs.gov/srtm/version2_1/SRTM3'
 
 regions = ['Africa', 'Australia', 'Eurasia', 'Islands', 'North_America',
            'South_America']
