@@ -339,6 +339,12 @@ class ProjectMgr():
             if i.name == name:
                 return i
         return None
+    
+    def findIndexByName(self, name):
+        for i, img in enumerate(self.image_list):
+            if img.name == name:
+                return i
+        return None
 
     # compute a center reference location (lon, lat) for the group of
     # images.
