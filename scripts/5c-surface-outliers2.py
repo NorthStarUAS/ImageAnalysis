@@ -52,6 +52,7 @@ parser = argparse.ArgumentParser(description='Compute Delauney triangulation of 
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--stddev', default=5, type=int, help='standard dev threshold')
 parser.add_argument('--checkpoint', action='store_true', help='auto save results after each iteration')
+parser.add_argument('--show', action='store_true', help='show most extreme reprojection errors with matches.')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
@@ -82,6 +83,11 @@ def compute_surface_outliers():
             image = proj.image_list[ p[0] ]
             uv = list(image.kp_list[p[1]].pt)
             key = "%.2f-%.2f" % (uv[0], uv[1])
+            if key in image.feat_map:
+                print "Warning: already in feat_map =", image.name, key
+                idx = image.feat_map[key]
+                print '  ', matches_sba[idx][0]
+                print '  ', ned
             if True or not key in image.feat_map:
                 image.feat_3d.append( ned )
                 image.feat_uv.append( list(image.kp_list[p[1]].pt) )
@@ -162,7 +168,7 @@ def compute_surface_outliers():
     # is an outlier in both images it matches.)
     delete_list = sorted(set(delete_list), reverse=True)
     for index in delete_list:
-        #print "deleting", index
+        print "deleting", index
         matches_direct.pop(index)
         matches_sba.pop(index)
 

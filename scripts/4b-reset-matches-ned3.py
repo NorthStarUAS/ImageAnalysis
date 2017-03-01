@@ -31,6 +31,7 @@ parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--full-grouping', action='store_true', help='maximal feature grouping (caution: can blow up the sba process for a not-yet-known reason)')
 parser.add_argument('--fuzz', type=float, default=10.0, help='maximum 3d distance for joining match chains')
+parser.add_argument('--ground', type=float, help='ground elevation in meters')
 
 args = parser.parse_args()
 
@@ -42,22 +43,25 @@ proj.load_features()
 proj.undistort_keypoints()
 proj.load_match_pairs()
 
-# setup SRTM ground interpolator
-ref = proj.ned_reference_lla
-sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
-
 # compute keypoint usage map
 proj.compute_kp_usage()
-                      
-# fast way:
-# 1. make a grid (i.e. 8x8) of uv coordinates covering the whole image
-# 2. undistort these uv coordinates
-# 3. project them into vectors
-# 4. intersect them with the srtm terrain to get ned coordinates
-# 5. use linearndinterpolator ... g = scipy.interpolate.LinearNDInterpolator([[0,0],[1,0],[0,1],[1,1]], [[0,4,8],[1,3,2],[2,2,-4],[4,1,0]])
-#    with origin uv vs. 3d location to build a table
-# 6. interpolate original uv coordinates to 3d locations
-proj.fastProjectKeypointsTo3d(sss)
+
+if args.ground:
+    proj.fastProjectKeypointsToGround(args.ground)
+else:
+    # setup SRTM ground interpolator
+    ref = proj.ned_reference_lla
+    sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
+
+    # fast way:
+    # 1. make a grid (i.e. 8x8) of uv coordinates covering the whole image
+    # 2. undistort these uv coordinates
+    # 3. project them into vectors
+    # 4. intersect them with the srtm terrain to get ned coordinates
+    # 5. use linearndinterpolator ... g = scipy.interpolate.LinearNDInterpolator([[0,0],[1,0],[0,1],[1,1]], [[0,4,8],[1,3,2],[2,2,-4],[4,1,0]])
+    #    with origin uv vs. 3d location to build a table
+    # 6. interpolate original uv coordinates to 3d locations
+    proj.fastProjectKeypointsTo3d(sss)
 
 # For some features detection algorithms we expect duplicated feature
 # uv coordinates.  These duplicates may have different scaling or
@@ -293,7 +297,8 @@ while not done:
 # matches_direct format is a 3d_coord, img-feat, img-feat, ...  len of
 # 3 means features shows up on 2 images.  If we throw away all 2-image
 # features the solver becomes unstable.
-if False
+
+if False:
     print "discarding matches that appear in less than 3 images"
     matches_new = []
     for m in matches_direct:

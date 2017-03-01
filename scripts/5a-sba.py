@@ -162,14 +162,67 @@ for f in features:
     feature_list.append( f.tolist() )
 new_feats = transform_points(A, feature_list)
 
-# create the matches_sba list and update the ned coordinate
+# create the matches_sba list (copy) and update the ned coordinate
 matches_sba = list(matches_direct)
 for i, match in enumerate(matches_sba):
     #print type(new_feats[i])
     matches_sba[i][0] = new_feats[i]
 
-        
 # write out the updated match_dict
-print "Writing match file ..."
+print "Writing match_sba file ...", len(matches_sba), 'features'
 pickle.dump(matches_sba, open(args.project + "/matches_sba", "wb"))
 
+# collect/group match chains that refer to the same keypoint
+
+matches_tmp = list(matches_sba)
+
+count = 0
+done = False
+while not done:
+    print "Iteration:", count
+    count += 1
+    matches_new = []
+    matches_lookup = {}
+    for i, match in enumerate(matches_tmp):
+        # scan if any of these match points have been previously seen
+        # and record the match index
+        index = -1
+        for p in match[1:]:
+            key = "%d-%d" % (p[0], p[1])
+            if key in matches_lookup:
+                index = matches_lookup[key]
+                break
+        if index < 0:
+            # not found, append to the new list
+            for p in match[1:]:
+                key = "%d-%d" % (p[0], p[1])
+                matches_lookup[key] = len(matches_new)
+            matches_new.append(match)
+        else:
+            # found a previous reference, append these match items
+            existing = matches_new[index]
+            # only append items that don't already exist in the early
+            # match, and only one match per image (!)
+            for p in match[1:]:
+                key = "%d-%d" % (p[0], p[1])
+                found = False
+                for e in existing[1:]:
+                    if p[0] == e[0]:
+                        found = True
+                        break
+                if not found:
+                    # add
+                    existing.append(p)
+                    matches_lookup[key] = index
+            # print "new:", existing
+            # print 
+    if len(matches_new) == len(matches_tmp):
+        done = True
+    else:
+        matches_tmp = matches_new
+
+matches_group = matches_tmp
+
+# write out the updated match_dict
+print "Writing match_group file ...", len(matches_group), 'features'
+pickle.dump(matches_group, open(args.project + "/matches_group", "wb"))
