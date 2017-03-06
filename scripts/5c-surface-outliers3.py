@@ -110,7 +110,7 @@ def compute_surface_outliers():
             uv = image.uv_list[p[1]]
             if abs(uv[0]-1861.316) < 0.1:
                 if abs(uv[1] - 839.172) < 0.1:
-                       print image.name, 'match_sba:', i
+                       print image.name, 'match_sba index:', i
                        print 'sba:', matches_sba[i]
                        print 'direct:', matches_direct[i]
                        draw_match(i, -1)
@@ -143,11 +143,11 @@ def compute_surface_outliers():
                 d3d = np.linalg.norm(image.feat_3d[i] - image.feat_3d[index3d])
                 dist_2d.append(d2d)
                 dist_3d.append(d3d)
-                if image.match_sba_idx[i] == 60249:
+                if image.match_sba_idx[i] == 67469:
                     print image.feat_uv[index3d], image.feat_3d[index3d]
             z = np.polyfit(np.array(dist_2d), np.array(dist_3d), 1)
             p = np.poly1d(z)
-            if image.match_sba_idx[i] == 60249:
+            if image.match_sba_idx[i] == 67469:
                 print 'uv:', uv, image.feat_3d[i]
                 print dist_2d
                 print dist_3d
@@ -163,7 +163,7 @@ def compute_surface_outliers():
                 index3d = index[j]
                 d3d = np.linalg.norm(image.feat_3d[i] - image.feat_3d[index3d])
                 est_d3d = p(d2d)
-                if image.match_sba_idx[i] == 60249:
+                if image.match_sba_idx[i] == 67469:
                     print match_idx, 'diff:', abs(est_d3d - d3d)
                 match_idx = image.match_sba_idx[index3d]
                 matches_fit_sum[match_idx] += abs(est_d3d - d3d)

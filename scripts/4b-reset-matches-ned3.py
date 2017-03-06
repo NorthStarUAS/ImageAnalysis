@@ -25,7 +25,12 @@ import SRTM
 # projection onto DEM earth surface
 
 # extends 4b-reset-matches-ned2 by only joining chains with similar 3d
-# locations
+# locations ... this should be what we want to do, but I believe there
+# is a bug somewhere in linking or joinging or referencing that leads
+# to wrong associations and then messes up the downstream solver.  So
+# someday would like to come back to this and figure out what is going
+# wrong because ultimately if we squeeze out redundancy, the sba
+# solution should be better.
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
@@ -81,8 +86,9 @@ for image in proj.image_list:
             if not key in image.kp_remap:
                 image.kp_remap[key] = i
             else:
-                print "%d -> %d" % (i, image.kp_remap[key])
-                print " ", image.coord_list[i], image.coord_list[image.kp_remap[key]]
+                pass
+                #print "%d -> %d" % (i, image.kp_remap[key])
+                #print " ", image.coord_list[i], image.coord_list[image.kp_remap[key]]
     print " features used:", used
     print " unique by uv and used:", len(image.kp_remap)
 
@@ -146,7 +152,7 @@ if False:
                                            orient='aircraft')
       
 # after collapsing by uv coordinate, we could be left with duplicate
-# matches (matched at different scales or other attrivutes, but same
+# matches (matched at different scales or other attributes, but same
 # exact point.)
 print "Eliminating pair duplicates..."
 for i, i1 in enumerate(proj.image_list):
@@ -267,7 +273,7 @@ while not done:
             for p in match[1:]:
                 key = "%d-%d" % (p[0], p[1])
                 matches_lookup[key] = len(matches_new)
-            matches_new.append(match)
+            matches_new.append(list(match)) # shallow copy
         else:
             # found a previous reference, append these match items
             existing = matches_new[index]
@@ -285,14 +291,14 @@ while not done:
                             break
                     if not found:
                         # add
-                        existing.append(p)
+                        existing.append(list(p)) # shallow copy
                         matches_lookup[key] = index
                 # print "new:", existing
                 # print 
     if len(matches_new) == len(matches_direct):
         done = True
     else:
-        matches_direct = matches_new
+        matches_direct = list(matches_new) # shallow copy
 
 # matches_direct format is a 3d_coord, img-feat, img-feat, ...  len of
 # 3 means features shows up on 2 images.  If we throw away all 2-image
@@ -325,10 +331,10 @@ print "Estimating world coordinates of each keypoint..."
 for match in matches_direct:
     sum = np.array( [0.0, 0.0, 0.0] )
     for p in match[1:]:
-        if len(match) >= 4: print proj.image_list[ p[0] ].coord_list[ p[1] ]
+        #if len(match) >= 4: print proj.image_list[ p[0] ].coord_list[ p[1] ]
         sum += proj.image_list[ p[0] ].coord_list[ p[1] ]
     ned = sum / len(match[1:])
-    if len(match) >= 4: print "avg =", ned
+    # if len(match) >= 4: print "avg =", ned
     match[0] = ned.tolist()
 
 print "Writing match file ..."

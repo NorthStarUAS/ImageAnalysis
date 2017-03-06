@@ -95,6 +95,8 @@ def compute_reprojection_errors(image_list, cam):
             kp = image.uv_list[ p[1] ]  # undistorted uv point
             scale = float(image.width) / float(camw)
             dist = compute_feature_mre(cam.get_K(scale), image, kp, ned)
+            if i == 67364 or i == 67469:
+                print i, 'dist:', dist, 'ned:', ned
             result_list.append( (dist, i, j) )
 
     # sort by worst max error first

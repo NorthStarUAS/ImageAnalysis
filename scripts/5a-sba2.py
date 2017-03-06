@@ -12,8 +12,10 @@ sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
 
 import argparse
 import cPickle as pickle
+import cv2
 import math
 import numpy as np
+import random
 
 sys.path.append('../lib')
 import Matcher
@@ -65,6 +67,59 @@ def transform_points( A, pts_list ):
                          float(dst[2][i]) ] )
     return result
 
+# experimental, draw a visual of a match point in all it's images
+def draw_match(i, index):
+    green = (0, 255, 0)
+    red = (0, 0, 255)
+
+    match = matches_direct[i]
+    print 'match:', match, 'index:', index
+    for j, m in enumerate(match[1:]):
+        print ' ', m, proj.image_list[m[0]]
+        img = proj.image_list[m[0]]
+        # kp = img.kp_list[m[1]].pt # distorted
+        kp = img.uv_list[m[1]]  # undistored
+        print ' ', kp
+        rgb = img.load_rgb()
+        h, w = rgb.shape[:2]
+        crop = True
+        range = 300
+        if crop:
+            cx = int(round(kp[0]))
+            cy = int(round(kp[1]))
+            if cx < range:
+                xshift = range - cx
+                cx = range
+            elif cx > (w - range):
+                xshift = (w - range) - cx
+                cx = w - range
+            else:
+                xshift = 0
+            if cy < range:
+                yshift = range - cy
+                cy = range
+            elif cy > (h - range):
+                yshift = (h - range) - cy
+                cy = h - range
+            else:
+                yshift = 0
+            print 'size:', w, h, 'shift:', xshift, yshift
+            rgb1 = rgb[cy-range:cy+range, cx-range:cx+range]
+            if ( j == index ):
+                color = red
+            else:
+                color = green
+            cv2.circle(rgb1, (range-xshift,range-yshift), 2, color, thickness=2)
+        else:
+            scale = 790.0/float(w)
+            rgb1 = cv2.resize(rgb, (0,0), fx=scale, fy=scale)
+            cv2.circle(rgb1, (int(round(kp[0]*scale)), int(round(kp[1]*scale))), 2, green, thickness=2)
+        cv2.imshow(img.name, rgb1)
+    print 'waiting for keyboard input...'
+    key = cv2.waitKey() & 0xff
+    cv2.destroyAllWindows()
+
+
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
@@ -75,6 +130,99 @@ proj.undistort_keypoints()
 matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )
 print "unique features:", len(matches_direct)
 
+# collect/group match chains that refer to the same keypoint
+matches_tmp = list(matches_direct) # shallow copy
+count = 0
+done = False
+while not done:
+    print "Iteration:", count
+    count += 1
+    matches_new = []
+    matches_lookup = {}
+    for i, match in enumerate(matches_tmp):
+        # scan if any of these match points have been previously seen
+        # and record the match index
+        index = -1
+        for p in match[1:]:
+            key = "%d-%d" % (p[0], p[1])
+            if key in matches_lookup:
+                index = matches_lookup[key]
+                break
+        if index < 0:
+            # not found, append to the new list
+            for p in match[1:]:
+                key = "%d-%d" % (p[0], p[1])
+                matches_lookup[key] = len(matches_new)
+            matches_new.append(list(match)) # shallow copy
+        else:
+            # found a previous reference, append these match items
+            existing = matches_new[index]
+            # only append items that don't already exist in the early
+            # match, and only one match per image (!)
+            for p in match[1:]:
+                key = "%d-%d" % (p[0], p[1])
+                found = False
+                for e in existing[1:]:
+                    if p[0] == e[0]:
+                        found = True
+                        break
+                if not found:
+                    # add
+                    existing.append(list(p)) # shallow copy
+                    matches_lookup[key] = index
+            # print "new:", existing
+            # print 
+    if len(matches_new) == len(matches_tmp):
+        done = True
+    else:
+        matches_tmp = list(matches_new) # shallow copy
+
+# count the match groups that are longer than just pairs
+group_count = 0
+for m in matches_tmp:
+    if len(m) > 3:
+        group_count += 1
+
+print "Number of groupings:", group_count
+
+# add some grouped matches to the original matches_direct
+count = 0
+matches_direct = []
+while True:
+    index = random.randrange(len(matches_tmp))
+    print "index:", index
+    match = matches_tmp[index]
+    if count > 100:
+        break
+    if len(match) > 3:
+        # append whole match: matches_direct.append(match)
+        
+        # append pair combinations
+        ned = match[0]
+        for i in range(1, len(match)-1):
+            for j in range(i+1, len(match)):
+                print i, j
+                matches_direct.append( [ ned, match[i], match[j] ] )
+        #draw_match(len(matches_direct)-1, -1)
+        count += 1
+        
+# add all the grouped matches pair-wise
+matches_direct = []
+for match in matches_tmp:
+    # append pair combinations
+    ned = match[0]
+    for i in range(1, len(match)-1):
+        for j in range(i+1, len(match)):
+            print i, j
+            matches_direct.append( [ ned, match[i], match[j] ] )
+    #draw_match(len(matches_direct)-1, -1)
+
+# now forget all that and just add the matches referencing more than 2 views
+# matches_direct = []
+# for m in matches_tmp:
+#     if len(m) > 3:
+#         matches_direct.append(m)
+        
 image_width = proj.image_list[0].width
 camw, camh = proj.cam.get_image_params()
 scale = float(image_width) / float(camw)
@@ -87,8 +235,15 @@ cameras, features = sba.run_live()
 for i, image in enumerate(proj.image_list):
     orig = image.camera_pose
     new = cameras[i]
-    newq = np.array( [ new[0], new[1], new[2], new[3] ] )
-    tvec = np.array( [ new[4], new[5], new[6] ] )
+    if len(new) == 7:
+        newq = np.array( [ new[0], new[1], new[2], new[3] ] )
+        tvec = np.array( [ new[4], new[5], new[6] ] )
+    elif len(new) == 12:
+        newq = np.array( new[5:9] )
+        tvec = np.array( new[9:12] )
+    elif len(new) == 17:
+        newq = np.array( new[10:14] )
+        tvec = np.array( new[14:17] )
     Rned2cam = transformations.quaternion_matrix(newq)[:3,:3]
     cam2body = image.get_cam2body()
     Rned2body = cam2body.dot(Rned2cam)
@@ -176,58 +331,3 @@ for i, match in enumerate(matches_sba):
 # write out the updated match_dict
 print "Writing match_sba file ...", len(matches_sba), 'features'
 pickle.dump(matches_sba, open(args.project + "/matches_sba", "wb"))
-
-# collect/group match chains that refer to the same keypoint
-
-matches_tmp = list(matches_sba)
-
-count = 0
-done = False
-while not done:
-    print "Iteration:", count
-    count += 1
-    matches_new = []
-    matches_lookup = {}
-    for i, match in enumerate(matches_tmp):
-        # scan if any of these match points have been previously seen
-        # and record the match index
-        index = -1
-        for p in match[1:]:
-            key = "%d-%d" % (p[0], p[1])
-            if key in matches_lookup:
-                index = matches_lookup[key]
-                break
-        if index < 0:
-            # not found, append to the new list
-            for p in match[1:]:
-                key = "%d-%d" % (p[0], p[1])
-                matches_lookup[key] = len(matches_new)
-            matches_new.append(match)
-        else:
-            # found a previous reference, append these match items
-            existing = matches_new[index]
-            # only append items that don't already exist in the early
-            # match, and only one match per image (!)
-            for p in match[1:]:
-                key = "%d-%d" % (p[0], p[1])
-                found = False
-                for e in existing[1:]:
-                    if p[0] == e[0]:
-                        found = True
-                        break
-                if not found:
-                    # add
-                    existing.append(p)
-                    matches_lookup[key] = index
-            # print "new:", existing
-            # print 
-    if len(matches_new) == len(matches_tmp):
-        done = True
-    else:
-        matches_tmp = matches_new
-
-matches_group = matches_tmp
-
-# write out the updated match_dict
-print "Writing match_group file ...", len(matches_group), 'features'
-pickle.dump(matches_group, open(args.project + "/matches_group", "wb"))
