@@ -51,6 +51,37 @@ class SBA():
             f.write(s)
         f.close()
 
+        # produce a cams file with variable K
+        f = open( self.root + '/sba-cams-varK.txt', 'w' )
+        for image in image_list:
+            body2cam = image.get_body2cam()
+            ned2body = image.get_ned2body()
+            Rtotal = body2cam.dot( ned2body )
+            q = transformations.quaternion_from_matrix(Rtotal)
+            rvec, tvec = image.get_proj()
+            s = "%.5f %.5f %.5f %.5f %.1f %.8f %.8f %.8f %.8f %.8f %.8f %.8f\n" % \
+                (K[0,0], K[0,2], K[1,2], K[1,1]/K[0,0], 0.0,
+                 q[0], q[1], q[2], q[3],
+                 tvec[0,0], tvec[1,0], tvec[2,0])
+            f.write(s)
+        f.close()
+
+        # produce a cams file with variable K and D
+        f = open( self.root + '/sba-cams-varKD.txt', 'w' )
+        for image in image_list:
+            body2cam = image.get_body2cam()
+            ned2body = image.get_ned2body()
+            Rtotal = body2cam.dot( ned2body )
+            q = transformations.quaternion_from_matrix(Rtotal)
+            rvec, tvec = image.get_proj()
+            s = "%.5f %.5f %.5f %.5f %.1f %.2f %.2f %.2f %.2f %.2f %.8f %.8f %.8f %.8f %.8f %.8f %.8f\n" % \
+                (K[0,0], K[0,2], K[1,2], K[1,1]/K[0,0], 0.0,
+                 0.0, 0.0, 0.0, 0.0, 0.0,
+                 q[0], q[1], q[2], q[3],
+                 tvec[0,0], tvec[1,0], tvec[2,0])
+            f.write(s)
+        f.close()
+
         # iterate through the matches dictionary to produce a list of matches
         f = open( self.root + '/sba-points.txt', 'w' )
         for match in matches_list:
@@ -80,9 +111,8 @@ class SBA():
     def run(self):
         command = []
         command.append( self.program )
-        command.append( self.root + '/sba-cams.txt' )
+        command.append( self.root + '/sba-cams-varK.txt' )
         command.append( self.root + '/sba-points.txt' )
-        command.append( self.root + '/sba-calib.txt' )
         print "Running:", command
         result = subprocess.check_output( command )
 
@@ -131,9 +161,8 @@ class SBA():
     def run_live(self):
         command = []
         command.append( self.program )
-        command.append( self.root + '/sba-cams.txt' )
+        command.append( self.root + '/sba-cams-varK.txt' )
         command.append( self.root + '/sba-points.txt' )
-        command.append( self.root + '/sba-calib.txt' )
         print "Running:", command
 
         #result = subprocess.check_output( command )
@@ -175,13 +204,13 @@ class SBA():
                     state = 'structure'
                 else:
                     tokens = line.split()
-                    if state == 'motion' and len(tokens) == 7:
+                    if state == 'motion' and len(tokens) > 0:
                         # print "camera:", np.array(tokens, dtype=float)
                         cameras.append( np.array(tokens, dtype=float) )
                     elif state == 'structure' and len(tokens) == 3:
                         # print "feature:", np.array(tokens, dtype=float)
                         features.append( np.array(tokens, dtype=float) )
-                    else:
+                    elif len(line):
                         print line
             # read next line
             result = process.stdout.readline()

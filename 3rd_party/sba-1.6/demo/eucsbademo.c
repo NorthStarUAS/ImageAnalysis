@@ -13,8 +13,8 @@
 
 #define CLOCKS_PER_MSEC (CLOCKS_PER_SEC/1000.0)
 
-#define MAXITER         100
-#define MAXITER2        150
+#define MAXITER         100 // 100
+#define MAXITER2        150 // 150
 
 
 /* pointers to additional data, used for computed image projections and their jacobians */
