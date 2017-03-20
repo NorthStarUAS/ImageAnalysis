@@ -11,7 +11,7 @@
 
 ## 5a-sba1.py
 
-Original attempt, depricated in favor of 5a-sba2.py
+Original attempt, deprecated in favor of 5a-sba2.py
 
 ## 5a-sba2.py
 
@@ -21,12 +21,12 @@ Takes initial direct georeference scene layout and runs bundle adjustment.
 
 Uses image connectivity structure combined with solvepnp() and a
 custom multi-vector triangulation function to assemble scene.  Works
-well untill we run out of sufficient connectivity.
+well until we run out of sufficient connectivity.
 
 ## 5a-sba4.py
 
 Test of opencv3's findEssentialMat() and recoverPose() to build the
-initial sceney construction.
+initial scenery construction.
 
 
-# 6. Render Resulst
+# 6. Render Results
