@@ -140,12 +140,15 @@ print "Building raw mesh interpolator"
 raw_points = []
 raw_values = []
 sum_values = 0.0
+sum_count = 0
 for match in matches_sba:
     ned = match[0]
-    raw_points.append( [ned[1], ned[0]] )
-    raw_values.append( -ned[2] )
-    sum_values += -ned[2]
-avg_height = sum_values / len(matches_sba)
+    if ned != None:
+        raw_points.append( [ned[1], ned[0]] )
+        raw_values.append( -ned[2] )
+        sum_values += -ned[2]
+        sum_count += 1
+avg_height = sum_values / sum_count
 print "Average elevation = %.1f" % ( avg_height )
 tri = scipy.spatial.Delaunay(np.array(raw_points))
 interp = scipy.interpolate.LinearNDInterpolator(tri, raw_values)
@@ -164,15 +167,23 @@ for p in raw_points:
     if p[1] > y_max: y_max = p[1]
 print "Area coverage = %.1f,%.1f to %.1f,%.1f (%.1f x %.1f meters)" % \
     (x_min, y_min, x_max, y_max, x_max-x_min, y_max-y_min)
+# temporary
+x_min = -400
+x_max = 400
+y_min = -400
+y_max = 400
 
 # now count how many features show up in each image
 for image in proj.image_list:
     image.feature_count = 0
-for i, match in enumerate(matches_sba):
-    for j, p in enumerate(match[1:]):
-        if p[1] != [-1, -1]:
+for match in matches_sba:
+    if match[0] != None:
+        for p in match[1:]:
             image = proj.image_list[ p[0] ]
             image.feature_count += 1
+for image in proj.image_list:
+    print image.feature_count,
+print
 
 # # compute number of connections per image
 # for image in proj.image_list:
@@ -192,9 +203,9 @@ grid_points = []
 grid_values = []
 for y in y_list:
     for x in x_list:
-        grid_points.append( [x, y] )
         value = interp([x, y])
         if value:
+            grid_points.append( [x, y] )
             grid_values.append( interp([x, y]) )
 
 print "Building grid triangulation..."
@@ -245,7 +256,7 @@ for tri in tri.simplices:
     for image in proj.image_list:
         ok = True
         # reject images with no connections to the set
-        if image.feature_count == 0:
+        if image.connection_order < 0:
             ok = False
             continue
         # quick 3d bounding radius rejection
@@ -286,7 +297,9 @@ for tri in tri.simplices:
             #metric = dist_cam * dist_img
             #metric = dist_cam
             cycle_gain = 0.02
-            metric = dist_cam * (1 + dist_cycle * cycle_gain)
+            #metric = dist_cam * (1 + dist_cycle * cycle_gain)
+            #if metric < best_metric:
+            metric = image.connection_order
             if metric < best_metric:
                 best_metric = metric
                 best_image = image
