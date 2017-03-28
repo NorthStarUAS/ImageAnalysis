@@ -174,7 +174,88 @@ def my_triangulate(matches, placed_images, min_vectors=3):
             p = LineSolver.ls_lines_intersection(points, vectors, transpose=True).tolist()
             #print p, p[0]
             match[0] = [ p[0][0], p[1][0], p[2][0] ]
+            
+def quaternion_angle(a, b):
+    a_inv = transformations.quaternion_inverse(a)
+    res = transformations.quaternion_multiply(b, a_inv)
+    res = res / np.linalg.norm(res)
+    angle = math.acos(res[0]) * 2
+    if angle < math.pi: angle += 2*math.pi
+    if angle > math.pi: angle -= 2*math.pi
+    return angle
 
+# dump all the orientation quaternion components into a big
+# vector/list for the optimizer.
+def initialGuess():
+    initial = []
+    for i, i1 in enumerate(proj.image_list):
+        (ned1, ypr1, quat1) = i1.get_camera_pose_sba()
+        initial.extend(quat1.tolist())
+    return initial        
+
+# For each matching pair of images we can compute an 'essential'
+# matrix E.  Decomposing E gives us the relative rotation between the
+# two camera poses as well as the relative direction of the two
+# cameras.  This function compares the difference between the actual
+# current pair angle offset with the 'ideal' offset and generates a
+# metric based on that.
+def errorFunc(xk):
+    # print "Error metric (SBA)"
+    image_sum = 0
+    image_count = 0
+    for i, i1 in enumerate(proj.image_list):
+        pair_sum = 0
+        pair_count = 0
+        for j, i2 in enumerate(proj.image_list):
+            if i == j:
+                continue
+            #(ned1, ypr1, quat1_sba) = i1.get_camera_pose_sba()
+            #(ned2, ypr2, quat2_sba) = i2.get_camera_pose_sba()
+            quat1 = xk[i*4:i*4+4]
+            quat2 = xk[j*4:j*4+4]
+            # print quat1, quat2
+            R = i1.R_list[j]
+            if R == None:
+                # no match
+                continue
+            #print 'R:', R
+            #Rh = np.concatenate((R, np.zeros((3,1))), axis=1)
+            #print 'Rh:', Rh
+            #Rh = np.concatenate((Rh, np.zeros((1,4))), axis=0)
+            #Rh[3,3] = 1
+            #print Rh              
+            #q = transformations.quaternion_from_matrix(R)
+            q_inv = i1.q_inv_list[j]
+            q1_maybe = transformations.quaternion_multiply(q_inv, quat2)
+            q1_maybe = q1_maybe / np.linalg.norm(q1_maybe)
+            #q2_maybe = transformations.quaternion_multiply(q, quat1)
+            #q2_maybe = q2_maybe / np.linalg.norm(q2_maybe)
+            angle1 = quaternion_angle(quat1, q1_maybe)
+            #angle2 = quaternion_angle(quat2, q2_maybe)
+            pair_err = angle1
+            # print i, j
+            # print ' q1: ', quat1
+            # print ' q2: ', quat2
+            # print ' q:  ', q
+            # print ' q1?:', q1_maybe
+            # print ' q2?:', q2_maybe
+            # print ' ang1:', quaternion_angle(quat1, q1_maybe)
+            # print ' ang2:', quaternion_angle(quat2, q2_maybe)
+            pair_sum += pair_err * pair_err * i1.weight_list[j]
+            pair_count += i1.weight_list[j]
+        if pair_count > 0:
+            image_err = math.sqrt(pair_sum / pair_count)
+            # print 'image error:', image_err
+            image_sum += image_err * image_err
+            image_count += 1
+    if image_count > 0:
+        total_err = math.sqrt(image_sum / image_count)
+        # print 'total error:', total_err
+    return total_err
+
+def printStatus(xk):
+    print 'Current value:', errorFunc(xk)
+    
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
@@ -195,8 +276,16 @@ K = proj.cam.get_K(scale)
 print "K:", K
 IK = np.linalg.inv(K)
 
-# compute the essential matrix for all match pairs
+# compute the essential matrix and relative poses for all match pairs
+#method = cv2.RANSAC
+method = cv2.LMEDS
 for i, i1 in enumerate(proj.image_list):
+    i1.E_list = [None] * len(proj.image_list) # essential matrix for pair
+    i1.R_list = [None] * len(proj.image_list) # relative rotation matrix
+    i1.q_inv_list = [None] * len(proj.image_list) # precompute to save time
+    i1.weight_list = [None] * len(proj.image_list) # precompute a weight metric
+    i1.tvec_list = [None] * len(proj.image_list) # relative translation vector
+    i1.d_list = [None] * len(proj.image_list) # gps distance between pair
     for j, i2 in enumerate(proj.image_list):
         matches = i1.match_list[j]
         if i == j or len(matches) < 5:
@@ -209,18 +298,66 @@ for i, i1 in enumerate(proj.image_list):
             uv2.append( i2.uv_list[pair[1]] )
         uv1 = np.float32(uv1)
         uv2 = np.float32(uv2)
-        #method = cv2.RANSAC
-        method = cv2.LMEDS
         E, mask = cv2.findEssentialMat(points1=uv1, points2=uv2,
                                        cameraMatrix=K,
                                        method=method)
         print i1.name, 'vs', i2.name
         print E
         print
-                                       
+        (n, R, tvec, mask) = cv2.recoverPose(E=E,
+                                          points1=uv1, points2=uv2,
+                                          cameraMatrix=K)
+        print '  inliers:', n, 'of', len(uv1)
+        print '  R:', R
+        print '  tvec:', tvec
+
+        # convert R to homogeonous
+        #Rh = np.concatenate((R, np.zeros((3,1))), axis=1)
+        #Rh = np.concatenate((Rh, np.zeros((1,4))), axis=0)
+        #Rh[3,3] = 1
+        # extract the equivalent quaternion, and invert
+        q = transformations.quaternion_from_matrix(R)
+        q_inv = transformations.quaternion_inverse(q)
+
+        # generate a rough estimate of uv area of covered by common
+        # features (used as a weighting factor)
+        minu = maxu = uv1[0][0]
+        minv = maxv = uv1[0][1]
+        for uv in uv1:
+            #print uv
+            if uv[0] < minu: minu = uv[0]
+            if uv[0] > maxu: maxu = uv[0]
+            if uv[1] < minv: minv = uv[1]
+            if uv[1] > maxv: maxv = uv[1]
+        area = (maxu-minu)*(maxv-minv)
+        # print 'u:', minu, maxu
+        # print 'v:', minv, maxv
+        # print 'area:', area
+
+        # compute a weight metric, credit more matches between a pair,
+        # and credict a bigger coverage area
+        weight = area * len(uv1)
         
+        (ned1, ypr1, quat1) = i1.get_camera_pose()
+        (ned2, ypr2, quat2) = i2.get_camera_pose()
+        diff = np.array(ned2) - np.array(ned1)
+        dist = np.linalg.norm( diff )
+        dir = diff / dist
+        print 'dist:', dist, 'ned dir:', dir[0], dir[1], dir[2]
+
+        Rbody2ned = i1.get_body2ned()
+        cam2body = i1.get_cam2body()
+        body2cam = i1.get_body2cam()
+        est_dir = Rbody2ned.dot(cam2body).dot(R).dot(tvec)
+        est_dir = est_dir / np.linalg.norm(est_dir) # normalize
+        print 'est dir:', est_dir.tolist()
         
-            
+        i1.E_list[j] = E
+        i1.R_list[j] = R
+        i1.q_inv_list[j] = q_inv
+        i1.tvec_list[j] = tvec
+        i1.d_list[j] = dist
+        i1.weight_list[j] = weight
 
 # collect/group match chains that refer to the same keypoint
 matches_group = list(matches_direct) # shallow copy
@@ -278,44 +415,6 @@ for m in matches_group:
 
 print "Number of extended groupings:", group_count
 
-# add some grouped matches to the original matches_direct
-# count = 0
-# matches_direct = []
-# while True:
-#     index = random.randrange(len(matches_group))
-#     print "index:", index
-#     match = matches_group[index]
-#     if count > 100:
-#         break
-#     if len(match) > 3:
-#         # append whole match: matches_direct.append(match)
-        
-#         # append pair combinations
-#         ned = match[0]
-#         for i in range(1, len(match)-1):
-#             for j in range(i+1, len(match)):
-#                 print i, j
-#                 matches_direct.append( [ ned, match[i], match[j] ] )
-#         #draw_match(len(matches_direct)-1, -1)
-#         count += 1
-        
-# # add all the grouped matches pair-wise
-# matches_direct = []
-# for match in matches_group:
-#     # append pair combinations
-#     ned = match[0]
-#     for i in range(1, len(match)-1):
-#         for j in range(i+1, len(match)):
-#             print i, j
-#             matches_direct.append( [ ned, match[i], match[j] ] )
-#     #draw_match(len(matches_direct)-1, -1)
-
-# now forget all that and just add the matches referencing more than 2 views
-# matches_direct = []
-# for m in matches_group:
-#     if len(m) > 3:
-#         matches_direct.append(m)
-
 # initialize sba camera pose to direct pose
 for image in proj.image_list:
     (ned, ypr, q) = image.get_camera_pose()
@@ -331,6 +430,16 @@ proj.save_images_meta()
 # null all the match locations
 for match in matches_group:
     match[0] = None
+
+from scipy.optimize import minimize
+initial = initialGuess()
+print 'Optimizing %d values.' % (len(initial))
+print 'Starting value:', errorFunc(initial)
+res = minimize(errorFunc,
+               initial,
+               options={'disp': True},
+               callback=printStatus)
+print res
 
 while True:
     print "Start of top level placing algorithm..."
@@ -472,6 +581,8 @@ while True:
     # write out the updated matches_group file as matches_sba
     print "Writing match_sba file ...", len(matches_group), 'features'
     pickle.dump(matches_group, open(args.project + "/matches_sba", "wb"))
+
+    errorFunc()
 
     try:
         print 'All image positions updated...'
