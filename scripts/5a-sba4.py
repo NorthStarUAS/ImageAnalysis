@@ -188,10 +188,25 @@ def quaternion_angle(a, b):
 # vector/list for the optimizer.
 def initialGuess():
     initial = []
-    for i, i1 in enumerate(proj.image_list):
-        (ned1, ypr1, quat1) = i1.get_camera_pose_sba()
-        initial.extend(quat1.tolist())
+    for i, image in enumerate(proj.image_list):
+        (ned, ypr, quat) = image.get_camera_pose()
+        initial.extend(quat.tolist())
     return initial        
+
+# dump all the orientation quaternion components into a big
+# vector/list for the optimizer.
+def saveOrientation(xk):
+    for i, image in enumerate(proj.image_list):
+        (ned_orig, ypr_orig, quat_orig) = image.get_camera_pose_sba()
+        quat = xk[i*4:i*4+4]
+        # convert q to ypr
+        ypr = transformations.euler_from_quaternion(quat, 'rzyx')
+        # q = transformations.quaternion_from_euler(ypr[0], ypr[1], ypr[2], 'rzyx')
+        ypr_deg = [ ypr[0]*r2d, ypr[1]*r2d, ypr[2]*r2d ]
+        image.set_camera_pose_sba(ned=ned_orig, ypr=ypr_deg)
+    proj.save_images_meta()
+
+        
 
 # For each matching pair of images we can compute an 'essential'
 # matrix E.  Decomposing E gives us the relative rotation between the
@@ -433,6 +448,7 @@ for match in matches_group:
 
 from scipy.optimize import minimize
 initial = initialGuess()
+saveOrientation(initial)
 print 'Optimizing %d values.' % (len(initial))
 print 'Starting value:', errorFunc(initial)
 res = minimize(errorFunc,
