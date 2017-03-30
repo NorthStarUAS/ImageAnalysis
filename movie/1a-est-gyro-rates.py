@@ -2,7 +2,7 @@
 
 # find our custom built opencv first
 import sys
-sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
+sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
 import cv2
@@ -15,11 +15,13 @@ import props_json
 
 sys.path.append('../lib')
 import Render
+import transformations
 r = Render.Render()
 
 import cam_calib
 
 d2r = math.pi / 180.0
+r2d = 180.0 / math.pi
 
 match_ratio = 0.75
 max_features = 500
@@ -99,14 +101,14 @@ print "ok opening video"
 capture.read()
 print "ok reading first frame"
 
-fps = capture.get(cv2.cv.CV_CAP_PROP_FPS)
+fps = capture.get(cv2.CAP_PROP_FPS)
 print "fps = %.2f" % fps
-fourcc = int(capture.get(cv2.cv.CV_CAP_PROP_FOURCC))
-w = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH) * scale )
-h = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT) * scale )
+fourcc = int(capture.get(cv2.CAP_PROP_FOURCC))
+w = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) * scale )
+h = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) * scale )
 
 #outfourcc = cv2.cv.CV_FOURCC('F', 'M', 'P', '4')
-outfourcc = cv2.cv.CV_FOURCC('M', 'J', 'P', 'G')
+outfourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
 #outfourcc = cv2.cv.CV_FOURCC('X', 'V', 'I', 'D')
 #outfourcc = cv2.cv.CV_FOURCC('X', '2', '6', '4')
 #outfourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -171,47 +173,36 @@ def filterMatches(kp1, kp2, matches):
     kp_pairs = zip(mkp1, mkp2)
     return p1, p2, kp_pairs, idx_pairs, mkp1
 
-def filterByFundamental(p1, p2):
+def filterFeatures(p1, p2, K, method):
     inliers = 0
     total = len(p1)
     space = ""
     status = []
-    while inliers < total and total >= 7:
-        M, status = cv2.findFundamentalMat(p1, p2, cv2.LMEDS, tol)
-        newp1 = []
-        newp2 = []
-        for i, flag in enumerate(status):
-            if flag:
-                newp1.append(p1[i])
-                newp2.append(p2[i])
-        p1 = np.float32(newp1)
-        p2 = np.float32(newp2)
-        inliers = np.sum(status)
-        total = len(status)
-        #print '%s%d / %d  inliers/matched' % (space, np.sum(status), len(status))
-        space += " "
-    return status, p1, p2
-
-def filterByHomography(p1, p2):
-    inliers = 0
-    total = len(p1)
-    space = ""
-    status = []
-    while inliers < total and total >= 7:
+    M = None
+    if len(p1) < 7:
+        # not enough points
+        return None, np.zeros(total), [], []
+    if method == 'homography':
         M, status = cv2.findHomography(p1, p2, cv2.LMEDS, tol)
-        newp1 = []
-        newp2 = []
-        for i, flag in enumerate(status):
-            if flag:
-                newp1.append(p1[i])
-                newp2.append(p2[i])
-        p1 = np.float32(newp1)
-        p2 = np.float32(newp2)
-        inliers = np.sum(status)
-        total = len(status)
-        #print '%s%d / %d  inliers/matched' % (space, np.sum(status), len(status))
-        space += " "
-    return status, p1, p2
+    elif method == 'fundamental':
+        M, status = cv2.findFundamentalMat(p1, p2, cv2.LMEDS, tol)
+    elif method == 'essential':
+        M, status = cv2.findEssentialMat(p1, p2, K, cv2.LMEDS, threshold=tol)
+    elif method == 'none':
+        M = None
+        status = np.ones(total)
+    newp1 = []
+    newp2 = []
+    for i, flag in enumerate(status):
+        if flag:
+            newp1.append(p1[i])
+            newp2.append(p2[i])
+    p1 = np.float32(newp1)
+    p2 = np.float32(newp2)
+    inliers = np.sum(status)
+    total = len(status)
+    #print '%s%d / %d  inliers/matched' % (space, np.sum(status), len(status))
+    return M, status, np.float32(newp1), np.float32(newp2)
 
 def overlay(new_frame, base, motion_mask=None):
     newtmp = cv2.cvtColor(new_frame, cv2.COLOR_BGR2GRAY)
@@ -288,7 +279,7 @@ def motion2(new_frame, base):
     return motion_mask
 
 # for ORB
-detector = cv2.ORB(max_features)
+detector = cv2.ORB_create(max_features)
 extractor = detector
 norm = cv2.NORM_HAMMING
 matcher = cv2.BFMatcher(norm)
@@ -365,7 +356,7 @@ while True:
             print "Skipping %d frames..." % counter
         continue
 
-    print "Frame %d" % counter
+    # print "Frame %d" % counter
 
     if frame == None:
         print "Skipping bad frame ..."
@@ -396,16 +387,19 @@ while True:
         cv2.imshow('hue', hue)
         cv2.imshow('saturation', s)
         cv2.imshow('value', v)
-        image = hue
+        gray = hue
     else:
-        image = frame_undist
-
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(frame_undist, cv2.COLOR_BGR2GRAY)
+        
     if args.equalize:
         gray = clahe.apply(gray)
 
     kp_list = detector.detect(gray)
     kp_list, des_list = extractor.compute(gray, kp_list)
+
+    # Fixme: make a command line option
+    # possible values are 'homography', 'fundamental', 'essential', 'none'
+    filter_method = 'homography'
 
     if des_list_last != None and len(des_list_last) > 1 and des_list != None and len(des_list) > 1:
         print len(des_list_last), len(des_list)
@@ -419,7 +413,7 @@ while True:
         filter_fundamental = True
         if filter_fundamental:
             #print "before = ", len(p1)
-            status, p1, p2 = filterByHomography(p1, p2)
+            M, status, newp1, newp2 = filterFeatures(p1, p2, K, filter_method)
             filtered = []
             for i, flag in enumerate(status):
                 if flag:
@@ -536,7 +530,7 @@ while True:
     new_frame = cv2.warpAffine(frame_undist, affine_new, (cols,rows))
 
     if True:
-        res1 = cv2.drawKeypoints(frame_undist, filtered, color=(0,255,0), flags=0)
+        res1 = cv2.drawKeypoints(frame_undist, filtered, None, color=(0,255,0), flags=0)
     else:
         res1 = frame_undist
 

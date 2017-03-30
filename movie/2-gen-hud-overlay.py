@@ -2,7 +2,7 @@
 
 # find our custom built opencv first
 import sys
-sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
+sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 import cv2
 
 import argparse
@@ -158,7 +158,7 @@ interp = flight_interp.FlightInterpolate()
 interp.build(data)
 
 # set approximate camera orienation (front, down, and rear supported)
-cam_facing = 'front'
+cam_facing = 'down'
 
 # resample movie data
 movie = np.array(movie, dtype=float)
@@ -323,11 +323,11 @@ capture.read()
 counter += 1
 print "ok reading first frame"
 
-fps = capture.get(cv2.cv.CV_CAP_PROP_FPS)
+fps = capture.get(cv2.CAP_PROP_FPS)
 print "fps = %.2f" % fps
-fourcc = int(capture.get(cv2.cv.CV_CAP_PROP_FOURCC))
-w = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH) * args.scale )
-h = int(capture.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT) * args.scale )
+fourcc = int(capture.get(cv2.CAP_PROP_FOURCC))
+w = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) * args.scale )
+h = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) * args.scale )
 hud1.set_render_size(w, h)
 hud2.set_render_size(w, h)
 
@@ -335,7 +335,7 @@ hud2.set_render_size(w, h)
 #outfourcc = cv2.cv.CV_FOURCC('H', '2', '6', '4')
 #outfourcc = cv2.cv.CV_FOURCC('X', '2', '6', '4')
 #outfourcc = cv2.cv.CV_FOURCC('X', 'V', 'I', 'D')
-outfourcc = cv2.cv.CV_FOURCC('M', 'P', '4', 'V')
+outfourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
 print outfourcc, fps, w, h
 output = cv2.VideoWriter(tmp_movie, outfourcc, fps, (w, h), isColor=True)
 
@@ -363,7 +363,8 @@ if time_shift > 0:
     for time in np.arange(xmin, time_shift, 1.0 / float(fps)):
         lat_deg = float(interp.filter_lat(time))*r2d
         lon_deg = float(interp.filter_lon(time))*r2d
-        altitude_m = float(interp.air_true_alt(time))
+        #altitude_m = float(interp.air_true_alt(time))
+        altitude_m = float(interp.filter_alt(time))
         ned = navpy.lla2ned( lat_deg, lon_deg, altitude_m,
                              ref[0], ref[1], ref[2] )
         hud1.update_time(time, interp.gps_unixtime(time))
@@ -399,7 +400,8 @@ while True:
     roll_rad = interp.filter_phi(time)
     lat_deg = float(interp.filter_lat(time))*r2d
     lon_deg = float(interp.filter_lon(time))*r2d
-    altitude_m = float(interp.air_true_alt(time))
+    #altitude_m = float(interp.air_true_alt(time))
+    altitude_m = float(interp.filter_alt(time))
     if filt_alt == None:
         filt_alt = altitude_m
     else:
