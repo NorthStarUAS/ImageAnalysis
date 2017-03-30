@@ -282,6 +282,8 @@ print "unique features (before grouping):", len(matches_direct)
 
 # determine scale value so we can get correct K matrix
 image_width = proj.image_list[0].width
+image_height = proj.image_list[0].height
+max_area = image_width * image_height
 camw, camh = proj.cam.get_image_params()
 scale = float(image_width) / float(camw)
 print 'scale:', scale
@@ -351,7 +353,8 @@ for i, i1 in enumerate(proj.image_list):
 
         # compute a weight metric, credit more matches between a pair,
         # and credict a bigger coverage area
-        weight = area * len(uv1)
+        weight = area / max_area
+        #weight = (area / max_area) * len(uv1)
         
         (ned1, ypr1, quat1) = i1.get_camera_pose()
         (ned2, ypr2, quat2) = i2.get_camera_pose()
@@ -372,7 +375,7 @@ for i, i1 in enumerate(proj.image_list):
         i1.q_inv_list[j] = q_inv
         i1.tvec_list[j] = tvec
         i1.d_list[j] = dist
-        i1.weight_list[j] = weight
+        i1.weight_list[j] = weight*weight
 
 # collect/group match chains that refer to the same keypoint
 matches_group = list(matches_direct) # shallow copy
@@ -434,7 +437,6 @@ print "Number of extended groupings:", group_count
 for image in proj.image_list:
     (ned, ypr, q) = image.get_camera_pose()
     image.set_camera_pose_sba(ned, ypr)
-    image.save_meta()
 
 # null out all the image.coord_lists and connection order
 for image in proj.image_list:
@@ -448,7 +450,6 @@ for match in matches_group:
 
 from scipy.optimize import minimize
 initial = initialGuess()
-saveOrientation(initial)
 print 'Optimizing %d values.' % (len(initial))
 print 'Starting value:', errorFunc(initial)
 res = minimize(errorFunc,
@@ -456,6 +457,9 @@ res = minimize(errorFunc,
                options={'disp': True},
                callback=printStatus)
 print res
+
+saveOrientation(res['x'])
+quit()
 
 while True:
     print "Start of top level placing algorithm..."
