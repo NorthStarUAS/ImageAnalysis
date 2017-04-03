@@ -2,7 +2,7 @@
 
 # find our custom built opencv first
 import sys
-sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
+sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 
 import argparse

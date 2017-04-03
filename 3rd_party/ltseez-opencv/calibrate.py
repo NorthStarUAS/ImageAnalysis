@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+# find our custom built opencv first
+import sys
+sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
+
 import numpy as np
 import cv2
 
@@ -34,7 +38,8 @@ if __name__ == '__main__':
     square_size = float(args.get('--square_size', 1.0))
 
     #pattern_size = (9, 6)
-    pattern_size = (9, 7)
+    #pattern_size = (9, 7)
+    pattern_size = (6, 4)
     pattern_points = np.zeros( (np.prod(pattern_size), 3), np.float32 )
     pattern_points[:,:2] = np.indices(pattern_size).T.reshape(-1, 2)
     pattern_points *= square_size
