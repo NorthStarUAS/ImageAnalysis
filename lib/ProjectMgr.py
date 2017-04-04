@@ -482,11 +482,23 @@ class ProjectMgr():
         #    print "cam vec=", transformations.unit_vector(IR.dot(IK).dot(uvh))
         return proj_list
 
+    # project the (u, v) pixels for the specified image using the current
+    # sba pose and write them to image.vec_list
+    def projectVectorsImageSBA(self, IK, image):
+        vec_list = []
+        body2ned = image.get_body2ned_sba()
+        cam2body = image.get_cam2body()
+        for uv in image.uv_list:
+            uvh = np.array([uv[0], uv[1], 1.0])
+            proj = body2ned.dot(cam2body).dot(IK).dot(uvh)
+            proj_norm = transformations.unit_vector(proj)
+            vec_list.append(proj_norm)
+        return vec_list
+
     # given a set of vectors in the ned frame, and a starting point.
     # Find the ground intersection point.  For any vectors which point into
     # the sky, return just the original reference/starting point.
-    def intersectVectorsWithGroundPlane(self, pose, ground_m, v_list):
-        pose_ned = pose['ned']
+    def intersectVectorsWithGroundPlane(self, pose_ned, ground_m, v_list):
         pt_list = []
         for v in v_list:
             # solve projection
@@ -636,7 +648,8 @@ class ProjectMgr():
                 pose = image.camera_pose
             else:
                 pose = cam_dict[image.name]
-            pts_ned = self.intersectVectorsWithGroundPlane(pose, ground_m, vec_list)
+            pts_ned = self.intersectVectorsWithGroundPlane(pose['ned'],
+                                                           ground_m, vec_list)
             image.coord_list = pts_ned
             
             bar.next()
