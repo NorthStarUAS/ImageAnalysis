@@ -60,6 +60,7 @@ class Image():
         self.num_matches = 0
         self.connections = 0.0
         self.cycle_depth = -1
+        self.connection_order = -1
         self.weight = 1.0
 
         self.error = 0.0
@@ -117,6 +118,10 @@ class Image():
             self.y_bias = image_dict['y-bias']
             self.weight = image_dict['weight']
             self.connections = image_dict['connections']
+            if 'connection-order' in image_dict:
+                self.connection_order = image_dict['connection-order']
+            else:
+                self.connection_order = -1
             if 'cycle-depth' in image_dict:
                 self.cycle_depth = image_dict['cycle-depth']
             elif 'cycle-distance' in image_dict:
@@ -301,6 +306,7 @@ class Image():
         image_dict['y-bias'] = self.y_bias
         image_dict['weight'] = self.weight
         image_dict['connections'] = self.connections
+        image_dict['connection-order'] = self.connection_order
         image_dict['cycle-depth'] = self.cycle_depth
         image_dict['error'] = self.error
         image_dict['stddev'] = self.stddev
@@ -332,7 +338,7 @@ class Image():
             grid_size = int(dparams['grid-detect'])
             cells = grid_size * grid_size
             max_cell_features = int(max_features / cells)
-            detector = cv2.ORB(max_cell_features)
+            detector = cv2.ORB_create(max_cell_features)
         elif dparams['detector'] == 'Star':
             maxSize = int(dparams['star-max-size'])
             responseThreshold = int(dparams['star-response-threshold'])
@@ -409,7 +415,7 @@ class Image():
                                          octave, class_id) )
 
         scaled_image = cv2.resize(rgb, (0,0), fx=scale, fy=scale)
-        res = cv2.drawKeypoints(scaled_image, kp_list,
+        res = cv2.drawKeypoints(scaled_image, kp_list, None,
                                 color=(0,255,0), flags=flags)
         cv2.imshow(self.name, res)
         print 'waiting for keyboard input...'
