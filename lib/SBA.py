@@ -32,20 +32,45 @@ class SBA():
     def __init__(self, root):
         self.program = 'eucsbademo'
         self.root = root
+        self.image_map_fwd = {}
+        self.image_map_rev = {}
 
     # write the camera (motion) parameters, feature (structure)
     # parameters, and calibration (K) to files in the project
     # directory.
-    def prepair_data(self, image_list, matches_list, K):
+    def prepair_data(self, image_list, placed_images, matches_list, K,
+                     use_sba=False):
+        if placed_images == None:
+            placed_images = set()
+            # if no placed images specified, mark them all as placed
+            for i in range(len(image_list)):
+                placed_images.add(i)
+                
+        # construct the image index remapping
+        self.image_map_fwd = {}
+        self.image_map_rev = {}
+        for i, index in enumerate(placed_images):
+            self.image_map_fwd[i] = index
+            self.image_map_rev[index] = i
+        print self.image_map_fwd
+        print self.image_map_rev
+            
         # iterate through the image list and build the camera pose dictionary
         # (and a simple list of camera locations for plotting)
         f = open( self.root + '/sba-cams.txt', 'w' )
-        for image in image_list:
+        for i, index in enumerate(placed_images):
+            image = image_list[index]
             body2cam = image.get_body2cam()
-            ned2body = image.get_ned2body()
+            if use_sba:
+                ned2body = image.get_ned2body_sba()
+            else:
+                ned2body = image.get_ned2body()
             Rtotal = body2cam.dot( ned2body )
             q = transformations.quaternion_from_matrix(Rtotal)
-            rvec, tvec = image.get_proj()
+            if use_sba:
+                rvec, tvec = image.get_proj_sba()
+            else:
+                rvec, tvec = image.get_proj()
             s = "%.8f %.8f %.8f %.8f %.8f %.8f %.8f\n" % (q[0], q[1], q[2], q[3],
                                                           tvec[0,0], tvec[1,0], tvec[2,0])
             f.write(s)
@@ -53,12 +78,19 @@ class SBA():
 
         # produce a cams file with variable K
         f = open( self.root + '/sba-cams-varK.txt', 'w' )
-        for image in image_list:
+        for i, index in enumerate(placed_images):
+            image = image_list[index]
             body2cam = image.get_body2cam()
-            ned2body = image.get_ned2body()
+            if use_sba:
+                ned2body = image.get_ned2body_sba()
+            else:
+                ned2body = image.get_ned2body()
             Rtotal = body2cam.dot( ned2body )
             q = transformations.quaternion_from_matrix(Rtotal)
-            rvec, tvec = image.get_proj()
+            if use_sba:
+                rvec, tvec = image.get_proj_sba()
+            else:
+                rvec, tvec = image.get_proj()
             s = "%.5f %.5f %.5f %.5f %.1f %.8f %.8f %.8f %.8f %.8f %.8f %.8f\n" % \
                 (K[0,0], K[0,2], K[1,2], K[1,1]/K[0,0], 0.0,
                  q[0], q[1], q[2], q[3],
@@ -68,12 +100,19 @@ class SBA():
 
         # produce a cams file with variable K and D
         f = open( self.root + '/sba-cams-varKD.txt', 'w' )
-        for image in image_list:
+        for i, index in enumerate(placed_images):
+            image = image_list[index]
             body2cam = image.get_body2cam()
-            ned2body = image.get_ned2body()
+            if use_sba:
+                ned2body = image.get_ned2body_sba()
+            else:
+                ned2body = image.get_ned2body()
             Rtotal = body2cam.dot( ned2body )
             q = transformations.quaternion_from_matrix(Rtotal)
-            rvec, tvec = image.get_proj()
+            if use_sba:
+                rvec, tvec = image.get_proj_sba()
+            else:
+                rvec, tvec = image.get_proj()
             s = "%.5f %.5f %.5f %.5f %.1f %.2f %.2f %.2f %.2f %.2f %.8f %.8f %.8f %.8f %.8f %.8f %.8f\n" % \
                 (K[0,0], K[0,2], K[1,2], K[1,1]/K[0,0], 0.0,
                  0.0, 0.0, 0.0, 0.0, 0.0,
@@ -84,19 +123,26 @@ class SBA():
 
         # iterate through the matches dictionary to produce a list of matches
         f = open( self.root + '/sba-points.txt', 'w' )
-        for match in matches_list:
+        for i, match in enumerate(matches_list):
             ned = np.array(match[0])
-            s = "%.4f %.4f %.4f  " % (ned[0], ned[1], ned[2])
-            f.write(s)
-            s = "%d  " % (len(match[1:]))
-            f.write(s)
+            #print type(ned), ned.size, ned
+            count = 0
             for p in match[1:]:
-                image_num = p[0]
-                # kp = image_list[image_num].kp_list[p[1]].pt # distorted
-                kp = image_list[image_num].uv_list[p[1]]      # undistorted
-                s = "%d %.2f %.2f " % (image_num, kp[0], kp[1])
+                if p[0] in placed_images:
+                    count += 1
+            if ned.size == 3 and count >= 2:
+                s = "%.4f %.4f %.4f  " % (ned[0], ned[1], ned[2])
                 f.write(s)
-            f.write('\n')
+                s = "%d  " % (count)
+                f.write(s)
+                for p in match[1:]:
+                    if p[0] in placed_images:
+                        local_index = self.image_map_rev[p[0]]
+                        # kp = image_list[p[0]].kp_list[p[1]].pt # distorted
+                        kp = image_list[p[0]].uv_list[p[1]]      # undistorted
+                        s = "%d %.2f %.2f " % (local_index, kp[0], kp[1])
+                        f.write(s)
+                f.write('\n')
         f.close()
 
         # generate the calibration matrix (K) file
@@ -111,8 +157,9 @@ class SBA():
     def run(self):
         command = []
         command.append( self.program )
-        command.append( self.root + '/sba-cams-varK.txt' )
+        command.append( self.root + '/sba-cams.txt' )
         command.append( self.root + '/sba-points.txt' )
+        command.append( self.root + '/sba-calib.txt' )
         print "Running:", command
         result = subprocess.check_output( command )
 
@@ -158,11 +205,19 @@ class SBA():
                                                        time_msec)
         return cameras, features
 
-    def run_live(self):
+    def run_live(self, mode=''):
         command = []
         command.append( self.program )
-        command.append( self.root + '/sba-cams-varK.txt' )
-        command.append( self.root + '/sba-points.txt' )
+        if mode == '':
+            command.append( self.root + '/sba-cams.txt' )
+            command.append( self.root + '/sba-points.txt' )
+            command.append( self.root + '/sba-calib.txt' )
+        elif mode == 'varK':
+            command.append( self.root + '/sba-cams-varK.txt' )
+            command.append( self.root + '/sba-points.txt' )
+        elif mode == 'varKD':
+            command.append( self.root + '/sba-cams-varKD.txt' )
+            command.append( self.root + '/sba-points.txt' )
         print "Running:", command
 
         #result = subprocess.check_output( command )
@@ -220,4 +275,4 @@ class SBA():
         print "Iterations =", iterations
         print "Elapsed time = %.2f sec (%.2f msec)" % (time_msec/1000,
                                                        time_msec)
-        return cameras, features
+        return cameras, features, self.image_map_fwd
