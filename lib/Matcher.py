@@ -98,7 +98,7 @@ class Matcher():
     # Notice: this tends to eliminate matches that aren't all on the
     # same plane, so if the scene has a lot of depth, this could knock
     # out a lot of good matches.
-    def filter_by_homography(self, i1, i2, j, filter):
+    def filter_by_homography(self, K, i1, i2, j, filter):
         clean = True
         
         tol = float(i1.width) / 100.0 # rejection range in pixels
@@ -133,6 +133,10 @@ class Matcher():
             # method = cv2.FM_RANSAC     
             method = cv2.FM_LMEDS
             M, status = cv2.findFundamentalMat(p1, p2, method, tol)
+        elif filter == "essential":
+            # method = cv2.FM_RANSAC     
+            method = cv2.FM_LMEDS
+            M, status = cv2.findEssentialMat(p1, p2, K, method, threshold=tol)
         elif filter == "none":
             status = np.ones(len(matches))
         else:
@@ -415,7 +419,7 @@ class Matcher():
         # a = raw_input("Press Enter to continue...")
  
 
-    def robustGroupMatches(self, image_list, filter="fundamental",
+    def robustGroupMatches(self, image_list, K, filter="fundamental",
                            image_fuzz=40, feature_fuzz=20, review=False):
         n = len(image_list) - 1
         n_work = float(n*(n+1)/2)
@@ -446,9 +450,9 @@ class Matcher():
                         done = False
                     if not self.filter_non_reciprocal_pair(image_list, j, i):
                         done = False
-                    if not self.filter_by_homography(i1, i2, j, filter):
+                    if not self.filter_by_homography(K, i1, i2, j, filter):
                         done = False
-                    if not self.filter_by_homography(i2, i1, i, filter):
+                    if not self.filter_by_homography(K, i2, i1, i, filter):
                         done = False
                         
                 print "%.1f %% done" % ((n_count / n_work) * 100.0)
@@ -1199,3 +1203,108 @@ def groupByConnections(image_list, matches_direct, match_pairs):
 
     return group_list
 
+# new code as of 2017/03/31
+
+def countFeatureConnections(image_list, matches):
+    for image in image_list:
+        image.connection_set = set()
+    for i, match in enumerate(matches):
+        for mi in match[1:]:
+            for mj in match[1:]:
+                if mi != mj:
+                    image_list[mi[0]].connection_set.add(mj[0])
+    for i, image in enumerate(image_list):
+        print image.name
+        for j in image.connection_set:
+            print '  pair len', j, len(image.match_list[j])
+        image.connection_count = len(image.connection_set)
+        print image.name, i, image.connection_set
+        for j in range(len(image.match_list)):
+            size = len(image.match_list[j])
+            if size > 0 and not j in image.connection_set:
+                print '  matches, but no connection'
+        
+def updatePlacedFeatures(placed_images, matches, placed_features):
+    for i, match in enumerate(matches):
+        for m in match[1:]:
+            if m[0] in placed_images:
+                placed_features[i] = True
+                
+def simpleGrouping(image_list, matches):
+    countFeatureConnections(image_list, matches)
+    print "Start of top level grouping algorithm..."
+
+    # start with no placed images or features
+    placed_images = set()
+    groups = []
+    placed_features = [False] * len(matches)
+
+    # wipe connection order for all images
+    for image in image_list:
+        image.connection_order = -1
+
+    done = False
+    while not done:
+        print "Start of new group..."
+        # start a fresh group
+        group_images = set()
+        
+        # find the unplaced image with the most connections to other
+        # images
+        max_connections = 0
+        max_index = -1
+        for i, image in enumerate(image_list):
+            if image.connection_order < 0 and image.connection_count > max_connections:
+                max_connections = image.connection_count
+                max_index = i
+        max_image = image_list[max_index]
+        max_image.connection_order = 0
+        print "Image with max connections:", max_image.name
+        print "Number of connections:", max_connections
+        placed_images.add(max_index)
+        group_images.add(max_index)
+        updatePlacedFeatures(placed_images, matches, placed_features)
+
+        while True:
+            # find the unplaced image with the most connections into
+            # the placed set
+
+            # per image counter
+            image_counter = [0] * len(image_list)
+
+            # count up the placed feature references to unplaced images
+            for i, match in enumerate(matches):
+                # only proceed if this feature has been placed (i.e. it
+                # connects to two or more placed images)
+                if placed_features[i]:
+                    for m in match[1:]:
+                        if not m[0] in placed_images:
+                            image_counter[m[0]] += 1
+            print 'connected image count:', image_counter
+            new_index = -1
+            max_connections = -1
+            for i in range(len(image_counter)):
+                if image_counter[i] > max_connections:
+                    new_index = i
+                    max_connections = image_counter[i]
+            if max_connections >= 7:
+                print "New image with max connections:", image_list[new_index].name
+                print "Number of connected features:", max_connections
+                placed_images.add(new_index)
+                group_images.add(new_index)
+            else:
+                if len(group_images) > 1:
+                    groups.append(group_images)
+                else:
+                    done = True
+                break
+
+            print "Total number of placed images so far:", len(placed_images)
+            updatePlacedFeatures(placed_images, matches, placed_features)
+
+            new_image = image_list[new_index]
+            new_image.connection_order = len(placed_images) - 1
+            print 'Image placed:', new_image.name
+
+    print groups
+    return groups
