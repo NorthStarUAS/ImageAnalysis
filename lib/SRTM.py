@@ -21,13 +21,13 @@ def lla_ll_corner(lat_deg, lon_deg):
 def make_tile_name(lat, lon):
     ll_lat, ll_lon = lla_ll_corner(lat, lon)
     if ll_lat < 0:
-        slat = "S%2d" % ll_lat
+        slat = "S%2d" % -ll_lat
     else:
         slat = "N%2d" % ll_lat
     if ll_lon < 0:
         slon = "W%03d" % -ll_lon
     else:
-        slon = "W%03d" % ll_lon
+        slon = "E%03d" % ll_lon
     return slat + slon
 
 class SRTM():
