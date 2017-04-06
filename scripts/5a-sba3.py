@@ -8,7 +8,7 @@
 # todo, run sba and automatically parse output ...
 
 import sys
-sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
+sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
 import cPickle as pickle
@@ -155,9 +155,14 @@ def update_match_coordinates(matches, placed_images):
 # any feature that shows up in 3 or more placed images (uses the
 # current 'sba' camera poses.)
 import LineSolver
+matches_group_counter = []
 def my_triangulate(matches, placed_images, min_vectors=3):
+    global matches_group_counter
+    if len(matches_group_counter) != len(matches):
+        matches_group_counter = [0] * len(matches)
+        
     IK = np.linalg.inv( proj.cam.get_K() )
-    for match in matches:
+    for i, match in enumerate(matches):
         #print match
         points = []
         vectors = []
@@ -170,11 +175,81 @@ def my_triangulate(matches, placed_images, min_vectors=3):
                 #print ' ', image.name
                 #print ' ', uv_list
                 #print '  ', vec_list
-        if len(vectors) >= min_vectors:
+        if len(vectors) >= min_vectors and len(vectors) != matches_group_counter[i]:
+            # only solve if we have new information and enough vectors
             p = LineSolver.ls_lines_intersection(points, vectors, transpose=True).tolist()
             #print p, p[0]
             match[0] = [ p[0][0], p[1][0], p[2][0] ]
+            matches_group_counter[i] = len(vectors)
 
+# null the 3d location of any features not referenced by a placed image
+def null_unplaced_features(matches, placed_images):
+    for match in matches:
+        if match[0] != None:
+            # only non-null match coordinates
+            count = 0;
+            for m in match[1:]:
+                if m[0] in placed_images:
+                    count += 1
+            if count == 0:
+                match[0] = None
+
+def update_pose(matches, new_index):
+    new_image = proj.image_list[new_index]
+    
+    # Build a list of existing 3d ned vs. 2d uv coordinates for the
+    # new image so we can run solvepnp() and derive an initial pose
+    # estimate relative to the already placed group.
+    new_ned_list = []
+    new_uv_list = []
+    for i, match in enumerate(matches):
+        # only proceed with 'located' features
+        if match[0] != None:
+            # check if this match refers to the new image
+            for m in match[1:]:
+                if m[0] == new_index:
+                    new_ned_list.append(match[0])
+                    new_uv_list.append(new_image.uv_list[m[1]])
+                    break
+    print "Number of solvepnp coordinates:", len(new_ned_list)
+
+    # debug
+    # f = open('ned.txt', 'wb')
+    # for ned in new_ned_list:
+    #     f.write("%.2f %.2f %.2f\n" % (ned[0], ned[1], ned[2]))
+
+    # f = open('uv.txt', 'wb')
+    # for uv in new_uv_list:
+    #     f.write("%.1f %.1f\n" % (uv[0], uv[1]))
+
+    # pose new image here:
+    rvec, tvec = new_image.get_proj()
+    #print 'new_ned_list', new_ned_list
+    #print 'new_uv_list', new_uv_list
+    (result, rvec, tvec) \
+        = cv2.solvePnP(np.float32(new_ned_list), np.float32(new_uv_list),
+                       proj.cam.get_K(scale), None,
+                       rvec, tvec, useExtrinsicGuess=True)
+    Rned2cam, jac = cv2.Rodrigues(rvec)
+    pos = -np.matrix(Rned2cam[:3,:3]).T * np.matrix(tvec)
+    newned = pos.T[0].tolist()[0]
+
+    # Our Rcam matrix (in our ned coordinate system) is body2cam * Rned,
+    # so solvePnP returns this combination.  We can extract Rned by
+    # premultiplying by cam2body aka inv(body2cam).
+    cam2body = new_image.get_cam2body()
+    Rned2body = cam2body.dot(Rned2cam)
+    Rbody2ned = np.matrix(Rned2body).T
+    (yaw, pitch, roll) = transformations.euler_from_matrix(Rbody2ned, 'rzyx')
+
+    print "original pose:", new_image.get_camera_pose()
+    #print "original pose:", proj.image_list[30].get_camera_pose()
+    new_image.set_camera_pose_sba(ned=newned,
+                                  ypr=[yaw*r2d, pitch*r2d, roll*r2d])
+    new_image.save_meta()
+    print "solvepnp() pose:", new_image.get_camera_pose_sba()
+
+    
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
@@ -251,44 +326,6 @@ K = proj.cam.get_K(scale)
 print "K:", K
 IK = np.linalg.inv(K)
 
-# add some grouped matches to the original matches_direct
-# count = 0
-# matches_direct = []
-# while True:
-#     index = random.randrange(len(matches_group))
-#     print "index:", index
-#     match = matches_group[index]
-#     if count > 100:
-#         break
-#     if len(match) > 3:
-#         # append whole match: matches_direct.append(match)
-        
-#         # append pair combinations
-#         ned = match[0]
-#         for i in range(1, len(match)-1):
-#             for j in range(i+1, len(match)):
-#                 print i, j
-#                 matches_direct.append( [ ned, match[i], match[j] ] )
-#         #draw_match(len(matches_direct)-1, -1)
-#         count += 1
-        
-# # add all the grouped matches pair-wise
-# matches_direct = []
-# for match in matches_group:
-#     # append pair combinations
-#     ned = match[0]
-#     for i in range(1, len(match)-1):
-#         for j in range(i+1, len(match)):
-#             print i, j
-#             matches_direct.append( [ ned, match[i], match[j] ] )
-#     #draw_match(len(matches_direct)-1, -1)
-
-# now forget all that and just add the matches referencing more than 2 views
-# matches_direct = []
-# for m in matches_group:
-#     if len(m) > 3:
-#         matches_direct.append(m)
-
 # initialize sba camera pose to direct pose
 for image in proj.image_list:
     (ned, ypr, q) = image.get_camera_pose()
@@ -297,6 +334,7 @@ for image in proj.image_list:
 
 # null out all the image.coord_lists and connection order
 for image in proj.image_list:
+    image.vec_list = None
     image.coord_list = None
     image.connection_order = -1
 proj.save_images_meta()
@@ -305,12 +343,21 @@ proj.save_images_meta()
 for match in matches_group:
     match[0] = None
 
-while True:
+bootstrap = True
+done = False
+while not done:
     print "Start of top level placing algorithm..."
     
     # start with no placed images
     placed_images = set()
 
+    # wipe vec_list and coord_list and connection order for all images
+    for image in proj.image_list:
+        image.vec_list = None
+        image.coord_list = None
+        image.connection_order = -1
+    proj.save_images_meta()
+        
     # find the image with the most connections to other images
     max_connections = 0
     max_index = -1
@@ -328,6 +375,8 @@ while True:
     print "Image with max connections:", max_image.name
     print "Number of connected images:", max_connections
     placed_images.add(max_index)
+    if not bootstrap:
+        update_pose(matches_group, max_index)
 
     while True:
         # for each placed image compute feature vectors and point
@@ -341,17 +390,22 @@ while True:
                                                                image.vec_list)
                 image.coord_list = pt_list
 
-        # triangulate the match coordinate using the feature projections
-        # from the placed images.  This will only update features with 2
-        # or more placed images
-        my_triangulate(matches_group, placed_images, min_vectors=2)
-        
         # update the match coordinate based on the feature projections for
         # any features only found in a single image so far
         if len(placed_images) == 1:
-            # only at the very start to boot strap the process
-            update_match_coordinates(matches_group, placed_images)
-
+            if bootstrap:
+                # only on the first iterate of the first iteration,
+                # place features on estimated ground plane
+                update_match_coordinates(matches_group, placed_images)
+                bootstrap = False
+            else:
+                null_unplaced_features(matches_group, placed_images)
+                
+        # triangulate the match coordinate using the feature projections
+        # from the placed images.  This will only update features with 2
+        # or more placed images
+        my_triangulate(matches_group, placed_images, min_vectors=4)
+        
         # find the unplaced image with the most connections into the placed set
 
         # per image counter
@@ -383,64 +437,12 @@ while True:
 
         new_image = proj.image_list[new_index]
         new_image.connection_order = len(placed_images) - 1
-
-        # Build a list of existing 3d ned vs. 2d uv coordinates for the
-        # new image so we can run solvepnp() and derive an initial pose
-        # estimate relative to the already placed group.
-        new_ned_list = []
-        new_uv_list = []
-        for i, match in enumerate(matches_group):
-            # only proceed with 'located' features
-            if match[0] != None:
-                # check if this match refers to the new image
-                for m in match[1:]:
-                    if m[0] == new_index:
-                        new_ned_list.append(match[0])
-                        new_uv_list.append(new_image.uv_list[m[1]])
-                        break
-        print "Number of solvepnp coordinates:", len(new_ned_list)
-
-        # debug
-        # f = open('ned.txt', 'wb')
-        # for ned in new_ned_list:
-        #     f.write("%.2f %.2f %.2f\n" % (ned[0], ned[1], ned[2]))
-
-        # f = open('uv.txt', 'wb')
-        # for uv in new_uv_list:
-        #     f.write("%.1f %.1f\n" % (uv[0], uv[1]))
-
-        # pose new image here:
-        rvec, tvec = new_image.get_proj()
-        #print 'new_ned_list', new_ned_list
-        #print 'new_uv_list', new_uv_list
-        (result, rvec, tvec) \
-            = cv2.solvePnP(np.float32(new_ned_list), np.float32(new_uv_list),
-                           proj.cam.get_K(scale), None,
-                           rvec, tvec, useExtrinsicGuess=True)
-        Rned2cam, jac = cv2.Rodrigues(rvec)
-        pos = -np.matrix(Rned2cam[:3,:3]).T * np.matrix(tvec)
-        newned = pos.T[0].tolist()[0]
-
-        # Our Rcam matrix (in our ned coordinate system) is body2cam * Rned,
-        # so solvePnP returns this combination.  We can extract Rned by
-        # premultiplying by cam2body aka inv(body2cam).
-        cam2body = new_image.get_cam2body()
-        Rned2body = cam2body.dot(Rned2cam)
-        Rbody2ned = np.matrix(Rned2body).T
-        (yaw, pitch, roll) = transformations.euler_from_matrix(Rbody2ned, 'rzyx')
-
-        print "original pose:", new_image.get_camera_pose()
-        #print "original pose:", proj.image_list[30].get_camera_pose()
-        new_image.set_camera_pose_sba(ned=newned,
-                                      ypr=[yaw*r2d, pitch*r2d, roll*r2d])
-        new_image.save_meta()
-        print "solvepnp() pose:", new_image.get_camera_pose_sba()
-
+        update_pose(matches_group, new_index)
         print 'Image placed:', new_image.name
 
     # final triangulation of all match coordinates
     # print 'Performing final complete group triangulation'
-    # my_triangulate(matches_group, placed_images, min_vectors=2)
+    my_triangulate(matches_group, placed_images, min_vectors=2)
     
     # write out the updated matches_group file as matches_sba
     print "Writing match_sba file ...", len(matches_group), 'features'
@@ -451,10 +453,12 @@ while True:
         input("press enter to continue:")
     except:
         pass
+    done = True
 
-
+print placed_images
 sba = SBA.SBA(args.project)
-sba.prepair_data( proj.image_list, matches_group, proj.cam.get_K(scale) )
+sba.prepair_data( proj.image_list, placed_images, matches_group,
+                  proj.cam.get_K(scale) )
 cameras, features = sba.run_live()
 
 if len(cameras) != len(proj.image_list):

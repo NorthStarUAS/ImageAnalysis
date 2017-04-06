@@ -4,7 +4,7 @@
 # reprojection error
 
 import sys
-sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
+sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
 import cPickle as pickle
@@ -89,15 +89,16 @@ def compute_reprojection_errors(image_list, cam):
         
     for i, match in enumerate(matches_source):
         ned = match[0]
-        for j, p in enumerate(match[1:]):
-            image = image_list[ p[0] ]
-            # kp = image.kp_list[p[1]].pt # distorted
-            kp = image.uv_list[ p[1] ]  # undistorted uv point
-            scale = float(image.width) / float(camw)
-            dist = compute_feature_mre(cam.get_K(scale), image, kp, ned)
-            if i == 67364 or i == 67469:
-                print i, 'dist:', dist, 'ned:', ned
-            result_list.append( (dist, i, j) )
+        if ned != None:
+            for j, p in enumerate(match[1:]):
+                image = image_list[ p[0] ]
+                # kp = image.kp_list[p[1]].pt # distorted
+                kp = image.uv_list[ p[1] ]  # undistorted uv point
+                scale = float(image.width) / float(camw)
+                dist = compute_feature_mre(cam.get_K(scale), image, kp, ned)
+                if i == 67364 or i == 67469:
+                    print i, 'dist:', dist, 'ned:', ned
+                result_list.append( (dist, i, j) )
 
     # sort by worst max error first
     result_list = sorted(result_list, key=lambda fields: fields[0],

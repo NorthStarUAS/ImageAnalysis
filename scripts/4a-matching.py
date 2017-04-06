@@ -1,10 +1,11 @@
 #!/usr/bin/python
 
 import sys
-sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
+sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
 import commands
+import cPickle as pickle
 import cv2
 import fnmatch
 import json
@@ -28,10 +29,10 @@ parser.add_argument('--matcher', default='FLANN',
                     choices=['FLANN', 'BF'])
 parser.add_argument('--match-ratio', default=0.75, type=float,
                     help='match ratio')
-parser.add_argument('--min-pairs', default=30, type=int,
+parser.add_argument('--min-pairs', default=20, type=int,
                     help='minimum matches between image pairs to keep')
-parser.add_argument('--filter', default='homography',
-                    choices=['homography', 'fundamental', 'none'])
+parser.add_argument('--filter', default='essential',
+                    choices=['homography', 'fundamental', 'essential', 'none'])
 parser.add_argument('--image-fuzz', default=40, type=float, help='image fuzz') 
 parser.add_argument('--feature-fuzz', default=20, type=float, help='feature fuzz') 
 parser.add_argument('--ground', type=float, help='ground elevation in meters')
@@ -142,11 +143,20 @@ proj.matcher_params = { 'matcher': args.matcher,
                         'feature-fuzz': args.feature_fuzz }
 proj.save()
 
+# determine scale value so we can get correct K matrix
+image_width = proj.image_list[0].width
+camw, camh = proj.cam.get_image_params()
+scale = float(image_width) / float(camw)
+print 'scale:', scale
+# camera calibration
+K = proj.cam.get_K(scale)
+print "K:", K
+
 # fire up the matcher
 m = Matcher.Matcher()
 m.min_pairs = args.min_pairs
 m.configure(proj.detector_params, proj.matcher_params)
-m.robustGroupMatches(proj.image_list, filter=args.filter,
+m.robustGroupMatches(proj.image_list, K, filter=args.filter,
                      image_fuzz=args.image_fuzz, feature_fuzz=args.feature_fuzz,
                      review=False)
 
@@ -199,3 +209,33 @@ if do_old_match_consolodation:
     #f = open(args.project + "/Matches.json", 'w')
     #json.dump(matches_dict, f, sort_keys=True)
     #f.close()
+    
+def update_match_location(match):
+    sum = np.array( [0.0, 0.0, 0.0] )
+    for p in match[1:]:
+        # print proj.image_list[ p[0] ].coord_list[ p[1] ]
+        sum += proj.image_list[ p[0] ].coord_list[ p[1] ]
+        ned = sum / len(match[1:])
+        # print "avg =", ned
+        match[0] = ned.tolist()
+    return match
+
+print "Constructing unified match structure..."
+matches_direct = []
+for i, image in enumerate(proj.image_list):
+    # print image.name
+    for j, matches in enumerate(image.match_list):
+        # print proj.image_list[j].name
+        if j > i:
+            for pair in matches:
+                match = []
+                # ned place holder
+                match.append([0.0, 0.0, 0.0])
+                match.append([i, pair[0]])
+                match.append([j, pair[1]])
+                update_match_location(match)
+                matches_direct.append(match)
+                # print pair, match
+                
+print "Writing match file ..."
+pickle.dump(matches_direct, open(args.project + "/matches_direct", "wb"))

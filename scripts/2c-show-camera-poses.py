@@ -104,7 +104,7 @@ for image in proj.image_list:
     
     proj_list = proj.projectVectors( IK, image.get_body2ned(), image.get_cam2body(), corner_list )
     #print "proj_list:\n", proj_list
-    #pts = proj.intersectVectorsWithGroundPlane(image.camera_pose,
+    #pts = proj.intersectVectorsWithGroundPlane(image.camera_pose['ned'],
     #                                           g, proj_list)
     pts = sss.interpolate_vectors(image.camera_pose['ned'], proj_list)
     #print "pts (ned):\n", pts

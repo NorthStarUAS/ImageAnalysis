@@ -8,7 +8,7 @@
 # todo, run sba and automatically parse output ...
 
 import sys
-sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
+sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
 import cPickle as pickle
@@ -124,14 +124,19 @@ proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
 proj.undistort_keypoints()
+proj.load_match_pairs()
 
 #m = Matcher.Matcher()
 
 matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )
-print "unique features:", len(matches_direct)
+print "direct features:", len(matches_direct)
+#matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
+#print "sba features:", len(matches_direct)
 
 # collect/group match chains that refer to the same keypoint
-matches_tmp = list(matches_direct) # shallow copy
+
+# collect/group match chains that refer to the same keypoint
+matches_group = list(matches_direct) # shallow copy
 count = 0
 done = False
 while not done:
@@ -139,7 +144,7 @@ while not done:
     count += 1
     matches_new = []
     matches_lookup = {}
-    for i, match in enumerate(matches_tmp):
+    for i, match in enumerate(matches_group):
         # scan if any of these match points have been previously seen
         # and record the match index
         index = -1
@@ -172,78 +177,92 @@ while not done:
                     matches_lookup[key] = index
             # print "new:", existing
             # print 
-    if len(matches_new) == len(matches_tmp):
+    if len(matches_new) == len(matches_group):
         done = True
     else:
-        matches_tmp = list(matches_new) # shallow copy
+        matches_group = list(matches_new) # shallow copy
+print "unique features (after grouping):", len(matches_group)
 
 # count the match groups that are longer than just pairs
 group_count = 0
-for m in matches_tmp:
+for m in matches_group:
     if len(m) > 3:
         group_count += 1
 
 print "Number of groupings:", group_count
 
 # add some grouped matches to the original matches_direct
-count = 0
-matches_direct = []
-while True:
-    index = random.randrange(len(matches_tmp))
-    print "index:", index
-    match = matches_tmp[index]
-    if count > 100:
-        break
-    if len(match) > 3:
-        # append whole match: matches_direct.append(match)
+# count = 0
+# matches_direct = []
+# while True:
+#     index = random.randrange(len(matches_tmp))
+#     print "index:", index
+#     match = matches_tmp[index]
+#     if count > 100:
+#         break
+#     if len(match) > 3:
+#         # append whole match: matches_direct.append(match)
         
-        # append pair combinations
-        ned = match[0]
-        for i in range(1, len(match)-1):
-            for j in range(i+1, len(match)):
-                print i, j
-                matches_direct.append( [ ned, match[i], match[j] ] )
-        #draw_match(len(matches_direct)-1, -1)
-        count += 1
+#         # append pair combinations
+#         ned = match[0]
+#         for i in range(1, len(match)-1):
+#             for j in range(i+1, len(match)):
+#                 print i, j
+#                 matches_direct.append( [ ned, match[i], match[j] ] )
+#         #draw_match(len(matches_direct)-1, -1)
+#         count += 1
         
 # add all the grouped matches pair-wise
-matches_direct = []
-for match in matches_tmp:
-    # append pair combinations
-    ned = match[0]
-    for i in range(1, len(match)-1):
-        for j in range(i+1, len(match)):
-            print i, j
-            matches_direct.append( [ ned, match[i], match[j] ] )
-    #draw_match(len(matches_direct)-1, -1)
+# matches_direct = []
+# for match in matches_tmp:
+#     # append pair combinations
+#     ned = match[0]
+#     for i in range(1, len(match)-1):
+#         for j in range(i+1, len(match)):
+#             print i, j
+#             matches_direct.append( [ ned, match[i], match[j] ] )
+#     #draw_match(len(matches_direct)-1, -1)
 
 # now forget all that and just add the matches referencing more than 2 views
 # matches_direct = []
 # for m in matches_tmp:
 #     if len(m) > 3:
 #         matches_direct.append(m)
-        
+
+print "Original match connector"
+Matcher.groupByConnections(proj.image_list)
+
+groups = Matcher.simpleGrouping(proj.image_list, matches_group)
+
 image_width = proj.image_list[0].width
 camw, camh = proj.cam.get_image_params()
 scale = float(image_width) / float(camw)
 print 'scale:', scale
 
 sba = SBA.SBA(args.project)
-sba.prepair_data( proj.image_list, matches_direct, proj.cam.get_K(scale) )
-cameras, features = sba.run_live()
+sba.prepair_data( proj.image_list, groups[0], matches_direct, proj.cam.get_K(scale) )
+cameras, features, cam_index_map = sba.run_live(mode='')
 
-for i, image in enumerate(proj.image_list):
+# wipe the sba pose for all images
+for image in proj.image_list:
+    image.camera_pose_sba = None
+    image.placed = False
+proj.save_images_meta()
+
+for i, cam in enumerate(cameras):
+    image_index = cam_index_map[i]
+    image = proj.image_list[image_index]
     orig = image.camera_pose
-    new = cameras[i]
-    if len(new) == 7:
-        newq = np.array( [ new[0], new[1], new[2], new[3] ] )
-        tvec = np.array( [ new[4], new[5], new[6] ] )
-    elif len(new) == 12:
-        newq = np.array( new[5:9] )
-        tvec = np.array( new[9:12] )
-    elif len(new) == 17:
-        newq = np.array( new[10:14] )
-        tvec = np.array( new[14:17] )
+    print cam
+    if len(cam) == 7:
+        newq = np.array( [ cam[0], cam[1], cam[2], cam[3] ] )
+        tvec = np.array( [ cam[4], cam[5], cam[6] ] )
+    elif len(cam) == 12:
+        newq = np.array( cam[5:9] )
+        tvec = np.array( cam[9:12] )
+    elif len(cam) == 17:
+        newq = np.array( cam[10:14] )
+        tvec = np.array( cam[14:17] )
     Rned2cam = transformations.quaternion_matrix(newq)[:3,:3]
     cam2body = image.get_cam2body()
     Rned2body = cam2body.dot(Rned2cam)
@@ -256,14 +275,8 @@ for i, image in enumerate(proj.image_list):
     #print "orig ned =", image.camera_pose['ned']
     #print "new ned =", newned
     image.set_camera_pose_sba( ned=newned, ypr=[yaw/d2r, pitch/d2r, roll/d2r] )
-
-# now count how many features show up in each image
-for i in proj.image_list:
-    i.feature_count = 0
-for i, match in enumerate(matches_direct):
-    for j, p in enumerate(match[1:]):
-        image = proj.image_list[ p[0] ]
-        image.feature_count += 1
+    image.placed = True
+proj.save_images_meta()
 
 # compare original camera locations with sba camera locations and
 # derive a transform matrix to 'best fit' the new camera locations
@@ -273,7 +286,7 @@ for i, match in enumerate(matches_direct):
 src_list = []
 dst_list = []
 for image in proj.image_list:
-    if image.feature_count >= 25:
+    if image.placed:
         # only consider images that are in the fitted set
         ned, ypr, quat = image.get_camera_pose_sba()
         src_list.append(ned)
@@ -283,6 +296,7 @@ A = get_recenter_affine(src_list, dst_list)
 
 # extract the rotation matrix (R) from the affine transform
 scale, shear, angles, trans, persp = transformations.decompose_matrix(A)
+print transformations.decompose_matrix(A)
 R = transformations.euler_matrix(*angles)
 print "R:\n", R
 
@@ -299,11 +313,14 @@ new_cams = transform_points(A, camera_list)
 # that much ... except for later manually computing mean projection
 # error.
 for i, image in enumerate(proj.image_list):
+    if not image.placed:
+        continue
     ned_orig, ypr_orig, quat_orig = image.get_camera_pose()
     ned, ypr, quat = image.get_camera_pose_sba()
     Rbody2ned = image.get_body2ned_sba()
     # update the orientation with the same transform to keep
     # everything in proper consistent alignment
+
     newRbody2ned = R[:3,:3].dot(Rbody2ned)
     (yaw, pitch, roll) = transformations.euler_from_matrix(newRbody2ned, 'rzyx')
     image.set_camera_pose_sba(ned=new_cams[i],
@@ -312,7 +329,11 @@ for i, image in enumerate(proj.image_list):
     print '  orig pos:', ned_orig
     print '  fit pos:', new_cams[i]
     print '  dist moved:', np.linalg.norm( np.array(ned_orig) - np.array(new_cams[i]))
-    image.save_meta()
+    # fixme: are we doing the correct thing here with attitude, or
+    # should we transform the point set and then solvepnp() all the
+    # camera locations (for now comment out save_meta()
+    
+    # image.save_meta()
     
 # update the sba point locations based on same best fit transform
 # derived from the cameras (remember that 'features' is the point
@@ -323,7 +344,7 @@ for f in features:
 new_feats = transform_points(A, feature_list)
 
 # create the matches_sba list (copy) and update the ned coordinate
-matches_sba = list(matches_direct)
+matches_sba = list(matches_group)
 for i, match in enumerate(matches_sba):
     #print type(new_feats[i])
     matches_sba[i][0] = new_feats[i]

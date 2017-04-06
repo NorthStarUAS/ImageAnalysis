@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import sys
-sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
+sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
 import commands
@@ -26,9 +26,10 @@ import transformations
 
 parser = argparse.ArgumentParser(description='Compute Delauney triangulation of matches.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--ground', type=float, help='ground elevation')
 parser.add_argument('--depth', action='store_const', const=True,
                     help='generate 3d surface')
-parser.add_argument('--steps', default=50, type=int, help='grid steps')
+parser.add_argument('--steps', default=25, type=int, help='grid steps')
 args = parser.parse_args()
 
 
@@ -206,7 +207,10 @@ for y in y_list:
         value = interp([x, y])
         if value:
             grid_points.append( [x, y] )
-            grid_values.append( interp([x, y]) )
+            if args.ground:
+                grid_values.append(args.ground)
+            else:
+                grid_values.append( interp([x, y]) )
 
 print "Building grid triangulation..."
 tri = scipy.spatial.Delaunay(np.array(grid_points))

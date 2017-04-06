@@ -215,7 +215,11 @@ def saveOrientation(xk):
 # current pair angle offset with the 'ideal' offset and generates a
 # metric based on that.
 def errorFunc(xk):
-    # print "Error metric (SBA)"
+    # extract quats and stash in a temporary name
+    for i, i1 in enumerate(proj.image_list):
+        q = xk[i*4:i*4+4]
+        i1.opt_quat = q
+        
     image_sum = 0
     image_count = 0
     for i, i1 in enumerate(proj.image_list):
@@ -226,8 +230,8 @@ def errorFunc(xk):
                 continue
             #(ned1, ypr1, quat1_sba) = i1.get_camera_pose_sba()
             #(ned2, ypr2, quat2_sba) = i2.get_camera_pose_sba()
-            quat1 = xk[i*4:i*4+4]
-            quat2 = xk[j*4:j*4+4]
+            quat1 = i1.opt_quat
+            quat2 = i2.opt_quat
             # print quat1, quat2
             R = i1.R_list[j]
             if R == None:
@@ -242,12 +246,9 @@ def errorFunc(xk):
             #q = transformations.quaternion_from_matrix(R)
             q_inv = i1.q_inv_list[j]
             q1_maybe = transformations.quaternion_multiply(q_inv, quat2)
-            q1_maybe = q1_maybe / np.linalg.norm(q1_maybe)
             #q2_maybe = transformations.quaternion_multiply(q, quat1)
-            #q2_maybe = q2_maybe / np.linalg.norm(q2_maybe)
             angle1 = quaternion_angle(quat1, q1_maybe)
             #angle2 = quaternion_angle(quat2, q2_maybe)
-            pair_err = angle1
             # print i, j
             # print ' q1: ', quat1
             # print ' q2: ', quat2
@@ -256,7 +257,7 @@ def errorFunc(xk):
             # print ' q2?:', q2_maybe
             # print ' ang1:', quaternion_angle(quat1, q1_maybe)
             # print ' ang2:', quaternion_angle(quat2, q2_maybe)
-            pair_sum += pair_err * pair_err * i1.weight_list[j]
+            pair_sum += angle1 * angle1 * i1.weight_list[j]
             pair_count += i1.weight_list[j]
         if pair_count > 0:
             image_err = math.sqrt(pair_sum / pair_count)
@@ -269,8 +270,14 @@ def errorFunc(xk):
     return total_err
 
 def printStatus(xk):
-    print 'Current value:', errorFunc(xk)
-    
+    print 'Current value:', errorFunc(xk), 'saving as (sba)'
+    saveOrientation(xk)
+    try:
+        print 'All image positions updated...'
+        input("press enter to continue:")
+    except:
+        pass
+
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
