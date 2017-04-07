@@ -1094,34 +1094,34 @@ class Matcher():
 # the following functions do not have class dependencies but can live
 # here for functional grouping.
 
-def buildConnectionDetail(image_list, matches_direct):
-    # wipe any existing connection detail
-    for image in image_list:
-        image.connection_detail = [0] * len(image_list)
-    for match in matches_direct:
-        # record all v. all connections
-        for p in match[1:]:
-            for q in match[1:]:
-                i1 = p[0]
-                i2 = q[0]
-                if i1 != i2:
-                    image_list[i1].connection_detail[i2] += 1
+# def buildConnectionDetail(image_list, matches_direct):
+#     # wipe any existing connection detail
+#     for image in image_list:
+#         image.connection_detail = [0] * len(image_list)
+#     for match in matches_direct:
+#         # record all v. all connections
+#         for p in match[1:]:
+#             for q in match[1:]:
+#                 i1 = p[0]
+#                 i2 = q[0]
+#                 if i1 != i2:
+#                     image_list[i1].connection_detail[i2] += 1
                     
-def reportConnectionDetail():
-    print "Connection detail report"
-    print "(will add in extra 3+ way matches to the count when they exist.)"
-    for image in image_list:
-        print image.name
-        for i, count in enumerate(image.connection_detail):
-            if count > 0:
-                print "  ", image_list[i].name, count
+# def reportConnectionDetail():
+#     print "Connection detail report"
+#     print "(will add in extra 3+ way matches to the count when they exist.)"
+#     for image in image_list:
+#         print image.name
+#         for i, count in enumerate(image.connection_detail):
+#             if count > 0:
+#                 print "  ", image_list[i].name, count
 
 # return the neighbor that is closest to the root node of the
 # placement tree (i.e. smallest cycle_depth.
-def bestNeighbor(image, image_list, match_pairs):
+def bestNeighbor(image, image_list):
     best_cycle_depth = len(image_list) + 1
     best_index = None
-    for i, pairs in enumerate(match_pairs):
+    for i, pairs in enumerate(image.match_list):
         if len(pairs):
             i2 = image_list[i]
             dist = i2.cycle_depth
@@ -1132,17 +1132,15 @@ def bestNeighbor(image, image_list, match_pairs):
                 best_index = i
     return best_index, best_cycle_depth
 
-def groupByConnections(image_list, matches_direct, match_pairs):
+def groupByConnections(image_list):
     # reset the cycle distance for all images
     for image in image_list:
         image.cycle_depth = -1
         
-    # compute number of connections per image
-    buildConnectionDetail(image_list, matches_direct)
     for image in image_list:
         image.connections = 0
-        for pair_count in image.connection_detail:
-            if pair_count >= 8:
+        for match in image.match_list:
+            if len(match) >= 8:
                 image.connections += 1
         if image.connections > 1:
             print "%s connections: %d" % (image.name, image.connections)
@@ -1159,8 +1157,7 @@ def groupByConnections(image_list, matches_direct, match_pairs):
         best_cycle_depth = len(image_list) + 1
         for i, image in enumerate(image_list):
             if image.cycle_depth < 0:
-                index, cycle_depth = bestNeighbor(image, image_list,
-                                                  match_pairs[i])
+                index, cycle_depth = bestNeighbor(image, image_list)
                 if cycle_depth >= 0 and (cycle_depth+1 < best_cycle_depth):
                     best_index = i
                     best_cycle_depth = cycle_depth+1
