@@ -260,7 +260,7 @@ for tri in tri.simplices:
     for image in proj.image_list:
         ok = True
         # reject images with no connections to the set
-        if image.connection_order < 0:
+        if image.camera_pose_sba == None:
             ok = False
             continue
         # quick 3d bounding radius rejection
@@ -302,8 +302,8 @@ for tri in tri.simplices:
             #metric = dist_cam
             cycle_gain = 0.02
             #metric = dist_cam * (1 + dist_cycle * cycle_gain)
-            #if metric < best_metric:
-            metric = image.connection_order
+            metric = image.cycle_depth
+            #metric = image.connection_order
             if metric < best_metric:
                 best_metric = metric
                 best_image = image
