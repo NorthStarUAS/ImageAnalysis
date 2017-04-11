@@ -7,6 +7,7 @@ import argparse
 import commands
 import cv2
 import fnmatch
+import numpy as np
 import os.path
 
 sys.path.append('../lib')
@@ -28,7 +29,7 @@ parser = argparse.ArgumentParser(description='Load the project\'s images.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--detector', default='SIFT',
                     choices=['SIFT', 'SURF', 'ORB', 'Star'])
-parser.add_argument('--sift-max-features', default=2000,
+parser.add_argument('--sift-max-features', default=5000,
                     help='maximum SIFT features')
 parser.add_argument('--surf-hessian-threshold', default=600,
                     help='hessian threshold for surf method')
@@ -69,8 +70,29 @@ detector_params = { 'detector': args.detector,
 proj.set_detector_params(detector_params)
 proj.save()
 
+# find features in the full image set
 proj.detect_features(force=args.force, show=args.show)
 
+# compute the undistorted mapping of the keypoints (features)
+proj.undistort_keypoints()
+
+# if any undistorted keypoints extend beyond the image bounds, remove them!
+for image in proj.image_list:
+    # traverse the list in reverse so we can safely remove features if
+    # needed
+    dirty = False
+    for i in reversed(range(len(image.uv_list))):
+        uv = image.uv_list[i]
+        if uv[0] < 0 or uv[0] > image.width or uv[1] < 0 or uv[1] > image.height:
+            dirty = True
+            #print ' ', i, uv
+            image.kp_list.pop(i)                          # python list
+            image.des_list = np.delete(image.des_list, i) # np array
+
+    if dirty:
+        image.save_features()
+        image.save_descriptors()    
+    
 feature_count = 0
 image_count = 0
 for image in proj.image_list:
