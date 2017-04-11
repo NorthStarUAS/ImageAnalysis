@@ -32,8 +32,10 @@ class SBA():
     def __init__(self, root):
         self.program = 'eucsbademo'
         self.root = root
-        self.image_map_fwd = {}
-        self.image_map_rev = {}
+        self.camera_map_fwd = {}
+        self.camera_map_rev = {}
+        self.feat_map_fwd = {}
+        self.feat_map_rev = {}
 
     # write the camera (motion) parameters, feature (structure)
     # parameters, and calibration (K) to files in the project
@@ -46,15 +48,17 @@ class SBA():
             for i in range(len(image_list)):
                 placed_images.add(i)
                 
-        # construct the image index remapping
-        self.image_map_fwd = {}
-        self.image_map_rev = {}
+        # construct the camera index remapping
+        self.camera_map_fwd = {}
+        self.camera_map_rev = {}
         for i, index in enumerate(placed_images):
-            self.image_map_fwd[i] = index
-            self.image_map_rev[index] = i
-        print self.image_map_fwd
-        print self.image_map_rev
-            
+            self.camera_map_fwd[i] = index
+            self.camera_map_rev[index] = i
+
+        # initialize the feature index remapping
+        self.feat_map_fwd = {}
+        self.feat_map_rev = {}
+        
         # iterate through the image list and build the camera pose dictionary
         # (and a simple list of camera locations for plotting)
         f = open( self.root + '/sba-cams.txt', 'w' )
@@ -121,7 +125,12 @@ class SBA():
             f.write(s)
         f.close()
 
+        # for i, index in enumerate(placed_images):
+        #     self.camera_map_fwd[i] = index
+        #     self.camera_map_rev[index] = i
+            
         # iterate through the matches dictionary to produce a list of matches
+        feat_used = 0
         f = open( self.root + '/sba-points.txt', 'w' )
         for i, match in enumerate(matches_list):
             ned = np.array(match[0])
@@ -131,13 +140,16 @@ class SBA():
                 if p[0] in placed_images:
                     count += 1
             if ned.size == 3 and count >= 2:
+                self.feat_map_fwd[i] = feat_used
+                self.feat_map_rev[feat_used] = i
+                feat_used += 1
                 s = "%.4f %.4f %.4f  " % (ned[0], ned[1], ned[2])
                 f.write(s)
                 s = "%d  " % (count)
                 f.write(s)
                 for p in match[1:]:
                     if p[0] in placed_images:
-                        local_index = self.image_map_rev[p[0]]
+                        local_index = self.camera_map_rev[p[0]]
                         # kp = image_list[p[0]].kp_list[p[1]].pt # distorted
                         kp = image_list[p[0]].uv_list[p[1]]      # undistorted
                         s = "%d %.2f %.2f " % (local_index, kp[0], kp[1])
@@ -275,4 +287,4 @@ class SBA():
         print "Iterations =", iterations
         print "Elapsed time = %.2f sec (%.2f msec)" % (time_msec/1000,
                                                        time_msec)
-        return cameras, features, self.image_map_fwd
+        return cameras, features, self.camera_map_fwd, self.feat_map_rev
