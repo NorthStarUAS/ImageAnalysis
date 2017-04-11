@@ -241,7 +241,7 @@ print 'scale:', scale
 
 sba = SBA.SBA(args.project)
 sba.prepair_data( proj.image_list, groups[0], matches_direct, proj.cam.get_K(scale) )
-cameras, features, cam_index_map = sba.run_live(mode='')
+cameras, features, cam_index_map, feat_index_map = sba.run_live(mode='')
 
 # wipe the sba pose for all images
 for image in proj.image_list:
@@ -308,10 +308,13 @@ for image in proj.image_list:
     camera_list.append( ned )
 # refit
 new_cams = transform_points(A, camera_list)
+
 # update sba poses. FIXME: do we need to update orientation here as
 # well?  Somewhere we worked out the code, but it may not matter all
 # that much ... except for later manually computing mean projection
 # error.
+max_moved_image = None
+max_moved_dist = 0
 for i, image in enumerate(proj.image_list):
     if not image.placed:
         continue
@@ -325,16 +328,23 @@ for i, image in enumerate(proj.image_list):
     (yaw, pitch, roll) = transformations.euler_from_matrix(newRbody2ned, 'rzyx')
     image.set_camera_pose_sba(ned=new_cams[i],
                               ypr=[yaw/d2r, pitch/d2r, roll/d2r])
+    dist = np.linalg.norm( np.array(ned_orig) - np.array(new_cams[i]))
     print 'image:', image.name
     print '  orig pos:', ned_orig
     print '  fit pos:', new_cams[i]
-    print '  dist moved:', np.linalg.norm( np.array(ned_orig) - np.array(new_cams[i]))
+    print '  dist moved:', dist
+    if dist > max_moved_dist:
+        max_moved_dist = dist
+        max_moved_image = image
+        
     # fixme: are we doing the correct thing here with attitude, or
     # should we transform the point set and then solvepnp() all the
     # camera locations (for now comment out save_meta()
-    
-    # image.save_meta()
-    
+    image.save_meta()
+
+print 'Image that moved the most:', max_moved_image.name
+print 'Move distance (m):', max_moved_dist
+
 # update the sba point locations based on same best fit transform
 # derived from the cameras (remember that 'features' is the point
 # features structure spit out by the SBA process)
@@ -344,11 +354,19 @@ for f in features:
 new_feats = transform_points(A, feature_list)
 
 # create the matches_sba list (copy) and update the ned coordinate
-matches_sba = list(matches_group)
-for i, match in enumerate(matches_sba):
-    #print type(new_feats[i])
-    matches_sba[i][0] = new_feats[i]
-
+matches_sba = []
+for i, feat in enumerate(new_feats):
+    match_index = feat_index_map[i]
+    match = list(matches_direct[match_index])
+    match[0] = feat
+    matches_sba.append( match )
+    
 # write out the updated match_dict
 print "Writing match_sba file ...", len(matches_sba), 'features'
 pickle.dump(matches_sba, open(args.project + "/matches_sba", "wb"))
+
+# temp write out just the points so we can plot them with gnuplot
+f = open('sba-plot.txt', 'w')
+for m in matches_sba:
+    f.write('%.2f %.2f %.2f\n' % (m[0][0], m[0][1], m[0][2]))
+f.close()
