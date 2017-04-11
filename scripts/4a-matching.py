@@ -118,7 +118,25 @@ bar = Bar('Construct KDTrees:',
           max = len(proj.image_list))
 for image in proj.image_list:
     if len(image.coord_list):
-        # print image.coord_list
+        # print
+        # print image.name
+        # print len(image.coord_list)
+        # xmin = image.coord_list[0][0]
+        # xmax = image.coord_list[0][0]
+        # ymin = image.coord_list[0][1]
+        # ymax = image.coord_list[0][1]
+        # zmin = image.coord_list[0][2]
+        # zmax = image.coord_list[0][2]
+        # for p in image.coord_list:
+        #     if p[0] < xmin: xmin = p[0]
+        #     if p[0] > xmax: xmax = p[0]
+        #     if p[1] < ymin: ymin = p[1]
+        #     if p[1] > ymax: ymax = p[1]
+        #     if p[2] < zmin: zmin = p[2]
+        #     if p[2] > zmax: zmax = p[2]
+        # print xmin, xmax
+        # print ymin, ymax
+        # print zmin, zmax
         image.kdtree = scipy.spatial.KDTree(image.coord_list)
     else:
         image.kdtree = None
