@@ -9,6 +9,7 @@ import cv2
 import fnmatch
 import numpy as np
 import os.path
+from progress.bar import Bar
 
 sys.path.append('../lib')
 import ProjectMgr
@@ -77,6 +78,8 @@ proj.detect_features(force=args.force, show=args.show)
 proj.undistort_keypoints()
 
 # if any undistorted keypoints extend beyond the image bounds, remove them!
+print "Features that fall out of the image bounds after undistortion."
+bar = Bar('Filtering:', max = len(self.image_list))
 for image in proj.image_list:
     # traverse the list in reverse so we can safely remove features if
     # needed
@@ -86,12 +89,15 @@ for image in proj.image_list:
         if uv[0] < 0 or uv[0] > image.width or uv[1] < 0 or uv[1] > image.height:
             dirty = True
             #print ' ', i, uv
-            image.kp_list.pop(i)                          # python list
-            image.des_list = np.delete(image.des_list, i) # np array
+            image.kp_list.pop(i)                             # python list
+            image.des_list = np.delete(image.des_list, i, 0) # np array
 
     if dirty:
         image.save_features()
-        image.save_descriptors()    
+        image.save_descriptors()
+    #print image.name, len(image.kp_list), image.des_list.size
+    bar.next()
+bar.finish()
     
 feature_count = 0
 image_count = 0
