@@ -37,8 +37,8 @@ proj.undistort_keypoints()
 print "Loading original (direct) matches ..."
 matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )
 
-print "Loading maximally grouped matches ..."
-matches_group = pickle.load( open( args.project + "/matches_group", "rb" ) )
+#print "Loading maximally grouped matches ..."
+#matches_group = pickle.load( open( args.project + "/matches_group", "rb" ) )
 
 print "Loading fitted (sba) matches..."
 matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
@@ -126,13 +126,20 @@ def show_outliers(result_list, trim_stddev):
     stddev = math.sqrt(stddev_sum / count)
     print "mre = %.4f stddev = %.4f" % (mre, stddev)
 
+    delete_list = []
     for line in result_list:
         # print "line:", line
         if line[0] > mre + stddev * trim_stddev:
             print "  outlier index %d-%d err=%.2f" % (line[1], line[2],
                                                       line[0])
-            draw_match(line[1], line[2])
-            
+            key = draw_match(line[1], line[2])
+            print 'key:', chr(key)
+            if key == ord('q'):
+                break
+            elif key == ord('y'):
+                delete_list.append(line[1]) # match index
+    return reversed(sorted(set(delete_list)))
+    
 def mark_outliers(result_list, trim_stddev):
     print "Marking outliers..."
     sum = 0.0
@@ -268,11 +275,24 @@ def draw_match(i, index):
     print 'waiting for keyboard input...'
     key = cv2.waitKey() & 0xff
     cv2.destroyAllWindows()
+    return key
 
 result_list = compute_reprojection_errors(proj.image_list, proj.cam)
 
 if args.show:
-    show_outliers(result_list, args.stddev)
+    delete_list = show_outliers(result_list, args.stddev)
+    print delete_list
+    result=raw_input('Remove ' + str(len(delete_list)) + ' matches from matches_direct? (y/n):')
+    if result == 'y' or result == 'Y':
+        for i in delete_list:
+            print 'removing (matches_direct):', matches_direct[i]
+            matches_direct.pop(i)
+        # write out the updated match dictionaries
+        print "Writing direct matches..."
+        pickle.dump(matches_direct, open(args.project+"/matches_direct", "wb"))
+    else:
+        print "Quiting without save by request."    
+    quit()
     
 result_list, mark_sum = mark_outliers(result_list, args.stddev)
 
