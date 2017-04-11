@@ -1284,7 +1284,7 @@ def simpleGrouping(image_list, matches):
                 if image_counter[i] > max_connections:
                     new_index = i
                     max_connections = image_counter[i]
-            if max_connections >= 7:
+            if max_connections >= 25:
                 print "New image with max connections:", image_list[new_index].name
                 print "Number of connected features:", max_connections
                 placed_images.add(new_index)
