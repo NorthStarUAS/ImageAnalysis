@@ -127,3 +127,11 @@ to skip.  Type 'q' to quit and delete the marked matches.
 
 
 # 6. Render Results
+
+  ## 6a-delaunay3.py
+
+  Current best script for textured output
+
+  ## 6a-delaunay5.py
+
+  Output a non-textured delaunay triangulation of the fitted surface
