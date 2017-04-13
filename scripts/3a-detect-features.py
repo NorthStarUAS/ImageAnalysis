@@ -46,6 +46,7 @@ parser.add_argument('--star-response-threshold', default=30)
 parser.add_argument('--star-line-threshold-projected', default=10)
 parser.add_argument('--star-line-threshold-binarized', default=8)
 parser.add_argument('--star-suppress-nonmax-size', default=5)
+parser.add_argument('--reject-margin', default=5, help='reject features within this distance of the image margin')
 
 parser.add_argument('--force', action='store_true',
                     help='force redection of features even if features already exist')
@@ -78,15 +79,17 @@ proj.detect_features(force=args.force, show=args.show)
 proj.undistort_keypoints()
 
 # if any undistorted keypoints extend beyond the image bounds, remove them!
+margin = args.reject_margin
 print "Features that fall out of the image bounds after undistortion."
-bar = Bar('Filtering:', max = len(self.image_list))
+bar = Bar('Filtering:', max = len(proj.image_list))
 for image in proj.image_list:
     # traverse the list in reverse so we can safely remove features if
     # needed
     dirty = False
     for i in reversed(range(len(image.uv_list))):
         uv = image.uv_list[i]
-        if uv[0] < 0 or uv[0] > image.width or uv[1] < 0 or uv[1] > image.height:
+        if uv[0] < margin or uv[0] > image.width - margin \
+           or uv[1] < margin or uv[1] > image.height - margin:
             dirty = True
             #print ' ', i, uv
             image.kp_list.pop(i)                             # python list
