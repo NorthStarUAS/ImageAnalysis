@@ -166,57 +166,6 @@ class SBA():
         s = "%.4f %.4f %.4f\n" % (K[2,0], K[2,1], K[2,2])
         f.write(s)
 
-    def run(self):
-        command = []
-        command.append( self.program )
-        command.append( self.root + '/sba-cams.txt' )
-        command.append( self.root + '/sba-points.txt' )
-        command.append( self.root + '/sba-calib.txt' )
-        print "Running:", command
-        result = subprocess.check_output( command )
-
-        state = ''
-        mre_start = 0.0         # mre = mean reprojection error
-        mre_final = 0.0         # mre = mean reprojection error
-        iterations = 0
-        time_msec = 0.0
-        cameras = []
-        features = []
-        
-        for line in result.split('\n'):
-            if re.search('mean reprojection error', line):
-                value = float(re.sub('mean reprojection error', '', line))
-                if mre_start == 0.0:
-                    mre_start = value
-                else:
-                    mre_final = value
-            elif re.search('iterations=', line):
-                iterations = int(re.sub('iterations=', '', line))
-            elif re.search('Elapsed time:', line):
-                tokens = line.split()
-                time_msec = float(tokens[4])
-            elif re.search('Motion parameters:', line):
-                state = 'motion'
-            elif re.search('Structure parameters:', line):
-                state = 'structure'
-            else:
-                tokens = line.split()
-                if state == 'motion' and len(tokens) == 7:
-                    # print "camera:", np.array(tokens, dtype=float)
-                    cameras.append( np.array(tokens, dtype=float) )
-                elif state == 'structure' and len(tokens) == 3:
-                    # print "feature:", np.array(tokens, dtype=float)
-                    features.append( np.array(tokens, dtype=float) )
-                # else:
-                    # print "debug =", line
-            
-        print "Starting mean reprojection error:", mre_start
-        print "Final mean reprojection error:", mre_final
-        print "Iterations =", iterations
-        print "Elapsed time = %.2f sec (%.2f msec)" % (time_msec/1000,
-                                                       time_msec)
-        return cameras, features
-
     def run_live(self, mode=''):
         command = []
         command.append( self.program )
