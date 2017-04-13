@@ -37,9 +37,6 @@ proj.undistort_keypoints()
 print "Loading original (direct) matches ..."
 matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )
 
-#print "Loading maximally grouped matches ..."
-#matches_group = pickle.load( open( args.project + "/matches_group", "rb" ) )
-
 print "Loading fitted (sba) matches..."
 matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
 
@@ -138,7 +135,7 @@ def show_outliers(result_list, trim_stddev):
                 break
             elif key == ord('y'):
                 delete_list.append(line[1]) # match index
-    return reversed(sorted(set(delete_list)))
+    return delete_list
     
 def mark_outliers(result_list, trim_stddev):
     print "Marking outliers..."
@@ -233,11 +230,11 @@ def draw_match(i, index):
         match = matches_direct[i]
     print 'match:', match, 'index:', index
     for j, m in enumerate(match[1:]):
-        print ' ', m, proj.image_list[m[0]]
+        print ' ', m, proj.image_list[m[0]].name
         img = proj.image_list[m[0]]
-        # kp = img.kp_list[m[1]].pt # distorted
-        kp = img.uv_list[m[1]]  # undistored
-        print ' ', kp
+        print 'undistorted:', img.kp_list[m[1]].pt
+        print 'distorted:', img.uv_list[m[1]]
+        kp = img.kp_list[m[1]].pt  # raw/distorted
         rgb = img.load_rgb()
         h, w = rgb.shape[:2]
         crop = True
@@ -282,10 +279,11 @@ result_list = compute_reprojection_errors(proj.image_list, proj.cam)
 
 if args.show:
     delete_list = show_outliers(result_list, args.stddev)
+    delete_list = set(delete_list)
     print delete_list
     result=raw_input('Remove ' + str(len(delete_list)) + ' matches from matches_direct? (y/n):')
     if result == 'y' or result == 'Y':
-        for i in delete_list:
+        for i in reversed(sorted(delete_list)):
             print 'removing (matches_direct):', matches_direct[i]
             matches_direct.pop(i)
         # write out the updated match dictionaries
