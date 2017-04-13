@@ -275,8 +275,7 @@ new_cams = transform_points(A, camera_list)
 # well?  Somewhere we worked out the code, but it may not matter all
 # that much ... except for later manually computing mean projection
 # error.
-max_moved_image = None
-max_moved_dist = 0
+dist_report = []
 for i, image in enumerate(proj.image_list):
     if not image.placed:
         continue
@@ -295,17 +294,19 @@ for i, image in enumerate(proj.image_list):
     print '  orig pos:', ned_orig
     print '  fit pos:', new_cams[i]
     print '  dist moved:', dist
-    if dist > max_moved_dist:
-        max_moved_dist = dist
-        max_moved_image = image
+    dist_report.append( (dist, image.name) )
         
     # fixme: are we doing the correct thing here with attitude, or
     # should we transform the point set and then solvepnp() all the
     # camera locations (for now comment out save_meta()
     image.save_meta()
 
-print 'Image that moved the most:', max_moved_image.name
-print 'Move distance (m):', max_moved_dist
+dist_report = sorted(dist_report,
+                     key=lambda fields: fields[0],
+                     reverse=False)
+print 'Image movement sorted lowest to highest:'
+for report in dist_report:
+    print report[1], 'dist:', report[0]
 
 # update the sba point locations based on same best fit transform
 # derived from the cameras (remember that 'features' is the point
