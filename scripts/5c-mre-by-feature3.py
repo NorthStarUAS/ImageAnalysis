@@ -96,8 +96,8 @@ def compute_reprojection_errors(image_list, cam):
                 kp = image.uv_list[ p[1] ]  # undistorted uv point
                 scale = float(image.width) / float(camw)
                 dist = compute_feature_mre(cam.get_K(scale), image, kp, ned)
-                if i == 67364 or i == 67469:
-                    print i, 'dist:', dist, 'ned:', ned
+                # if i == 67364 or i == 67469:
+                #     print i, 'dist:', dist, 'ned:', ned
                 result_list.append( (dist, i, j) )
 
     # sort by worst max error first
@@ -170,6 +170,7 @@ def mark_outliers(result_list, trim_stddev):
             print "  outlier index %d-%d err=%.2f" % (line[1], line[2],
                                                       line[0])
             match = matches_direct[line[1]]
+            print '    image:', proj.image_list[ match[line[2]+1][0] ].name
             match[line[2]+1] = [-1, -1]
             if not args.direct:
                 match = matches_sba[line[1]]
