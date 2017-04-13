@@ -191,44 +191,6 @@ for m in matches_group:
 
 print "Number of groupings:", group_count
 
-# add some grouped matches to the original matches_direct
-# count = 0
-# matches_direct = []
-# while True:
-#     index = random.randrange(len(matches_tmp))
-#     print "index:", index
-#     match = matches_tmp[index]
-#     if count > 100:
-#         break
-#     if len(match) > 3:
-#         # append whole match: matches_direct.append(match)
-        
-#         # append pair combinations
-#         ned = match[0]
-#         for i in range(1, len(match)-1):
-#             for j in range(i+1, len(match)):
-#                 print i, j
-#                 matches_direct.append( [ ned, match[i], match[j] ] )
-#         #draw_match(len(matches_direct)-1, -1)
-#         count += 1
-        
-# add all the grouped matches pair-wise
-# matches_direct = []
-# for match in matches_tmp:
-#     # append pair combinations
-#     ned = match[0]
-#     for i in range(1, len(match)-1):
-#         for j in range(i+1, len(match)):
-#             print i, j
-#             matches_direct.append( [ ned, match[i], match[j] ] )
-#     #draw_match(len(matches_direct)-1, -1)
-
-# now forget all that and just add the matches referencing more than 2 views
-# matches_direct = []
-# for m in matches_tmp:
-#     if len(m) > 3:
-#         matches_direct.append(m)
-
 print "Original match connector"
 Matcher.groupByConnections(proj.image_list)
 
