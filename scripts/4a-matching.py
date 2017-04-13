@@ -29,7 +29,7 @@ parser.add_argument('--matcher', default='FLANN',
                     choices=['FLANN', 'BF'])
 parser.add_argument('--match-ratio', default=0.75, type=float,
                     help='match ratio')
-parser.add_argument('--min-pairs', default=20, type=int,
+parser.add_argument('--min-pairs', default=25, type=int,
                     help='minimum matches between image pairs to keep')
 parser.add_argument('--filter', default='essential',
                     choices=['homography', 'fundamental', 'essential', 'none'])
