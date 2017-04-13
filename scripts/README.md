@@ -121,5 +121,9 @@ Show all the imported images.
 
 Compute the mre of the assembled scene (optionally delete worst outliers)
 
+With the --show option, interactively display the worst mre error
+matches.  Type 'y' to delete (from matches_direct) and any other key
+to skip.  Type 'q' to quit and delete the marked matches.
+
 
 # 6. Render Results
