@@ -226,29 +226,31 @@ def update_pose(matches, new_index):
     rvec, tvec = new_image.get_proj()
     #print 'new_ned_list', new_ned_list
     #print 'new_uv_list', new_uv_list
-    (result, rvec, tvec) \
+    (result, rvec, tvec, inliers) \
         = cv2.solvePnPRansac(np.float32(new_ned_list), np.float32(new_uv_list),
                              proj.cam.get_K(scale), None,
                              rvec, tvec, useExtrinsicGuess=True)
-    Rned2cam, jac = cv2.Rodrigues(rvec)
-    pos = -np.matrix(Rned2cam[:3,:3]).T * np.matrix(tvec)
-    newned = pos.T[0].tolist()[0]
+    print 'solvePnPRansac:', result
+    if result:
+        Rned2cam, jac = cv2.Rodrigues(rvec)
+        pos = -np.matrix(Rned2cam[:3,:3]).T * np.matrix(tvec)
+        newned = pos.T[0].tolist()[0]
 
-    # Our Rcam matrix (in our ned coordinate system) is body2cam * Rned,
-    # so solvePnP returns this combination.  We can extract Rned by
-    # premultiplying by cam2body aka inv(body2cam).
-    cam2body = new_image.get_cam2body()
-    Rned2body = cam2body.dot(Rned2cam)
-    Rbody2ned = np.matrix(Rned2body).T
-    (yaw, pitch, roll) = transformations.euler_from_matrix(Rbody2ned, 'rzyx')
+        # Our Rcam matrix (in our ned coordinate system) is body2cam * Rned,
+        # so solvePnP returns this combination.  We can extract Rned by
+        # premultiplying by cam2body aka inv(body2cam).
+        cam2body = new_image.get_cam2body()
+        Rned2body = cam2body.dot(Rned2cam)
+        Rbody2ned = np.matrix(Rned2body).T
+        (yaw, pitch, roll) = transformations.euler_from_matrix(Rbody2ned, 'rzyx')
 
-    print "original pose:", new_image.get_camera_pose()
-    #print "original pose:", proj.image_list[30].get_camera_pose()
-    new_image.set_camera_pose_sba(ned=newned,
-                                  ypr=[yaw*r2d, pitch*r2d, roll*r2d])
-    new_image.save_meta()
-    print "solvepnp() pose:", new_image.get_camera_pose_sba()
-
+        print "original pose:", new_image.get_camera_pose()
+        #print "original pose:", proj.image_list[30].get_camera_pose()
+        new_image.set_camera_pose_sba(ned=newned,
+                                      ypr=[yaw*r2d, pitch*r2d, roll*r2d])
+        new_image.save_meta()
+        print "solvepnp() pose:", new_image.get_camera_pose_sba()
+    return result
     
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
@@ -350,6 +352,7 @@ while not done:
     
     # start with no placed images
     placed_images = set()
+    failed_images = set()
 
     # wipe vec_list and coord_list and connection order for all images
     for image in proj.image_list:
@@ -417,7 +420,7 @@ while not done:
             # connects to two or more placed images)
             if match[0] != None:
                 for m in match[1:]:
-                    if not m[0] in placed_images:
+                    if not m[0] in placed_images and not m[0] in failed_images:
                         image_counter[m[0]] += 1
         print 'connected image count:', image_counter
         new_index = -1
@@ -425,20 +428,22 @@ while not done:
         for i in range(len(image_counter)):
             if image_counter[i] > max_connections:
                 new_index = i
+                new_image = proj.image_list[new_index]
                 max_connections = image_counter[i]
-        if max_connections > 4:
-            print "New image with max connections:", proj.image_list[new_index].name
-            print "Number of connected features:", max_connections
-            placed_images.add(new_index)
-        else:
+        if max_connections <= 7:
             break
-
-        print "Total number of placed images so far:", len(placed_images)
-
-        new_image = proj.image_list[new_index]
-        new_image.connection_order = len(placed_images) - 1
-        update_pose(matches_group, new_index)
-        print 'Image placed:', new_image.name
+        
+        result = update_pose(matches_group, new_index)
+        if result:
+            placed_images.add(new_index)
+            new_image.connection_order = len(placed_images) - 1
+            print "New image with max connections:", new_image.name
+            print "Number of connected features:", max_connections
+            print "Total number of placed images so far:", len(placed_images)
+            print 'Image placed:', new_image.name
+        else:
+            failed_images.add(new_index)
+            print "Failed solvePnPRansac() pose:", new_image.name
 
     # final triangulation of all match coordinates
     # print 'Performing final complete group triangulation'
@@ -455,7 +460,9 @@ while not done:
         pass
     done = True
 
-print placed_images
+print 'placed images:', placed_images
+print 'failed images:', failed_images
+
 sba = SBA.SBA(args.project)
 sba.prepair_data( proj.image_list, placed_images, matches_group,
                   proj.cam.get_K(scale) )
