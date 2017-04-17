@@ -54,7 +54,9 @@ class SBA():
         for i, index in enumerate(placed_images):
             self.camera_map_fwd[i] = index
             self.camera_map_rev[index] = i
-
+        print self.camera_map_fwd[i]
+        print self.camera_map_rev[i]
+        
         # initialize the feature index remapping
         self.feat_map_fwd = {}
         self.feat_map_rev = {}
@@ -192,6 +194,7 @@ class SBA():
         time_msec = 0.0
         cameras = []
         features = []
+        error_images = set()
 
         result = process.stdout.readline()
         print result
@@ -218,6 +221,13 @@ class SBA():
                     state = 'motion'
                 elif re.search('Structure parameters:', line):
                     state = 'structure'
+                elif re.search('the estimated projection of point', line):
+                    print line
+                    tokens = line.split()
+                    cam_index = int(tokens[12])
+                    image_index = self.camera_map_fwd[cam_index]
+                    print 'sba cam:', cam_index, 'image index:', image_index
+                    error_images.add(image_index)
                 else:
                     tokens = line.split()
                     if state == 'motion' and len(tokens) > 0:
@@ -236,4 +246,4 @@ class SBA():
         print "Iterations =", iterations
         print "Elapsed time = %.2f sec (%.2f msec)" % (time_msec/1000,
                                                        time_msec)
-        return cameras, features, self.camera_map_fwd, self.feat_map_rev
+        return cameras, features, self.camera_map_fwd, self.feat_map_rev, error_images

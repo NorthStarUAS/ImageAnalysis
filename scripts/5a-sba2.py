@@ -203,8 +203,13 @@ print 'scale:', scale
 
 sba = SBA.SBA(args.project)
 sba.prepair_data( proj.image_list, groups[0], matches_direct, proj.cam.get_K(scale) )
-cameras, features, cam_index_map, feat_index_map = sba.run_live(mode='')
+cameras, features, cam_index_map, feat_index_map, error_images = sba.run_live(mode='')
 
+if len(error_images):
+    for i in error_images:
+        print 'Image blew up:', proj.image_list[i].name
+    quit()
+    
 # wipe the sba pose for all images
 for image in proj.image_list:
     image.camera_pose_sba = None
