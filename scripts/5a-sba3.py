@@ -227,9 +227,9 @@ def update_pose(matches, new_index):
     #print 'new_ned_list', new_ned_list
     #print 'new_uv_list', new_uv_list
     (result, rvec, tvec) \
-        = cv2.solvePnP(np.float32(new_ned_list), np.float32(new_uv_list),
-                       proj.cam.get_K(scale), None,
-                       rvec, tvec, useExtrinsicGuess=True)
+        = cv2.solvePnPRansac(np.float32(new_ned_list), np.float32(new_uv_list),
+                             proj.cam.get_K(scale), None,
+                             rvec, tvec, useExtrinsicGuess=True)
     Rned2cam, jac = cv2.Rodrigues(rvec)
     pos = -np.matrix(Rned2cam[:3,:3]).T * np.matrix(tvec)
     newned = pos.T[0].tolist()[0]
