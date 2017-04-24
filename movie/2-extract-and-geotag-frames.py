@@ -2,7 +2,7 @@
 
 # find our custom built opencv first
 import sys
-sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
+sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
 import cv2
@@ -16,15 +16,24 @@ import re
 #from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy import interpolate # strait up linear interpolation, nothing fancy
 
+from nav.data import flight_data, flight_interp
+
 parser = argparse.ArgumentParser(description='correlate movie data to flight data.')
+parser.add_argument('--flight', help='load specified aura flight log')
+parser.add_argument('--aura-flight', help='load specified aura flight log')
+parser.add_argument('--px4-sdlog2', help='load specified px4 sdlog2 (csv) flight log')
+parser.add_argument('--px4-ulog', help='load specified px4 ulog (csv) base path')
+parser.add_argument('--umn-flight', help='load specified .mat flight log')
+parser.add_argument('--sentera-flight', help='load specified sentera flight log')
+parser.add_argument('--sentera2-flight', help='load specified sentera2 flight log')
 parser.add_argument('--movie', required=False, help='original movie if extracting frames')
-parser.add_argument('--hud', required=False, help='original movie if drawing hud')
+parser.add_argument('--select-cam', type=int, help='select camera calibration')
+parser.add_argument('--interval', type=float, default=1.0, help='capture interval')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
-parser.add_argument('--movie-log', required=True, help='movie log file')
 parser.add_argument('--resample-hz', type=float, default=30.0, help='resample rate (hz)')
-parser.add_argument('--apm-log', help='APM tlog converted to csv')
-parser.add_argument('--aura-dir', help='Aura flight log directory')
 parser.add_argument('--stop-count', type=int, default=1, help='how many non-frames to absorb before we decide the movie is over')
+parser.add_argument('--ground', type=float, help='ground altitude in meters')
+parser.add_argument('--plot', action='store_true', help='Plot stuff at the end of the run')
 args = parser.parse_args()
 
 r2d = 180.0 / math.pi
@@ -75,99 +84,67 @@ if args.resample_hz <= 0.001:
     print "Resample rate (hz) needs to be greater than zero."
     quit()
     
+# pathname work
+abspath = os.path.abspath(args.movie)
+filename, ext = os.path.splitext(abspath)
+dirname = os.path.dirname(args.movie)
+movie_log = filename + ".csv"
+camera_config = dirname + "/camera.json"
+
 # load movie log
 movie = []
-with open(args.movie_log, 'rb') as f:
+with open(movie_log, 'rb') as f:
     for line in f:
         movie.append( re.split('[,\s]+', line.rstrip()) )
 
-flight_imu = []
-flight_gps = []
-flight_air = []
-last_imu_time = -1
-last_gps_time = -1
-last_air_time = -1
-
-if args.apm_log:
-    # load APM flight log
-    agl = 0.0
-    with open(args.apm_log, 'rb') as f:
-        for line in f:
-            tokens = re.split('[,\s]+', line.rstrip())
-            if tokens[7] == 'mavlink_attitude_t':
-                timestamp = float(tokens[9])/1000.0
-                print timestamp
-                if timestamp > last_imu_time:
-                    flight_imu.append( [timestamp,
-                                        float(tokens[17]), float(tokens[19]),
-                                        float(tokens[21]),
-                                        float(tokens[11]), float(tokens[13]),
-                                        float(tokens[15])] )
-                    last_imu_time = timestamp
-                else:
-                    print "ERROR: IMU time went backwards:", timestamp, last_imu_time
-            elif tokens[7] == 'mavlink_gps_raw_int_t':
-                timestamp = float(tokens[9])/1000000.0
-                if timestamp > last_gps_time - 1.0:
-                    flight_gps.append( [timestamp,
-                                        float(tokens[11]) / 10000000.0,
-                                        float(tokens[13]) / 10000000.0,
-                                        float(tokens[15]) / 1000.0,
-                                        agl] )
-                    last_gps_time = timestamp
-                else:
-                    print "ERROR: GPS time went backwards:", timestamp, last_gps_time
-            elif tokens[7] == 'mavlink_terrain_report_t':
-                agl = float(tokens[15])
-elif args.aura_dir:
-    # load Aura flight log
-    imu_file = args.aura_dir + "/imu-0.txt"
-    gps_file = args.aura_dir + "/gps-0.txt"
-    air_file = args.aura_dir + "/air-0.txt"
-    
-    last_time = 0.0
-    with open(imu_file, 'rb') as f:
-        for line in f:
-            tokens = re.split('[,\s]+', line.rstrip())
-            timestamp = float(tokens[0])
-            if timestamp > last_time:
-                flight_imu.append( [tokens[0], tokens[1], tokens[2],
-                                    tokens[3], 0.0, 0.0, 0.0] )
-            else:
-                print "ERROR: time went backwards:", timestamp, last_time
-            last_time = timestamp
-
-    last_time = 0.0
-    with open(gps_file, 'rb') as f:
-        for line in f:
-            #print line
-            tokens = re.split('[,\s]+', line.rstrip())
-            timestamp = float(tokens[0])
-            #print timestamp, last_time
-            if timestamp > last_time:
-                flight_gps.append( [tokens[0], tokens[1], tokens[2],
-                                    tokens[3], 0.0] )
-            else:
-                print "ERROR: time went backwards:", timestamp, last_time
-            last_time = timestamp
-
-    last_time = 0.0
-    with open(air_file, 'rb') as f:
-        for line in f:
-            #print line
-            tokens = re.split('[,\s]+', line.rstrip())
-            timestamp = float(tokens[0])
-            #print timestamp, last_time
-            if timestamp > last_time:
-                flight_air.append( [tokens[0], tokens[1], tokens[2],
-                                    tokens[3]] )
-            else:
-                print "ERROR: time went backwards:", timestamp, last_time
-            last_time = timestamp
+if args.flight:
+    loader = 'aura'
+    path = args.flight
+elif args.aura_flight:
+    loader = 'aura'
+    path = args.aura_flight
+elif args.px4_sdlog2:
+    loader = 'px4_sdlog2'
+    path = args.px4_sdlog2
+elif args.px4_ulog:
+    loader = 'px4_ulog'
+    path = args.px4_ulog
+elif args.sentera_flight:
+    loader = 'sentera1'
+    path = args.sentera_flight
+elif args.sentera2_flight:
+    loader = 'sentera2'
+    path = args.sentera2_flight
+elif args.umn_flight:
+    loader = 'umn1'
+    path = args.umn_flight
 else:
-    print "No flight log specified, cannot continue."
+    loader = None
+    path = None
+if 'recalibrate' in args:
+    recal_file = args.recalibrate
+else:
+    recal_file = None
+data = flight_data.load(loader, path, recal_file)
+print "imu records:", len(data['imu'])
+print "gps records:", len(data['gps'])
+if 'air' in data:
+    print "airdata records:", len(data['air'])
+print "filter records:", len(data['filter'])
+if 'pilot' in data:
+    print "pilot records:", len(data['pilot'])
+if 'act' in data:
+    print "act records:", len(data['act'])
+if len(data['imu']) == 0 and len(data['gps']) == 0:
+    print "not enough data loaded to continue."
     quit()
+
+interp = flight_interp.FlightInterpolate()
+interp.build(data)
     
+# set approximate camera orienation (front, down, and rear supported)
+cam_facing = 'down'
+
 # resample movie data
 movie = np.array(movie, dtype=float)
 movie_interp = []
@@ -180,23 +157,21 @@ xmax = x.max()
 print "movie range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin)
 time = xmax - xmin
 for x in np.linspace(xmin, xmax, time*args.resample_hz):
-    movie_interp.append( [x, movie_spl_roll(x)] )
+    if cam_facing == 'front' or cam_facing == 'down':
+        movie_interp.append( [x, movie_spl_roll(x)] )
+    else:
+        movie_interp.append( [x, -movie_spl_roll(x)] )
 print "movie len:", len(movie_interp)
 
 # resample flight data
-flight_imu = np.array(flight_imu, dtype=float)
 flight_interp = []
-x = flight_imu[:,0]
-flight_imu_p = interpolate.interp1d(x, flight_imu[:,1], bounds_error=False, fill_value=0.0)
-flight_imu_q = interpolate.interp1d(x, flight_imu[:,2], bounds_error=False, fill_value=0.0)
-flight_imu_r = interpolate.interp1d(x, flight_imu[:,3], bounds_error=False, fill_value=0.0)
-flight_imu_roll = interpolate.interp1d(x, flight_imu[:,4], bounds_error=False, fill_value=0.0)
-flight_imu_pitch = interpolate.interp1d(x, flight_imu[:,5], bounds_error=False, fill_value=0.0)
-flight_imu_yaw = interpolate.interp1d(x, flight_imu[:,6], bounds_error=False, fill_value=0.0)
-if args.apm_log:
-    y_spline = flight_imu_r
-elif args.aura_dir:
-    y_spline = flight_imu_p
+if cam_facing == 'front' or cam_facing == 'rear':
+    y_spline = interp.imu_p     # front/rear facing camera
+else:
+    y_spline = interp.imu_r     # down facing camera
+
+# run correlation over filter time span
+x = interp.imu_time
 xmin = x.min()
 xmax = x.max()
 print "flight range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin)
@@ -204,17 +179,6 @@ time = xmax - xmin
 for x in np.linspace(xmin, xmax, time*args.resample_hz):
     flight_interp.append( [x, y_spline(x)] )
 print "flight len:", len(flight_interp)
-
-flight_gps = np.array(flight_gps, dtype=np.float64)
-x = flight_gps[:,0]
-flight_gps_lat = interpolate.interp1d(x, flight_gps[:,1], bounds_error=False, fill_value=0.0)
-flight_gps_lon = interpolate.interp1d(x, flight_gps[:,2], bounds_error=False, fill_value=0.0)
-flight_gps_alt = interpolate.interp1d(x, flight_gps[:,3], bounds_error=False, fill_value=0.0)
-flight_gps_agl = interpolate.interp1d(x, flight_gps[:,4], bounds_error=False, fill_value=0.0)
-
-flight_air = np.array(flight_air, dtype=np.float64)
-x = flight_air[:,0]
-flight_air_speed = interpolate.interp1d(x, flight_air[:,3], bounds_error=False, fill_value=0.0)
 
 # compute best correlation between movie and flight data logs
 movie_interp = np.array(movie_interp, dtype=float)
@@ -247,14 +211,19 @@ qratio = 1.0
 for x in np.linspace(tmin, tmax, time*args.resample_hz):
     mqsum += abs(movie_spl_pitch(x-time_shift))
     mrsum += abs(movie_spl_yaw(x-time_shift))
-    fqsum += abs(flight_imu_q(x))
-    frsum += abs(flight_imu_r(x))
+    fqsum += abs(interp.imu_q(x))
+    frsum += abs(interp.imu_r(x))
 if fqsum > 0.001:
     qratio = mqsum / fqsum
 if mrsum > 0.001:
     rratio = -mrsum / frsum
 print "pitch ratio:", qratio
 print "yaw ratio:", rratio
+
+ground_m = data['gps'][0].alt
+if args.ground:
+    ground_m = args.ground
+print 'Ground elevation:', ground_m
 
 if args.movie:
     # extract frames
@@ -268,11 +237,11 @@ if args.movie:
     counter += 1
     print "ok reading first frame"
 
-    fps = capture.get(cv2.cv.CV_CAP_PROP_FPS)
+    fps = capture.get(cv2.CAP_PROP_FPS)
     print "fps = %.2f" % fps
-    fourcc = int(capture.get(cv2.cv.CV_CAP_PROP_FOURCC))
-    w = capture.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH)
-    h = capture.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT)
+    fourcc = int(capture.get(cv2.CAP_PROP_FOURCC))
+    w = capture.get(cv2.CAP_PROP_FRAME_WIDTH)
+    h = capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
     last_time = 0.0
     abspath = os.path.abspath(args.movie)
@@ -296,32 +265,32 @@ if args.movie:
             print "Skipping bad frame ..."
             continue
         time = float(counter) / fps + time_shift
-        print "frame: ", counter, time
+        print "frame: %d %.3f" % (counter, time)
         counter += 1
         if time < tmin or time > tmax:
             continue
-        if flight_gps_agl(time) < 20.0:
+        agl = interp.gps_alt(time) - ground_m
+        if agl < 20.0:
             continue
-        yaw_deg = flight_imu_yaw(time)*r2d
+        roll_deg = interp.filter_phi(time) * r2d
+        pitch_deg = interp.filter_the(time) * r2d
+        psix = interp.filter_psix(time)
+        psiy = interp.filter_psiy(time)
+        yaw_deg = math.atan2(psiy, psix) * r2d
         while yaw_deg < 0:
             yaw_deg += 360
         while yaw_deg > 360:
             yaw_deg -= 360
-        # reject poses that are too far off N/S headings (temp hack)
-        #if yaw_deg > 10 and yaw_deg < 170:
-        #    continue
-        #if yaw_deg > 190 and yaw_deg < 350:
-        #    continue
-        if time > last_time + 1.0:
+        if time >= last_time + args.interval:
             last_time = time
             file = basename + "-%06d" % counter + ".jpg"
             cv2.imwrite(file, frame)
             # geotag the image
             exif = pyexiv2.ImageMetadata(file)
             exif.read()
-            lat_deg = float(flight_gps_lat(time))
-            lon_deg = float(flight_gps_lon(time))
-            altitude = float(flight_gps_alt(time))
+            lat_deg = float(interp.gps_lat(time))
+            lon_deg = float(interp.gps_lon(time))
+            altitude = float(interp.gps_alt(time))
             print lat_deg, lon_deg, altitude
             GPS = 'Exif.GPSInfo.GPS'
             exif[GPS + 'AltitudeRef']  = '0' if altitude >= 0 else '1'
@@ -333,112 +302,54 @@ if args.movie:
             exif[GPS + 'MapDatum']     = 'WGS-84'
             exif.write()
             head, tail = os.path.split(file)
-            f.write("%s,%.8f,%.8f,%.4f,%.4f,%.4f,%.4f\n" % (tail, flight_gps_lat(time), flight_gps_lon(time), flight_gps_alt(time), flight_imu_yaw(time)*r2d, 0.0, 0.0))
+            f.write("%s,%.8f,%.8f,%.4f,%.4f,%.4f,%.4f\n" % (tail, interp.gps_lat(time), interp.gps_lon(time), interp.gps_alt(time), yaw_deg, pitch_deg, roll_deg))
     f.close()
+
+if args.plot:
+    # reformat the data
+    flight_imu = []
+    for imu in data['imu']:
+        flight_imu.append([ imu.time, imu.p, imu.q, imu.r ])
+    flight_imu = np.array(flight_imu)
     
-if args.hud:
-    K_RunCamHD2_1920x1080 \
-        = np.array( [[ 971.96149426,   0.        , 957.46750602],
-                     [   0.        , 971.67133264, 516.50578382],
-                     [   0.        ,   0.        ,   1.        ]] )
-    dist_runcamhd2_1920x1080 = [-0.26910665, 0.10580125, 0.00048417, 0.00000925, -0.02321387]
-    K = K_RunCamHD2_1920x1080 * args.scale
-    K[2,2] = 1.0
-    dist = dist_runcamhd2_1920x1080
+    # plot the data ...
+    plt.figure(1)
+    plt.ylabel('roll rate (deg per sec)')
+    plt.xlabel('flight time (sec)')
+    plt.plot(movie[:,0] + time_shift, movie[:,2]*r2d, label='estimate from flight movie')
+    if cam_facing == 'front':
+        # front facing:
+        plt.plot(flight_imu[:,0], flight_imu[:,1]*r2d, label='flight data log')
+    elif cam_facing == 'down':
+        # down facing:
+        plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
+    plt.legend()
+    
+    plt.figure(2)
+    plt.plot(ycorr)
 
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    # overlay hud
-    print "Opening ", args.hud
-    try:
-        capture = cv2.VideoCapture(args.hud)
-    except:
-        print "error opening video"
+    plt.figure(3)
+    plt.ylabel('pitch rate (deg per sec)')
+    plt.xlabel('flight time (sec)')
+    plt.plot(movie[:,0] + time_shift, (movie[:,3]/qratio)*r2d, label='estimate from flight movie')
+    if cam_facing == 'front':
+        # front facing:
+        plt.plot(flight_imu[:,0], flight_imu[:,2]*r2d, label='flight data log')
+    elif cam_facing == 'down':
+        # down facing:
+        plt.plot(flight_imu[:,0], flight_imu[:,2]*r2d, label='flight data log')
+    plt.legend()
 
-    capture.read()
-    counter += 1
-    print "ok reading first frame"
+    plt.figure(4)
+    plt.ylabel('yaw rate (deg per sec)')
+    plt.xlabel('flight time (sec)')
+    plt.plot(movie[:,0] + time_shift, (movie[:,4]/rratio)*r2d, label='estimate from flight movie')
+    if cam_facing == 'front':
+        # front facing:
+        plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
+    elif cam_facing == 'down':
+        # down facing:
+        plt.plot(flight_imu[:,0], flight_imu[:,1]*r2d, label='flight data log')
+    plt.legend()
 
-    fps = capture.get(cv2.cv.CV_CAP_PROP_FPS)
-    print "fps = %.2f" % fps
-    fourcc = int(capture.get(cv2.cv.CV_CAP_PROP_FOURCC))
-    w = capture.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH)
-    h = capture.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT)
-
-    last_time = 0.0
-
-    while True:
-        ret, frame = capture.read()
-        if not ret:
-            # no frame
-            stop_count += 1
-            print "no more frames:", stop_count
-            if stop_count > args.stop_count:
-                break
-        else:
-            stop_count = 0
-            
-        if frame == None:
-            print "Skipping bad frame ..."
-            continue
-        time = float(counter) / fps + time_shift
-        print "frame: ", counter, time
-        counter += 1
-        yaw_deg = flight_imu_yaw(time)*r2d
-        while yaw_deg < 0:
-            yaw_deg += 360
-        while yaw_deg > 360:
-            yaw_deg -= 360
-        lat_deg = float(flight_gps_lat(time))
-        lon_deg = float(flight_gps_lon(time))
-        altitude = float(flight_gps_alt(time))
-        speed = float(flight_air_speed(time))
-        
-        method = cv2.INTER_AREA
-        #method = cv2.INTER_LANCZOS4
-        frame_scale = cv2.resize(frame, (0,0), fx=args.scale, fy=args.scale,
-                                 interpolation=method)
-        frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
-
-        cv2.putText(frame_undist, 'alt = %.0f' % altitude, (100, 100), font, 1.5, (0,255,0), 2,cv2.CV_AA)
-        cv2.putText(frame_undist, 'kts = %.0f' % speed, (100, 150), font, 1.5, (0,255,0), 2,cv2.CV_AA)
-        print lat_deg, lon_deg, altitude
-        cv2.imshow('hud', frame_undist)
-        if 0xFF & cv2.waitKey(5) == 27:
-            break
-
-
-# plot the data ...
-plt.figure(1)
-plt.ylabel('roll rate (deg per sec)')
-plt.xlabel('flight time (sec)')
-plt.plot(movie[:,0] + time_shift, movie[:,2]*r2d, label='estimate from flight movie')
-if args.apm_log:
-    plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
-else:
-    plt.plot(flight_imu[:,0], flight_imu[:,1]*r2d, label='flight data log')
-#plt.plot(movie_interp[:,1])
-#plt.plot(flight_interp[:,1])
-plt.legend()
-
-plt.figure(2)
-plt.plot(ycorr)
-
-plt.figure(3)
-plt.ylabel('pitch rate (deg per sec)')
-plt.xlabel('flight time (sec)')
-plt.plot(movie[:,0] + time_shift, (movie[:,3]/qratio)*r2d, label='estimate from flight movie')
-plt.plot(flight_imu[:,0], flight_imu[:,2]*r2d, label='flight data log')
-#plt.plot(movie_interp[:,1])
-#plt.plot(flight_interp[:,1])
-plt.legend()
-
-plt.figure(4)
-plt.ylabel('yaw rate (deg per sec)')
-plt.xlabel('flight time (sec)')
-plt.plot(movie[:,0] + time_shift, (movie[:,4]/rratio)*r2d, label='estimate from flight movie')
-plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
-#plt.plot(movie_interp[:,1])
-#plt.plot(flight_interp[:,1])
-plt.legend()
-
-plt.show()
+    plt.show()
