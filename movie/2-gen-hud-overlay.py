@@ -158,7 +158,7 @@ interp = flight_interp.FlightInterpolate()
 interp.build(data)
 
 # set approximate camera orienation (front, down, and rear supported)
-cam_facing = 'down'
+cam_facing = 'front'
 
 # resample movie data
 movie = np.array(movie, dtype=float)
@@ -187,11 +187,11 @@ else:
 
 # run correlation over filter time span
 x = interp.imu_time
-xmin = x.min()
-xmax = x.max()
-print "flight range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin)
-time = xmax - xmin
-for x in np.linspace(xmin, xmax, time*args.resample_hz):
+flight_min = x.min()
+flight_max = x.max()
+print "flight range = %.3f - %.3f (%.3f)" % (flight_min, flight_max, flight_max-flight_min)
+time = flight_max - flight_min
+for x in np.linspace(flight_min, flight_max, time*args.resample_hz):
     flight_interp.append( [x, y_spline(x)] )
 print "flight len:", len(flight_interp)
 
@@ -357,10 +357,10 @@ filt_alt = None
 
 if time_shift > 0:
     # catch up the flight path history (in case the movie starts
-    # mid-flight.)  Note: xmin is the starting time of the filter data
+    # mid-flight.)  Note: flight_min is the starting time of the filter data
     # set.
     print 'seeding flight track ...'
-    for time in np.arange(xmin, time_shift, 1.0 / float(fps)):
+    for time in np.arange(flight_min, time_shift, 1.0 / float(fps)):
         lat_deg = float(interp.filter_lat(time))*r2d
         lon_deg = float(interp.filter_lon(time))*r2d
         #altitude_m = float(interp.air_true_alt(time))
@@ -406,7 +406,10 @@ while True:
         filt_alt = altitude_m
     else:
         filt_alt = 0.95 * filt_alt + 0.05 * altitude_m
-    airspeed_kt = float(interp.air_speed(time))
+    if interp.air_speed != None:
+        airspeed_kt = float(interp.air_speed(time))
+    else:
+        airspeed_kt = 0.0
     if False: # 'alpha' in data['air'][0]:
         alpha_rad = float(interp.air_alpha(time))*d2r
         beta_rad = float(interp.air_beta(time))*d2r
@@ -427,6 +430,8 @@ while True:
         pilot_thr = float(interp.pilot_thr(time))
         pilot_rud = float(interp.pilot_rud(time))
         auto_switch = float(interp.pilot_auto(time))
+    else:
+        auto_switch = 0
     if interp.act_ail:
         act_ail = float(interp.act_ail(time))
         act_ele = float(interp.act_ele(time))
@@ -502,8 +507,10 @@ while True:
         hud1.update_pilot(pilot_ail, pilot_ele, pilot_thr, pilot_rud)
     if interp.act_ail:
         hud1.update_act(act_ail, act_ele, act_thr, act_rud)
-    hud1.update_frame(hud1_frame)
-    hud1.draw()
+    if time >= flight_min and time <= flight_max:
+        # only draw hud for time range when we have actual flight data
+        hud1.update_frame(hud1_frame)
+        hud1.draw()
 
     # weighted add of the HUD frame with the original frame to
     # emulate alpha blending
