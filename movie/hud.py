@@ -376,8 +376,10 @@ class HUD:
         
         # center point
         tmp1 = self.ladder_helper(q0, a0, 0.0)
-        if tmp1 != None:
-            center = self.rotate_pt(tmp1, rot, self.ap_roll*d2r)
+        if tmp1 == None:
+            return
+        
+        center = self.rotate_pt(tmp1, rot, self.ap_roll*d2r)
 
         # right vbar
         tmp1 = self.ladder_helper(q0, a0-a3, a1)
