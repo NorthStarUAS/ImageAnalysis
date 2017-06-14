@@ -167,32 +167,9 @@ def decomposeAffine(affine):
 
 points_ref = None
 corners_ref = None
-affine_last = None
-kp_list_last = []
-des_list_last = []
-p1 = []
-p2 = []
-mkp1 = []
+
 counter = 0
 
-rot_avg = 0.0
-tx_avg = 0.0
-ty_avg = 0.0
-sx_avg = 1.0
-sy_avg = 1.0
-
-rot_sum = 0.0
-tx_sum = 0.0
-ty_sum = 0.0
-sx_sum = 1.0
-sy_sum = 1.0
-
-# umn test
-abs_rot = 0.0
-abs_x = 0.0
-abs_y = 0.0
-
-result = []
 stop_count = 0
 
 csvfile = open(output_csv, 'wb')
@@ -252,14 +229,13 @@ while True:
         affine = findAffine(points, points_ref, fullAffine=False)
         (rot, tx, ty, sx, sy) = decomposeAffine(affine)
 
+        # divide tx, ty by args.scale to get a translation value
+        # relative to the original movie size.
         row = {'frame': counter,
                'rotation (deg)': rot,
-               'translation x (px)': tx,
-               'translation y (px)': ty}
+               'translation x (px)': tx / args.scale,
+               'translation y (px)': ty / args.scale}
         writer.writerow(row)
-
-        datapt = [ counter / fps, counter, -rot*fps*d2r, ty, tx ]
-        result.append(datapt)
 
         img = aruco.drawDetectedMarkers(gray, corners_ref,
                                         borderColor=(256,0,0))
