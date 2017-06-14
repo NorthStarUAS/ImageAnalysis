@@ -206,9 +206,7 @@ start = time.time()
 while True:
     counter += 1
 
-    filtered = []
     ret, frame = capture.read()
-
     if not ret:
         # no frame
         stop_count += 1
@@ -223,8 +221,6 @@ while True:
             print "Skipping %d frames..." % counter
         continue
 
-    # print "Frame %d" % counter
-
     if frame == None:
         print "Skipping bad frame ..."
         continue
@@ -234,7 +230,6 @@ while True:
     frame_scale = cv2.resize(frame, (0,0), fx=scale, fy=scale,
                              interpolation=method)
     # cv2.imshow('scaled orig', frame_scale)
-    shape = frame_scale.shape
 
     distort = False
     if distort:
@@ -266,8 +261,10 @@ while True:
         datapt = [ counter / fps, counter, -rot*fps*d2r, ty, tx ]
         result.append(datapt)
 
-        img = aruco.drawDetectedMarkers(gray, corners_ref, borderColor=(256,0,0))
-        img = aruco.drawDetectedMarkers(img, corners, borderColor=(128,0,0))
+        img = aruco.drawDetectedMarkers(gray, corners_ref,
+                                        borderColor=(256,0,0))
+        img = aruco.drawDetectedMarkers(img, corners,
+                                        borderColor=(128,0,0))
         cv2.imshow('aruco', img)
         if 0xFF & cv2.waitKey(5) == 27:
             break
@@ -278,10 +275,3 @@ while True:
         print "frame: %d fps: %.1f rot: %.2f x: %.1f y: %.1f" % (counter, fps, rot, tx, ty)
 
 cv2.destroyAllWindows()
-
-# with open(output_csv, 'wb') as myfile:
-#     for line in result:
-#         myfile.write(str(line[0]))
-#         for field in line[1:]:
-#             myfile.write(',' + str(field))
-#         myfile.write('\n')
