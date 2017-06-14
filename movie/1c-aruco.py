@@ -8,11 +8,13 @@ import sys
 sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
+import csv
 import cv2
 import cv2.aruco as aruco
 import math
 import numpy as np
 import os
+import time
 
 from props import PropertyNode
 import props_json
@@ -22,12 +24,7 @@ import cam_calib
 d2r = math.pi / 180.0
 r2d = 180.0 / math.pi
 
-match_ratio = 0.75
-max_features = 1000
-smooth = 0.005
-catchup = 0.02
 affine_minpts = 7
-tol = 2.0
 
 parser = argparse.ArgumentParser(description='Estimate gyro biases from movie.')
 parser.add_argument('--movie', required=True, help='movie file')
@@ -48,7 +45,6 @@ abspath = os.path.abspath(args.movie)
 filename, ext = os.path.splitext(abspath)
 dirname = os.path.dirname(args.movie)
 output_csv = filename + ".csv"
-# output_avi = filename + "_smooth.avi"
 camera_config = dirname + "/camera.json"
 
 # load config file if it exists
@@ -105,16 +101,29 @@ fourcc = int(capture.get(cv2.CAP_PROP_FOURCC))
 w = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) * scale )
 h = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) * scale )
 
-#outfourcc = cv2.cv.CV_FOURCC('F', 'M', 'P', '4')
-outfourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
-#outfourcc = cv2.cv.CV_FOURCC('X', 'V', 'I', 'D')
-#outfourcc = cv2.cv.CV_FOURCC('X', '2', '6', '4')
-#outfourcc = cv2.VideoWriter_fourcc(*'XVID')
-#output = cv2.VideoWriter(output_avi, outfourcc, fps, (w, h))
-
 aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_250)
 parameters =  aruco.DetectorParameters_create()
 
+# produce a consistant ordering of corner points
+def order_corner_points(corners, ids):
+    num_markers = 4
+    if len(corners) != num_markers or len(corners) != len(ids):
+        print "error: need %d markers and ids" % num_markers
+        return
+
+    new_corners = []
+    for id in range(num_markers):
+        # find k = 1, 2, 3, 4 in ids in that order (ids is unordered)
+        for i in range(num_markers):
+            if id+1 == ids[i][0]:
+                index = i
+                break
+        # print id, ids[index]
+        c = corners[index]
+        for p in c[0]:
+            new_corners.append((p[0], p[1]))
+    return new_corners
+        
 # find affine transform between matching keypoints in pixel
 # coordinate space.  fullAffine=True means unconstrained to
 # include best warp/shear.  fullAffine=False means limit the
@@ -156,155 +165,8 @@ def decomposeAffine(affine):
         rotate_deg -= 360.0
     return (rotate_deg, tx, ty, sx, sy)
 
-def filterMatches(kp1, kp2, matches):
-    mkp1, mkp2 = [], []
-    idx_pairs = []
-    used = np.zeros(len(kp2), np.bool_)
-    for m in matches:
-        if len(m) == 2 and m[0].distance < m[1].distance * match_ratio:
-            #print " dist[0] = %d  dist[1] = %d" % (m[0].distance, m[1].distance)
-            m = m[0]
-            if not used[m.trainIdx]:
-                used[m.trainIdx] = True
-                mkp1.append( kp1[m.queryIdx] )
-                mkp2.append( kp2[m.trainIdx] )
-                idx_pairs.append( (m.queryIdx, m.trainIdx) )
-    p1 = np.float32([kp.pt for kp in mkp1])
-    p2 = np.float32([kp.pt for kp in mkp2])
-    kp_pairs = zip(mkp1, mkp2)
-    return p1, p2, kp_pairs, idx_pairs, mkp1
-
-def filterFeatures(p1, p2, K, method):
-    inliers = 0
-    total = len(p1)
-    space = ""
-    status = []
-    while inliers < total and total >= 7:
-        if method == 'homography':
-            M, status = cv2.findHomography(p1, p2, cv2.LMEDS, tol)
-        elif method == 'fundamental':
-            M, status = cv2.findFundamentalMat(p1, p2, cv2.LMEDS, tol)
-        elif method == 'essential':
-            M, status = cv2.findEssentialMat(p1, p2, K, cv2.LMEDS, threshold=tol)
-        elif method == 'none':
-            M = none
-            status = np.ones(total)
-        newp1 = []
-        newp2 = []
-        for i, flag in enumerate(status):
-            if flag:
-                newp1.append(p1[i])
-                newp2.append(p2[i])
-        p1 = np.float32(newp1)
-        p2 = np.float32(newp2)
-        inliers = np.sum(status)
-        total = len(status)
-        #print '%s%d / %d  inliers/matched' % (space, np.sum(status), len(status))
-        space += " "
-    return M, status, np.float32(newp1), np.float32(newp2)
-
-# def overlay(new_frame, base, motion_mask=None):
-#     newtmp = cv2.cvtColor(new_frame, cv2.COLOR_BGR2GRAY)
-#     ret, newmask = cv2.threshold(newtmp, 0, 255, cv2.THRESH_BINARY_INV)
-
-#     blendsize = (3,3)
-#     kernel = np.ones(blendsize,'uint8')
-#     mask_dilate = cv2.dilate(newmask, kernel)
-#     #cv2.imshow('mask_dilate', mask_dilate)
-#     ret, mask_final = cv2.threshold(mask_dilate, 254, 255, cv2.THRESH_BINARY)
-#     if args.draw_masks:
-#         cv2.imshow('mask_final', mask_final)
-
-#     mask_inv = 255 - mask_final
-#     if motion_mask != None:
-#         motion_inv = 255 - motion_mask
-#         mask_inv = cv2.bitwise_and(mask_inv, motion_mask)
-#         cv2.imshow('mask_inv1', mask_inv)
-#         mask_final = cv2.bitwise_or(mask_final, motion_inv)
-#         cv2.imshow('mask_final1', mask_final)
-#     if args.draw_masks:
-#         cv2.imshow('mask_inv', mask_inv)
-
-#     mask_final_norm = mask_final / 255.0
-#     mask_inv_norm = mask_inv / 255.0
-
-#     base[:,:,0] = base[:,:,0] * mask_final_norm
-#     base[:,:,1] = base[:,:,1] * mask_final_norm
-#     base[:,:,2] = base[:,:,2] * mask_final_norm
-#     #cv2.imshow('base', base)
-
-#     new_frame[:,:,0] = new_frame[:,:,0] * mask_inv_norm
-#     new_frame[:,:,1] = new_frame[:,:,1] * mask_inv_norm
-#     new_frame[:,:,2] = new_frame[:,:,2] * mask_inv_norm
-
-#     accum = cv2.add(base, new_frame)
-#     #cv2.imshow('accum', accum)
-#     return accum
-
-# def motion1(new_frame, base):
-#     motion = cv2.absdiff(base, new_frame)
-#     gray = cv2.cvtColor(motion, cv2.COLOR_BGR2GRAY)
-#     cv2.imshow('motion', gray)
-#     ret, motion_mask = cv2.threshold(gray, 25, 255, cv2.THRESH_BINARY_INV)
-
-#     blendsize = (3,3)
-#     kernel = np.ones(blendsize,'uint8')
-#     motion_mask = cv2.erode(motion_mask, kernel)
-
-#     # lots
-#     motion_mask /= 1.1429
-#     motion_mask += 16
-
-#     # medium
-#     #motion_mask /= 1.333
-#     #motion_mask += 32
-
-#     # minimal
-#     #motion_mask /= 2
-#     #motion_mask += 64
-
-#     cv2.imshow('motion1', motion_mask)
-#     return motion_mask
-
-# def motion2(new_frame, base):
-#     motion = cv2.absdiff(base, new_frame)
-#     gray = cv2.cvtColor(motion, cv2.COLOR_BGR2GRAY)
-#     cv2.imshow('motion', gray)
-#     motion_mask = 255 - gray
-#     motion_mask /= 2
-#     motion_mask += 2
-
-#     cv2.imshow('motion1', motion_mask)
-#     return motion_mask
-
-# for ORB
-# detector = cv2.ORB_create(max_features)
-# extractor = detector
-# norm = cv2.NORM_HAMMING
-# matcher = cv2.BFMatcher(norm)
-
-# for Star
-# detector = cv2.xfeatures2d.StarDetector_create(16, # maxSize
-#                             20, # responseThreshold
-#                             10, # lineThresholdProjected
-#                             8,  # lineThresholdBinarized
-#                             5, #  suppressNonmaxSize
-#                             )
-# extractor = cv2.DescriptorExtractor_create('ORB')
-# norm = cv2.NORM_HAMMING
-# matcher = cv2.BFMatcher(norm)
-
-# for SIFT
-# detector = cv2.xfeatures2d.SIFT_create(nfeatures=max_features, nOctaveLayers=5)
-# extractor = detector
-# norm = cv2.NORM_L2
-# FLANN_INDEX_KDTREE = 1  # bug: flann enums are missing
-# FLANN_INDEX_LSH    = 6
-# flann_params = { 'algorithm': FLANN_INDEX_KDTREE,
-#                 'trees': 5 }
-# matcher = cv2.FlannBasedMatcher(flann_params, {}) # bug : need to pass empty dict (#1329)
-
-# accum = None
+points_ref = None
+corners_ref = None
 affine_last = None
 kp_list_last = []
 des_list_last = []
@@ -332,6 +194,14 @@ abs_y = 0.0
 
 result = []
 stop_count = 0
+
+csvfile = open(output_csv, 'wb')
+writer = csv.DictWriter(csvfile, fieldnames=['frame', 'rotation (deg)',
+                                             'translation x (px)',
+                                             'translation y (px)'])
+writer.writeheader()
+
+start = time.time()
 
 while True:
     counter += 1
@@ -363,181 +233,55 @@ while True:
     #method = cv2.INTER_LANCZOS4
     frame_scale = cv2.resize(frame, (0,0), fx=scale, fy=scale,
                              interpolation=method)
-    cv2.imshow('scaled orig', frame_scale)
+    # cv2.imshow('scaled orig', frame_scale)
     shape = frame_scale.shape
-    tol = shape[1] / 100.0
-    if tol < 1.0: tol = 1.0
 
-    distort = True
+    distort = False
     if distort:
         frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
     else:
         frame_undist = frame_scale    
         
     gray = cv2.cvtColor(frame_undist, cv2.COLOR_BGR2GRAY)
-        
+
+    # aruco stuff
     corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
-    print 'ids:', ids
-    aruco_img = aruco.drawDetectedMarkers(gray, corners, borderColor=(128,0,0))
-    cv2.imshow('aruco', aruco_img)
-    #print 'corners:', len(corners), corners[0][0][0]
+
     if len(corners) == 4:
-        minx = maxx = corners[0][0][0][0]
-        miny = maxy = corners[0][0][0][1]
-        for c in corners:
-            #print c
-            for p in c[0]:
-                #print 'p:', p
-                x = p[0]
-                y = p[1]
-                if x < minx: minx = x
-                if x > maxx: maxx = x
-                if y < miny: miny = y
-                if y > maxy: maxy = y
-                print minx, maxx, miny, maxy
-        dx = maxx-minx
-        dy = maxy-miny
-        # crop = aruco_img[miny:maxy, minx:maxx]
-        # cv2.imshow('crop', crop)
+        points = order_corner_points(corners, ids)
 
-    if des_list_last != None and len(des_list_last) > 1 and des_list != None and len(des_list) > 1:
-        print len(des_list_last), len(des_list)
-        matches = matcher.knnMatch(des_list, trainDescriptors=des_list_last, k=2)
-        p1, p2, kp_pairs, idx_pairs, mkp1 = filterMatches(kp_list, kp_list_last, matches)
-
-        # filtering by fundamental matrix would reject keypoints that
-        # are not mathematically possible from one frame to the next
-        # but in an anomaly detection scenerio at sea, we might only
-        # have one match so this wouldn't work
-
-        M, status, newp1, newp2 = filterFeatures(p1, p2, K, filter_method)
-        filtered = []
-        for i, flag in enumerate(status):
-            if flag:
-                filtered.append(mkp1[i])
-
-        #if filter_method == 'homography' or filter_method == 'fundamental':
-        affine = findAffine(newp2, newp1, fullAffine=False)
-        (rot, tx, ty, sx, sy) = decomposeAffine(affine)
-        if abs(rot) > 2:
-            (rot, tx, ty, sx, sy) = (0.0, 0.0, 0.0, 1.0, 1.0)
+        if points_ref == None:
+            points_ref = points
+            corners_ref = corners
         
-        #print affine
-        #print (rot, tx, ty, sx, sy)
+        affine = findAffine(points, points_ref, fullAffine=False)
+        (rot, tx, ty, sx, sy) = decomposeAffine(affine)
 
-        abs_rot += rot
-        abs_rot *= 0.95
-        abs_x += tx
-        abs_x *= 0.95
-        abs_y += ty
-        abs_y *= 0.95
+        row = {'frame': counter,
+               'rotation (deg)': rot,
+               'translation x (px)': tx,
+               'translation y (px)': ty}
+        writer.writerow(row)
 
-        # print "motion: %d %.2f %.1f %.1f %.2f %.1f %.1f" % (counter, rot, tx, ty, abs_rot, abs_x, abs_y)
-        print "motion: %d %.2f %.2f %.1f %.1f %.2f %.1f %.1f" % (counter, rot, yaw*r2d, tx, ty, abs_rot, abs_x, abs_y)
-        print ' ', roll*r2d, pitch*r2d, yaw*r2d
-
-        translate_only = False
-        rotate_translate_only = True
-        if translate_only:
-            rot = 0.0
-            sx = 1.0
-            sy = 1.0
-        elif rotate_translate_only:
-            sx = 1.0
-            sy = 1.0
-
-        # low pass filter our affine components
-        keep = (1.0 - smooth)
-        rot_avg = keep * rot_avg + smooth * rot
-        tx_avg = keep * tx_avg + smooth * tx
-        ty_avg = keep * ty_avg + smooth * ty
-        sx_avg = keep * sx_avg + smooth * sx
-        sy_avg = keep * sy_avg + smooth * sy
-        print "%.2f %.2f %.2f %.4f %.4f" % (rot_avg, tx_avg, ty_avg, sx_avg, sy_avg)
         datapt = [ counter / fps, counter, -rot*fps*d2r, ty, tx ]
         result.append(datapt)
 
-        # try to catch bad cases
-        #if math.fabs(rot) > 5.0 * math.fabs(rot_avg) and \
-        #   math.fabs(tx) > 5.0 * math.fabs(tx_avg) and \
-        #   math.fabs(ty) > 5.0 * math.fabs(ty_avg) and \
-        #   math.fabs(sx - 1.0) > 5.0 * math.fabs(sx_avg - 1.0) and \
-        #   math.fabs(sy - 1.0) > 5.0 * math.fabs(sy_avg - 1.0):
-        #    rot = 0.0
-        #    tx = 0.0
-        #    ty = 0.0
-        #    sx = 1.0
-        #    sy = 1.0
+        img = aruco.drawDetectedMarkers(gray, corners_ref, borderColor=(256,0,0))
+        img = aruco.drawDetectedMarkers(img, corners, borderColor=(128,0,0))
+        cv2.imshow('aruco', img)
+        if 0xFF & cv2.waitKey(5) == 27:
+            break
 
-        # total transforms needed
-        rot_sum += rot
-        tx_sum += tx
-        ty_sum += ty
-        sx_sum += (sx - 1.0)
-        sy_sum += (sy - 1.0)
-
-        # save left overs
-        rot_sum -= rot_avg
-        tx_sum -= tx_avg
-        ty_sum -= ty_avg
-        sx_sum = (sx_sum - sx_avg) + 1.0
-        sy_sum = (sy_sum - sy_avg) + 1.0
-
-        # catch up on left overs
-        rot_catchup = catchup * rot_sum; rot_sum -= rot_catchup
-        tx_catchup = catchup * tx_sum; tx_sum -= tx_catchup
-        ty_catchup = catchup * ty_sum; ty_sum -= ty_catchup
-        sx_catchup = catchup * (sx_sum - 1.0); sx_sum -= sx_catchup
-        sy_catchup = catchup * (sy_sum - 1.0); sy_sum -= sy_catchup
-
-        rot_delta = (rot_avg + rot_catchup) - rot_sum
-        tx_delta = (tx_avg + tx_catchup) - tx_sum
-        ty_delta = (ty_avg + ty_catchup) - ty_sum
-        sx_delta = (sx_avg + sx_catchup - sx_sum) + 1.0
-        sy_delta = (sy_avg + sy_catchup - sy_sum) + 1.0
-
-        rot_rad = rot_delta * math.pi / 180.0
-        costhe = math.cos(rot_rad)
-        sinthe = math.sin(rot_rad)
-        row1 = [ sx_delta * costhe, -sx_delta * sinthe, tx_delta ]
-        row2 = [ sy_delta * sinthe,  sy_delta * costhe, ty_delta ]
-        affine_new = np.array( [ row1, row2 ] )
-        # print affine_new
-
-        #rot_last = -(rot_delta - rot)
-        #tx_last = -(tx_delta - tx)
-        #ty_last = -(ty_delta - ty)
-        #sx_last = -(sx_delta - sx) + 1.0
-        #sy_last = -(sy_delta - sy) + 1.0
-
-        rot_last = (rot_avg + rot_catchup)
-        tx_last = (tx_avg + tx_catchup)
-        ty_last = (ty_avg + ty_catchup)
-        sx_last = (sx_avg - 1.0 + sx_catchup) + 1.0
-        sy_last = (sy_avg - 1.0 + sy_catchup) + 1.0
-
-        rot_rad = rot_last * math.pi / 180.0
-        costhe = math.cos(rot_rad)
-        sinthe = math.sin(rot_rad)
-        row1 = [ sx_last * costhe, -sx_last * sinthe, tx_last ]
-        row2 = [ sy_last * sinthe,  sy_last * costhe, ty_last ]
-        affine_last = np.array( [ row1, row2 ] )
-        # print affine_new
-
-        rows, cols, depth = frame_undist.shape
-        # new_frame = cv2.warpAffine(frame_undist, affine_new, (cols,rows))
-    else:
-        pass
-        # new_frame = frame_undist    
-
-    if 0xFF & cv2.waitKey(5) == 27:
-        break
+        cur = time.time()
+        elapsed = cur - start
+        fps = counter / elapsed
+        print "frame: %d fps: %.1f rot: %.2f x: %.1f y: %.1f" % (counter, fps, rot, tx, ty)
 
 cv2.destroyAllWindows()
 
-with open(output_csv, 'wb') as myfile:
-    for line in result:
-        myfile.write(str(line[0]))
-        for field in line[1:]:
-            myfile.write(',' + str(field))
-        myfile.write('\n')
+# with open(output_csv, 'wb') as myfile:
+#     for line in result:
+#         myfile.write(str(line[0]))
+#         for field in line[1:]:
+#             myfile.write(',' + str(field))
+#         myfile.write('\n')
