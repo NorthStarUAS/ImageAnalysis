@@ -114,16 +114,32 @@ def order_corner_points(corners, ids):
     new_corners = []
     for id in range(num_markers):
         # find k = 1, 2, 3, 4 in ids in that order (ids is unordered)
+        index = -1
         for i in range(num_markers):
             if id+1 == ids[i][0]:
                 index = i
                 break
-        # print id, ids[index]
-        c = corners[index]
-        for p in c[0]:
-            new_corners.append((p[0], p[1]))
+        if index >= 0:
+            # print id, ids[index]
+            c = corners[index]
+            for p in c[0]:
+                new_corners.append((p[0], p[1]))
+        else:
+            return None
     return new_corners
-        
+
+def draw_corner_points(frame, corners, color):
+    for c in corners:
+        p0 = (c[0][0][0], c[0][0][1])
+        p1 = (c[0][1][0], c[0][1][1])
+        p2 = (c[0][2][0], c[0][2][1])
+        p3 = (c[0][3][0], c[0][3][1])
+        #print p0, p1, p2, p3
+        cv2.line(frame, p0, p1, color, 1, cv2.LINE_AA)
+        cv2.line(frame, p1, p2, color, 1, cv2.LINE_AA)
+        cv2.line(frame, p2, p3, color, 1, cv2.LINE_AA)
+        cv2.line(frame, p3, p0, color, 1, cv2.LINE_AA)
+
 # find affine transform between matching keypoints in pixel
 # coordinate space.  fullAffine=True means unconstrained to
 # include best warp/shear.  fullAffine=False means limit the
@@ -173,7 +189,8 @@ counter = 0
 stop_count = 0
 
 csvfile = open(output_csv, 'wb')
-writer = csv.DictWriter(csvfile, fieldnames=['frame', 'rotation (deg)',
+writer = csv.DictWriter(csvfile, fieldnames=['frame', 'time',
+                                             'rotation (deg)',
                                              'translation x (px)',
                                              'translation y (px)'])
 writer.writeheader()
@@ -193,7 +210,7 @@ while True:
     else:
         stop_count = 0    
 
-    if counter < skip_frames:
+    if points_ref != None and counter < skip_frames:
         if counter % 1000 == 0:
             print "Skipping %d frames..." % counter
         continue
@@ -219,35 +236,48 @@ while True:
     # aruco stuff
     corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
 
-    if len(corners) == 4:
-        points = order_corner_points(corners, ids)
+    # there should always be exactly 4 markers
+    if len(corners) != 4:
+        continue
 
-        if points_ref == None:
-            points_ref = points
-            corners_ref = corners
-        
-        affine = findAffine(points, points_ref, fullAffine=False)
-        (rot, tx, ty, sx, sy) = decomposeAffine(affine)
+    # look for marker ids 1, 2, 3, 4 and sort the points in that
+    # order.  return none if one of our markers wasn't found (probably
+    # misidentified as some mother id.)(
+    points = order_corner_points(corners, ids)
+    if points == None:
+        continue
 
-        # divide tx, ty by args.scale to get a translation value
-        # relative to the original movie size.
-        row = {'frame': counter,
-               'rotation (deg)': rot,
-               'translation x (px)': tx / args.scale,
-               'translation y (px)': ty / args.scale}
-        writer.writerow(row)
+    if points_ref == None:
+        points_ref = points
+        corners_ref = corners
+    print 'ids:', ids
+    print 'points_ref:', points_ref
+    print 'points:', points
+    affine = findAffine(points, points_ref, fullAffine=False)
+    (rot, tx, ty, sx, sy) = decomposeAffine(affine)
 
-        img = aruco.drawDetectedMarkers(gray, corners_ref,
-                                        borderColor=(256,0,0))
-        img = aruco.drawDetectedMarkers(img, corners,
-                                        borderColor=(128,0,0))
-        cv2.imshow('marker tracking', img)
-        if 0xFF & cv2.waitKey(5) == 27:
-            break
+    cur = time.time()
+    elapsed = cur - start
+    fps = counter / elapsed
+    print "frame: %d fps: %.1f rot: %.2f x: %.1f y: %.1f" % (counter, fps, rot, tx, ty)
 
-        cur = time.time()
-        elapsed = cur - start
-        fps = counter / elapsed
-        print "frame: %d fps: %.1f rot: %.2f x: %.1f y: %.1f" % (counter, fps, rot, tx, ty)
+    # divide tx, ty by args.scale to get a translation value
+    # relative to the original movie size.
+    row = {'frame': counter,
+           'time': elapsed,
+           'rotation (deg)': rot,
+           'translation x (px)': tx / args.scale,
+           'translation y (px)': ty / args.scale}
+    writer.writerow(row)
+
+    #img = aruco.drawDetectedMarkers(gray, corners_ref,
+    #                                borderColor=(255,0,0))
+    #img = aruco.drawDetectedMarkers(img, corners,
+    #                                borderColor=(128,0,0))
+    draw_corner_points(frame_scale, corners, (0,255,0))
+    draw_corner_points(frame_scale, corners_ref, (255,255,255))
+    cv2.imshow('aruco marker tracking', frame_scale)
+    if 0xFF & cv2.waitKey(1) == 27:
+        break
 
 cv2.destroyAllWindows()
