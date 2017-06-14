@@ -134,7 +134,7 @@ def draw_corner_points(frame, corners, color):
         p1 = (c[0][1][0], c[0][1][1])
         p2 = (c[0][2][0], c[0][2][1])
         p3 = (c[0][3][0], c[0][3][1])
-        #print p0, p1, p2, p3
+        # print p0, p1, p2, p3
         cv2.line(frame, p0, p1, color, 1, cv2.LINE_AA)
         cv2.line(frame, p1, p2, color, 1, cv2.LINE_AA)
         cv2.line(frame, p2, p3, color, 1, cv2.LINE_AA)
@@ -145,14 +145,14 @@ def draw_corner_points(frame, corners, color):
 # include best warp/shear.  fullAffine=False means limit the
 # matrix to only best rotation, translation, and scale.
 def findAffine(src, dst, fullAffine=False):
-    #print "src = %s" % str(src)
-    #print "dst = %s" % str(dst)
+    # print "src = %s" % str(src)
+    # print "dst = %s" % str(dst)
     if len(src) >= affine_minpts:
         affine = cv2.estimateRigidTransform(np.array([src]), np.array([dst]),
                                             fullAffine)
     else:
         affine = None
-    #print str(affine)
+    # print str(affine)
     return affine
 
 def decomposeAffine(affine):
@@ -250,9 +250,9 @@ while True:
     if points_ref == None:
         points_ref = points
         corners_ref = corners
-    print 'ids:', ids
-    print 'points_ref:', points_ref
-    print 'points:', points
+    #print 'ids:', ids
+    #print 'points_ref:', points_ref
+    #print 'points:', points
     affine = findAffine(points, points_ref, fullAffine=False)
     (rot, tx, ty, sx, sy) = decomposeAffine(affine)
 
