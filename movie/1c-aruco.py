@@ -241,7 +241,7 @@ while True:
                                         borderColor=(256,0,0))
         img = aruco.drawDetectedMarkers(img, corners,
                                         borderColor=(128,0,0))
-        cv2.imshow('aruco', img)
+        cv2.imshow('marker tracking', img)
         if 0xFF & cv2.waitKey(5) == 27:
             break
 
