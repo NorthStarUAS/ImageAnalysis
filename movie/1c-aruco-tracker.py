@@ -258,16 +258,16 @@ while True:
 
     cur = time.time()
     elapsed = cur - start
-    fps = counter / elapsed
-    print "frame: %d fps: %.1f rot: %.2f x: %.1f y: %.1f" % (counter, fps, rot, tx, ty)
+    rate = counter / elapsed
+    print "frame: %d fps: %.1f rot: %.2f x: %.1f y: %.1f" % (counter, rate, rot, tx / args.scale, ty / args.scale)
 
     # divide tx, ty by args.scale to get a translation value
     # relative to the original movie size.
     row = {'frame': counter,
-           'time': elapsed,
-           'rotation (deg)': rot,
-           'translation x (px)': tx / args.scale,
-           'translation y (px)': ty / args.scale}
+           'time': "%.4f" % (counter / fps),
+           'rotation (deg)': "%.2f" % rot,
+           'translation x (px)': "%.1f" % (tx / args.scale),
+           'translation y (px)': "%.1f" % (ty / args.scale)}
     writer.writerow(row)
 
     #img = aruco.drawDetectedMarkers(gray, corners_ref,
@@ -276,7 +276,7 @@ while True:
     #                                borderColor=(128,0,0))
     draw_corner_points(frame_scale, corners, (0,255,0))
     draw_corner_points(frame_scale, corners_ref, (255,255,255))
-    cv2.imshow('aruco marker tracking', frame_scale)
+    # cv2.imshow('aruco marker tracking', frame_scale)
     if 0xFF & cv2.waitKey(1) == 27:
         break
 
