@@ -16,7 +16,7 @@ import re
 #from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy import interpolate # strait up linear interpolation, nothing fancy
 
-from nav.data import flight_data, flight_interp
+from aurauas.flightdata import flight_loader, flight_interp
 
 parser = argparse.ArgumentParser(description='correlate movie data to flight data.')
 parser.add_argument('--flight', help='load specified aura flight log')
@@ -125,7 +125,7 @@ if 'recalibrate' in args:
     recal_file = args.recalibrate
 else:
     recal_file = None
-data = flight_data.load(loader, path, recal_file)
+data = flight_loader.load(loader, path, recal_file)
 print "imu records:", len(data['imu'])
 print "gps records:", len(data['gps'])
 if 'air' in data:

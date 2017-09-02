@@ -17,7 +17,7 @@ from scipy import interpolate # strait up linear interpolation, nothing fancy
 from props import PropertyNode
 import props_json
 
-from nav.data import flight_data, flight_interp
+from aurauas.flightdata import flight_loader, flight_interp
 
 sys.path.append('../lib')
 import transformations
@@ -140,7 +140,7 @@ if 'recalibrate' in args:
     recal_file = args.recalibrate
 else:
     recal_file = None
-data = flight_data.load(loader, path, recal_file)
+data = flight_loader.load(loader, path, recal_file)
 print "imu records:", len(data['imu'])
 print "gps records:", len(data['gps'])
 if 'air' in data:
@@ -170,10 +170,11 @@ movie_spl_yaw = interpolate.interp1d(x, movie[:,4], bounds_error=False, fill_val
 xmin = x.min()
 xmax = x.max()
 print "movie range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin)
-time = xmax - xmin
-for x in np.linspace(xmin, xmax, time*args.resample_hz):
+movie_len = xmax - xmin
+for x in np.linspace(xmin, xmax, movie_len*args.resample_hz):
     if cam_facing == 'front' or cam_facing == 'down':
-        movie_interp.append( [x, movie_spl_roll(x)] )
+        #movie_interp.append( [x, movie_spl_roll(x)] )
+        movie_interp.append( [x, -movie_spl_yaw(x)] ) # test, fixme
     else:
         movie_interp.append( [x, -movie_spl_roll(x)] )
 print "movie len:", len(movie_interp)
@@ -181,7 +182,8 @@ print "movie len:", len(movie_interp)
 # resample flight data
 flight_interp = []
 if cam_facing == 'front' or cam_facing == 'rear':
-    y_spline = interp.imu_p     # front/rear facing camera
+    #y_spline = interp.imu_p     # front/rear facing camera
+    y_spline = interp.imu_r     # front/rear facing camera, test fixme
 else:
     y_spline = interp.imu_r     # down facing camera
 
@@ -198,26 +200,28 @@ print "flight len:", len(flight_interp)
 # compute best correlation between movie and flight data logs
 movie_interp = np.array(movie_interp, dtype=float)
 flight_interp = np.array(flight_interp, dtype=float)
-ycorr = np.correlate(movie_interp[:,1], flight_interp[:,1], mode='full')
+ycorr = np.correlate(flight_interp[:,1], movie_interp[:,1], mode='full')
 
 # display some stats/info
 max_index = np.argmax(ycorr)
 print "max index:", max_index
 
-shift = np.argmax(ycorr) - len(flight_interp)
-print "shift (pos):", shift
-start_diff = flight_interp[0][0] - movie_interp[0][0]
-print "start time diff:", start_diff
-time_shift = start_diff - (shift/args.resample_hz)
-print "movie time shift:", time_shift
-
-# shift_sec = np.argmax(ycorr) / args.resample_hz
-# print "shift (sec):", shift_sec
-# print flight_interp[0][0], movie_interp[0][0]
+# shift = np.argmax(ycorr) - len(flight_interp)
+# print "shift (pos):", shift
 # start_diff = flight_interp[0][0] - movie_interp[0][0]
 # print "start time diff:", start_diff
-# time_shift = start_diff + shift_sec
+# time_shift = start_diff - (shift/args.resample_hz)
 # print "movie time shift:", time_shift
+
+# need to subtract movie_len off peak point time because of how
+# correlate works and shifts against every possible overlap
+shift_sec = np.argmax(ycorr) / args.resample_hz - movie_len
+print "shift (sec):", shift_sec
+print flight_interp[0][0], movie_interp[0][0]
+start_diff = flight_interp[0][0] - movie_interp[0][0]
+print "start time diff:", start_diff
+time_shift = start_diff + shift_sec
+print "movie time shift:", time_shift
 
 # estimate  tx, ty vs. r, q multiplier
 tmin = np.amax( [np.amin(movie_interp[:,0]) + time_shift,
@@ -232,7 +236,7 @@ mrsum = 0.0
 frsum = 0.0
 count = 0
 qratio = 1.0
-for x in np.linspace(tmin, tmax, time*args.resample_hz):
+for x in np.linspace(tmin, tmax, (tmax-tmin)*args.resample_hz):
     mqsum += abs(movie_spl_pitch(x-time_shift))
     mrsum += abs(movie_spl_yaw(x-time_shift))
     fqsum += abs(interp.imu_q(x))

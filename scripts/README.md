@@ -106,9 +106,11 @@ Show all the imported images.
 
   ## 5a-sba3.py
 
-  Uses image connectivity structure combined with solvepnp() and a
-  custom multi-vector triangulation function to assemble scene.  Works
-  well until we run out of sufficient connectivity.
+  Uses image connectivity structure combined with the ransac version
+  of solvepnp() and a custom multi-vector triangulation function to
+  assemble scene.  Seems to produce a useful initial scene structure
+  for the set of images that are well connected together.  The ransac
+  version of solvepnp() helps the robustness of the assembly process.
 
   ## 5a-sba4.py
 
