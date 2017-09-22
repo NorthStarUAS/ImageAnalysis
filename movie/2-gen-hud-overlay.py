@@ -112,35 +112,11 @@ with open(movie_log, 'rb') as f:
     for line in f:
         movie.append( re.split('[,\s]+', line.rstrip()) )
 
-if args.flight:
-    loader = 'aura'
-    path = args.flight
-elif args.aura_flight:
-    loader = 'aura'
-    path = args.aura_flight
-elif args.px4_sdlog2:
-    loader = 'px4_sdlog2'
-    path = args.px4_sdlog2
-elif args.px4_ulog:
-    loader = 'px4_ulog'
-    path = args.px4_ulog
-elif args.sentera_flight:
-    loader = 'sentera1'
-    path = args.sentera_flight
-elif args.sentera2_flight:
-    loader = 'sentera2'
-    path = args.sentera2_flight
-elif args.umn_flight:
-    loader = 'umn1'
-    path = args.umn_flight
-else:
-    loader = None
-    path = None
 if 'recalibrate' in args:
     recal_file = args.recalibrate
 else:
     recal_file = None
-data = flight_loader.load(loader, path, recal_file)
+data, flight_format = flight_loader.load(args.flight, recal_file)
 print "imu records:", len(data['imu'])
 print "gps records:", len(data['gps'])
 if 'air' in data:
