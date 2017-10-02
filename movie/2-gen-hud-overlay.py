@@ -24,6 +24,7 @@ import transformations
 
 import cam_calib
 import hud
+import features
 
 # helpful constants
 d2r = math.pi / 180.0
@@ -34,24 +35,20 @@ render_h = 1080
 
 parser = argparse.ArgumentParser(description='correlate movie data to flight data.')
 parser.add_argument('--flight', help='load specified aura flight log')
-parser.add_argument('--aura-flight', help='load specified aura flight log')
-parser.add_argument('--px4-sdlog2', help='load specified px4 sdlog2 (csv) flight log')
-parser.add_argument('--px4-ulog', help='load specified px4 ulog (csv) base path')
-parser.add_argument('--umn-flight', help='load specified .mat flight log')
-parser.add_argument('--sentera-flight', help='load specified sentera flight log')
-parser.add_argument('--sentera2-flight', help='load specified sentera2 flight log')
-
 parser.add_argument('--movie', required=True, help='original movie')
 parser.add_argument('--select-cam', type=int, help='select camera calibration')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
 parser.add_argument('--alpha', type=float, default=0.7, help='hud alpha blend')
 parser.add_argument('--resample-hz', type=float, default=30.0, help='resample rate (hz)')
+parser.add_argument('--start-time', type=float, help='fast forward to this flight log time before begining movie render.')
 parser.add_argument('--stop-count', type=int, default=1, help='how many non-frames to absorb before we decide the movie is over')
 parser.add_argument('--plot', action='store_true', help='Plot stuff at the end of the run')
 parser.add_argument('--auto-switch', choices=['old', 'new', 'none', 'on'], default='new', help='auto/manual switch logic helper')
 parser.add_argument('--airspeed-units', choices=['kt', 'mps'], default='kt', help='display units for airspeed')
 parser.add_argument('--altitude-units', choices=['ft', 'm'], default='ft', help='display units for airspeed')
-parser.add_argument('--start-time', type=float, help='fast forward to this flight log time before begining movie render.')
+parser.add_argument('--aileron-scale', type=float, default=1.0, help='useful for reversing aileron in display')
+parser.add_argument('--elevator-scale', type=float, default=1.0, help='useful for reversing elevator in display')
+parser.add_argument('--features', help='feature database')
 args = parser.parse_args()
 
 r2d = 180.0 / math.pi
@@ -293,6 +290,12 @@ print 'ned ref:', ref
 hud1.set_ground_m(ground_m)
 hud2.set_ground_m(ground_m)
 
+if args.features:
+    feats = features.load(args.features, ref)
+    hud1.update_features(feats)
+else:
+    feats = []
+
 print "Opening ", args.movie
 try:
     capture = cv2.VideoCapture(args.movie)
@@ -390,9 +393,11 @@ while True:
         airspeed_kt = float(interp.air_speed(time))
     else:
         airspeed_kt = 0.0
-    if False: # 'alpha' in data['air'][0]:
+    #if False: # 'alpha' in data['air'][0]:
+    if interp.air_alpha and interp.air_beta:
         alpha_rad = float(interp.air_alpha(time))*d2r
         beta_rad = float(interp.air_beta(time))*d2r
+        print alpha_rad, beta_rad
     else:
         alpha_rad = None
         beta_rad = None
@@ -413,8 +418,8 @@ while True:
     else:
         auto_switch = 0
     if interp.act_ail:
-        act_ail = float(interp.act_ail(time))
-        act_ele = float(interp.act_ele(time))
+        act_ail = float(interp.act_ail(time)) * args.aileron_scale
+        act_ele = float(interp.act_ele(time)) * args.elevator_scale
         act_thr = float(interp.act_thr(time))
         act_rud = float(interp.act_rud(time))
 
