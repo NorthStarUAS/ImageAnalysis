@@ -83,6 +83,7 @@ class HUD:
         self.act_thr = 0.0
         self.act_rud = 0.0
         self.airports = []
+        self.features = []
 
     def set_render_size(self, w, h):
         self.render_w = w
@@ -123,17 +124,20 @@ class HUD:
         self.time = time
         self.unixtime = unixtime
 
-    def update_ned_history(self, ned):
+    def update_ned_history(self, ned, seconds):
         if int(self.time) > self.ned_last_time:
             self.ned_last_time = int(self.time)
             self.ned_history.append(ned)
-            while len(self.ned_history) > 1200:
+            while len(self.ned_history) > seconds:
                 self.ned_history.pop(0)
         
-    def update_ned(self, ned):
+    def update_ned(self, ned, seconds):
         self.ned = ned[:]
-        self.update_ned_history(ned)
+        self.update_ned_history(ned, seconds)
 
+    def update_features(self, feature_list):
+        self.features = feature_list
+        
     def update_proj(self, PROJ):
         self.PROJ = PROJ
 
@@ -477,14 +481,14 @@ class HUD:
         self.filter_ve = (1.0 - self.tf_vel) * self.filter_ve + self.tf_vel * self.ve
         a = math.atan2(self.filter_ve, self.filter_vn)
         q0 = transformations.quaternion_about_axis(a, [0.0, 0.0, -1.0])
-        tmp1 = self.ladder_helper(q0, 0, 0)
-        tmp2 = self.ladder_helper(q0, 1.5, 1.0)
-        tmp3 = self.ladder_helper(q0, 1.5, -1.0)
-        if tmp1 != None and tmp2 != None and tmp3 != None :
-            uv2 = self.rotate_pt(tmp2, tmp1, -self.cam_roll*d2r)
-            uv3 = self.rotate_pt(tmp3, tmp1, -self.cam_roll*d2r)
-            cv2.line(self.frame, tmp1, uv2, color, self.line_width, cv2.LINE_AA)
-            cv2.line(self.frame, tmp1, uv3, color, self.line_width, cv2.LINE_AA)
+        uv1 = self.ladder_helper(q0, 0, 0)
+        uv2 = self.ladder_helper(q0, 1.5, 1.0)
+        uv3 = self.ladder_helper(q0, 1.5, -1.0)
+        if uv1 != None and uv2 != None and uv3 != None :
+            #uv2 = self.rotate_pt(tmp2, tmp1, -self.cam_roll*d2r)
+            #uv3 = self.rotate_pt(tmp3, tmp1, -self.cam_roll*d2r)
+            cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.LINE_AA)
+            cv2.line(self.frame, uv1, uv3, color, self.line_width, cv2.LINE_AA)
 
     def draw_label(self, label, uv, font_scale, thickness,
                    horiz='center', vert='center'):
@@ -893,6 +897,22 @@ class HUD:
                     cv2.circle(self.frame, uv1, size, white,
                                self.line_width, cv2.LINE_AA)
 
+    # draw externally provided point db features
+    def draw_features(self):
+        uv_list = []
+        for ned in self.features:
+            uv = self.project_point([ned[0], ned[1], ned[2]])
+            if uv != None:
+                uv_list.append(uv)
+        for uv in uv_list:
+            size = 2
+            if uv[0] > -self.render_w * 0.25 \
+               and uv[0] < self.render_w * 1.25 \
+               and uv[1] > -self.render_h * 0.25 \
+               and uv[1] < self.render_h * 1.25:
+                cv2.circle(self.frame, uv, size, white,
+                           self.line_width, cv2.LINE_AA)
+
     # draw a 3d reference grid in space
     def draw_grid(self):
         if len(self.grid) == 0:
@@ -931,6 +951,7 @@ class HUD:
         # midrange things
         self.draw_airports()
         self.draw_track()
+        self.draw_features()
         # cockpit things
         self.draw_pitch_ladder(beta_rad=0.0)
         self.draw_flight_path_marker()

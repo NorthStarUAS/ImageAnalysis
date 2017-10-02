@@ -48,6 +48,8 @@ parser.add_argument('--airspeed-units', choices=['kt', 'mps'], default='kt', hel
 parser.add_argument('--altitude-units', choices=['ft', 'm'], default='ft', help='display units for airspeed')
 parser.add_argument('--aileron-scale', type=float, default=1.0, help='useful for reversing aileron in display')
 parser.add_argument('--elevator-scale', type=float, default=1.0, help='useful for reversing elevator in display')
+parser.add_argument('--rudder-scale', type=float, default=1.0, help='useful for reversing rudder in display')
+parser.add_argument('--flight-track-seconds', type=float, default=1200.0, help='how many seconds of flight track to draw')
 parser.add_argument('--features', help='feature database')
 args = parser.parse_args()
 
@@ -351,7 +353,7 @@ if time_shift > 0:
         ned = navpy.lla2ned( lat_deg, lon_deg, altitude_m,
                              ref[0], ref[1], ref[2] )
         hud1.update_time(time, interp.gps_unixtime(time))
-        hud1.update_ned(ned)
+        hud1.update_ned(ned, args.flight_track_seconds)
     
 while True:
     ret, frame = capture.read()
@@ -421,7 +423,7 @@ while True:
         act_ail = float(interp.act_ail(time)) * args.aileron_scale
         act_ele = float(interp.act_ele(time)) * args.elevator_scale
         act_thr = float(interp.act_thr(time))
-        act_rud = float(interp.act_rud(time))
+        act_rud = float(interp.act_rud(time)) * args.rudder_scale
 
     if args.auto_switch == 'none':
         flight_mode = 'manual'
@@ -478,7 +480,7 @@ while True:
     hud1.update_time(time, interp.gps_unixtime(time))
     hud1.update_proj(PROJ)
     hud1.update_cam_att(cam_yaw, cam_pitch, cam_roll)
-    hud1.update_ned(ned)
+    hud1.update_ned(ned, args.flight_track_seconds)
     hud1.update_lla([lat_deg, lon_deg, altitude_m])
     hud1.update_vel(vn, ve, vd)
     hud1.update_att_rad(roll_rad, pitch_rad, yaw_rad)
