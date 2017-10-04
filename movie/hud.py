@@ -330,7 +330,7 @@ class HUD:
                 cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.LINE_AA)
 
-    def draw_alpha_betamarker(self):
+    def draw_alpha_beta_marker(self):
         if self.alpha_rad == None or self.beta_rad == None:
             return
 
