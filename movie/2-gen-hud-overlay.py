@@ -395,14 +395,14 @@ while True:
         airspeed_kt = float(interp.air_speed(time))
     else:
         airspeed_kt = 0.0
-    #if False: # 'alpha' in data['air'][0]:
     if interp.air_alpha and interp.air_beta:
         alpha_rad = float(interp.air_alpha(time))*d2r
         beta_rad = float(interp.air_beta(time))*d2r
-        print alpha_rad, beta_rad
+        #print alpha_rad, beta_rad
     else:
         alpha_rad = None
         beta_rad = None
+        #print 'no alpha/beta'
     if interp.ap_hdgx:
         ap_hdgx = float(interp.ap_hdgx(time))
         ap_hdgy = float(interp.ap_hdgy(time))
@@ -412,10 +412,10 @@ while True:
         ap_speed = float(interp.ap_speed(time))
         ap_alt_ft = float(interp.ap_alt(time))
     if interp.pilot_ail:
-        pilot_ail = float(interp.pilot_ail(time))
-        pilot_ele = float(interp.pilot_ele(time))
+        pilot_ail = float(interp.pilot_ail(time)) * args.aileron_scale
+        pilot_ele = float(interp.pilot_ele(time)) * args.elevator_scale
         pilot_thr = float(interp.pilot_thr(time))
-        pilot_rud = float(interp.pilot_rud(time))
+        pilot_rud = float(interp.pilot_rud(time)) * args.rudder_scale
         auto_switch = float(interp.pilot_auto(time))
     else:
         auto_switch = 0
