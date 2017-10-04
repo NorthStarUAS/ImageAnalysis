@@ -330,31 +330,35 @@ class HUD:
                 cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.LINE_AA)
 
-    def draw_flight_path_marker(self):
+    def draw_alpha_betamarker(self):
         if self.alpha_rad == None or self.beta_rad == None:
             return
-        
-        q0 = transformations.quaternion_about_axis(self.psi_rad + self.beta_rad,
-                                                   [0.0, 0.0, -1.0])
-        a0 = (self.the_rad - self.alpha_rad) * r2d
-        uv = self.ladder_helper(q0, a0, 0)
-        if uv != None:
-            r1 = int(round(self.render_h / 60))
-            r2 = int(round(self.render_h / 30))
-            uv1 = (uv[0]+r1, uv[1])
-            uv2 = (uv[0]+r2, uv[1])
-            uv3 = (uv[0]-r1, uv[1])
-            uv4 = (uv[0]-r2, uv[1])
-            uv5 = (uv[0], uv[1]-r1)
-            uv6 = (uv[0], uv[1]-r2)
-            cv2.circle(self.frame, uv, r1, self.color, self.line_width,
-                       cv2.LINE_AA)
-            cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
-                     cv2.LINE_AA)
-            cv2.line(self.frame, uv3, uv4, self.color, self.line_width,
-                     cv2.LINE_AA)
-            cv2.line(self.frame, uv5, uv6, self.color, self.line_width,
-                     cv2.LINE_AA)
+
+        q0 = transformations.quaternion_about_axis(self.psi_rad, [0.0, 0.0, -1.0])
+        a0 = self.the_rad * r2d
+        center = self.ladder_helper(q0, a0, 0.0)
+        alpha = self.alpha_rad * r2d
+        beta = self.beta_rad * r2d
+        tmp = self.ladder_helper(q0, a0-alpha, beta)
+        if tmp != None:
+            uv = self.rotate_pt(tmp, center, self.phi_rad)
+            if uv != None:
+                r1 = int(round(self.render_h / 60))
+                r2 = int(round(self.render_h / 30))
+                uv1 = (uv[0]+r1, uv[1])
+                uv2 = (uv[0]+r2, uv[1])
+                uv3 = (uv[0]-r1, uv[1])
+                uv4 = (uv[0]-r2, uv[1])
+                uv5 = (uv[0], uv[1]-r1)
+                uv6 = (uv[0], uv[1]-r2)
+                cv2.circle(self.frame, uv, r1, self.color, self.line_width,
+                           cv2.LINE_AA)
+                cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
+                         cv2.LINE_AA)
+                cv2.line(self.frame, uv3, uv4, self.color, self.line_width,
+                         cv2.LINE_AA)
+                cv2.line(self.frame, uv5, uv6, self.color, self.line_width,
+                         cv2.LINE_AA)
 
     def rotate_pt(self, p, center, a):
         #print p, center
@@ -954,7 +958,7 @@ class HUD:
         self.draw_features()
         # cockpit things
         self.draw_pitch_ladder(beta_rad=0.0)
-        self.draw_flight_path_marker()
+        self.draw_alpha_beta_marker()
         self.draw_velocity_vector()
 
     # draw the fixed indications (that always stay in the same place
