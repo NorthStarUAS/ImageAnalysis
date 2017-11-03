@@ -41,6 +41,7 @@ parser.add_argument('--scale', type=float, default=1.0, help='scale input')
 parser.add_argument('--alpha', type=float, default=0.7, help='hud alpha blend')
 parser.add_argument('--resample-hz', type=float, default=30.0, help='resample rate (hz)')
 parser.add_argument('--start-time', type=float, help='fast forward to this flight log time before begining movie render.')
+parser.add_argument('--time-shift', type=float, help='skip autocorrelation and use this offset time')
 parser.add_argument('--stop-count', type=int, default=1, help='how many non-frames to absorb before we decide the movie is over')
 parser.add_argument('--plot', action='store_true', help='Plot stuff at the end of the run')
 parser.add_argument('--auto-switch', choices=['old', 'new', 'none', 'on'], default='new', help='auto/manual switch logic helper')
@@ -105,12 +106,6 @@ else:
     K[2][2] = 1.0
     print 'Camera:', name
 
-# load movie log
-movie = []
-with open(movie_log, 'rb') as f:
-    for line in f:
-        movie.append( re.split('[,\s]+', line.rstrip()) )
-
 if 'recalibrate' in args:
     recal_file = args.recalibrate
 else:
@@ -132,96 +127,106 @@ if len(data['imu']) == 0 and len(data['gps']) == 0:
 interp = flight_interp.FlightInterpolate()
 interp.build(data)
 
-# set approximate camera orienation (front, down, and rear supported)
-cam_facing = 'front'
-
-# resample movie data
-movie = np.array(movie, dtype=float)
-movie_interp = []
-x = movie[:,0]
-movie_spl_roll = interpolate.interp1d(x, movie[:,2], bounds_error=False, fill_value=0.0)
-movie_spl_pitch = interpolate.interp1d(x, movie[:,3], bounds_error=False, fill_value=0.0)
-movie_spl_yaw = interpolate.interp1d(x, movie[:,4], bounds_error=False, fill_value=0.0)
-xmin = x.min()
-xmax = x.max()
-print "movie range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin)
-movie_len = xmax - xmin
-for x in np.linspace(xmin, xmax, movie_len*args.resample_hz):
-    if cam_facing == 'front' or cam_facing == 'down':
-        #movie_interp.append( [x, movie_spl_roll(x)] )
-        movie_interp.append( [x, -movie_spl_yaw(x)] ) # test, fixme
-    else:
-        movie_interp.append( [x, -movie_spl_roll(x)] )
-print "movie len:", len(movie_interp)
-
-# resample flight data
-flight_interp = []
-if cam_facing == 'front' or cam_facing == 'rear':
-    #y_spline = interp.imu_p     # front/rear facing camera
-    y_spline = interp.imu_r     # front/rear facing camera, test fixme
-else:
-    y_spline = interp.imu_r     # down facing camera
-
-# run correlation over filter time span
 x = interp.imu_time
 flight_min = x.min()
 flight_max = x.max()
 print "flight range = %.3f - %.3f (%.3f)" % (flight_min, flight_max, flight_max-flight_min)
-time = flight_max - flight_min
-for x in np.linspace(flight_min, flight_max, time*args.resample_hz):
-    flight_interp.append( [x, y_spline(x)] )
-print "flight len:", len(flight_interp)
 
-# compute best correlation between movie and flight data logs
-movie_interp = np.array(movie_interp, dtype=float)
-flight_interp = np.array(flight_interp, dtype=float)
-ycorr = np.correlate(flight_interp[:,1], movie_interp[:,1], mode='full')
+if args.time_shift:
+    time_shift = args.time_shift
+else:
+    # load movie log
+    movie = []
+    with open(movie_log, 'rb') as f:
+        for line in f:
+            movie.append( re.split('[,\s]+', line.rstrip()) )
 
-# display some stats/info
-max_index = np.argmax(ycorr)
-print "max index:", max_index
+    # set approximate camera orienation (front, down, and rear supported)
+    cam_facing = 'front'
 
-# shift = np.argmax(ycorr) - len(flight_interp)
-# print "shift (pos):", shift
-# start_diff = flight_interp[0][0] - movie_interp[0][0]
-# print "start time diff:", start_diff
-# time_shift = start_diff - (shift/args.resample_hz)
-# print "movie time shift:", time_shift
+    # resample movie data
+    movie = np.array(movie, dtype=float)
+    movie_interp = []
+    x = movie[:,0]
+    movie_spl_roll = interpolate.interp1d(x, movie[:,2], bounds_error=False, fill_value=0.0)
+    movie_spl_pitch = interpolate.interp1d(x, movie[:,3], bounds_error=False, fill_value=0.0)
+    movie_spl_yaw = interpolate.interp1d(x, movie[:,4], bounds_error=False, fill_value=0.0)
+    xmin = x.min()
+    xmax = x.max()
+    print "movie range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin)
+    movie_len = xmax - xmin
+    for x in np.linspace(xmin, xmax, movie_len*args.resample_hz):
+        if cam_facing == 'front' or cam_facing == 'down':
+            #movie_interp.append( [x, movie_spl_roll(x)] )
+            movie_interp.append( [x, -movie_spl_yaw(x)] ) # test, fixme
+        else:
+            movie_interp.append( [x, -movie_spl_roll(x)] )
+            print "movie len:", len(movie_interp)
 
-# need to subtract movie_len off peak point time because of how
-# correlate works and shifts against every possible overlap
-shift_sec = np.argmax(ycorr) / args.resample_hz - movie_len
-print "shift (sec):", shift_sec
-print flight_interp[0][0], movie_interp[0][0]
-start_diff = flight_interp[0][0] - movie_interp[0][0]
-print "start time diff:", start_diff
-time_shift = start_diff + shift_sec
+    # resample flight data
+    flight_interp = []
+    if cam_facing == 'front' or cam_facing == 'rear':
+        #y_spline = interp.imu_p     # front/rear facing camera
+        y_spline = interp.imu_r     # front/rear facing camera, test fixme
+    else:
+        y_spline = interp.imu_r     # down facing camera
+
+    time = flight_max - flight_min
+    for x in np.linspace(flight_min, flight_max, time*args.resample_hz):
+        flight_interp.append( [x, y_spline(x)] )
+        print "flight len:", len(flight_interp)
+
+    # compute best correlation between movie and flight data logs
+    movie_interp = np.array(movie_interp, dtype=float)
+    flight_interp = np.array(flight_interp, dtype=float)
+    ycorr = np.correlate(flight_interp[:,1], movie_interp[:,1], mode='full')
+
+    # display some stats/info
+    max_index = np.argmax(ycorr)
+    print "max index:", max_index
+
+    # shift = np.argmax(ycorr) - len(flight_interp)
+    # print "shift (pos):", shift
+    # start_diff = flight_interp[0][0] - movie_interp[0][0]
+    # print "start time diff:", start_diff
+    # time_shift = start_diff - (shift/args.resample_hz)
+    # print "movie time shift:", time_shift
+
+    # need to subtract movie_len off peak point time because of how
+    # correlate works and shifts against every possible overlap
+    shift_sec = np.argmax(ycorr) / args.resample_hz - movie_len
+    print "shift (sec):", shift_sec
+    print flight_interp[0][0], movie_interp[0][0]
+    start_diff = flight_interp[0][0] - movie_interp[0][0]
+    print "start time diff:", start_diff
+    time_shift = start_diff + shift_sec
+    
+    # estimate  tx, ty vs. r, q multiplier
+    tmin = np.amax( [np.amin(movie_interp[:,0]) + time_shift,
+                    np.amin(flight_interp[:,0]) ] )
+    tmax = np.amin( [np.amax(movie_interp[:,0]) + time_shift,
+                    np.amax(flight_interp[:,0]) ] )
+    print "overlap range (flight sec):", tmin, " - ", tmax
+
+    mqsum = 0.0
+    fqsum = 0.0
+    mrsum = 0.0
+    frsum = 0.0
+    count = 0
+    qratio = 1.0
+    for x in np.linspace(tmin, tmax, (tmax-tmin)*args.resample_hz):
+        mqsum += abs(movie_spl_pitch(x-time_shift))
+        mrsum += abs(movie_spl_yaw(x-time_shift))
+        fqsum += abs(interp.imu_q(x))
+        frsum += abs(interp.imu_r(x))
+    if fqsum > 0.001:
+        qratio = mqsum / fqsum
+    if mrsum > 0.001:
+        rratio = -mrsum / frsum
+    print "pitch ratio:", qratio
+    print "yaw ratio:", rratio
+
 print "movie time shift:", time_shift
-
-# estimate  tx, ty vs. r, q multiplier
-tmin = np.amax( [np.amin(movie_interp[:,0]) + time_shift,
-                np.amin(flight_interp[:,0]) ] )
-tmax = np.amin( [np.amax(movie_interp[:,0]) + time_shift,
-                np.amax(flight_interp[:,0]) ] )
-print "overlap range (flight sec):", tmin, " - ", tmax
-
-mqsum = 0.0
-fqsum = 0.0
-mrsum = 0.0
-frsum = 0.0
-count = 0
-qratio = 1.0
-for x in np.linspace(tmin, tmax, (tmax-tmin)*args.resample_hz):
-    mqsum += abs(movie_spl_pitch(x-time_shift))
-    mrsum += abs(movie_spl_yaw(x-time_shift))
-    fqsum += abs(interp.imu_q(x))
-    frsum += abs(interp.imu_r(x))
-if fqsum > 0.001:
-    qratio = mqsum / fqsum
-if mrsum > 0.001:
-    rratio = -mrsum / frsum
-print "pitch ratio:", qratio
-print "yaw ratio:", rratio
 
 # quick estimate ground elevation
 ground_m = None
@@ -370,7 +375,11 @@ while True:
         print "Skipping bad frame ..."
         continue
     time = float(counter) / fps + time_shift
-    print "frame: ", counter, time
+    if args.time_shift:
+        print "frame: ", counter, "%.3f" % time, 'time shift:', time_shift
+    else:
+        print "frame: ", counter, time
+    
     counter += 1
     if args.start_time and time < args.start_time:
         continue
@@ -510,7 +519,10 @@ while True:
     output.write(hud1_frame)
 
     key = cv2.waitKey(5) & 0xFF
-    if key == 27:
+    if key == 255:
+        # no key press
+        pass
+    elif key == 27:
         break
     elif key == ord('y'):
         cam_yaw += 0.5
@@ -536,6 +548,14 @@ while True:
         cam_roll += 0.5
         config.setFloatEnum('mount_ypr', 2, cam_roll)
         props_json.save(camera_config, config)
+    elif key == 81:
+        # left arrow
+        time_shift -= 1.0/60.0
+    elif key == 83:
+        # right arrow
+        time_shift += 1.0/60.0
+    else:
+        print 'unknown key:', key
 
 output.release()
 cv2.destroyAllWindows()
