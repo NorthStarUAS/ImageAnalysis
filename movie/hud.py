@@ -452,10 +452,12 @@ class HUD:
         a2 = 3.0
         q0 = transformations.quaternion_about_axis(self.psi_rad, [0.0, 0.0, -1.0])
         a0 = self.the_rad*r2d
-        print 'pitch:', a0, 'ap:', self.ap_pitch
+        # print 'pitch:', a0, 'ap:', self.ap_pitch
         
         # center point
         center = self.ladder_helper(q0, a0, 0.0)
+        if center == None:
+            return
 
         # right vbar
         tmp1 = self.ladder_helper(q0, a0-a2, a1)
