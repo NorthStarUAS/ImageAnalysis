@@ -1,34 +1,22 @@
 #!/usr/bin/python
 
 import commands
+import csv
 import fileinput
 import fnmatch
 import math
 import os
 import pyexiv2
+import re
 
 import spline
 
+# AuraUAS/navigation
+from aurauas.flightdata import flight_loader, flight_interp
+
 time_fuzz = 1.5
 #time_fuzz = 3.0
-
-
-def simple_interp(points, v):
-        index = spline.binsearch(points, v)
-        n = len(points) - 1
-        if index < n:
-            xrange = points[index+1][0] - points[index][0]
-            yrange = points[index+1][1] - points[index][1]
-            # print(" xrange = $xrange\n")
-            if xrange > 0.0001:
-                percent = (v - points[index][0]) / xrange
-                # print(" percent = $percent\n")
-                return points[index][1] + percent * yrange
-            else:
-                return points[index][1]
-        else:
-            return points[index][1]
-
+r2d = 180 / math.pi
 
 class Correlate():
     def __init__(self):
@@ -46,67 +34,52 @@ class Correlate():
     def load_all(self, flight_dir="", image_dir=""):
         self.flight_dir = flight_dir
         self.image_dir = image_dir
-        self.load_gps()
-        self.load_filter()
+        data, flight_format = flight_loader.load(flight_dir)
+        #data = flight_data.load('aura', flight_dir)
+        self.interp = flight_interp.FlightInterpolate()
+        self.interp.build(data)
+        #self.load_gps()
+        #self.load_filter()
         self.load_events()
         self.load_images()
 
-    def load_gps(self):
-        path = self.flight_dir + "/gps.txt"
-        print path
-        f = fileinput.input(path)
-        count = 0
-        sum = 0.0
-        for line in f:
-            line.strip()
-            field = line.split()
-            time_diff = float(field[7]) - float(field[0])
-            count += 1
-            sum += time_diff
-            # print str(field[0]) + " " + str(field[7])
-        self.master_time_offset = sum / count
-        print "Average offset = " + str(self.master_time_offset)
-
-    def load_filter(self):
-        self.filter_lat = []
-        self.filter_lon = []
-        self.filter_msl = []
-        self.filter_roll = []
-        self.filter_pitch = []
-        self.filter_yaw = []
-        path = self.flight_dir + "/filter.txt"
-        f = fileinput.input(path)
-        for line in f:
-            line.strip()
-            field = line.split()
-            self.filter_lat.append( (float(field[0]), float(field[1])) )
-            self.filter_lon.append( (float(field[0]), float(field[2])) )
-            self.filter_msl.append( (float(field[0]), float(field[3])) )
-            self.filter_roll.append( (float(field[0]), float(field[7])) )
-            self.filter_pitch.append( (float(field[0]), float(field[8])) )
-            self.filter_yaw.append( (float(field[0]), float(field[9])) )
-            #print str(field[0]) + " " + str(field[9])
-
     def load_events(self):
         self.triggers = []
-        path = self.flight_dir + "/events.dat"
-        f = fileinput.input(path)
+        path = self.flight_dir + "/event-0.csv"
         last_trigger = 0.0
         interval = 0.0
-        for line in f:
-            line.strip()
-            field = line.split()
-            if len(field) > 4 and field[1] == "mission" and field[2] == "Camera" and field[3] == "Trigger:":
-                timestamp = float(field[0])
-
-                if last_trigger > 0.0:
-                    interval = timestamp - last_trigger
-
-                lat = float(field[4])
-                lon = float(field[5])
-                agl = float(field[6])
-                self.triggers.append( (timestamp, interval, lat, lon, agl) )	
-                last_trigger = float(field[0])
+        airborne = False
+        ap = False
+        with open(path, 'rb') as fevent:
+            reader = csv.DictReader(fevent)
+            for row in reader:
+                tokens = row['message'].split()
+                if len(tokens) == 2 and tokens[0] == 'mission:' \
+                   and tokens[1] == 'airborne':
+                    print 'airborne @', row['timestamp']
+                    airborne = True
+                if len(tokens) == 3 and tokens[0] == 'mission:' \
+                   and tokens[1] == 'on' and tokens[2] == 'ground':
+                    print 'on ground @', row['timestamp']
+                    airborne = False
+                if len(tokens) == 6 and tokens[0] == 'control:' \
+                   and tokens[4] == 'on':
+                    print 'ap on @', row['timestamp']
+                    ap = True
+                if len(tokens) == 6 and tokens[0] == 'control:' and \
+                   tokens[4] == 'off':
+                    print 'ap off @', row['timestamp']
+                    ap = False
+                if airborne and ap and len(tokens) == 4 and \
+                   tokens[0] == 'camera:':
+                    timestamp = float(row['timestamp'])
+                    if last_trigger > 0.0:
+                        interval = timestamp - last_trigger
+                    lat = float(tokens[1])
+                    lon = float(tokens[2])
+                    agl = float(tokens[3])
+                    self.triggers.append((timestamp, interval, lat, lon, agl))	
+                    last_trigger = timestamp
         print "number of triggers = " + str(len(self.triggers))
 
     def load_images(self):
@@ -124,7 +97,7 @@ class Correlate():
             print name
             exif = pyexiv2.ImageMetadata(name)
             exif.read()
-            #print exif.exif_keys
+            # print exif.exif_keys
             strdate, strtime = str(exif['Exif.Image.DateTime'].value).split()
             year, month, day = strdate.split('-')
             formated = year + "/" + month + "/" + day + " " + strtime + " UTC"
@@ -230,13 +203,15 @@ class Correlate():
         return picture, trigger
 
     def get_position(self, time):
-        lon_deg = simple_interp(self.filter_lon, float(time))
-        lat_deg = simple_interp(self.filter_lat, float(time))
-	msl = simple_interp(self.filter_msl, float(time))
-        return lon_deg, lat_deg, msl
+        lon = self.interp.filter_lon(time)
+        lat = self.interp.filter_lat(time)
+	msl = self.interp.filter_alt(time)
+        return lon*r2d, lat*r2d, msl*1
 
     def get_attitude(self, time):
-	roll_deg = simple_interp(self.filter_roll, float(time))
-	pitch_deg = simple_interp(self.filter_pitch, float(time))
-	yaw_deg = simple_interp(self.filter_yaw, float(time))
-        return roll_deg, pitch_deg, yaw_deg
+	phi = self.interp.filter_phi(time)
+	the = self.interp.filter_the(time)
+        psix = self.interp.filter_psix(time)
+        psiy = self.interp.filter_psiy(time)
+        psi = math.atan2(psiy, psix)
+        return phi*r2d, the*r2d, psi*r2d
