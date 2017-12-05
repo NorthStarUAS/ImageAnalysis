@@ -6,7 +6,7 @@ import cPickle as pickle
 import cv2
 import json
 import math
-from matplotlib import pyplot as plt
+#from matplotlib import pyplot as plt
 import navpy
 import numpy as np
 import os.path
@@ -137,11 +137,12 @@ class Image():
                 + str(sys.exc_info()[1])
 
     def load_rgb(self, force_resize=False):
-        #print "Loading " + self.image_file
+        print "Loading:", self.image_file, force_resize
         try:
-            img_rgb = cv2.imread(self.image_file)
+            img_rgb = cv2.imread(self.image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
             if force_resize or self.height == 0 or self.width == 0:
-                self.height, self.width, self.fulld = img_rgb.shape
+                print img_rgb.shape
+                self.height, self.width = img_rgb.shape
             return img_rgb
         except:
             print self.image_file + ":\n" + "  load error: " \
@@ -151,7 +152,7 @@ class Image():
         #print "Loading " + self.image_file
         source_name = source_dir + "/" + self.name
         try:
-            source_image = cv2.imread(source_name)
+            source_image = cv2.imread(source_name, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
             return source_image
 
         except:
@@ -162,7 +163,7 @@ class Image():
     def load_gray(self):
         #print "Loading " + self.image_file
         try:
-            rgb = cv2.imread(self.image_file)
+            rgb = cv2.imread(self.image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
             if self.height == 0 or self.width == 0:
                 self.height, self.width, self.fulld = img_rgb.shape
             gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
@@ -328,7 +329,7 @@ class Image():
         detector = None
         if dparams['detector'] == 'SIFT':
             max_features = int(dparams['sift-max-features'])
-            detector = cv2.SIFT(nfeatures=max_features)
+            detector = cv2.xfeatures2d.SIFT_create(nfeatures=max_features)
         elif dparams['detector'] == 'SURF':
             threshold = float(dparams['surf-hessian-threshold'])
             nOctaves = int(dparams['surf-noctaves'])
