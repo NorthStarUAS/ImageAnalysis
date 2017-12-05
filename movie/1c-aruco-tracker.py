@@ -276,7 +276,7 @@ while True:
     #                                borderColor=(128,0,0))
     draw_corner_points(frame_scale, corners, (0,255,0))
     draw_corner_points(frame_scale, corners_ref, (255,255,255))
-    # cv2.imshow('aruco marker tracking', frame_scale)
+    cv2.imshow('aruco marker tracking', frame_scale)
     if 0xFF & cv2.waitKey(1) == 27:
         break
 
