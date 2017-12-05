@@ -54,8 +54,8 @@ class SBA():
         for i, index in enumerate(placed_images):
             self.camera_map_fwd[i] = index
             self.camera_map_rev[index] = i
-        print self.camera_map_fwd[i]
-        print self.camera_map_rev[i]
+        print self.camera_map_fwd
+        print self.camera_map_rev
         
         # initialize the feature index remapping
         self.feat_map_fwd = {}
