@@ -302,8 +302,9 @@ for tri in tri.simplices:
             #metric = dist_cam
             cycle_gain = 0.02
             #metric = dist_cam * (1 + dist_cycle * cycle_gain)
-            metric = image.cycle_depth
+            #metric = image.cycle_depth
             #metric = image.connection_order
+            metric = image.connections
             if metric < best_metric:
                 best_metric = metric
                 best_image = image
