@@ -4,6 +4,7 @@ import commands
 import cv2
 import fileinput
 import fnmatch
+import fractions
 import json
 import math
 from matplotlib import pyplot as plt
@@ -16,6 +17,7 @@ import sys
 import time
 
 import geojson
+import pyexiv2
 
 from getchar import find_getch
 import Camera
@@ -27,6 +29,45 @@ import Placer
 import Render
 import transformations
 
+class Fraction(fractions.Fraction):
+    """Only create Fractions from floats.
+
+    >>> Fraction(0.3)
+    Fraction(3, 10)
+    >>> Fraction(1.1)
+    Fraction(11, 10)
+    """
+
+    def __new__(cls, value, ignore=None):
+        """Should be compatible with Python 2.6, though untested."""
+        return fractions.Fraction.from_float(value).limit_denominator(99999)
+
+def dms_to_decimal(degrees, minutes, seconds, sign=' '):
+    """Convert degrees, minutes, seconds into decimal degrees.
+
+    >>> dms_to_decimal(10, 10, 10)
+    10.169444444444444
+    >>> dms_to_decimal(8, 9, 10, 'S')
+    -8.152777777777779
+    """
+    return (-1 if sign[0] in 'SWsw' else 1) * (
+        float(degrees)        +
+        float(minutes) / 60   +
+        float(seconds) / 3600
+    )
+
+
+def decimal_to_dms(decimal):
+    """Convert decimal degrees into degrees, minutes, seconds.
+
+    >>> decimal_to_dms(50.445891)
+    [Fraction(50, 1), Fraction(26, 1), Fraction(113019, 2500)]
+    >>> decimal_to_dms(-125.976893)
+    [Fraction(125, 1), Fraction(58, 1), Fraction(92037, 2500)]
+    """
+    remainder, degrees = math.modf(abs(decimal))
+    remainder, minutes = math.modf(remainder * 60)
+    return [Fraction(n) for n in (degrees, minutes, remainder * 60)]
 
 class ProjectMgr():
     def __init__(self, project_dir=None):
@@ -204,17 +245,26 @@ class ProjectMgr():
                 print command
                 commands.getstatusoutput( command )
             elif converter == 'opencv':
-                src = cv2.imread(name_in)
+                src = cv2.imread(name_in, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION )
+                print src.shape
                 #method = cv2.INTER_AREA
                 method = cv2.INTER_LANCZOS4
                 dst = cv2.resize(src, (0,0), fx=scale, fy=scale,
                                  interpolation=method)
                 cv2.imwrite(name_out, dst)
+                # attempt to copy exif data to the resized image
+                src_exif = pyexiv2.ImageMetadata(name_in)
+                dst_exif = pyexiv2.ImageMetadata(name_out)
+                src_exif.read()
+                dst_exif.read()
+                src_exif.copy(dst_exif) # src copies to dst
+                dst_exif.write()
                 print "Scaling (%.1f%%) %s to %s" % ((scale*100.0), name_in, name_out)
             else:
                 print "Error: unknown converter =", converter
 
     def load_image_info(self, force_compute_sizes=False):
+        #force_compute_sizes=True
         file_list = []
         for file in os.listdir(self.image_dir):
             if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
@@ -231,7 +281,7 @@ class ProjectMgr():
         # already been done
         bar = Bar('Computing image dimensions:', max = len(self.image_list))
         for image in self.image_list:
-            if force_compute_sizes or image.height == 0 or image.width == 0:
+            if force_compute_sizes or (image.height == 0) or (image.width == 0):
                 image.load_rgb(force_resize=True)
                 image.save_meta()
             bar.next()
@@ -766,6 +816,7 @@ class ProjectMgr():
                     t = trig[0] + shutter_latency
                     lon, lat, msl = correlator.get_position(t)
                     roll, pitch, yaw = correlator.get_attitude(t)
+                    print [lat, lon, msl], [yaw, pitch, roll]
                     image.set_aircraft_pose( [lat, lon, msl],
                                              [yaw, pitch, roll] )
                     if weight:
@@ -779,6 +830,20 @@ class ProjectMgr():
                         image.weight = 1.0
                     image.save_meta()
                     #print "%s roll=%.1f pitch=%.1f weight=%.2f" % (image.name, roll, pitch, image.weight)
+
+                    # update geotag in exif data
+                    print image.image_file
+                    exif = pyexiv2.ImageMetadata(image.image_file)
+                    exif.read()
+                    GPS = 'Exif.GPSInfo.GPS'
+                    exif[GPS + 'AltitudeRef']  = '0' if msl >= 0 else '1'
+                    exif[GPS + 'Altitude']     = Fraction(msl)
+                    exif[GPS + 'Latitude']     = decimal_to_dms(lat)
+                    exif[GPS + 'LatitudeRef']  = 'N' if lat >= 0 else 'S'
+                    exif[GPS + 'Longitude']    = decimal_to_dms(lon)
+                    exif[GPS + 'LongitudeRef'] = 'E' if lon >= 0 else 'W'
+                    exif[GPS + 'MapDatum']     = 'WGS-84'
+                    exif.write()
 
     def computeWeights(self, force=None):
         # tag each image with the flight data parameters at the time
@@ -869,7 +934,7 @@ class ProjectMgr():
         
         # solve projection
         if ned[2] < 0.0:
-            # no interseciton
+            # no intersection
             return [0.0, 0.0]
         factor = z_m / ned[2]
         #print "z_m = %s" % str(z_m)
