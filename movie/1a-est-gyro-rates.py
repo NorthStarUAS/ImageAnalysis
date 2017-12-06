@@ -51,7 +51,7 @@ filename, ext = os.path.splitext(abspath)
 dirname = os.path.dirname(args.movie)
 output_csv = filename + ".csv"
 output_avi = filename + "_smooth.avi"
-camera_config = dirname + "/camera.json"
+camera_config = os.path.join(dirname, "camera.json")
 
 # load config file if it exists
 config = PropertyNode()
@@ -61,7 +61,9 @@ cam_pitch = config.getFloatEnum('mount_ypr', 1)
 cam_roll = config.getFloatEnum('mount_ypr', 2)
 
 # setup camera calibration and distortion coefficients
-if args.select_cam:
+print 'cam = ', args.select_cam
+if args.select_cam != None:
+    print 'user specifies camera...'
     # set the camera calibration from known preconfigured setups
     name, K, dist = cam_calib.set_camera_calibration(args.select_cam)
     config.setString('name', name)
@@ -130,7 +132,7 @@ def findAffine(src, dst, fullAffine=False):
     return affine
 
 def decomposeAffine(affine):
-    if affine == None:
+    if affine is None:
         return (0.0, 0.0, 0.0, 1.0, 1.0)
 
     tx = affine[0][2]
@@ -275,9 +277,63 @@ def motion2(new_frame, base):
     motion_mask /= 2
     motion_mask += 2
 
-    cv2.imshow('motion1', motion_mask)
+    cv2.imshow('motion2', motion_mask)
     return motion_mask
 
+last_frame = None
+static_mask = None
+def motion3(frame, counter):
+    global last_frame
+    global static_mask
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    if last_frame is None:
+        pass
+    else:
+        diff = cv2.absdiff(gray, last_frame)
+        cv2.imshow('motion3', diff)
+        if static_mask is None:
+            static_mask = np.float32(diff)
+        else:
+            if counter > 1000:
+                c = float(1000)
+            else:
+                c = float(counter)
+            f = float(c - 1) / c
+            static_mask = f*static_mask + (1.0 - f)*np.float32(diff)
+        mask_uint8 = np.uint8(static_mask)
+        cv2.imshow('mask3', mask_uint8)
+        ret, newmask = cv2.threshold(mask_uint8, 2, 255, cv2.THRESH_BINARY)
+        cv2.imshow('newmask', newmask)
+    last_frame = gray
+
+# average of frames (the stationary stuff should be the sharpest)
+sum_frame = None
+sum_counter = 0
+def motion4(frame, counter):
+    global sum_frame
+    global sum_counter
+
+    if sum_frame is None:
+        sum_frame = np.float32(frame)
+    else:
+        sum_frame += np.float32(frame)
+    sum_counter += 1
+
+    avg_frame = sum_frame / float(sum_counter)
+    cv2.imshow('motion4', np.uint8(avg_frame))
+
+# low pass filter of frames
+filt_frame = None
+def motion5(frame, counter):
+    global filt_frame
+
+    if filt_frame is None:
+        filt_frame = np.float32(frame)
+
+    factor = 0.95
+    filt_frame = factor * filt_frame + (1 - factor) * np.float32(frame)
+    cv2.imshow('motion5', np.uint8(filt_frame))
+    
 # for ORB
 detector = cv2.ORB_create(max_features)
 extractor = detector
@@ -358,7 +414,7 @@ while True:
 
     # print "Frame %d" % counter
 
-    if frame == None:
+    if frame is None:
         print "Skipping bad frame ..."
         continue
 
@@ -378,7 +434,13 @@ while True:
         frame_undist = frame_scale    
     if args.equalize:
         frame_undist = r.aeq_value(frame_undist)
-        
+
+    # test for building up an automatic mask
+    # motion3(frame_undist, counter)
+
+    # average frame
+    motion5(frame_undist, counter)
+    
     process_hsv = False
     if process_hsv:
         # Convert BGR to HSV
@@ -401,7 +463,7 @@ while True:
     # possible values are 'homography', 'fundamental', 'essential', 'none'
     filter_method = 'homography'
 
-    if des_list_last != None and len(des_list_last) > 1 and des_list != None and len(des_list) > 1:
+    if not (des_list_last is None) and len(des_list_last) > 1 and len(des_list) > 1:
         print len(des_list_last), len(des_list)
         matches = matcher.knnMatch(des_list, trainDescriptors=des_list_last, k=2)
         p1, p2, kp_pairs, idx_pairs, mkp1 = filterMatches(kp_list, kp_list_last, matches)
@@ -538,7 +600,7 @@ while True:
     des_list_last = des_list
 
     # composite with history
-    if accum == None:
+    if accum is None:
         accum = new_frame
     else:
         base = cv2.warpAffine(accum, affine_last, (cols, rows))
