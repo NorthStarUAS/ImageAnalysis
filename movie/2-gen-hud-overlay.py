@@ -28,6 +28,7 @@ import features
 
 # helpful constants
 d2r = math.pi / 180.0
+r2d = 180.0 / math.pi
 
 # default sizes of primatives
 render_w = 1920
@@ -54,7 +55,6 @@ parser.add_argument('--flight-track-seconds', type=float, default=1200.0, help='
 parser.add_argument('--features', help='feature database')
 args = parser.parse_args()
 
-r2d = 180.0 / math.pi
 counter = 0
 stop_count = 0
 
@@ -392,16 +392,16 @@ while True:
     yaw_rad = math.atan2(psiy, psix)
     pitch_rad = interp.filter_the(time)
     roll_rad = interp.filter_phi(time)
-    lat_deg = float(interp.filter_lat(time))*r2d
-    lon_deg = float(interp.filter_lon(time))*r2d
+    lat_deg = interp.filter_lat(time)*r2d
+    lon_deg = interp.filter_lon(time)*r2d
     #altitude_m = float(interp.air_true_alt(time))
-    altitude_m = float(interp.filter_alt(time))
+    altitude_m = interp.filter_alt(time)
     if filt_alt == None:
         filt_alt = altitude_m
     else:
         filt_alt = 0.95 * filt_alt + 0.05 * altitude_m
     if interp.air_speed != None:
-        airspeed_kt = float(interp.air_speed(time))
+        airspeed_kt = interp.air_speed(time)
     else:
         airspeed_kt = 0.0
     if interp.air_alpha and interp.air_beta:
