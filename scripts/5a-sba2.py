@@ -15,6 +15,7 @@ import cPickle as pickle
 import cv2
 import math
 import numpy as np
+import os
 import random
 
 sys.path.append('../lib')
@@ -33,6 +34,7 @@ args = parser.parse_args()
 # return a 3d affine tranformation between current camera locations
 # and original camera locations.
 def get_recenter_affine(src_list, dst_list):
+    print 'get_recenter_affine():'
     src = [[], [], [], []]      # current camera locations
     dst = [[], [], [], []]      # original camera locations
     for i in range(len(src_list)):
@@ -128,7 +130,7 @@ proj.load_match_pairs()
 
 #m = Matcher.Matcher()
 
-matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )
+matches_direct = pickle.load( open( os.path.join(args.project, 'matches_direct'), 'rb' ) )
 print "direct features:", len(matches_direct)
 #matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
 #print "sba features:", len(matches_direct)
@@ -194,6 +196,7 @@ print "Number of groupings:", group_count
 print "Original match connector"
 Matcher.groupByConnections(proj.image_list)
 
+print "Newer grouping code"
 groups = Matcher.simpleGrouping(proj.image_list, matches_group)
 
 image_width = proj.image_list[0].width
@@ -202,7 +205,8 @@ scale = float(image_width) / float(camw)
 print 'scale:', scale
 
 sba = SBA.SBA(args.project)
-sba.prepair_data( proj.image_list, groups[0], matches_direct, proj.cam.get_K(scale) )
+# sba.prepair_data( proj.image_list, groups[0], matches_direct, proj.cam.get_K(scale) )
+sba.prepair_data( proj.image_list, None, matches_direct, proj.cam.get_K(scale) )
 cameras, features, cam_index_map, feat_index_map, error_images = sba.run_live(mode='')
 
 if len(error_images):
@@ -220,13 +224,17 @@ for i, cam in enumerate(cameras):
     image_index = cam_index_map[i]
     image = proj.image_list[image_index]
     orig = image.camera_pose
-    print cam
+    print 'sba cam:', cam
     if len(cam) == 7:
         newq = np.array( [ cam[0], cam[1], cam[2], cam[3] ] )
         tvec = np.array( [ cam[4], cam[5], cam[6] ] )
     elif len(cam) == 12:
         newq = np.array( cam[5:9] )
         tvec = np.array( cam[9:12] )
+        k = np.array( [ [cam[0], 0, cam[1]],
+                        [0, cam[3]*cam[0], cam[2]] ] )
+        print 'est K'
+        print k
     elif len(cam) == 17:
         newq = np.array( cam[10:14] )
         tvec = np.array( cam[14:17] )
@@ -244,97 +252,111 @@ for i, cam in enumerate(cameras):
     image.set_camera_pose_sba( ned=newned, ypr=[yaw/d2r, pitch/d2r, roll/d2r] )
     image.placed = True
 proj.save_images_meta()
+print 'Updated the sba poses for all the cameras'
 
 # compare original camera locations with sba camera locations and
 # derive a transform matrix to 'best fit' the new camera locations
 # over the original ... trusting the original group gps solution as
 # our best absolute truth for positioning the system in world
 # coordinates.
-src_list = []
-dst_list = []
-for image in proj.image_list:
-    if image.placed:
-        # only consider images that are in the fitted set
+#
+# this can't be done globally, but can only be done for groups within
+# the set
+
+refit_group_orientations = False
+if refit_group_orientations:
+    src_list = []
+    dst_list = []
+    for image in proj.image_list:
+        if image.placed:
+            # only consider images that are in the fitted set
+            ned, ypr, quat = image.get_camera_pose_sba()
+            src_list.append(ned)
+            ned, ypr, quat = image.get_camera_pose()
+            dst_list.append(ned)
+    A = get_recenter_affine(src_list, dst_list)
+
+    # extract the rotation matrix (R) from the affine transform
+    scale, shear, angles, trans, persp = transformations.decompose_matrix(A)
+    print transformations.decompose_matrix(A)
+    R = transformations.euler_matrix(*angles)
+    print "R:\n", R
+
+    # update the sba camera locations based on best fit
+    camera_list = []
+    # load current sba poses
+    for image in proj.image_list:
         ned, ypr, quat = image.get_camera_pose_sba()
-        src_list.append(ned)
-        ned, ypr, quat = image.get_camera_pose()
-        dst_list.append(ned)
-A = get_recenter_affine(src_list, dst_list)
+        camera_list.append( ned )
+    # refit
+    new_cams = transform_points(A, camera_list)
 
-# extract the rotation matrix (R) from the affine transform
-scale, shear, angles, trans, persp = transformations.decompose_matrix(A)
-print transformations.decompose_matrix(A)
-R = transformations.euler_matrix(*angles)
-print "R:\n", R
+    # update sba poses. FIXME: do we need to update orientation here as
+    # well?  Somewhere we worked out the code, but it may not matter all
+    # that much ... except for later manually computing mean projection
+    # error.
+    dist_report = []
+    for i, image in enumerate(proj.image_list):
+        if not image.placed:
+            continue
+        ned_orig, ypr_orig, quat_orig = image.get_camera_pose()
+        ned, ypr, quat = image.get_camera_pose_sba()
+        Rbody2ned = image.get_body2ned_sba()
+        # update the orientation with the same transform to keep
+        # everything in proper consistent alignment
 
-# update the sba camera locations based on best fit
-camera_list = []
-# load current sba poses
-for image in proj.image_list:
-    ned, ypr, quat = image.get_camera_pose_sba()
-    camera_list.append( ned )
-# refit
-new_cams = transform_points(A, camera_list)
+        newRbody2ned = R[:3,:3].dot(Rbody2ned)
+        (yaw, pitch, roll) = transformations.euler_from_matrix(newRbody2ned, 'rzyx')
+        image.set_camera_pose_sba(ned=new_cams[i],
+                                  ypr=[yaw/d2r, pitch/d2r, roll/d2r])
+        dist = np.linalg.norm( np.array(ned_orig) - np.array(new_cams[i]))
+        print 'image:', image.name
+        print '  orig pos:', ned_orig
+        print '  fit pos:', new_cams[i]
+        print '  dist moved:', dist
+        dist_report.append( (dist, image.name) )
 
-# update sba poses. FIXME: do we need to update orientation here as
-# well?  Somewhere we worked out the code, but it may not matter all
-# that much ... except for later manually computing mean projection
-# error.
-dist_report = []
-for i, image in enumerate(proj.image_list):
-    if not image.placed:
-        continue
-    ned_orig, ypr_orig, quat_orig = image.get_camera_pose()
-    ned, ypr, quat = image.get_camera_pose_sba()
-    Rbody2ned = image.get_body2ned_sba()
-    # update the orientation with the same transform to keep
-    # everything in proper consistent alignment
+        # fixme: are we doing the correct thing here with attitude, or
+        # should we transform the point set and then solvepnp() all the
+        # camera locations (for now comment out save_meta()
+        image.save_meta()
 
-    newRbody2ned = R[:3,:3].dot(Rbody2ned)
-    (yaw, pitch, roll) = transformations.euler_from_matrix(newRbody2ned, 'rzyx')
-    image.set_camera_pose_sba(ned=new_cams[i],
-                              ypr=[yaw/d2r, pitch/d2r, roll/d2r])
-    dist = np.linalg.norm( np.array(ned_orig) - np.array(new_cams[i]))
-    print 'image:', image.name
-    print '  orig pos:', ned_orig
-    print '  fit pos:', new_cams[i]
-    print '  dist moved:', dist
-    dist_report.append( (dist, image.name) )
-        
-    # fixme: are we doing the correct thing here with attitude, or
-    # should we transform the point set and then solvepnp() all the
-    # camera locations (for now comment out save_meta()
-    image.save_meta()
+    dist_report = sorted(dist_report,
+                         key=lambda fields: fields[0],
+                         reverse=False)
+    print 'Image movement sorted lowest to highest:'
+    for report in dist_report:
+        print report[1], 'dist:', report[0]
 
-dist_report = sorted(dist_report,
-                     key=lambda fields: fields[0],
-                     reverse=False)
-print 'Image movement sorted lowest to highest:'
-for report in dist_report:
-    print report[1], 'dist:', report[0]
+    # update the sba point locations based on same best fit transform
+    # derived from the cameras (remember that 'features' is the point
+    # features structure spit out by the SBA process)
+    feature_list = []
+    for f in features:
+        feature_list.append( f.tolist() )
+    new_feats = transform_points(A, feature_list)
 
-# update the sba point locations based on same best fit transform
-# derived from the cameras (remember that 'features' is the point
-# features structure spit out by the SBA process)
-feature_list = []
-for f in features:
-    feature_list.append( f.tolist() )
-new_feats = transform_points(A, feature_list)
+    # create the matches_sba list (copy) and update the ned coordinate
+    matches_sba = []
+    for i, feat in enumerate(new_feats):
+        match_index = feat_index_map[i]
+        match = list(matches_direct[match_index])
+        match[0] = feat
+        matches_sba.append( match )
+else:
+    # not refitting group orientations create a matches_sba
+    matches_sba = list(matches_direct) # shallow copy
+    for i, feat in enumerate(features):
+        match_index = feat_index_map[i]
+        match = matches_sba[match_index]
+        match[0] = feat
 
-# create the matches_sba list (copy) and update the ned coordinate
-matches_sba = []
-for i, feat in enumerate(new_feats):
-    match_index = feat_index_map[i]
-    match = list(matches_direct[match_index])
-    match[0] = feat
-    matches_sba.append( match )
-    
 # write out the updated match_dict
 print "Writing match_sba file ...", len(matches_sba), 'features'
-pickle.dump(matches_sba, open(args.project + "/matches_sba", "wb"))
+pickle.dump(matches_sba, open(os.path.join(args.project, 'matches_sba'), 'wb'))
 
 # temp write out just the points so we can plot them with gnuplot
-f = open('sba-plot.txt', 'w')
+f = open(os.path.join(args.project, 'sba-plot.txt'), 'w')
 for m in matches_sba:
     f.write('%.2f %.2f %.2f\n' % (m[0][0], m[0][1], m[0][2]))
 f.close()

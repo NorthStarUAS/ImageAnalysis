@@ -137,12 +137,12 @@ class Image():
                 + str(sys.exc_info()[1])
 
     def load_rgb(self, force_resize=False):
-        print "Loading:", self.image_file, force_resize
+        # print "Loading:", self.image_file, force_resize
         try:
             img_rgb = cv2.imread(self.image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
             if force_resize or self.height == 0 or self.width == 0:
                 print img_rgb.shape
-                self.height, self.width = img_rgb.shape
+                self.height, self.width = img_rgb.shape[:2]
             return img_rgb
         except:
             print self.image_file + ":\n" + "  load error: " \

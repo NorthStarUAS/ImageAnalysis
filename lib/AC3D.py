@@ -26,7 +26,7 @@ def make_textures_opencv(src_dir, project_dir, image_list, resolution=256):
         src = src_dir + "/" + image.name
         dst = dst_dir + image.name
         if not os.path.exists(dst):
-            src = cv2.imread(src)
+            src = cv2.imread(src, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
             height, width = src.shape[:2]
             # downscale image first
             method = cv2.INTER_AREA  # cv2.INTER_AREA

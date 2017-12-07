@@ -36,7 +36,7 @@ args = parser.parse_args()
 # project the estimated uv coordinates for the specified image and ned
 # point
 def compute_feature_uv(K, image, ned):
-    if image.PROJ == None:
+    if image.PROJ is None:
         rvec, tvec = image.get_proj_sba()
         R, jac = cv2.Rodrigues(rvec)
         image.PROJ = np.concatenate((R, tvec), axis=1)
@@ -144,7 +144,7 @@ sum_values = 0.0
 sum_count = 0
 for match in matches_sba:
     ned = match[0]
-    if ned != None:
+    if not ned is None:
         raw_points.append( [ned[1], ned[0]] )
         raw_values.append( -ned[2] )
         sum_values += -ned[2]
@@ -178,7 +178,7 @@ y_max = 400
 for image in proj.image_list:
     image.feature_count = 0
 for match in matches_sba:
-    if match[0] != None:
+    if not match[0] is None:
         for p in match[1:]:
             image = proj.image_list[ p[0] ]
             image.feature_count += 1
