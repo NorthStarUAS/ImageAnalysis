@@ -42,7 +42,7 @@ matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
 
 # image mean reprojection error
 def compute_feature_mre(K, image, kp, ned):
-    if image.PROJ == None:
+    if image.PROJ is None:
         if args.direct:
             rvec, tvec = image.get_proj() # original direct pose
         else:
@@ -86,7 +86,7 @@ def compute_reprojection_errors(image_list, cam):
         
     for i, match in enumerate(matches_source):
         ned = match[0]
-        if ned != None:
+        if not ned is None:
             for j, p in enumerate(match[1:]):
                 image = image_list[ p[0] ]
                 # kp = image.kp_list[p[1]].pt # distorted
