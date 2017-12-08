@@ -19,6 +19,7 @@ import os
 import random
 
 sys.path.append('../lib')
+import Groups
 import Matcher
 import ProjectMgr
 import SBA
@@ -128,76 +129,11 @@ proj.load_features()
 proj.undistort_keypoints()
 proj.load_match_pairs()
 
-#m = Matcher.Matcher()
-
 matches_direct = pickle.load( open( os.path.join(args.project, 'matches_direct'), 'rb' ) )
 print "direct features:", len(matches_direct)
-#matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
-#print "sba features:", len(matches_direct)
 
-# collect/group match chains that refer to the same keypoint
-
-# collect/group match chains that refer to the same keypoint
-matches_group = list(matches_direct) # shallow copy
-count = 0
-done = False
-while not done:
-    print "Iteration:", count
-    count += 1
-    matches_new = []
-    matches_lookup = {}
-    for i, match in enumerate(matches_group):
-        # scan if any of these match points have been previously seen
-        # and record the match index
-        index = -1
-        for p in match[1:]:
-            key = "%d-%d" % (p[0], p[1])
-            if key in matches_lookup:
-                index = matches_lookup[key]
-                break
-        if index < 0:
-            # not found, append to the new list
-            for p in match[1:]:
-                key = "%d-%d" % (p[0], p[1])
-                matches_lookup[key] = len(matches_new)
-            matches_new.append(list(match)) # shallow copy
-        else:
-            # found a previous reference, append these match items
-            existing = matches_new[index]
-            # only append items that don't already exist in the early
-            # match, and only one match per image (!)
-            for p in match[1:]:
-                key = "%d-%d" % (p[0], p[1])
-                found = False
-                for e in existing[1:]:
-                    if p[0] == e[0]:
-                        found = True
-                        break
-                if not found:
-                    # add
-                    existing.append(list(p)) # shallow copy
-                    matches_lookup[key] = index
-            # print "new:", existing
-            # print 
-    if len(matches_new) == len(matches_group):
-        done = True
-    else:
-        matches_group = list(matches_new) # shallow copy
-print "unique features (after grouping):", len(matches_group)
-
-# count the match groups that are longer than just pairs
-group_count = 0
-for m in matches_group:
-    if len(m) > 3:
-        group_count += 1
-
-print "Number of groupings:", group_count
-
-print "Original match connector"
-Matcher.groupByConnections(proj.image_list)
-
-print "Newer grouping code"
-groups = Matcher.simpleGrouping(proj.image_list, matches_group)
+# compute the group connections within the image set
+groups = Groups.simpleGrouping(proj.image_list, matches_direct)
 
 image_width = proj.image_list[0].width
 camw, camh = proj.cam.get_image_params()
@@ -205,7 +141,6 @@ scale = float(image_width) / float(camw)
 print 'scale:', scale
 
 sba = SBA.SBA(args.project)
-# sba.prepair_data( proj.image_list, groups[0], matches_direct, proj.cam.get_K(scale) )
 sba.prepair_data( proj.image_list, None, matches_direct, proj.cam.get_K(scale) )
 cameras, features, cam_index_map, feat_index_map, error_images = sba.run_live(mode='')
 
