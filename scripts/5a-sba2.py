@@ -132,8 +132,12 @@ proj.load_match_pairs()
 matches_direct = pickle.load( open( os.path.join(args.project, 'matches_direct'), 'rb' ) )
 print "direct features:", len(matches_direct)
 
-# compute the group connections within the image set
+# compute the group connections within the image set (not used
+# currently in the bundle adjustment process, but here's how it's
+# done...)
 groups = Groups.simpleGrouping(proj.image_list, matches_direct)
+Groups.save(args.project, groups)
+Groups.load(args.project)
 
 image_width = proj.image_list[0].width
 camw, camh = proj.cam.get_image_params()

@@ -1,6 +1,10 @@
 # construct groups of connected images.  The inclusion order favors
 # images with the most connections (features matches) to neighbors.
 
+import json
+import os
+import sys
+
 def countFeatureConnections(image_list, matches):
     for image in image_list:
         image.connection_set = set()
@@ -93,7 +97,7 @@ def simpleGrouping(image_list, matches):
                 group_images.add(new_index)
             else:
                 if len(group_images) > 1:
-                    groups.append(group_images)
+                    groups.append(list(group_images))
                 else:
                     done = True
                 break
@@ -104,10 +108,36 @@ def simpleGrouping(image_list, matches):
             new_image = image_list[new_index]
             new_image.connection_order = len(placed_images) - 1
             print 'Image placed:', new_image.name
-
+            
+    # add all unplaced images in their own groups of 1
+    for i, image in enumerate(image_list):
+        if not i in placed_images:
+            groups.append( [i] )
+            
     print groups
     return groups
 
+def save(path, groups):
+    file = os.path.join(path, 'Groups.json')
+    try:
+        fd = open(file, 'w')
+        json.dump(groups, fd, indent=4, sort_keys=True)
+        fd.close()
+    except:
+        print file + ": error saving file:", str(sys.exc_info()[1])
+
+def load(path):
+    file = os.path.join(path, 'Groups.json')
+    try:
+        fd = open(file, 'r')
+        groups = json.load(fd)
+        fd.close()
+    except:
+        print file + ": error loading file:", str(sys.exc_info()[1])
+        groups = []
+    print 'groups:', groups
+    return groups
+   
 ##
 ## For historical/archival purposes, here is an alternative grouping
 ## function that uses number of neighbors instead of number of
