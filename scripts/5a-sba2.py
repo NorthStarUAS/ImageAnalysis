@@ -127,7 +127,7 @@ proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
 proj.undistort_keypoints()
-proj.load_match_pairs()
+# proj.load_match_pairs()
 
 matches_direct = pickle.load( open( os.path.join(args.project, 'matches_direct'), 'rb' ) )
 print "direct features:", len(matches_direct)
@@ -135,9 +135,8 @@ print "direct features:", len(matches_direct)
 # compute the group connections within the image set (not used
 # currently in the bundle adjustment process, but here's how it's
 # done...)
-groups = Groups.simpleGrouping(proj.image_list, matches_direct)
-Groups.save(args.project, groups)
-Groups.load(args.project)
+groups = Groups.load(args.project)
+print groups
 
 image_width = proj.image_list[0].width
 camw, camh = proj.cam.get_image_params()
@@ -145,7 +144,8 @@ scale = float(image_width) / float(camw)
 print 'scale:', scale
 
 sba = SBA.SBA(args.project)
-sba.prepair_data( proj.image_list, None, matches_direct, proj.cam.get_K(scale) )
+sba.prepair_data( proj.image_list, groups[0], matches_direct, proj.cam.get_K(scale) )
+# sba.prepair_data( proj.image_list, None, matches_direct, proj.cam.get_K(scale) )
 cameras, features, cam_index_map, feat_index_map, error_images = sba.run_live(mode='')
 
 if len(error_images):

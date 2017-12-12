@@ -102,12 +102,11 @@ def simpleGrouping(image_list, matches):
                     done = True
                 break
 
-            print "Total number of placed images so far:", len(placed_images)
             updatePlacedFeatures(placed_images, matches, placed_features)
 
             new_image = image_list[new_index]
             new_image.connection_order = len(placed_images) - 1
-            print 'Image placed:', new_image.name
+            print 'Added:', new_image.name, 'groups:', len(groups)+1, 'in current group', len(group_images), 'total:', len(placed_images)
             
     # add all unplaced images in their own groups of 1
     for i, image in enumerate(image_list):
@@ -135,7 +134,6 @@ def load(path):
     except:
         print file + ": error loading file:", str(sys.exc_info()[1])
         groups = []
-    print 'groups:', groups
     return groups
    
 ##
