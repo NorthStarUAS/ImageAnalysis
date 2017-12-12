@@ -144,8 +144,7 @@ class Camera():
         self.camera_dict['mount-ypr'] = [yaw_deg, pitch_deg, roll_deg]
        
     def get_mount_params(self):
-        return \
-            self.camera_dict['mount-ypr']
+        return self.camera_dict['mount-ypr']
 
     def derive_other_params(self):
         fx = self.camera_dict['fx']
