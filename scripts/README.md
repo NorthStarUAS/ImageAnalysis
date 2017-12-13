@@ -97,7 +97,9 @@ Show all the imported images.
   larger groups.  Ideally all images will connect with each other, but
   this sadly is often not the case.  Connectivity can be increased by
   detecting more features or experimenting with different detectors or
-  feature matching filters.
+  feature matching filters.  Ultimately, good connectivity is achieved
+  by ensuring your images overlap.  70% overlap with neighbors is the
+  industry recommendation.
 
 
 
