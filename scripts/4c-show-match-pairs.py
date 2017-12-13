@@ -26,8 +26,8 @@ parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--order', default='sequential',
                     choices=['sequential', 'fewest-matches'],
                     help='sort order')
-parser.add_argument('--orient', default='aircraft',
-                    choices=['aircraft', 'camera', 'sba'],
+parser.add_argument('--orient', default='relative',
+                    choices=['relative', 'aircraft', 'camera', 'sba'],
                     help='yaw orientation reference')
 parser.add_argument('--image', default="", help='show specific image matches')
 parser.add_argument('--index', type=int, help='show specific image by index')
