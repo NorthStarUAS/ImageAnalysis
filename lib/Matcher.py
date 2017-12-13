@@ -601,13 +601,74 @@ class Matcher():
                             _response=k.response, _octave=k.octave,
                             _class_id=k.class_id)
     
-    def showMatchOrient(self, i1, i2, idx_pairs, status=None, orient='none'):
+    def decomposeAffine(self, affine):
+        tx = affine[0][2]
+        ty = affine[1][2]
+
+        a = affine[0][0]
+        b = affine[0][1]
+        c = affine[1][0]
+        d = affine[1][1]
+
+        sx = math.sqrt( a*a + b*b )
+        if a < 0.0:
+            sx = -sx
+        sy = math.sqrt( c*c + d*d )
+        if d < 0.0:
+            sy = -sy
+
+        rotate_deg = math.atan2(-b,a) * 180.0/math.pi
+        if rotate_deg < -180.0:
+            rotate_deg += 360.0
+        if rotate_deg > 180.0:
+            rotate_deg -= 360.0
+        return (rotate_deg, tx, ty, sx, sy)
+
+    def showMatchOrient(self, i1, i2, idx_pairs, status=None, orient='relative'):
         #print " -- idx_pairs = " + str(idx_pairs)
         img1 = i1.load_gray()
         img2 = i2.load_gray()
 
-        print 'orient:', orient
-        if orient == 'aircraft':
+        # compute the affine transformation between points
+        src = []
+        dst = []
+        for pair in idx_pairs:
+            src.append( i1.kp_list[pair[0]].pt )
+            dst.append( i2.kp_list[pair[1]].pt )
+        fullAffine = True
+        affine = cv2.estimateRigidTransform(np.array([src]).astype(np.float32),
+                                            np.array([dst]).astype(np.float32),
+                                            fullAffine)
+        print 'affine:', affine
+        (rot, tx, ty, sx, sy) = self.decomposeAffine(affine)
+
+        # for each src point, compute dst_est[i] = src[i] * affine
+        error = []
+        for i, p in enumerate(src):
+            p_est = affine.dot( np.hstack((p, 1.0)) )[:2]
+            print 'p est:', p_est, 'act:', dst[i]
+            #np1 = np.array(i1.coord_list[pair[0]])
+            #np2 = np.array(i2.coord_list[pair[1]])
+            d = np.linalg.norm(p_est - dst[i])
+            print 'dist:', d
+            error.append(d)
+        error = np.array(error)
+        avg = np.mean(error)
+        std = np.std(error)
+        print 'avg:', avg, 'std:', std
+
+        # mark the potential outliers
+        status = np.ones(len(error), np.bool_)
+        for i in range(len(status)):
+            if error[i] > avg + 3*std:
+                status[i] = False
+                
+        print 'orientation:', orient
+        if orient == 'relative':
+            # estimate relative orientation between features
+            yaw1 = 0
+            yaw2 = rot
+        elif orient == 'aircraft':
             yaw1 = i1.aircraft_pose['ypr'][0]
             yaw2 = i2.aircraft_pose['ypr'][0]
         elif orient == 'camera':
@@ -635,11 +696,9 @@ class Matcher():
             kp2.pt = (p2[0], p2[1])
             # print p1, p2
             kp_pairs.append( (kp1, kp2) )
-        if status == None:
+        if status is None:
             status = np.ones(len(kp_pairs), np.bool_)
 
-        #explore_match('find_obj', si1, si2, kp_pairs,
-        #              hscale=scale, wscale=scale, status=status)
         explore_match('find_obj', si1, si2, kp_pairs,
                       hscale=1.0, wscale=1.0, status=status)
         # status structure will be correct here and represent
