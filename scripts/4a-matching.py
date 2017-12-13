@@ -178,11 +178,6 @@ m.robustGroupMatches(proj.image_list, K, filter=args.filter,
                      image_fuzz=args.image_fuzz, feature_fuzz=args.feature_fuzz,
                      review=False)
 
-# compute cycle dist starting from the most connected image (relative
-# errors may tend to build up as cycle distance increases.) (not now
-# since we don't have a matches_direct file yet.)
-# Matcher.groupByConnections(proj.image_list)
-
 # The following code is deprecated ...
 do_old_match_consolodation = False
 if do_old_match_consolodation:
@@ -223,11 +218,6 @@ if do_old_match_consolodation:
         ned = sum / len(feature_dict['pts'])
         feature_dict['ned'] = ned.tolist()
 
-    # The Matches.json file should no longer be needed or used.
-    #f = open(args.project + "/Matches.json", 'w')
-    #json.dump(matches_dict, f, sort_keys=True)
-    #f.close()
-    
 def update_match_location(match):
     sum = np.array( [0.0, 0.0, 0.0] )
     for p in match[1:]:
