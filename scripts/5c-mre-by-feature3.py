@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+# depricated? does v2 have all the features now that this does?
+
 # For all the feature matches and camera poses, estimate a mean
 # reprojection error
 
