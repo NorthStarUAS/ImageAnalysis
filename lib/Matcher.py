@@ -90,6 +90,31 @@ class Matcher():
             result.append(pair)
         return result
 
+    # SIFT (for example) can detect the same feature at different
+    # scales which can lead to duplicate match pairs, or possibly one
+    # feature in image1 matching two or more features in images2.
+    # Find and filter these out of the set.
+    def filter_duplicates(self, i1, i2, idx_pairs):
+        result = []
+        kp1_dict = {}
+        kp2_dict = {}
+        for pair in idx_pairs:
+            kp1 = i1.kp_list[pair[0]]
+            kp2 = i2.kp_list[pair[1]]
+            key1 = "%.2f-%.2f" % (kp1.pt[0], kp1.pt[1])
+            key2 = "%.2f-%.2f" % (kp2.pt[0], kp2.pt[1])
+            if key1 in kp1_dict and key2 in kp2_dict:
+                print "image1 and image2 key point already used:", key1, key2
+            elif key1 in kp1_dict:
+                print "image1 key point already used:", key1
+            elif key2 in kp2_dict:
+                print "image2 key point already used:", key2
+            else:
+                kp1_dict[key1] = True
+                kp2_dict[key2] = True
+                result.append(pair)
+        return result
+
     # Iterate through all the matches for the specified image and
     # delete keypoints that don't satisfy the homography (or
     # fundamental) relationship.  Returns true if match set is clean, false
@@ -305,7 +330,7 @@ class Matcher():
         # run the classic feature distance ratio test
         p1, p2, kp_pairs, idx_pairs = self.filter_by_feature(i1, i2, matches)
         print "after distance ratio test =", len(idx_pairs)
-
+ 
         do_direct_geo_individual_distance_test = False
         if do_direct_geo_individual_distance_test:
             # test each individual match pair for proximity to each
@@ -314,6 +339,9 @@ class Matcher():
             idx_pairs = self.filter_by_location(i1, i2, idx_pairs, feature_fuzz)
             print "after direct goereference distance test =", len(idx_pairs)
 
+        # check for duplicate matches (based on different scales or attributes)
+        idx_pairs = self.filter_duplicates(i1, i2, idx_pairs)
+        
         if len(idx_pairs) < self.min_pairs:
             idx_pairs = []
         print "  pairs =", len(idx_pairs)
@@ -463,12 +491,14 @@ class Matcher():
         # and save
         self.saveMatches(image_list)
 
-    # remove any match sets shorter than self.min_pair
+    # remove any match sets shorter than self.min_pair (this shouldn't
+    # probably ever happen now?)
     def cullShortMatches(self, image_list):
         for i, i1 in enumerate(image_list):
-            print "Cull matches for %s" % i1.name
+            print "(needed?) Cull matches for %s" % i1.name
             for j, matches in enumerate(i1.match_list):
                 if len(matches) < self.min_pairs:
+                    print '  Culling pair index:', j
                     i1.match_list[j] = []
 
     def saveMatches(self, image_list):
