@@ -33,7 +33,7 @@ parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--texture-resolution', type=int, default=512, help='texture resolution (should be 2**n, so numbers like 256, 512, 1024, etc.')
 parser.add_argument('--srtm', action='store_true', help='use srtm elevation')
 parser.add_argument('--ground', type=float, help='force ground elevation in meters')
-parser.add_argument('--sba', action='store_true', help='use sba pose')
+parser.add_argument('--direct', action='store_true', help='use direct pose')
 
 args = parser.parse_args()
 
@@ -74,7 +74,6 @@ for image in proj.image_list:
     image.average_elevation = average
     print image.name, 'features:', image.temp_count, 'average:', average
 
-    
 depth = 0.0
 camw, camh = proj.cam.get_image_params()
 #for group in groups:
@@ -98,18 +97,18 @@ if True:
         for v in v_list:
             for u in u_list:
                 grid_list.append( [u, v] )
-        print 'grid_list:', grid_list
+        #print 'grid_list:', grid_list
 
-        if not args.sba:
+        if args.direct:
             proj_list = proj.projectVectors( IK, image.get_body2ned(),
                                              image.get_cam2body(), grid_list )
         else:
             print image.get_body2ned_sba()
             proj_list = proj.projectVectors( IK, image.get_body2ned_sba(),
                                              image.get_cam2body(), grid_list )
-        print 'proj_list:', proj_list
+        #print 'proj_list:', proj_list
 
-        if not args.sba:
+        if args.direct:
             ned = image.camera_pose['ned']
         else:
             ned = image.camera_pose_sba['ned']
@@ -122,13 +121,13 @@ if True:
         else:
             pts_ned = proj.intersectVectorsWithGroundPlane(ned,
                                                            image.average_elevation, proj_list)
-        print "pts_3d (ned):\n", pts_ned
+        #print "pts_3d (ned):\n", pts_ned
 
         # convert ned to xyz and stash the result for each image
         image.grid_list = []
         ground_sum = 0
         for p in pts_ned:
-            # image.grid_list.append( [p[1], p[0], -(p[2]+depth)] )
+            #image.grid_list.append( [p[1], p[0], -(p[2]+depth)] )
             image.grid_list.append( [p[1], p[0], -(depth)] )
             ground_sum += -p[2]
         depth -= 0.01                # favor last pictures above earlier ones
