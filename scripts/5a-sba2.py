@@ -132,9 +132,7 @@ proj.undistort_keypoints()
 matches_direct = pickle.load( open( os.path.join(args.project, 'matches_direct'), 'rb' ) )
 print "direct features:", len(matches_direct)
 
-# compute the group connections within the image set (not used
-# currently in the bundle adjustment process, but here's how it's
-# done...)
+# load the group connections within the image set
 groups = Groups.load(args.project)
 print groups
 
