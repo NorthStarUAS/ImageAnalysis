@@ -138,8 +138,10 @@ def load(path):
    
 ##
 ## For historical/archival purposes, here is an alternative grouping
-## function that uses number of neighbors instead of number of
-## matches.
+## function that uses number of neighbor with matches instead of
+## number of total number of matches.  The results should be
+## identical, but the order images are added to the group may be
+## slightly different...
 ##
 
 # return the neighbor that is closest to the root node of the
