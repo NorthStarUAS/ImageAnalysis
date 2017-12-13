@@ -14,6 +14,7 @@ import math
 import numpy as np
 
 sys.path.append('../lib')
+import Groups
 import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
@@ -42,7 +43,7 @@ if not args.direct:
 
 # image mean reprojection error
 def compute_feature_mre(K, image, kp, ned):
-    if image.PROJ == None:
+    if image.PROJ is None:
         if args.direct:
             rvec, tvec = image.get_proj() # original direct pose
         else:
@@ -61,9 +62,9 @@ def compute_feature_mre(K, image, kp, ned):
     return dist
 
 # group reprojection error for every used feature
-def compute_reprojection_errors(image_list, cam):
+def compute_reprojection_errors(image_list, group, cam):
     print "Computing reprojection error for all match points..."
-    
+
     # start with a clean slate
     for image in image_list:
         image.PROJ = None
@@ -82,12 +83,13 @@ def compute_reprojection_errors(image_list, cam):
     for i, match in enumerate(matches_source):
         ned = match[0]
         for j, p in enumerate(match[1:]):
-            image = image_list[ p[0] ]
-            # kp = image.kp_list[p[1]].pt # distorted
-            kp = image.uv_list[ p[1] ]  # undistorted uv point
-            scale = float(image.width) / float(camw)
-            dist = compute_feature_mre(cam.get_K(scale), image, kp, ned)
-            result_list.append( (dist, i, j) )
+            if p[0] in group:
+                image = image_list[ p[0] ]
+                # kp = image.kp_list[p[1]].pt # distorted
+                kp = image.uv_list[ p[1] ]  # undistorted uv point
+                scale = float(image.width) / float(camw)
+                dist = compute_feature_mre(cam.get_K(scale), image, kp, ned)
+                result_list.append( (dist, i, j) )
 
     # sort by worst max error first
     result_list = sorted(result_list, key=lambda fields: fields[0],
@@ -96,6 +98,7 @@ def compute_reprojection_errors(image_list, cam):
 
 def show_outliers(result_list, trim_stddev):
     print "Show outliers..."
+    mark_sum = 0
     sum = 0.0
     count = len(result_list)
 
@@ -120,8 +123,24 @@ def show_outliers(result_list, trim_stddev):
         if line[0] > mre + stddev * trim_stddev:
             print "  outlier index %d-%d err=%.2f" % (line[1], line[2],
                                                       line[0])
-            draw_match(line[1], line[2])
+            result = draw_match(line[1], line[2])
+            if result == ord('d'):
+                # delete feature
+                mark_outlier(line[1], line[2], line[0])
+                mark_sum += 1
+            elif result == 27 or result == ord('q'):
+                # quit reviewing and go on to delete the marks
+                break
+    return mark_sum
             
+def mark_outlier(match_index, feat_index, error):
+    print "  outlier index %d-%d err=%.2f" % (match_index, feat_index, error)
+    match = matches_direct[match_index]
+    match[feat_index+1] = [-1, -1]
+    if not args.direct:
+        match = matches_sba[feat_index]
+        match[feat_index+1] = [-1, -1]
+
 def mark_outliers(result_list, trim_stddev):
     print "Marking outliers..."
     sum = 0.0
@@ -149,16 +168,10 @@ def mark_outliers(result_list, trim_stddev):
     for line in result_list:
         # print "line:", line
         if line[0] > mre + stddev * trim_stddev:
-            print "  outlier index %d-%d err=%.2f" % (line[1], line[2],
-                                                      line[0])
-            match = matches_direct[line[1]]
-            match[line[2]+1] = [-1, -1]
-            if not args.direct:
-                match = matches_sba[line[1]]
-                match[line[2]+1] = [-1, -1]
+            mark_outlier(line[1], line[2], line[0])
             mark_count += 1
             
-    # trim the result_list
+    # trim the result_list (if we want to recompute stats and retrim)
     print " trimming results list..."
     for i in range(len(result_list)):
         line = result_list[i]
@@ -247,7 +260,7 @@ def draw_match(i, index):
             if ( j == index ):
                 color = red
             else:
-                color = green
+                color = red
             cv2.circle(rgb1, (range-xshift,range-yshift), 2, color, thickness=2)
         else:
             scale = 790.0/float(w)
@@ -257,15 +270,22 @@ def draw_match(i, index):
     print 'waiting for keyboard input...'
     key = cv2.waitKey() & 0xff
     cv2.destroyAllWindows()
+    return key
 
-result_list = compute_reprojection_errors(proj.image_list, proj.cam)
+# load the group connections within the image set
+groups = Groups.load(args.project)
+
+result_list = compute_reprojection_errors(proj.image_list, groups[0], proj.cam)
 
 if args.show:
-    show_outliers(result_list, args.stddev)
-    
-result_list, mark_sum = mark_outliers(result_list, args.stddev)
+    # interactively pick outliers
+    mark_sum = show_outliers(result_list, args.stddev)
+else:
+    # trim outliers by some # of standard deviations high
+    result_list, mark_sum = mark_outliers(result_list, args.stddev)
 
-# now count how many features show up in each image
+# after marking the bad matches, now count how many remaining features
+# show up in each image
 for i in proj.image_list:
     i.feature_count = 0
 for i, match in enumerate(matches_direct):
