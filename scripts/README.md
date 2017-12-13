@@ -75,19 +75,23 @@ Show all the imported images.
 
 # 4. Feature Matching
 
-  ## Homography filter
+  ## 4a-matching.py
 
-  Enforces a planer relationship between features matched in a pair of
-  images.  Features off that plane tend to be rejected.  This seems to
-  be the recommended filter relationship in all the examples and
-  literature.
+  Run this script to find all the matching feature pairs in the image set.
+  
+    ### Homography filter
 
-  ## Essential filter
+    Enforces a planer relationship between features matched in a pair
+    of images.  Features off that plane tend to be rejected.  This
+    seems to be the recommended filter relationship in all the
+    examples and literature.
 
-  Seems to better handle variations off plane while still being pretty
-  robust and rejecting false matches.
+    ### Essential filter
 
-  ## Group connectivity.
+    Seems to better handle variations off plane while still being
+    pretty robust and rejecting false matches.
+
+  ## 4b-groups.py
 
   Images are matches as pairs, but these pairs can be connected into
   larger groups.  Ideally all images will connect with each other, but
@@ -95,23 +99,6 @@ Show all the imported images.
   detecting more features or experimenting with different detectors or
   feature matching filters.
 
-  ## False Matches.
-
-  False matches are a sad fact of image stitching.  At every level and
-  step, false matches can sneak through.  The system filters false
-  matches by (a) making sure the original physical direct projection
-  is within some range, (b) ensuring a pair-wise set of matches has at
-  least 'n' members where 'n' should be 20-25, (c) ensuring all
-  pair-wise matches honor the homography (or fundamental) matrix
-  relationship, and (d) making sure all the matches from A -> B have
-  reciprocals in B -> A,
-
-  Remaining false matches can be detected and removed later by
-  evaluating mean reprojection errors, distance of bundle adjusted
-  feature from neighbors, and possibly some other techniques.  This is
-  an ongoing battle.  Even one false match in the entire data set can
-  produce incorrect camera and feature positions during the bundle
-  adjustment step.
 
 
 # 5. Assemble Scene / Bundle Adjustment
@@ -120,7 +107,7 @@ Show all the imported images.
 
   Original attempt, deprecated in favor of 5a-sba2.py
 
-  ## 5a-sba2.py
+  ## 5a-sba2.py (best so far)
 
   Takes initial direct georeference scene layout and runs bundle
   adjustment.  Currently this is the best code to run.  From the
@@ -145,14 +132,17 @@ Show all the imported images.
   rotations, send to optimizer to find an optimal set of camera
   orientations that minimize the slop.
 
-  ## 5c-mre-by-feature3.py
+  ## 5c-mre-by-feature2.py
 
   Compute the mre of the assembled scene (optionally delete worst
   outliers)
 
   With the --show option, interactively display the worst mre error
-  matches.  Type 'y' to delete (from matches_direct) and any other key
+  matches.  Type 'd' to delete (from matches_direct) and any other key
   to skip.  Type 'q' to quit and delete the marked matches.
+
+  After this you will want to rerun the 4a-groups.py, then 5a-sba2.py
+  script to reoptimize the fit.
 
 
 # 6. Render Results
