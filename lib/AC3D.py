@@ -81,6 +81,9 @@ def generate(image_list, ref_image=False, src_dir=".", project_dir=".", base_nam
     f.write("kids " + str(match_count) + "\n")
 
     for image in image_list:
+        if len(image.grid_list) == 0:
+            continue
+        
         # compute a priority function (higher priority tiles are raised up)
         #priority = (1.0-image.weight) - agl/400.0
 
