@@ -17,12 +17,14 @@ sys.path.append('../lib')
 import Groups
 import ProjectMgr
 
+import match_culling as cull
+
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--stddev', type=float, default=3, help='how many stddevs above the mean for auto discarding features')
 parser.add_argument('--direct', action='store_true', help='analyze direct matches (might help if initial sba fit fails.)')
 parser.add_argument('--strong', action='store_true', help='remove entire match chain, not just the worst offending element.')
-parser.add_argument('--show', action='store_true', help='show most extreme reprojection errors with matches.')
+parser.add_argument('--interactive', action='store_true', help='interactively review reprojection errors from worst to best and select for deletion or keep.')
 
 args = parser.parse_args()
 
@@ -96,67 +98,22 @@ def compute_reprojection_errors(image_list, group, cam):
                          reverse=True)
     return result_list
 
-def show_outliers(result_list, trim_stddev):
-    print "Show outliers..."
-    mark_sum = 0
-    sum = 0.0
-    count = len(result_list)
-
-    # numerically it is better to sum up a list of floating point
-    # numbers from smallest to biggest (result_list is sorted from
-    # biggest to smallest)
-    for line in reversed(result_list):
-        sum += line[0]
-        
-    # stats on error values
-    print " computing stats..."
-    mre = sum / count
-    stddev_sum = 0.0
-    for line in result_list:
-        error = line[0]
-        stddev_sum += (mre-error)*(mre-error)
-    stddev = math.sqrt(stddev_sum / count)
-    print "mre = %.4f stddev = %.4f" % (mre, stddev)
-
-    for line in result_list:
-        # print "line:", line
-        if line[0] > mre + stddev * trim_stddev:
-            print "  outlier index %d-%d err=%.2f" % (line[1], line[2],
-                                                      line[0])
-            result = draw_match(line[1], line[2])
-            if result == ord('d'):
-                # delete feature
-                mark_outlier(line[1], line[2], line[0])
-                mark_sum += 1
-            elif result == 27 or result == ord('q'):
-                # quit reviewing and go on to delete the marks
-                break
-    return mark_sum
-            
-def mark_outlier(match_index, feat_index, error):
-    print "  outlier index %d-%d err=%.2f" % (match_index, feat_index, error)
-    match = matches_direct[match_index]
-    match[feat_index+1] = [-1, -1]
-    if not args.direct:
-        match = matches_sba[feat_index]
-        match[feat_index+1] = [-1, -1]
-
-def mark_outliers(result_list, trim_stddev):
+def mark_outliers(error_list, trim_stddev):
     print "Marking outliers..."
     sum = 0.0
-    count = len(result_list)
+    count = len(error_list)
 
     # numerically it is better to sum up a list of floatting point
-    # numbers from smallest to biggest (result_list is sorted from
+    # numbers from smallest to biggest (error_list is sorted from
     # biggest to smallest)
-    for line in reversed(result_list):
+    for line in reversed(error_list):
         sum += line[0]
         
     # stats on error values
     print " computing stats..."
     mre = sum / count
     stddev_sum = 0.0
-    for line in result_list:
+    for line in error_list:
         error = line[0]
         stddev_sum += (mre-error)*(mre-error)
     stddev = math.sqrt(stddev_sum / count)
@@ -165,24 +122,15 @@ def mark_outliers(result_list, trim_stddev):
     # mark match items to delete
     print " marking outliers..."
     mark_count = 0
-    for line in result_list:
+    for line in error_list:
         # print "line:", line
         if line[0] > mre + stddev * trim_stddev:
-            mark_outlier(line[1], line[2], line[0])
+            cull.mark_outlier(matches_direct, line[1], line[2], line[0])
+            if not args.direct:
+                cull.mark_outlier(matches_sba, line[1], line[2], line[0])
             mark_count += 1
             
-    # trim the result_list (if we want to recompute stats and retrim)
-    print " trimming results list..."
-    for i in range(len(result_list)):
-        line = result_list[i]
-        if line[0] < mre + stddev * trim_stddev:
-            if i > 0:
-                # remove the marked items from the sorted list
-                del result_list[0:i]
-            # and break
-            break
-            
-    return result_list, mark_count
+    return mark_count
 
 # delete marked matches
 def delete_marked_matches():
@@ -216,73 +164,29 @@ def delete_marked_matches():
             if not args.direct:
                 matches_sba.pop(i)
 
-# experimental, draw a visual of a match point in all it's images
-def draw_match(i, index):
-    green = (0, 255, 0)
-    red = (0, 0, 255)
-
-    if not args.direct:
-        match = matches_sba[i]
-    else:
-        match = matches_direct[i]
-    print 'match:', match, 'index:', index
-    for j, m in enumerate(match[1:]):
-        print ' ', m, proj.image_list[m[0]]
-        img = proj.image_list[m[0]]
-        # kp = img.kp_list[m[1]].pt # distorted
-        kp = img.uv_list[m[1]]  # undistored
-        print ' ', kp
-        rgb = img.load_rgb()
-        h, w = rgb.shape[:2]
-        crop = True
-        range = 300
-        if crop:
-            cx = int(round(kp[0]))
-            cy = int(round(kp[1]))
-            if cx < range:
-                xshift = range - cx
-                cx = range
-            elif cx > (w - range):
-                xshift = (w - range) - cx
-                cx = w - range
-            else:
-                xshift = 0
-            if cy < range:
-                yshift = range - cy
-                cy = range
-            elif cy > (h - range):
-                yshift = (h - range) - cy
-                cy = h - range
-            else:
-                yshift = 0
-            print 'size:', w, h, 'shift:', xshift, yshift
-            rgb1 = rgb[cy-range:cy+range, cx-range:cx+range]
-            if ( j == index ):
-                color = red
-            else:
-                color = red
-            cv2.circle(rgb1, (range-xshift,range-yshift), 2, color, thickness=2)
-        else:
-            scale = 790.0/float(w)
-            rgb1 = cv2.resize(rgb, (0,0), fx=scale, fy=scale)
-            cv2.circle(rgb1, (int(round(kp[0]*scale)), int(round(kp[1]*scale))), 2, green, thickness=2)
-        cv2.imshow(img.name, rgb1)
-    print 'waiting for keyboard input...'
-    key = cv2.waitKey() & 0xff
-    cv2.destroyAllWindows()
-    return key
-
 # load the group connections within the image set
 groups = Groups.load(args.project)
 
-result_list = compute_reprojection_errors(proj.image_list, groups[0], proj.cam)
+if args.direct:
+    matches=matches_direct
+else:
+    matches=matches_sba
 
-if args.show:
+# fixme: probably should pass in the matches structure to this call
+error_list = compute_reprojection_errors(proj.image_list, groups[0], proj.cam)
+
+if args.interactive:
     # interactively pick outliers
-    mark_sum = show_outliers(result_list, args.stddev)
+    mark_list = cull.show_outliers(error_list, matches, proj.image_list,
+                                   args.stddev)
+    # mark both direct and/or sba match lists as requested
+    cull.mark_using_list(mark_list, matches_direct)
+    if not args.direct:
+        cull.mark_using_list(mark_list, matches_sba)
+    mark_sum = len(mark_list)
 else:
     # trim outliers by some # of standard deviations high
-    result_list, mark_sum = mark_outliers(result_list, args.stddev)
+    mark_sum = mark_outliers(error_list, args.stddev)
 
 # after marking the bad matches, now count how many remaining features
 # show up in each image
@@ -297,7 +201,7 @@ for i, match in enumerate(matches_direct):
 # make a dict of all images with less than 25 feature matches
 weak_dict = {}
 for i, img in enumerate(proj.image_list):
-    print img.name, img.feature_count
+    # print img.name, img.feature_count
     if img.feature_count > 0 and img.feature_count < 25:
         weak_dict[i] = True
 print 'weak images:', weak_dict
@@ -312,7 +216,8 @@ for i, match in enumerate(matches_direct):
     #print 'after:', match
 
 if mark_sum > 0:
-    result=raw_input('Remove ' + str(mark_sum) + ' outliers from the original matches? (y/n):')
+    print 'Outliers removed from match lists:', mark_sum
+    result=raw_input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
         delete_marked_matches()
         # write out the updated match dictionaries
