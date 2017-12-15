@@ -3,10 +3,13 @@
 # determine the connected groups of images.  Images without
 # connections to each other cannot be correctly placed.
 
+import sys
+sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
+
 import argparse
 import cPickle as pickle
+import cv2
 import os
-import sys
 
 sys.path.append('../lib')
 import Groups
@@ -18,6 +21,8 @@ args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
+proj.load_features()
+proj.undistort_keypoints()
 
 print "Loading direct matches..."
 matches_direct = pickle.load( open( os.path.join(args.project, 'matches_direct'), 'rb' ) )
@@ -26,7 +31,8 @@ print "features:", len(matches_direct)
 # compute the group connections within the image set (not used
 # currently in the bundle adjustment process, but here's how it's
 # done...)
-groups = Groups.simpleGrouping(proj.image_list, matches_direct)
+#groups = Groups.groupByFeatureConnections(proj.image_list, matches_direct)
+groups = Groups.groupByConnectedArea(proj.image_list, matches_direct)
 Groups.save(args.project, groups)
 
 # this is extra (and I'll put it here for now for lack of a better
