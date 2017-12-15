@@ -65,7 +65,7 @@ def draw_match(i, index, matches, image_list):
     cv2.destroyAllWindows()
     return key
 
-def show_outliers(result_list, matches, image_list, trim_stddev):
+def show_outliers(result_list, matches, image_list):
     print "Show outliers..."
     mark_sum = 0
     sum = 0.0
@@ -90,18 +90,17 @@ def show_outliers(result_list, matches, image_list, trim_stddev):
     mark_list = []
     for line in result_list:
         # print "line:", line
-        if line[0] > mre + stddev * trim_stddev:
-            print "  outlier index %d-%d err=%.2f" % (line[1], line[2],
-                                                      line[0])
-            result = draw_match(line[1], line[2], matches, image_list)
-            if result == ord('d'):
-                # add to delete feature
-                # delete this line: mark_outlier(line[1], line[2], line[0])
-                mark_list.append( [line[1], line[2]] )
-                mark_sum += 1
-            elif result == 27 or result == ord('q'):
-                # quit reviewing and go on to delete the marks
-                break
+        print "  outlier index %d-%d err=%.2f" % (line[1], line[2],
+                                                  line[0])
+        result = draw_match(line[1], line[2], matches, image_list)
+        if result == ord('d'):
+            # add to delete feature
+            # delete this line: mark_outlier(line[1], line[2], line[0])
+            mark_list.append( [line[1], line[2]] )
+            mark_sum += 1
+        elif result == 27 or result == ord('q'):
+            # quit reviewing and go on to delete the marks
+            break
     return mark_list
 
 # mark the outlier
