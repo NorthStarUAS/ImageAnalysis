@@ -86,10 +86,17 @@ Show all the imported images.
     seems to be the recommended filter relationship in all the
     examples and literature.
 
+    ### Fundamental filter
+
+    The homography matrix can only map points on a plane in one image
+    to points on a plane in another images.  The fundamental filter is
+    more flexible with depth (but could pass more noise through, but
+    this noise might be more filterable as mean reprojection error?)
+    
     ### Essential filter
 
     Seems to better handle variations off plane while still being
-    pretty robust and rejecting false matches.
+    pretty robust and rejecting false matches.  (Only with OpenCV3?)
 
   ## 4b-groups.py
 
@@ -149,10 +156,10 @@ Show all the imported images.
 
 # 6. Render Results
 
-  ## 6a-delaunay3.py
+  ## 6b-delaunay3.py
 
   Current best script for textured output
 
-  ## 6a-delaunay5.py
+  ## 6b-delaunay5.py
 
   Output a non-textured delaunay triangulation of the fitted surface
