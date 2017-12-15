@@ -26,6 +26,8 @@ import ProjectMgr
 import SRTM
 import transformations
 
+import match_culling as cull
+
 ac3d_steps = 8
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
@@ -39,6 +41,8 @@ args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
+proj.load_features()
+proj.undistort_keypoints()
 
 ref = proj.ned_reference_lla
 
@@ -57,23 +61,42 @@ groups = Groups.load(args.project)
 # for each image, find all the placed features, and compute an average
 # elevation
 for image in proj.image_list:
-    image.temp_sum = 0.0
-    image.temp_count = 0
+    image.z_list = []
     image.grid_list = []
 for match in matches_sba:
     ned = match[0]
     for p in match[1:]:
         index = p[0]
-        proj.image_list[index].temp_sum += -ned[2]
-        proj.image_list[index].temp_count += 1
+        proj.image_list[index].z_list.append(-ned[2])
 for image in proj.image_list:
-    if image.temp_count > 0:
-        average = image.temp_sum / image.temp_count
+    if len(image.z_list):
+        avg = np.mean(np.array(image.z_list))
+        std = np.std(np.array(image.z_list))
     else:
-        average = None
-    image.average_elevation = average
-    print image.name, 'features:', image.temp_count, 'average:', average
+        avg = None
+        std = None
+    image.z_avg = avg
+    image.z_std = std
+    print image.name, 'features:', len(image.z_list), 'avg:', avg, 'std:', std
 
+# for fun rerun through the matches and find elevation outliers
+outliers = []
+for i, match in enumerate(matches_sba):
+    ned = match[0]
+    error_sum = 0
+    for p in match[1:]:
+        image = proj.image_list[p[0]]
+        dist = abs(-ned[2] - image.z_avg)
+        error_sum += dist
+    if error_sum > 3 * (image.z_std * len(match[1:])):
+        print 'possible outlier match index:', i, error_sum, 'z:', ned[2]
+        outliers.append( [error_sum, i] )
+
+result = sorted(outliers, key=lambda fields: fields[0], reverse=True)
+for line in result:
+    print 'index:', line[1], 'error:', line[0]
+    #cull.draw_match(line[1], 1, matches_sba, proj.image_list)
+    
 depth = 0.0
 camw, camh = proj.cam.get_image_params()
 #for group in groups:
@@ -83,7 +106,7 @@ if True:
     #    continue
     for g in group:
         image = proj.image_list[g]
-        print image.name, image.average_elevation
+        print image.name, image.z_avg
         # scale the K matrix if we have scaled the images
         scale = float(image.width) / float(camw)
         K = proj.cam.get_K(scale)
@@ -120,15 +143,16 @@ if True:
             pts_ned = sss.interpolate_vectors(ned, proj_list)
         else:
             pts_ned = proj.intersectVectorsWithGroundPlane(ned,
-                                                           image.average_elevation, proj_list)
+                                                           image.z_avg,
+                                                           proj_list)
         #print "pts_3d (ned):\n", pts_ned
 
         # convert ned to xyz and stash the result for each image
         image.grid_list = []
         ground_sum = 0
         for p in pts_ned:
-            #image.grid_list.append( [p[1], p[0], -(p[2]+depth)] )
-            image.grid_list.append( [p[1], p[0], -(depth)] )
+            image.grid_list.append( [p[1], p[0], -(p[2]+depth)] )
+            #image.grid_list.append( [p[1], p[0], -(depth)] )
             ground_sum += -p[2]
         depth -= 0.01                # favor last pictures above earlier ones
     
