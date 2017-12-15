@@ -84,6 +84,15 @@ def compute_reprojection_errors(image_list, group, cam):
         
     for i, match in enumerate(matches_source):
         ned = match[0]
+        
+        # debug
+        verbose = 0
+        for p in match[1:]:
+            if image_list[p[0]].name == 'DSC05841.JPG':
+                verbose += 1
+            if image_list[p[0]].name == 'DSC06299.JPG':
+                verbose += 1
+                
         for j, p in enumerate(match[1:]):
             if p[0] in group:
                 image = image_list[ p[0] ]
@@ -91,9 +100,11 @@ def compute_reprojection_errors(image_list, group, cam):
                 kp = image.uv_list[ p[1] ]  # undistorted uv point
                 scale = float(image.width) / float(camw)
                 dist = compute_feature_mre(cam.get_K(scale), image, kp, ned)
+                if verbose >= 2:
+                    print i, match, dist
                 result_list.append( (dist, i, j) )
 
-    # sort by worst max error first
+    # sort by error, worst is first
     result_list = sorted(result_list, key=lambda fields: fields[0],
                          reverse=True)
     return result_list
@@ -177,8 +188,8 @@ error_list = compute_reprojection_errors(proj.image_list, groups[0], proj.cam)
 
 if args.interactive:
     # interactively pick outliers
-    mark_list = cull.show_outliers(error_list, matches, proj.image_list,
-                                   args.stddev)
+    mark_list = cull.show_outliers(error_list, matches, proj.image_list)
+
     # mark both direct and/or sba match lists as requested
     cull.mark_using_list(mark_list, matches_direct)
     if not args.direct:
