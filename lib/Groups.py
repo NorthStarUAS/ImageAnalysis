@@ -1,10 +1,14 @@
 # construct groups of connected images.  The inclusion order favors
 # images with the most connections (features matches) to neighbors.
 
+import cv2
 import json
+import numpy as np
 import os
 import sys
 
+# this builds a simple set structure that records if any image has any
+# connection to any other image
 def countFeatureConnections(image_list, matches):
     for image in image_list:
         image.connection_set = set()
@@ -29,11 +33,9 @@ def updatePlacedFeatures(placed_images, matches, placed_features):
         for m in match[1:]:
             if m[0] in placed_images:
                 placed_features[i] = True
-                
 
 # This is the current, best grouping function to use
-
-def simpleGrouping(image_list, matches):
+def groupByFeatureConnections(image_list, matches):
     countFeatureConnections(image_list, matches)
     print "Start of top level grouping algorithm..."
 
@@ -62,8 +64,7 @@ def simpleGrouping(image_list, matches):
                 max_index = i
         max_image = image_list[max_index]
         max_image.connection_order = 0
-        print "Image with max connections:", max_image.name
-        print "Number of connections:", max_connections
+        print "Image with max connections:", max_image.name, "num:", max_connections
         placed_images.add(max_index)
         group_images.add(max_index)
         updatePlacedFeatures(placed_images, matches, placed_features)
@@ -93,6 +94,111 @@ def simpleGrouping(image_list, matches):
             if max_connections >= 25:
                 # print "New image with max connections:", image_list[new_index].name
                 # print "Number of connected features:", max_connections
+                placed_images.add(new_index)
+                group_images.add(new_index)
+            else:
+                if len(group_images) > 1:
+                    groups.append(list(group_images))
+                else:
+                    done = True
+                break
+
+            updatePlacedFeatures(placed_images, matches, placed_features)
+
+            new_image = image_list[new_index]
+            new_image.connection_order = len(placed_images) - 1
+            print 'Added:', new_image.name, 'groups:', len(groups)+1, 'in current group', len(group_images), 'total:', len(placed_images)
+            
+    # add all unplaced images in their own groups of 1
+    for i, image in enumerate(image_list):
+        if not i in placed_images:
+            groups.append( [i] )
+            
+    print groups
+    return groups
+
+
+# for the specified image estimate the image area covered by
+# connections to placed images.
+def estimateConnectionArea(image):
+    pass
+
+
+# speculative ....
+def groupByConnectedArea(image_list, matches):
+    countFeatureConnections(image_list, matches)
+    print "Start of top level grouping algorithm..."
+
+    # start with no placed images or features
+    placed_images = set()
+    groups = []
+    placed_features = [False] * len(matches)
+
+    # wipe connection order for all images
+    for image in image_list:
+        image.connection_order = -1
+
+    done = False
+    while not done:
+        print "Start of new group..."
+        # start a fresh group
+        group_images = set()
+        
+        # find the unplaced image with the most connections to other
+        # images
+        max_connections = 0
+        max_index = -1
+        for i, image in enumerate(image_list):
+            if image.connection_order < 0 and image.connection_count > max_connections:
+                max_connections = image.connection_count
+                max_index = i
+        max_image = image_list[max_index]
+        max_image.connection_order = 0
+        print "Image with max connections:", max_image.name, "num:", max_connections
+        placed_images.add(max_index)
+        group_images.add(max_index)
+        updatePlacedFeatures(placed_images, matches, placed_features)
+
+        while True:
+            # find the unplaced image with the largest connection area
+            # into the placed set
+
+            # per image counter
+            # image_counter = [0] * len(image_list)
+
+            # clear the placed feature lists
+            for i, image in enumerate(image_list):
+                image.placed_feature_list = []
+                    
+            # assemble the placed feature lists for each unplaced image
+            for i, match in enumerate(matches):
+                # only proceed if this feature has been placed (i.e. it
+                # connects to two or more placed images)
+                if placed_features[i]:
+                    for m in match[1:]:
+                        if not m[0] in placed_images:
+                            uv = image_list[m[0]].uv_list[m[1]]
+                            image_list[m[0]].placed_feature_list.append(uv)
+
+            # find the minarearect bounds for each the connected
+            # points in each image
+            for image in image_list:
+                if len(image.placed_feature_list):
+                    center, (w, h), angle = cv2.minAreaRect(np.array(image.placed_feature_list))
+                    print w, h, w*h
+                    image.connected_area = w*h
+            
+            # print 'connected image count:', image_counter
+            new_index = -1
+            max_area = -1
+            for i, image in enumerate(image_list):
+                if len(image.placed_feature_list):
+                    if image.connected_area > max_area:
+                        new_index = i
+                        max_area = image.connected_area
+            if max_area >= 10000:
+                print "New image with max area:", image_list[new_index].name,
+                print "area:", image_list[new_index].connected_area
                 placed_images.add(new_index)
                 group_images.add(new_index)
             else:
@@ -160,7 +266,7 @@ def bestNeighbor(image, image_list):
                 best_index = i
     return best_index, best_cycle_depth
 
-def groupByConnections(image_list):
+def groupByImageConnections(image_list):
     # reset the cycle distance for all images
     for image in image_list:
         image.cycle_depth = -1
