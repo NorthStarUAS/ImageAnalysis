@@ -126,7 +126,7 @@ class Matcher():
     def filter_by_homography(self, K, i1, i2, j, filter):
         clean = True
         
-        tol = float(i1.width) / 100.0 # rejection range in pixels
+        tol = float(i1.width) / 400.0 # rejection range in pixels
         if tol < 1.0:
             tol = 1.0
         # print "tol = %.4f" % tol 
@@ -155,8 +155,8 @@ class Matcher():
             method = cv2.LMEDS
             M, status = cv2.findHomography(p1, p2, method, tol)
         elif filter == "fundamental":
-            # method = cv2.FM_RANSAC     
-            method = cv2.FM_LMEDS
+            method = cv2.FM_RANSAC # more stable
+            #method = cv2.FM_LMEDS # keeps dropping more points
             M, status = cv2.findFundamentalMat(p1, p2, method, tol)
         elif filter == "essential":
             # method = cv2.FM_RANSAC     
