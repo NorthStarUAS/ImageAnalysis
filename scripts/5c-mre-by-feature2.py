@@ -94,15 +94,20 @@ def compute_reprojection_errors(image_list, group, cam):
                 verbose += 1
                 
         for j, p in enumerate(match[1:]):
+            max_dist = 0
+            max_index = 0
             if p[0] in group:
                 image = image_list[ p[0] ]
                 # kp = image.kp_list[p[1]].pt # distorted
                 kp = image.uv_list[ p[1] ]  # undistorted uv point
                 scale = float(image.width) / float(camw)
                 dist = compute_feature_mre(cam.get_K(scale), image, kp, ned)
+                if dist > max_dist:
+                    max_dist = dist
+                    max_index = j
                 if verbose >= 2:
                     print i, match, dist
-                result_list.append( (dist, i, j) )
+        result_list.append( (max_dist, i, max_index) )
 
     # sort by error, worst is first
     result_list = sorted(result_list, key=lambda fields: fields[0],
