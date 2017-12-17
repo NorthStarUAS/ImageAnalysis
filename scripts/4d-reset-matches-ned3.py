@@ -87,13 +87,21 @@ for image in proj.image_list:
                 image.kp_remap[key] = i
             else:
                 pass
-                #print "%d -> %d" % (i, image.kp_remap[key])
-                #print " ", image.coord_list[i], image.coord_list[image.kp_remap[key]]
+                print "%d -> %d" % (i, image.kp_remap[key])
+                print " ", image.coord_list[i], image.coord_list[image.kp_remap[key]]
     print " features used:", used
     print " unique by uv and used:", len(image.kp_remap)
 
 # after feature matching we don't care about other attributes, just
 # the uv coordinate.
+#
+# notes: we do a first pass duplicate removal during the actual
+# matching process.  This removes 1->many relationships, or duplicate
+# matches at different scales within a match pair.  However, different
+# pairs could reference the same keypoint at different scales, so
+# duplicates could still exist.  This finds all the duplicates within
+# the entire match set and collapses them down to eliminate any
+# redundancy.
 print "Collapsing keypoints with duplicate uv coordinates..."
 for i, i1 in enumerate(proj.image_list):
     for j, matches in enumerate(i1.match_list):
@@ -148,12 +156,16 @@ if False:
                 continue
             if len(i1.match_list[j]):
                 print "Showing %s vs %s" % (i1.name, i2.name)
-                status = m.showMatchOrient(i1, i2, i1.match_list[j],
-                                           orient='aircraft')
+                status = m.showMatchOrient(i1, i2, i1.match_list[j])
       
 # after collapsing by uv coordinate, we could be left with duplicate
 # matches (matched at different scales or other attributes, but same
 # exact point.)
+#
+# notes: this really shouldn't (!) (by my best current understanding)
+# be able to find any dups.  These should all get caught in the
+# original pair matching step.  But some dupes seem to survive?
+# Hmmm...
 print "Eliminating pair duplicates..."
 for i, i1 in enumerate(proj.image_list):
     for j, matches in enumerate(i1.match_list):
@@ -183,11 +195,15 @@ if False:
                 continue
             if len(i1.match_list[j]):
                 print "Showing %s vs %s" % (i1.name, i2.name)
-                status = m.showMatchOrient(i1, i2, i1.match_list[j],
-                                           orient='aircraft')
+                status = m.showMatchOrient(i1, i2, i1.match_list[j])
 
-print "Testing for 1 vs. n keypoint duplicates..."
 # Do we have a keypoint in i1 matching multiple keypoints in i2?
+#
+# Notes: again these shouldn't exist here, but let's check anyway.  If
+# we start finding these here, I should hunt for the reason earlier in
+# the code that lets some through, or try to understand what larger
+# logic principle allows somne of these to still exist here.
+print "Testing for 1 vs. n keypoint duplicates..."
 for i, i1 in enumerate(proj.image_list):
     for j, matches in enumerate(i1.match_list):
         i2 = proj.image_list[j]
@@ -244,10 +260,23 @@ def dist3d(p0, p1):
 
 # warning 1: if there are bad matches this can over-constrain the
 # problem or tie the pieces together too tightly/incorrectly and lead
-# to nans.)
+# to the optimizer exploding.)
 
 # warning 2: if there are bad matches, this can lead to linking chains
 # together that shouldn't be linked which really fouls things up.
+
+# warning 3: I'm not 100% sure this code is rock solid.  I've been
+# through it dozens of times, but something ... I don't know ... it's
+# worth another deep dive to validate the output of this section.
+
+# notes: with only pairwise matching, the optimizer should have a good
+# opportunity to generate a nice fit.  However, subsections within the
+# solution could wander away from each other leading to some weird
+# projection results at the intersection of these divergent groups.
+# Ultimately we need to have at least some 3+ way feature match chains
+# to sufficiently constrain the problem set.  This dragon here will
+# need to be slayed at some point soon.  It's just a few short lines
+# of code, but don't let that fool you!
 
 count = 0
 if args.full_grouping:
@@ -299,18 +328,6 @@ while not done:
         done = True
     else:
         matches_direct = list(matches_new) # shallow copy
-
-# matches_direct format is a 3d_coord, img-feat, img-feat, ...  len of
-# 3 means features shows up on 2 images.  If we throw away all 2-image
-# features the solver becomes unstable.
-
-if False:
-    print "discarding matches that appear in less than 3 images"
-    matches_new = []
-    for m in matches_direct:
-        if len(m) >= 4 or not args.full_grouping:
-            matches_new.append(m)
-    matches_direct = matches_new
 
 #for m in matches_direct:
 #    print m
