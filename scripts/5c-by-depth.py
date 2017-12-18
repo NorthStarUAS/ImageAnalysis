@@ -134,33 +134,6 @@ def mark_outliers(error_list, trim_stddev):
             
     return mark_count
 
-# delete marked matches
-def delete_marked_matches():
-    print " deleting marked items..."
-    for i in reversed(range(len(matches_direct))):
-        match_direct = matches_direct[i]
-        match_sba = matches_sba[i]
-        has_bad_elem = False
-        for j in reversed(range(1, len(match_direct))):
-            p = match_direct[j]
-            if p == [-1, -1]:
-                has_bad_elem = True
-                match_direct.pop(j)
-                match_sba.pop(j)
-        if False and has_bad_elem: # was 'if args.strong and ...'
-            print "deleting entire match that contains a bad element"
-            matches_direct.pop(i)
-            matches_sba.pop(i)
-        elif len(match_direct) < 3:
-            print "deleting match that is now in less than 2 images:", match_direct
-            matches_direct.pop(i)
-            matches_sba.pop(i)
-        elif False and len(match_direct) < 4:
-            # this is seeming like less and less of a good idea (Jan 3, 2017)
-            print "deleting match that is now in less than 3 images:", match_direct
-            matches_direct.pop(i)
-            matches_sba.pop(i)
-
 # load the group connections within the image set
 groups = Groups.load(args.project)
 
@@ -209,7 +182,9 @@ if mark_sum > 0:
     print 'Outliers removed from match lists:', mark_sum
     result=raw_input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
-        delete_marked_matches()
+        cull.delete_marked_matches(matches_direct)
+        cull.delete_marked_matches(matches_sba)
+        
         # write out the updated match dictionaries
         print "Writing direct matches..."
         pickle.dump(matches_direct, open(args.project+"/matches_direct", "wb"))

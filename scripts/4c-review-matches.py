@@ -31,8 +31,8 @@ proj.load_image_info()
 proj.load_features()
 proj.undistort_keypoints()
 
-print "Loading match points (sba)..."
-matches_direct = pickle.load( open( args.project + "/matches_sba", "rb" ) )
+print "Loading match points (direct)..."
+matches_direct = pickle.load( open( os.path.join(args.project, "matches_direct"), "rb" ) )
 
 # load the group connections within the image set
 groups = Groups.load(args.project)
@@ -41,13 +41,21 @@ groups = Groups.load(args.project)
 # structure.  (Start with an empty n x n list of empty pair lists,
 # then fill in the structures.)
 pairs = []
+homography = []
+averages = []
+stddevs = []
 for i in range(len(proj.image_list)):
     p = [ [] for j in range(len(proj.image_list)) ]
     pairs.append(p)
+    homography.append( [None] * len(proj.image_list) )
+    averages.append( [0] * len(proj.image_list) )
+    stddevs.append( [0] * len(proj.image_list) )
+    
 for match in matches_direct:
     for p1 in match[1:]:
         for p2 in match[2:]:
-            if p1[0] == p2[0]:
+            if p1[0] >= p2[0]:
+                # ignore the reciprocal matches
                 continue
             i1 = p1[0]
             i2 = p2[0]
@@ -64,93 +72,101 @@ for match in matches_direct:
 #             i1 = proj.image_list[i]
 #             i2 = proj.image_list[j]
 #             status = m.showMatchOrient(i1, i2, pairs[i][j] )
-            
-# for each image, find all the placed features, and compute an average
-# elevation
-for image in proj.image_list:
-    image.z_list = []
-    image.grid_list = []
-for match in matches_sba:
-    ned = match[0]
-    for p in match[1:]:
-        index = p[0]
-        proj.image_list[index].z_list.append(-ned[2])
-for image in proj.image_list:
-    if len(image.z_list):
-        avg = np.mean(np.array(image.z_list))
-        std = np.std(np.array(image.z_list))
-    else:
-        avg = None
-        std = None
-    image.z_avg = avg
-    image.z_std = std
-    print image.name, 'features:', len(image.z_list), 'avg:', avg, 'std:', std
 
-# for fun rerun through the matches and find elevation outliers
-outliers = []
-for i, match in enumerate(matches_sba):
-    ned = match[0]
-    error_sum = 0
-    for p in match[1:]:
-        image = proj.image_list[p[0]]
-        dist = abs(-ned[2] - image.z_avg)
-        error_sum += dist
-    if error_sum > 3 * (image.z_std * len(match[1:])):
-        print 'possible outlier match index:', i, error_sum, 'z:', ned[2]
-        outliers.append( [error_sum, i] )
+# compute the consensus homography matrix for each pairing, then
+# compute projection error stats for each pairing.  (We are looking
+# for outliers that don't fit the homography relationship very well or
+# at all.)
+for i in range(len(proj.image_list)):
+    for j in range(len(proj.image_list)):
+        if len(pairs[i][j]):
+            i1 = proj.image_list[i]
+            i2 = proj.image_list[j]
+            src = []
+            dst = []
+            for pair in pairs[i][j]:
+                # undistorted uv points
+                src.append( i1.uv_list[pair[0]] )
+                dst.append( i2.uv_list[pair[1]] )
+            src = np.float32(src)
+            dst = np.float32(dst)
+            method = cv2.RANSAC
+            #method = cv2.LMEDS
+            M, status = cv2.findHomography(src, dst, method)
+            homography[i][j] = M
+            error = []
+            for k, p in enumerate(src):
+                # *wrong* for homography: p_est = M.dot( np.hstack((p, 1.0)) )[:2]
+                tmp = M[2][0]*p[0] + M[2][1]*p[1] + M[2][2]
+                if abs(tmp) > 0.000001:
+                    x = (M[0][0]*p[0] + M[0][1]*p[1] + M[0][2]) / tmp
+                    y = (M[1][0]*p[0] + M[1][1]*p[1] + M[1][2]) / tmp
+                    p_est = np.array([x, y])
+                else:
+                    p_est = np.array([0.0, 0.0])
+                #print 'p est:', p_est, 'act:', dst[k]
+                d = np.linalg.norm(p_est - dst[k])
+                #print 'dist:', d
+                error.append(d)
+            error = np.array(error)
+            avg = np.mean(error)
+            std = np.std(error)
+            averages[i][j] = avg
+            stddevs[i][j] = std
+            print i, j, 'avg:', avg, 'std:', std
 
-result = sorted(outliers, key=lambda fields: fields[0], reverse=True)
-for line in result:
-    print 'index:', line[1], 'error:', line[0]
-    #cull.draw_match(line[1], 1, matches_sba, proj.image_list)
+# run through the match list and compute the homography error (in image space)
+error_list = []
+for k, match in enumerate(matches_direct):
+    max_dist = 0.0
+    for p1 in match[1:]:
+        for p2 in match[1:]:
+            i = p1[0]
+            j = p2[0]
+            if i >= j:
+                # ignore reciprocal matches
+                continue
+            i1 = proj.image_list[i]
+            i2 = proj.image_list[j]
+            # print i, j, i1.name, i2.name
+            np1 = np.array(i1.uv_list[p1[1]])
+            np2 = np.array(i2.uv_list[p2[1]])
+            M = homography[i][j]
+            tmp = M[2][0]*np1[0] + M[2][1]*np1[1] + M[2][2]
+            if abs(tmp) > 0.000001:
+                x = (M[0][0]*np1[0] + M[0][1]*np1[1] + M[0][2]) / tmp
+                y = (M[1][0]*np1[0] + M[1][1]*np1[1] + M[1][2]) / tmp
+                p_est = np.array([x, y])
+            else:
+                p_est = np.array([0.0, 0.0])
+            # print 'p est:', p_est, 'act:', np2
+            d = np.linalg.norm(p_est - np2)
+            # print 'dist:', d
+            if d > max_dist:
+                max_dist = d
+    error_list.append( [max_dist, k, 0] )
     
-depth = 0.0
-camw, camh = proj.cam.get_image_params()
-#for group in groups:
-if True:
-    group = groups[0]
-    #if len(group) < 3:
-    #    continue
-    for g in group:
-        image = proj.image_list[g]
-        print image.name, image.z_avg
-        # scale the K matrix if we have scaled the images
-        scale = float(image.width) / float(camw)
-        K = proj.cam.get_K(scale)
-        IK = np.linalg.inv(K)
+error_list = sorted(error_list, key=lambda fields: fields[0], reverse=True)
 
-        grid_list = []
-        u_list = np.linspace(0, image.width, ac3d_steps + 1)
-        v_list = np.linspace(0, image.height, ac3d_steps + 1)
-        #print "u_list:", u_list
-        #print "v_list:", v_list
-        for v in v_list:
-            for u in u_list:
-                grid_list.append( [u, v] )
-        #print 'grid_list:', grid_list
+#for line in result:
+#    print 'index:', line[1], 'error:', line[0]
+#    cull.draw_match(line[1], 0, matches_direct, proj.image_list)
+    
+mark_list = cull.show_outliers(error_list, matches_direct, proj.image_list)
+mark_sum = len(mark_list)
 
-        if args.direct:
-            proj_list = proj.projectVectors( IK, image.get_body2ned(),
-                                             image.get_cam2body(), grid_list )
-        else:
-            print image.get_body2ned_sba()
-            proj_list = proj.projectVectors( IK, image.get_body2ned_sba(),
-                                             image.get_cam2body(), grid_list )
-        #print 'proj_list:', proj_list
+# mark both direct and/or sba match lists as requested
+cull.mark_using_list(mark_list, matches_direct)
 
-        if args.direct:
-            ned = image.camera_pose['ned']
-        else:
-            ned = image.camera_pose_sba['ned']
-        print 'ned', image.camera_pose['ned'], ned
-        if args.ground:
-            pts_ned = proj.intersectVectorsWithGroundPlane(ned,
-                                                           args.ground, proj_list)
-        # convert ned to xyz and stash the result for each image
-        image.grid_list = []
-        ground_sum = 0
-        for p in pts_ned:
-            image.grid_list.append( [p[1], p[0], -(p[2]+depth)] )
-            #image.grid_list.append( [p[1], p[0], -(depth)] )
-            ground_sum += -p[2]
-        depth -= 0.01                # favor last pictures above earlier ones
+if mark_sum > 0:
+    print 'Outliers removed from match lists:', mark_sum
+    result=raw_input('Save these changes? (y/n):')
+    if result == 'y' or result == 'Y':
+        cull.delete_marked_matches(matches_direct)
+        print len(matches_direct)
+        
+        # write out the updated match dictionaries
+        print "Writing direct matches..."
+        pickle.dump(matches_direct, open(os.path.join(args.project, "matches_direct"), "wb"))
+
+

@@ -35,7 +35,6 @@ import SRTM
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--full-grouping', action='store_true', help='maximal feature grouping (caution: can blow up the sba process for a not-yet-known reason)')
-parser.add_argument('--fuzz', type=float, default=10.0, help='maximum 3d distance for joining match chains')
 parser.add_argument('--ground', type=float, help='ground elevation in meters')
 
 args = parser.parse_args()
@@ -306,24 +305,19 @@ while not done:
         else:
             # found a previous reference, append these match items
             existing = matches_new[index]
-            dist = dist3d(existing[0], match[0])
-            # print 'dist:', dist, existing, "+", match
-            if dist <= args.fuzz:
-                # only append items that don't already exist in the early
-                # match, and only one match per image (!)
-                for p in match[1:]:
-                    key = "%d-%d" % (p[0], p[1])
-                    found = False
-                    for e in existing[1:]:
-                        if p[0] == e[0]:
-                            found = True
-                            break
-                    if not found:
-                        # add
-                        existing.append(list(p)) # shallow copy
-                        matches_lookup[key] = index
-                # print "new:", existing
-                # print 
+            for p in match[1:]:
+                key = "%d-%d" % (p[0], p[1])
+                found = False
+                for e in existing[1:]:
+                    if p[0] == e[0]:
+                        found = True
+                        break
+                if not found:
+                    # add
+                    existing.append(list(p)) # shallow copy
+                    matches_lookup[key] = index
+            # print "new:", existing
+            # print 
     if len(matches_new) == len(matches_direct):
         done = True
     else:

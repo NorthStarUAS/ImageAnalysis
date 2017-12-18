@@ -112,3 +112,27 @@ def mark_outlier(matches, match_index, feat_index, error):
 def mark_using_list(mark_list, matches):
     for mark in mark_list:
         mark_outlier( matches, mark[0], mark[1], None )
+        
+# delete marked matches
+def delete_marked_matches(matches):
+    print " deleting marked items...", len(matches)
+    for i in reversed(range(len(matches))):
+        match = matches[i]
+        has_bad_elem = False
+        for j in reversed(range(1, len(match))):
+            p = match[j]
+            if p == [-1, -1]:
+                has_bad_elem = True
+                match.pop(j)
+        if False and has_bad_elem: # was 'if args.strong and ...'
+            print "deleting entire match that contains a bad element", i
+            matches.pop(i)
+        elif len(match) < 3:
+            print "deleting match that is now in less than 2 images:", match, i
+            matches.pop(i)
+        elif False and len(match) < 4:
+            # this is seeming like less and less of a good idea (Jan 3, 2017)
+            print "deleting match that is now in less than 3 images:", match, i
+            matches.pop(i)
+    print "final matches size:", len(matches)
+
