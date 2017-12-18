@@ -625,6 +625,8 @@ class Matcher():
         return (rotate_deg, tx, ty, sx, sy)
 
     def showMatchOrient(self, i1, i2, idx_pairs, status=None, orient='relative'):
+        status = np.ones(len(idx_pairs), np.bool_)
+        
         #print " -- idx_pairs = " + str(idx_pairs)
         img1 = i1.load_gray()
         img2 = i2.load_gray()
@@ -640,6 +642,8 @@ class Matcher():
                                             np.array([dst]).astype(np.float32),
                                             fullAffine)
         print 'affine:', affine
+        if affine is None:
+            return status
         (rot, tx, ty, sx, sy) = self.decomposeAffine(affine)
 
         # for each src point, compute dst_est[i] = src[i] * affine
@@ -658,7 +662,6 @@ class Matcher():
         print 'avg:', avg, 'std:', std
 
         # mark the potential outliers
-        status = np.ones(len(error), np.bool_)
         for i in range(len(status)):
             if error[i] > avg + 3*std:
                 status[i] = False
