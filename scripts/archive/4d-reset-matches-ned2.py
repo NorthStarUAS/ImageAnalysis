@@ -24,6 +24,8 @@ import SRTM
 # georeferenced locations based on estimated camera pose and
 # projection onto DEM earth surface
 
+# superseded by reset-matches-ned3.py
+
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--no-grouping', action='store_true', help='don\'t group match cyles')

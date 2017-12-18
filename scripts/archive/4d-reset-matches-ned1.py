@@ -20,9 +20,11 @@ import Pose
 import ProjectMgr
 import SRTM
 
-# Rest all match point locations to their original direct
+# Reset all match point locations to their original direct
 # georeferenced locations based on estimated camera pose and
 # projection onto DEM earth surface
+
+# reset-matches-ned3.py does more error checking and validation.
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
@@ -118,7 +120,7 @@ sum = 0.0
 for match in matches_direct:
     n = len(match)
     if n >= 2:
-        # len should be 2, 3, 4, etc..
+        # at least a pair
         sum += (n-1)
         count += 1
 if count > 0.1:
