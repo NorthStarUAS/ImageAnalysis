@@ -130,6 +130,8 @@ proj.undistort_keypoints()
 # proj.load_match_pairs()
 
 matches_direct = pickle.load( open( os.path.join(args.project, 'matches_direct'), 'rb' ) )
+#matches_direct = pickle.load( open( os.path.join(args.project, 'matches_sba'), 'rb' ) )
+#matches_direct = pickle.load( open( os.path.join(args.project, 'matches_grouped'), 'rb' ) )
 print "direct features:", len(matches_direct)
 
 # load the group connections within the image set
@@ -297,3 +299,15 @@ f = open(os.path.join(args.project, 'sba-plot.txt'), 'w')
 for m in matches_sba:
     f.write('%.2f %.2f %.2f\n' % (m[0][0], m[0][1], m[0][2]))
 f.close()
+
+# temp write out direct and sba camera positions
+f1 = open(os.path.join(args.project, 'cams-direct.txt'), 'w')
+f2 = open(os.path.join(args.project, 'cams-sba.txt'), 'w')
+for i in groups[0]:
+    image = proj.image_list[i]
+    ned1, ypr1, quat1 = image.get_camera_pose()
+    ned2, ypr2, quat2 = image.get_camera_pose_sba()
+    f1.write('%.2f %.2f %.2f\n' % (ned1[0], ned1[1], ned1[2]))
+    f2.write('%.2f %.2f %.2f\n' % (ned2[0], ned2[1], ned2[2]))
+f1.close()
+f2.close()
