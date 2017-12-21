@@ -11,6 +11,7 @@ import sys
 sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
 
 import numpy as np
+import os
 import re
 import subprocess
 
@@ -167,6 +168,57 @@ class SBA():
         f.write(s)
         s = "%.4f %.4f %.4f\n" % (K[2,0], K[2,1], K[2,2])
         f.write(s)
+
+        # the following is experimental, write out the data set in a
+        # bundler compantible format:
+        # http://grail.cs.washington.edu/projects/bal
+
+        # count number of matches in the placed image group
+        n_points = 0
+        n_observations = 0
+        for i, match in enumerate(matches_list):
+            used = False
+            for p in match[1:]:
+                if p[0] in placed_images:
+                    n_observations += 1
+                    used = True
+            if used:
+                n_points += 1
+                
+        f = open( os.path.join(self.root, 'bundler.txt'), 'w' )
+        f.write('%d %d %d\n' % (len(placed_images), n_points, n_observations))
+
+        # write observations (image index, feature index, image u, image v)
+        for i, match in enumerate(matches_list):
+            used = False
+            for p in match[1:]:
+                if p[0] in placed_images:
+                    cam_index = self.camera_map_rev[p[0]]
+                    feat_index = self.feat_map_fwd[i]
+                    uv = image_list[p[0]].uv_list[p[1]]
+                    f.write('%d %d %.2f %.2f\n' % (cam_index, feat_index, uv[0]-image.width*0.5, image.height*0.5-uv[1]))
+
+        # write camera estimates
+        for index in placed_images:
+            image = image_list[index]
+            rvec, tvec = image.get_proj()
+            s = "%.8f\n%.8f\n%.8f\n%.8f\n%.8f\n%.8f\n%.3f\n0.0\n0.0\n" % (rvec[0,0], rvec[1,0], rvec[2,0],
+                                                                  tvec[0,0], tvec[1,0], tvec[2,0],
+                                                                  (K[0,0]+K[1,1])*0.5)
+            f.write(s)
+
+        # write 3d point estimates
+        for match in matches_list:
+            ned = np.array(match[0])
+            used = False
+            for p in match[1:]:
+                if p[0] in placed_images:
+                    used = True
+            if used:
+                s = "%.4f\n%.4f\n%.4f\n" % (ned[0], ned[1], ned[2])
+                #s = "%.4f\n%.4f\n%.4f\n" % (ned[1], ned[0], -ned[2])
+                f.write(s)
+        f.close()
 
     def run_live(self, mode=''):
         command = []
