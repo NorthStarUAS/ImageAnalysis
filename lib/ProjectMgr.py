@@ -562,6 +562,28 @@ class ProjectMgr():
             pt_list.append(p)
         return pt_list
 
+    def polyval2d(self, x, y, m):
+        order = int(np.sqrt(len(m))) - 1
+        ij = itertools.product(range(order+1), range(order+1))
+        z = np.zeros_like(x)
+        for a, (i,j) in zip(m, ij):
+            z += a * x**i * y**j
+        return z
+
+    def intersectVectorWithPoly(self, pose_ned, v, m):
+        pass
+    
+    # given a set of vectors in the ned frame, and a starting point.
+    # Find the intersection points with the given 2d polynomial.  For
+    # any vectors which point into the sky, return just the original
+    # reference/starting point.
+    def intersectVectorsWithPoly(self, pose_ned, m, v_list):
+        pt_list = []
+        for v in v_list:
+            p = self.intersectVectorWithPoly(pose_ned, m, v.flatten())
+            pt_list.append(p)
+        return pt_list
+
     # build an interpolation table for 'fast' projection of keypoints
     # into 3d world space
     #
