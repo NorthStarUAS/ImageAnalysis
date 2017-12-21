@@ -2,10 +2,11 @@
 
 Aerial imagery analysis, processing, and presentation scripts.
 
-## Urgent plea!  If anyone sees this and knows of a forum or mailing
-   list or some other discussion group that focuses on image stitching
-   and bundle adjustment, please contact me and let me know where to
-   find it!
+## Urgent plea!
+
+   If anyone sees this and knows of a forum or mailing list or some
+   other discussion group that focuses on image stitching and bundle
+   adjustment, please contact me and let me know where to find it!
 
    It feels like the experts in the field fall into one of the
    following groups:
