@@ -90,7 +90,8 @@ for i in range(len(proj.image_list)):
                 dst.append( i2.uv_list[pair[1]] )
             src = np.float32(src)
             dst = np.float32(dst)
-            method = cv2.RANSAC
+            method = 0          # a regular method using all the points
+            #method = cv2.RANSAC
             #method = cv2.LMEDS
             M, status = cv2.findHomography(src, dst, method)
             homography[i][j] = M
