@@ -174,7 +174,8 @@ def my_triangulate(matches, placed_images, min_vectors=3):
             p = LineSolver.ls_lines_intersection(points, vectors, transpose=True).tolist()
             #print p, p[0]
             match[0] = [ p[0][0], p[1][0], p[2][0] ]
-            
+
+# returns result in radians
 def quaternion_angle(a, b):
     a_inv = transformations.quaternion_inverse(a)
     res = transformations.quaternion_multiply(b, a_inv)
@@ -234,7 +235,7 @@ def errorFunc(xk):
             quat2 = i2.opt_quat
             # print quat1, quat2
             R = i1.R_list[j]
-            if R == None:
+            if R is None:
                 # no match
                 continue
             #print 'R:', R
@@ -272,11 +273,11 @@ def errorFunc(xk):
 def printStatus(xk):
     print 'Current value:', errorFunc(xk), 'saving as (sba)'
     saveOrientation(xk)
-    try:
-        print 'All image positions updated...'
-        input("press enter to continue:")
-    except:
-        pass
+    # try:
+    #     print 'All image positions updated...'
+    #     input("press enter to continue:")
+    # except:
+    #     pass
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
