@@ -52,22 +52,91 @@ sss = SRTM.NEDGround( ref, 6000, 6000, 30 )
 print "Loading match points (sba)..."
 matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
 
+# testing ...
+def polyfit2d(x, y, z, order=3):
+    ncols = (order + 1)**2
+    G = np.zeros((x.size, ncols))
+    ij = itertools.product(range(order+1), range(order+1))
+    for k, (i,j) in enumerate(ij):
+        G[:,k] = x**i * y**j
+    m, _, _, _ = np.linalg.lstsq(G, z)
+    return m
+
+def polyval2d(x, y, m):
+    order = int(np.sqrt(len(m))) - 1
+    ij = itertools.product(range(order+1), range(order+1))
+    z = np.zeros_like(x)
+    for a, (i,j) in zip(m, ij):
+        z += a * x**i * y**j
+    return z
+
+print "Generating a bivariate b-spline approximation to the stitched surface"
+import itertools
+import matplotlib.pyplot as plt
+from matplotlib import cm
+# first determine surface elevation stats so we can discard outliers
+z = []
+for match in matches_sba:
+    ned = match[0]
+    z.append(ned[2])
+zavg = np.mean(z)
+zstd = np.std(z)
+print 'elevation stats:', zavg, zstd
+
+# now build the surface
+xfit = []
+yfit = []
+zfit = []
+for match in matches_sba:
+    ned = match[0]
+    d = abs(ned[2] - zavg)
+    if d <= 2*zstd:
+        xfit.append(ned[0])
+        yfit.append(ned[1])
+        zfit.append(ned[2])
+    else:
+        # mark this elevation unused
+        match[0][2] = None
+xfit = np.array(xfit)
+yfit = np.array(yfit)
+zfit = np.array(zfit)
+plt.figure()
+plt.scatter(xfit, yfit, 100, zfit, cmap=cm.jet)
+plt.colorbar()
+plt.title("Sparsely sampled function.")
+
+# Fit a 3rd order, 2d polynomial
+m = polyfit2d(xfit, yfit, zfit)
+
+# test fit
+znew = polyval2d(xfit, yfit, m)
+for i in range(len(znew)):
+    print polyval2d(xfit[i], yfit[i], m)
+    print 'z:', zfit[i], znew[i], zfit[i] - znew[i]
+plt.figure()
+plt.scatter(xfit, yfit, 100, znew, cmap=cm.jet)
+plt.colorbar()
+plt.title("Approximation function.")
+plt.show()
+
 # load the group connections within the image set
 groups = Groups.load(args.project)
 
 # compute the uv grid for each image and project each point out into
-# ned space, then intersect each vector with the srtm ground.
+# ned space, then intersect each vector with the srtm / ground /
+# polynomial surface.
 
 # for each image, find all the placed features, and compute an average
 # elevation
 for image in proj.image_list:
     image.z_list = []
     image.grid_list = []
-for match in matches_sba:
+for i, match in enumerate(matches_sba):
     ned = match[0]
     for p in match[1:]:
         index = p[0]
         proj.image_list[index].z_list.append(-ned[2])
+#        proj.image_list[index].z_list.append(znew[i])
 for image in proj.image_list:
     if len(image.z_list):
         avg = np.mean(np.array(image.z_list))
@@ -142,6 +211,7 @@ if True:
         elif args.srtm:
             pts_ned = sss.interpolate_vectors(ned, proj_list)
         else:
+            print image.name, image.z_avg
             pts_ned = proj.intersectVectorsWithGroundPlane(ned,
                                                            image.z_avg,
                                                            proj_list)
