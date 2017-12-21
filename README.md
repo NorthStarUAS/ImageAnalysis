@@ -51,21 +51,21 @@ Aerial imagery analysis, processing, and presentation scripts.
    Some of these image analysis techniques can be applied to movies in
    interesting ways.
 
-   ### Use feature matching between consecutive movie frames to
-       accurately estimate a gyro axis (aligned with the camera center
-       of projection.)  Will also estimate the 2nd and 3rd gyro axes,
-       but with less quality.
+   - Use feature matching between consecutive movie frames to
+     accurately estimate a gyro axis (aligned with the camera center
+     of projection.)  Will also estimate the 2nd and 3rd gyro axes,
+     but with less quality.
 
-   ### Track Aruco codes.  If you have control over your scene and can
-       place Aruco codes in strategic places, they are extremely
-       awesome.  The detection code is extremely fast, very reliable,
-       each marker has it's own code, and all 4 corners of the marker
-       are identified.
+   - Track Aruco codes.  If you have control over your scene and can
+     place Aruco codes in strategic places, they are extremely
+     awesome.  The detection code is extremely fast, very reliable,
+     each marker has it's own code, and all 4 corners of the marker
+     are identified.
 
-   ### Extract still shots (frames) from a movie and geotag them.
+   - Extract still shots (frames) from a movie and geotag them.
 
-   ### Generate an augmented reality hud overlay on top of an
-       in-flight movie.
+   - Generate an augmented reality hud overlay on top of an in-flight
+     movie.
 
 ## scripts
 
