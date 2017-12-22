@@ -44,34 +44,32 @@ if not args.direct:
     matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
 
 # image mean reprojection error
-def compute_feature_mre(K, image, kp, ned):
-    if image.PROJ is None:
-        if args.direct:
-            rvec, tvec = image.get_proj() # original direct pose
-        else:
-            rvec, tvec = image.get_proj_sba() # fitted pose
-        R, jac = cv2.Rodrigues(rvec)
-        image.PROJ = np.concatenate((R, tvec), axis=1)
-
-    PROJ = image.PROJ
-    uvh = K.dot( PROJ.dot( np.hstack((ned, 1.0)) ).T )
-    #print uvh
-    uvh /= uvh[2]
-    #print uvh
-    #print "%s -> %s" % ( image.img_pts[i], [ np.squeeze(uvh[0,0]), np.squeeze(uvh[1,0]) ] )
-    uv = np.array( [ np.squeeze(uvh[0,0]), np.squeeze(uvh[1,0]) ] )
+def compute_feature_mre(image, kp, ned):
+    uvh = image.M.dot( np.hstack((ned, 1.0)) )
+    uvh /= uvh[0,2]
+    uv = uvh[0, 0:2]
     dist = np.linalg.norm(np.array(kp) - uv)
     return dist
 
 # group reprojection error for every used feature
 def compute_reprojection_errors(image_list, group, cam):
     print "Computing reprojection error for all match points..."
-
-    # start with a clean slate
-    for image in image_list:
-        image.PROJ = None
-
+    
     camw, camh = proj.cam.get_image_params()
+    scale = float(image_list[0].width) / float(camw)
+    K = cam.get_K(scale)
+    
+    # compute PROJ and M=K*PROJ matrices
+    for i, image in enumerate(image_list):
+        if not i in group:
+            continue
+        if args.direct:
+            rvec, tvec = image.get_proj() # original direct pose
+        else:
+            rvec, tvec = image.get_proj_sba() # fitted pose
+        R, jac = cv2.Rodrigues(rvec)
+        image.PROJ = np.concatenate((R, tvec), axis=1)
+        image.M = K.dot( image.PROJ )
 
     # iterate through the match dictionary and build a per image list of
     # obj_pts and img_pts
@@ -101,7 +99,7 @@ def compute_reprojection_errors(image_list, group, cam):
                 # kp = image.kp_list[p[1]].pt # distorted
                 kp = image.uv_list[ p[1] ]  # undistorted uv point
                 scale = float(image.width) / float(camw)
-                dist = compute_feature_mre(cam.get_K(scale), image, kp, ned)
+                dist = compute_feature_mre(image, kp, ned)
                 if dist > max_dist:
                     max_dist = dist
                     max_index = j
