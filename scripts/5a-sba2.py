@@ -129,9 +129,8 @@ proj.load_features()
 proj.undistort_keypoints()
 # proj.load_match_pairs()
 
-matches_direct = pickle.load( open( os.path.join(args.project, 'matches_direct'), 'rb' ) )
-#matches_direct = pickle.load( open( os.path.join(args.project, 'matches_sba'), 'rb' ) )
-#matches_direct = pickle.load( open( os.path.join(args.project, 'matches_grouped'), 'rb' ) )
+#matches_direct = pickle.load( open( os.path.join(args.project, 'matches_direct'), 'rb' ) )
+matches_direct = pickle.load( open( os.path.join(args.project, 'matches_sba'), 'rb' ) )
 print "direct features:", len(matches_direct)
 
 # load the group connections within the image set
@@ -144,7 +143,7 @@ scale = float(image_width) / float(camw)
 print 'scale:', scale
 
 sba = SBA.SBA(args.project)
-sba.prepair_data( proj.image_list, groups[0], matches_direct, proj.cam.get_K(scale) )
+sba.prepair_data( proj.image_list, groups[0], matches_direct, proj.cam.get_K(scale), use_sba=True )
 # sba.prepair_data( proj.image_list, None, matches_direct, proj.cam.get_K(scale) )
 cameras, features, cam_index_map, feat_index_map, error_images = sba.run_live(mode='')
 
