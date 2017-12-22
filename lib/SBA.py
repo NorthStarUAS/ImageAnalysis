@@ -202,9 +202,11 @@ class SBA():
         for index in placed_images:
             image = image_list[index]
             rvec, tvec = image.get_proj()
-            s = "%.8f\n%.8f\n%.8f\n%.8f\n%.8f\n%.8f\n%.3f\n0.0\n0.0\n" % (rvec[0,0], rvec[1,0], rvec[2,0],
-                                                                  tvec[0,0], tvec[1,0], tvec[2,0],
-                                                                  (K[0,0]+K[1,1])*0.5)
+            s = "%.8f\n%.8f\n%.8f\n%.8f\n%.8f\n%.8f\n%.3f\n0.0\n0.0\n" % (0.0, 0.0, 0.0,
+                                                                          #rvec[0,0], rvec[1,0], rvec[2,0],
+                                                                          #tvec[0,0], tvec[1,0], tvec[2,0],
+                                                                          tvec[1,0], tvec[0,0], -tvec[2,0],
+                                                                          (K[0,0]+K[1,1])*0.5)
             f.write(s)
 
         # write 3d point estimates
@@ -215,8 +217,8 @@ class SBA():
                 if p[0] in placed_images:
                     used = True
             if used:
-                s = "%.4f\n%.4f\n%.4f\n" % (ned[0], ned[1], ned[2])
-                #s = "%.4f\n%.4f\n%.4f\n" % (ned[1], ned[0], -ned[2])
+                #s = "%.4f\n%.4f\n%.4f\n" % (ned[0], ned[1], ned[2])
+                s = "%.4f\n%.4f\n%.4f\n" % (ned[1], ned[0], -ned[2])
                 f.write(s)
         f.close()
 
