@@ -10,13 +10,10 @@ import sys
 sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
-import commands
 import cPickle as pickle
 import cv2
-import fnmatch
 import numpy as np
 import os.path
-import random
 
 sys.path.append('../lib')
 import AC3D
@@ -52,6 +49,9 @@ sss = SRTM.NEDGround( ref, 6000, 6000, 30 )
 print "Loading match points (sba)..."
 matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
 
+# load the group connections within the image set
+groups = Groups.load(args.project)
+
 # testing ...
 def polyfit2d(x, y, z, order=3):
     ncols = (order + 1)**2
@@ -77,8 +77,13 @@ from matplotlib import cm
 # first determine surface elevation stats so we can discard outliers
 z = []
 for match in matches_sba:
-    ned = match[0]
-    z.append(ned[2])
+    used = False
+    for p in match[1:]:
+        if p[0] in groups[0]:
+            used = True
+    if used:
+        ned = match[0]
+        z.append(ned[2])
 zavg = np.mean(z)
 zstd = np.std(z)
 print 'elevation stats:', zavg, zstd
@@ -88,15 +93,20 @@ xfit = []
 yfit = []
 zfit = []
 for match in matches_sba:
-    ned = match[0]
-    d = abs(ned[2] - zavg)
-    if d <= 2*zstd:
-        xfit.append(ned[0])
-        yfit.append(ned[1])
-        zfit.append(ned[2])
-    else:
-        # mark this elevation unused
-        match[0][2] = None
+    used = False
+    for p in match[1:]:
+        if p[0] in groups[0]:
+            used = True
+    if used:
+        ned = match[0]
+        d = abs(ned[2] - zavg)
+        if d <= 2*zstd:
+            xfit.append(ned[0])
+            yfit.append(ned[1])
+            zfit.append(ned[2])
+        #else:
+        #    # mark this elevation unused
+        #    match[0][2] = None
 xfit = np.array(xfit)
 yfit = np.array(yfit)
 zfit = np.array(zfit)
@@ -118,9 +128,6 @@ plt.scatter(xfit, yfit, 100, znew, cmap=cm.jet)
 plt.colorbar()
 plt.title("Approximation function.")
 plt.show()
-
-# load the group connections within the image set
-groups = Groups.load(args.project)
 
 # compute the uv grid for each image and project each point out into
 # ned space, then intersect each vector with the srtm / ground /
