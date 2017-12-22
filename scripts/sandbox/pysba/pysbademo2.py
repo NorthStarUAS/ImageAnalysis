@@ -23,6 +23,10 @@ import bz2
 import os
 import numpy as np
 
+import sys
+sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
+import cv2
+
 BASE_URL = "http://grail.cs.washington.edu/projects/bal/data/ladybug/"
 FILE_NAME = "problem-49-7776-pre.txt.bz2"
 #FILE_NAME = "problem-138-19878-pre.txt.bz2"
@@ -30,6 +34,7 @@ FILE_NAME = "problem-49-7776-pre.txt.bz2"
 URL = BASE_URL + FILE_NAME
 
 FILE_NAME = '../../rw87-small-test/bundler.txt.bz2'
+K_FILE = '../../rw87-small-test/sba-calib.txt'
 
 if not os.path.isfile(FILE_NAME):
     urllib.request.urlretrieve(URL, FILE_NAME)
@@ -65,12 +70,17 @@ def read_bal_data(file_name):
         for i in range(n_points * 3):
             points_3d[i] = float(file.readline())
         points_3d = points_3d.reshape((n_points, -1))
+    K = []
+    with open(K_FILE, 'r') as file:
+        for i in range(3):
+            line = file.readline()
+            K.append(list(map(float, line.split())))
+    K = np.array(K)
+    print('K: {}'.format(K))
+    
+    return camera_params, points_3d, camera_indices, point_indices, points_2d, f, k1, k2, K
 
-    print(point_indices.shape)
-    print(point_indices)
-    return camera_params, points_3d, camera_indices, point_indices, points_2d, f, k1, k2
-
-camera_params, points_3d, camera_indices, point_indices, points_2d, f, k1, k2 = read_bal_data(FILE_NAME)
+camera_params, points_3d, camera_indices, point_indices, points_2d, f, k1, k2, K = read_bal_data(FILE_NAME)
 
 n_cameras = camera_params.shape[0]
 n_points = points_3d.shape[0]
@@ -111,10 +121,23 @@ def project(points, camera_params, calib_params):
     points_proj *= (r * f)[:, np.newaxis]
     return points_proj
 
-points = np.array([[0.0, 0.0, 2.0]])
-rot_vec = np.array([[0.0, 0.0, 0.0]])
-print('proj: {}'.format(rotate(points, rot_vec)))
-quit()
+def project2(points, cam_M, calib_params):
+    """Convert 3-D points to 2-D by projecting onto images."""
+    #print('points: {}'.format(points.shape))
+    #print('ones: {}'.format( np.ones((points.shape[0], 1)) ))
+    nedh = np.hstack((points, np.ones((points.shape[0], 1))))
+    #print('nedh: {}'.format(nedh))
+    #uvh = np.einsum("...ij,...i", cam_M, nedh)
+    #uvh = cam_M.dot( nedh )
+    uvh = np.zeros( (points.shape[0], 3) )
+    for i in range(points.shape[0]):
+        uvh[i] = cam_M[i].dot(nedh[i])
+    #print('uvh: {}'.format(uvh[:,2:3].shape))
+    uvh = uvh / uvh[:,2:3]
+    #print('uvh: {}'.format(uvh))
+    uv = uvh[:, 0:2]
+    #print('uv: {}'.format(uv))
+    return uv
 
 def fun(params, n_cameras, n_points, camera_indices, point_indices, points_2d):
     """Compute residuals.
@@ -122,14 +145,23 @@ def fun(params, n_cameras, n_points, camera_indices, point_indices, points_2d):
     `params` contains camera parameters, 3-D coordinates, and camera calibration parameters.
     """
     camera_params = params[:n_cameras * 6].reshape((n_cameras, 6))
+    cam_M = np.zeros((camera_params.shape[0], 3, 4))
+    for i, cam in enumerate(camera_params):
+        R, jac = cv2.Rodrigues(cam[:3])
+        PROJ = np.concatenate((R, cam[3:6].reshape(3,1)), axis=1)
+        M = K.dot( PROJ )
+        cam_M[i] = M
+    # print('cam_M: {}'.format(cam_M))
     points_3d = params[n_cameras * 6:n_cameras * 6 + n_points * 3].reshape((n_points, 3))
     calib_params = params[n_cameras * 6 + n_points * 3:]
     #print("calib:")
     #print(calib_params.shape)
     #print(calib_params)
-    points_proj = project(points_3d[point_indices],
-                          camera_params[camera_indices],
-                          calib_params)
+    tmp = cam_M[camera_indices]
+    #print('tmp.shape {}'.format(tmp.shape))
+    points_proj = project2(points_3d[point_indices],
+                           cam_M[camera_indices],
+                           calib_params)
     # mre
     error = (points_proj - points_2d).ravel()
     mre = np.mean(np.abs(error))
