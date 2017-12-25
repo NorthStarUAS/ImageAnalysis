@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # for all the images in the project image_dir, compute the camera
 # poses from the aircraft pose (and camera mounting transform).
@@ -7,10 +7,9 @@
 # adjustment work.)
 
 import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
-import cPickle as pickle
+import pickle
 import cv2
 import numpy as np
 import os.path
@@ -46,8 +45,8 @@ ref = proj.ned_reference_lla
 # setup SRTM ground interpolator
 sss = SRTM.NEDGround( ref, 6000, 6000, 30 )
 
-print "Loading match points (sba)..."
-matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
+print("Loading match points (sba)...")
+matches_sba = pickle.load( open( os.path.join(args.project, "matches_sba"), "rb" ) )
 
 # load the group connections within the image set
 groups = Groups.load(args.project)
@@ -70,7 +69,7 @@ def polyval2d(x, y, m):
         z += a * x**i * y**j
     return z
 
-print "Generating a bivariate b-spline approximation to the stitched surface"
+print("Generating a bivariate b-spline approximation to the stitched surface")
 import itertools
 import matplotlib.pyplot as plt
 from matplotlib import cm
@@ -86,7 +85,7 @@ for match in matches_sba:
         z.append(ned[2])
 zavg = np.mean(z)
 zstd = np.std(z)
-print 'elevation stats:', zavg, zstd
+print('elevation stats:', zavg, zstd)
 
 # now build the surface
 xfit = []
@@ -121,8 +120,8 @@ m = polyfit2d(xfit, yfit, zfit)
 # test fit
 znew = polyval2d(xfit, yfit, m)
 for i in range(len(znew)):
-    print polyval2d(xfit[i], yfit[i], m)
-    print 'z:', zfit[i], znew[i], zfit[i] - znew[i]
+    print(polyval2d(xfit[i], yfit[i], m))
+    print('z:', zfit[i], znew[i], zfit[i] - znew[i])
 plt.figure()
 plt.scatter(xfit, yfit, 100, znew, cmap=cm.jet)
 plt.colorbar()
@@ -153,7 +152,7 @@ for image in proj.image_list:
         std = None
     image.z_avg = avg
     image.z_std = std
-    print image.name, 'features:', len(image.z_list), 'avg:', avg, 'std:', std
+    print(image.name, 'features:', len(image.z_list), 'avg:', avg, 'std:', std)
 
 # for fun rerun through the matches and find elevation outliers
 outliers = []
@@ -165,12 +164,12 @@ for i, match in enumerate(matches_sba):
         dist = abs(-ned[2] - image.z_avg)
         error_sum += dist
     if error_sum > 3 * (image.z_std * len(match[1:])):
-        print 'possible outlier match index:', i, error_sum, 'z:', ned[2]
+        print('possible outlier match index:', i, error_sum, 'z:', ned[2])
         outliers.append( [error_sum, i] )
 
 result = sorted(outliers, key=lambda fields: fields[0], reverse=True)
 for line in result:
-    print 'index:', line[1], 'error:', line[0]
+    print('index:', line[1], 'error:', line[0])
     #cull.draw_match(line[1], 1, matches_sba, proj.image_list)
     
 depth = 0.0
@@ -182,7 +181,7 @@ if True:
     #    continue
     for g in group:
         image = proj.image_list[g]
-        print image.name, image.z_avg
+        print(image.name, image.z_avg)
         # scale the K matrix if we have scaled the images
         scale = float(image.width) / float(camw)
         K = proj.cam.get_K(scale)
@@ -202,7 +201,7 @@ if True:
             proj_list = proj.projectVectors( IK, image.get_body2ned(),
                                              image.get_cam2body(), grid_list )
         else:
-            print image.get_body2ned_sba()
+            print(image.get_body2ned_sba())
             proj_list = proj.projectVectors( IK, image.get_body2ned_sba(),
                                              image.get_cam2body(), grid_list )
         #print 'proj_list:', proj_list
@@ -211,14 +210,14 @@ if True:
             ned = image.camera_pose['ned']
         else:
             ned = image.camera_pose_sba['ned']
-        print 'ned', image.camera_pose['ned'], ned
+        print('ned', image.camera_pose['ned'], ned)
         if args.ground:
             pts_ned = proj.intersectVectorsWithGroundPlane(ned,
                                                            args.ground, proj_list)
         elif args.srtm:
             pts_ned = sss.interpolate_vectors(ned, proj_list)
         else:
-            print image.name, image.z_avg
+            print(image.name, image.z_avg)
             pts_ned = proj.intersectVectorsWithGroundPlane(ned,
                                                            image.z_avg,
                                                            proj_list)
@@ -239,4 +238,4 @@ AC3D.generate(proj.image_list, src_dir=proj.source_dir,
               version=1.0, trans=0.1, resolution=args.texture_resolution)
 
 if not args.ground:
-    print 'Avg ground elevation (SRTM):', ground_sum / len(pts_ned)
+    print('Avg ground elevation (SRTM):', ground_sum / len(pts_ned))

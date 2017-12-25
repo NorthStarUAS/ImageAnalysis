@@ -1,4 +1,4 @@
-import commands
+import subprocess
 import cv2
 import math
 import os.path
@@ -6,21 +6,18 @@ import os.path
 def make_textures(src_dir, project_dir, image_list, resolution=256):
     dst_dir = project_dir + '/Textures/'
     if not os.path.exists(dst_dir):
-        print "Notice: creating texture directory =", dst_dir
+        print("Notice: creating texture directory =", dst_dir)
         os.makedirs(dst_dir)
     for image in image_list:
         src = src_dir + image.name
         dst = dst_dir + image.name
         if not os.path.exists(dst):
-            command = "convert -resize %dx%d! %s %s" % ( resolution, resolution,
-                                                         src, dst )
-            print command
-            commands.getstatusoutput( command )
+            subprocess.run(['convert', '-resize', '%dx%d!' % (resolution, resolution), src, dst])
         
 def make_textures_opencv(src_dir, project_dir, image_list, resolution=256):
     dst_dir = project_dir + '/Textures/'
     if not os.path.exists(dst_dir):
-        print "Notice: creating texture directory =", dst_dir
+        print("Notice: creating texture directory =", dst_dir)
         os.makedirs(dst_dir)
     for image in image_list:
         src = src_dir + "/" + image.name
@@ -45,7 +42,7 @@ def make_textures_opencv(src_dir, project_dir, image_list, resolution=256):
             # convert back to rgb
             result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
             cv2.imwrite(dst, result)
-            print "Texture %dx%d %s" % (resolution, resolution, dst)
+            print("Texture %dx%d %s" % (resolution, resolution, dst))
             
 def generate(image_list, ref_image=False, src_dir=".", project_dir=".", base_name="quick", version=1.0, trans=0.0, resolution=512 ):
     # make the textures if needed
@@ -105,9 +102,9 @@ def generate(image_list, ref_image=False, src_dir=".", project_dir=".", base_nam
         dx = 1.0 / float(steps)
         dy = 1.0 / float(steps)
         y = 1.0
-        for j in xrange(steps):
+        for j in range(steps):
             x = 0.0
-            for i in xrange(steps):
+            for i in range(steps):
                 c = (j * (steps+1)) + i
                 d = ((j+1) * (steps+1)) + i
                 f.write("SURF 0x20\n")

@@ -201,7 +201,7 @@ class Optimizer():
         cam_idx = 0
         for index in placed_images:
             image = image_list[index]
-            rvec, tvec = image.get_proj_sba()
+            rvec, tvec = image.get_proj()
             camera_params[cam_idx*6:cam_idx*6+6] = np.append(rvec, tvec)
             cam_idx += 1
 

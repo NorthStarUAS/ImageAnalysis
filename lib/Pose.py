@@ -32,10 +32,10 @@ def setAircraftPoses(proj, metafile="", order='ypr', force=True, weight=True):
     for line in f:
         line.strip()
         if re.match('^\s*#', line):
-            print "skipping comment ", line
+            print("skipping comment ", line)
             continue
         if re.match('^\s*File', line):
-            print "skipping header ", line
+            print("skipping header ", line)
             continue
         field = line.split(',')
         name = field[0]
@@ -57,9 +57,9 @@ def setAircraftPoses(proj, metafile="", order='ypr', force=True, weight=True):
                 image.set_aircraft_pose( [lat, lon,alt], [yaw, pitch, roll] )
                 image.weight = 1.0
                 image.save_meta()
-                print "%s yaw=%.1f pitch=%.1f roll=%.1f" % (image.name, yaw, pitch, roll)
+                print("%s yaw=%.1f pitch=%.1f roll=%.1f" % (image.name, yaw, pitch, roll))
         else:
-            print "Error: image-metadata.txt references an image not in our data set =", name
+            print("Error: image-metadata.txt references an image not in our data set =", name)
 
                 
 # compute the camera pose in NED space, assuming the aircraft
@@ -99,5 +99,5 @@ def compute_camera_poses(image_list, cam, ref, force=False):
 
         ned, ypr = computeCameraPoseFromAircraft(image, cam, ref)
         image.set_camera_pose(ned, ypr)
-        print "%s: camera pose = %s" % (image.name, image.camera_pose)
+        print("%s: camera pose = %s" % (image.name, image.camera_pose))
 

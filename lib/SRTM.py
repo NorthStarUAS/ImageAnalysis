@@ -48,13 +48,13 @@ class SRTM():
             self.srtm_dict = json.load(f)
             f.close()
         except:
-            print "Notice: unable to read =", dict_file
+            print("Notice: unable to read =", dict_file)
 
     # if we'd like a persistant place to cache srtm files so they don't
     # need to be re-download every time we run anything
     def set_srtm_cache_dir(self, srtm_cache_dir):
         if not os.path.exists(srtm_cache_dir):
-            print "Notice: srtm cache path doesn't exist =", srtm_cache_dir
+            print("Notice: srtm cache path doesn't exist =", srtm_cache_dir)
         else:
             self.srtm_cache_dir = srtm_cache_dir
 
@@ -63,12 +63,12 @@ class SRTM():
         if fileroot in self.srtm_dict:
             url = self.srtm_dict[fileroot]
             download_file = self.srtm_cache_dir + '/' + fileroot + '.hgt.zip'
-            print "Notice: downloading:", url
+            print("Notice: downloading:", url)
             file = urllib.URLopener()
-            print file.retrieve(url, download_file)
+            print(file.retrieve(url, download_file))
             return True
         else:
-            print "Notice: requested srtm that is outside catalog"
+            print("Notice: requested srtm that is outside catalog")
             return False
         
     def parse(self):
@@ -77,7 +77,7 @@ class SRTM():
         if not os.path.exists(cache_file):
             if not self.download_srtm(tilename):
                 return False
-        print "Notice: parsing SRTM file:", cache_file
+        print("Notice: parsing SRTM file:", cache_file)
         #f = open(cache_file, "rb")
         zip = zipfile.ZipFile(cache_file)
         f = zip.open(tilename + '.hgt', 'r')
@@ -89,7 +89,7 @@ class SRTM():
         return True
     
     def make_lla_interpolator(self):
-        print "Notice: constructing LLA interpolator"
+        print("Notice: constructing LLA interpolator")
         
         srtm_pts = np.zeros((1201, 1201))
         for r in range(0,1201):
@@ -144,7 +144,7 @@ class NEDGround():
         self.make_interpolator(lla_ref, width_m, height_m, step_m)
         
     def load_tiles(self, lla_ref, width_m, height_m):
-        print "Notice: loading DEM tiles"
+        print("Notice: loading DEM tiles")
         ll_ned = np.array([[-height_m*0.5, -width_m*0.5, 0.0]])
         ur_ned = np.array([[height_m*0.5, width_m*0.5, 0.0]])
         ll_lla = navpy.ned2lla(ll_ned, lla_ref[0], lla_ref[1], lla_ref[2])
@@ -163,9 +163,9 @@ class NEDGround():
                     self.tile_dict[tile_name] = srtm
                 
     def make_interpolator(self, lla_ref, width_m, height_m, step_m):
-        print "Notice: constructing NED area interpolator"
-        rows = (height_m / step_m) + 1
-        cols = (width_m / step_m) + 1
+        print("Notice: constructing NED area interpolator")
+        rows = int(height_m / step_m) + 1
+        cols = int(width_m / step_m) + 1
         #ned_pts = np.zeros((cols, rows))
         #for r in range(0,rows):
         #    for c in range(0,cols):
@@ -229,7 +229,7 @@ class NEDGround():
             for c in range(0,cols):
                 idx = (rows*c)+r
                 if ned_ds[r,c] < -10000:
-                    print "Problem interpolating elevation for:", ll_pts[idx]
+                    print("Problem interpolating elevation for:", ll_pts[idx])
                     ned_ds[r,c] = 0.0
         #print "ned_ds:", ned_ds
 
@@ -255,7 +255,7 @@ class NEDGround():
                 nedz = self.interp([ned[0], ned[1]])
                 tile = make_tile_name(lla[0], lla[1])
                 llaz = self.tile_dict[tile].lla_interpolate(np.array([lla[1], lla[0]]))
-                print "nedz=%.2f llaz=%.2f" % (nedz, llaz)
+                print("nedz=%.2f llaz=%.2f" % (nedz, llaz))
 
     # while error > eps: find altitude at current point, new pt = proj
     # vector to current alt.
