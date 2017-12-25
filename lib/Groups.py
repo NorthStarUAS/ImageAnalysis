@@ -26,7 +26,7 @@ def countFeatureConnections(image_list, matches):
         for j in range(len(image.match_list)):
             size = len(image.match_list[j])
             if size > 0 and not j in image.connection_set:
-                print '  matches, but no connection'
+                print('  matches, but no connection')
         
 def updatePlacedFeatures(placed_images, matches, placed_features):
     for i, match in enumerate(matches):
@@ -37,7 +37,7 @@ def updatePlacedFeatures(placed_images, matches, placed_features):
 # This is the current, best grouping function to use
 def groupByFeatureConnections(image_list, matches):
     countFeatureConnections(image_list, matches)
-    print "Start of top level grouping algorithm..."
+    print("Start of top level grouping algorithm...")
 
     # start with no placed images or features
     placed_images = set()
@@ -50,7 +50,7 @@ def groupByFeatureConnections(image_list, matches):
 
     done = False
     while not done:
-        print "Start of new group..."
+        print("Start of new group...")
         # start a fresh group
         group_images = set()
         
@@ -64,7 +64,7 @@ def groupByFeatureConnections(image_list, matches):
                 max_index = i
         max_image = image_list[max_index]
         max_image.connection_order = 0
-        print "Image with max connections:", max_image.name, "num:", max_connections
+        print("Image with max connections: {} num: {}".format(max_image.name, max_connections))
         placed_images.add(max_index)
         group_images.add(max_index)
         updatePlacedFeatures(placed_images, matches, placed_features)
@@ -107,14 +107,14 @@ def groupByFeatureConnections(image_list, matches):
 
             new_image = image_list[new_index]
             new_image.connection_order = len(placed_images) - 1
-            print 'Added:', new_image.name, 'groups:', len(groups)+1, 'in current group', len(group_images), 'total:', len(placed_images)
+            print('Added: {} groups: {} in current group {} total: {}'.format(new_image.name, len(groups)+1, len(group_images), len(placed_images)))
             
     # add all unplaced images in their own groups of 1
     for i, image in enumerate(image_list):
         if not i in placed_images:
             groups.append( [i] )
             
-    print groups
+    print(groups)
     return groups
 
 
@@ -127,7 +127,7 @@ def estimateConnectionArea(image):
 # speculative ....
 def groupByConnectedArea(image_list, matches):
     countFeatureConnections(image_list, matches)
-    print "Start of top level grouping algorithm..."
+    print("Start of top level grouping algorithm...")
 
     # start with no placed images or features
     placed_images = set()
@@ -140,7 +140,7 @@ def groupByConnectedArea(image_list, matches):
 
     done = False
     while not done:
-        print "Start of new group..."
+        print("Start of new group...")
         # start a fresh group
         group_images = set()
         
@@ -154,7 +154,7 @@ def groupByConnectedArea(image_list, matches):
                 max_index = i
         max_image = image_list[max_index]
         max_image.connection_order = 0
-        print "Image with max connections:", max_image.name, "num:", max_connections
+        print("Image with max connections: {} num: {}".format(max_image.name, max_connections))
         placed_images.add(max_index)
         group_images.add(max_index)
         updatePlacedFeatures(placed_images, matches, placed_features)
@@ -185,7 +185,7 @@ def groupByConnectedArea(image_list, matches):
             for image in image_list:
                 if len(image.placed_feature_list):
                     center, (w, h), angle = cv2.minAreaRect(np.array(image.placed_feature_list))
-                    print w, h, w*h
+                    print('{} {} {}'.format(w, h, w*h))
                     image.connected_area = w*h
             
             # print 'connected image count:', image_counter
@@ -197,8 +197,8 @@ def groupByConnectedArea(image_list, matches):
                         new_index = i
                         max_area = image.connected_area
             if max_area >= 10000:
-                print "New image with max area:", image_list[new_index].name,
-                print "area:", image_list[new_index].connected_area
+                print("New image with max area: {}".format(image_list[new_index].name))
+                print("  area: {}".format(image_list[new_index].connected_area))
                 placed_images.add(new_index)
                 group_images.add(new_index)
             else:
@@ -212,14 +212,14 @@ def groupByConnectedArea(image_list, matches):
 
             new_image = image_list[new_index]
             new_image.connection_order = len(placed_images) - 1
-            print 'Added:', new_image.name, 'groups:', len(groups)+1, 'in current group', len(group_images), 'total:', len(placed_images)
+            print('Added: {} groups: {} in current group: {} total: {}'.format(new_image.name, len(groups)+1, len(group_images), len(placed_images)))
             
     # add all unplaced images in their own groups of 1
     for i, image in enumerate(image_list):
         if not i in placed_images:
             groups.append( [i] )
             
-    print groups
+    print(groups)
     return groups
 
 def save(path, groups):
@@ -229,7 +229,7 @@ def save(path, groups):
         json.dump(groups, fd, indent=4, sort_keys=True)
         fd.close()
     except:
-        print file + ": error saving file:", str(sys.exc_info()[1])
+        print('{}: error saving file: {}'.format(file, str(sys.exc_info()[1])))
 
 def load(path):
     file = os.path.join(path, 'Groups.json')
@@ -238,7 +238,7 @@ def load(path):
         groups = json.load(fd)
         fd.close()
     except:
-        print file + ": error loading file:", str(sys.exc_info()[1])
+        print('{}: error loading file: {}'.format(file, str(sys.exc_info()[1])))
         groups = []
     return groups
    
@@ -277,7 +277,7 @@ def groupByImageConnections(image_list):
             if len(match) >= 8:
                 image.connections += 1
         if image.connections > 1:
-            print "%s connections: %d" % (image.name, image.connections)
+            print("{} connections: {}".format(image.name, image.connections))
 
     last_cycle_depth = len(image_list) + 1
     group_list = []
@@ -297,7 +297,7 @@ def groupByImageConnections(image_list):
                     best_cycle_depth = cycle_depth+1
                     done = False
         if best_index == None:
-            print "Cannot find an unplaced image with a connected neighbor"
+            print("Cannot find an unplaced image with a connected neighbor")
             if len(group):
                 # commit the previous group (if it exists)
                 group_list.append(group)
@@ -315,22 +315,22 @@ def groupByImageConnections(image_list):
                         max_connections = image.connections
                         best_index = i
                         done = False
-                        print " found image %d connections = %d" % (i, max_connections)
+                        print(" found image {} connections = {}".format(i, max_connections))
         if best_index != None:
             image = image_list[best_index]
             image.cycle_depth = best_cycle_depth
             last_cycle_depth = best_cycle_depth
-            print "Adding %s (cycles = %d)" % (image.name, best_cycle_depth)
+            print("Adding {} (cycles = {})".format(image.name, best_cycle_depth))
             group.append(image)
 
-    print "Group (cycles) report:"
+    print("Group (cycles) report:")
     for group in group_list:
         #if len(group) < 2:
         #    continue
-        print "group (size=%d):" % (len(group)),
+        print("group (size = {}):".format((len(group))))
         for image in group:
-            print "%s(%d)" % (image.name, image.cycle_depth),
-        print ""
+            print("{}({})".format(image.name, image.cycle_depth))
+        print("")
 
     return group_list
 

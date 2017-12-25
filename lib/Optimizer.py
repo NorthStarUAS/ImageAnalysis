@@ -8,6 +8,7 @@ import numpy as np
 import os
 # import re
 
+import sys
 sys.path.append('../lib')
 import transformations
 
@@ -15,7 +16,7 @@ import transformations
 # This is a python class that optimizes the estimate camera and 3d
 # point fits by minimizing the mean reprojection error.
 
-class Optimize():
+class Optimizer():
     def __init__(self, root):
         self.root = root
         self.camera_map_fwd = {}
@@ -40,8 +41,8 @@ class Optimize():
         for i, index in enumerate(placed_images):
             self.camera_map_fwd[i] = index
             self.camera_map_rev[index] = i
-        print self.camera_map_fwd
-        print self.camera_map_rev
+        print(self.camera_map_fwd)
+        print(self.camera_map_rev)
         
         # initialize the feature index remapping
         self.feat_map_fwd = {}
@@ -131,29 +132,17 @@ class Optimize():
         for index in placed_images:
             image = image_list[index]
             rvec, tvec = image.get_proj_sba()
-            camera_params[cam_idx] = np.append(rvec, tvec)
+            camera_params[cam_idx*6:cam_idx*6+6] = np.append(rvec, tvec)
             cam_idx += 1
 
         return camera_params, points_3d, camera_indices, point_indices, points_2d
 
-    def run_live(self, mode=''):
+    def run(self, mode=''):
         command = []
-        command.append( self.program )
-        if mode == '':
-            command.append( self.root + '/sba-cams.txt' )
-            command.append( self.root + '/sba-points.txt' )
-            command.append( self.root + '/sba-calib.txt' )
-        elif mode == 'varK':
-            command.append( self.root + '/sba-cams-varK.txt' )
-            command.append( self.root + '/sba-points.txt' )
-        elif mode == 'varKD':
-            command.append( self.root + '/sba-cams-varKD.txt' )
-            command.append( self.root + '/sba-points.txt' )
-        print "Running:", command
 
         #result = subprocess.check_output( command )
         # bufsize=1 is line buffered
-        process = subprocess.Popen( command, stdout=subprocess.PIPE)
+        #process = subprocess.Popen( command, stdout=subprocess.PIPE)
 
         state = ''
         mre_start = 0.0         # mre = mean reprojection error
@@ -165,24 +154,24 @@ class Optimize():
         error_images = set()
 
         result = process.stdout.readline()
-        print result
+        print(result)
         while result:
             for line in result.split('\n'):
                 #print "line: ", line
                 if re.search('mean reprojection error', line):
-                    print line
+                    print(line)
                     value = float(re.sub('mean reprojection error', '', line))
                     if mre_start == 0.0:
                         mre_start = value
                     else:
                         mre_final = value
                 elif re.search('damping term', line):
-                    print  line 
+                    print(line )
                 elif re.search('iterations=', line):
-                    print line
+                    print(line)
                     iterations = int(re.sub('iterations=', '', line))
                 elif re.search('Elapsed time:', line):
-                    print line
+                    print(line)
                     tokens = line.split()
                     time_msec = float(tokens[4])
                 elif re.search('Motion parameters:', line):
@@ -190,11 +179,11 @@ class Optimize():
                 elif re.search('Structure parameters:', line):
                     state = 'structure'
                 elif re.search('the estimated projection of point', line):
-                    print line
+                    print(line)
                     tokens = line.split()
                     cam_index = int(tokens[12])
                     image_index = self.camera_map_fwd[cam_index]
-                    print 'sba cam:', cam_index, 'image index:', image_index
+                    print('sba cam: {} image index: {}'.format(cam_index, image_index))
                     error_images.add(image_index)
                 else:
                     tokens = line.split()
@@ -205,13 +194,13 @@ class Optimize():
                         # print "feature:", np.array(tokens, dtype=float)
                         features.append( np.array(tokens, dtype=float) )
                     elif len(line):
-                        print line
+                        print(line)
             # read next line
             result = process.stdout.readline()
             
-        print "Starting mean reprojection error:", mre_start
-        print "Final mean reprojection error:", mre_final
-        print "Iterations =", iterations
-        print "Elapsed time = %.2f sec (%.2f msec)" % (time_msec/1000,
-                                                       time_msec)
+        print("Starting mean reprojection error: {}".format(mre_start))
+        print("Final mean reprojection error: {}".format(mre_final))
+        print("Iterations: {}".format(iterations))
+        print("Elapsed time = {} sec ({} msec)".format(time_msec/1000,
+                                                       time_msec))
         return cameras, features, self.camera_map_fwd, self.feat_map_rev, error_images

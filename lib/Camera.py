@@ -44,7 +44,7 @@ class Camera():
     def save(self, project_dir):
         # create a dictionary and write it out as json
         if not os.path.exists(project_dir):
-            print "Error: project doesn't exist =", project_dir
+            print("Error: project doesn't exist =", project_dir)
             return
         
         camera_file = project_dir + "/Camera.json"
@@ -53,7 +53,7 @@ class Camera():
             json.dump(self.camera_dict, f, indent=4, sort_keys=True)
             f.close()
         except IOError as e:
-            print "Save camera(): I/O error({0}): {1}".format(e.errno, e.strerror)
+            print("Save camera(): I/O error({0}): {1}".format(e.errno, e.strerror))
             return
         except:
             raise
@@ -65,8 +65,8 @@ class Camera():
             self.camera_dict = json.load(f)
             f.close()
         except:
-            print "Notice: unable to read =", camera_file
-            print "Continuing with an empty camera configuration"
+            print("Notice: unable to read =", camera_file)
+            print("Continuing with an empty camera configuration")
 
     def set_lens_params(self, horiz_mm, vert_mm, focal_len_mm):
         self.camera_dict['horiz-mm'] = horiz_mm

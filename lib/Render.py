@@ -202,7 +202,7 @@ class Render():
     def drawImages(self, draw_list=[], source_dir=None,
                    cm_per_pixel=15.0, blend_cm=200,
                    bounds=None, file=None, keypoints=False):
-        print "drawImages() bounds = %s" % str(bounds)
+        print("drawImages() bounds = %s" % str(bounds))
         # compute blend diameter in consistent pixel units
         blend_px = int(blend_cm/cm_per_pixel)+1
         if blend_px % 2 == 0:
@@ -215,7 +215,7 @@ class Render():
 
         x = int(100.0 * (xmax - xmin) / cm_per_pixel)
         y = int(100.0 * (ymax - ymin) / cm_per_pixel)
-        print "New image dimensions: (%d %d)" % (x, y)
+        print("New image dimensions: (%d %d)" % (x, y))
         base_image = np.zeros((y,x,3), np.uint8)
 
         for image in reversed(draw_list):
@@ -269,7 +269,7 @@ class Render():
 
         (xmin, ymin, xmax, ymax) = ImageList.coverage(self.image_list)
         grid_m = (dim * cm_per_pixel) / 100.0
-        print "grid square size = (%.2f x %.2f)" % (grid_m, grid_m)
+        print("grid square size = (%.2f x %.2f)" % (grid_m, grid_m))
         #xpixel = (xmax - xmin) * 100.0 / cm_per_pixel
         #ypixel = (ymax - ymin) * 100.0 / cm_per_pixel
 
@@ -281,7 +281,7 @@ class Render():
         while y < ymax:
             x = xmin
             while x < xmax:
-                print "grid = (%.2f %.2f)" % (x, y)
+                print("grid = (%.2f %.2f)" % (x, y))
                 base = "tile%03d" % count
                 jpgfile = base + ".jpg"
                 tifffile = base + ".tif"

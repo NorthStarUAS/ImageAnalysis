@@ -2,7 +2,7 @@
 
 # Image.py - manage all the data scructures associated with an image
 
-import cPickle as pickle
+import pickle
 import cv2
 import json
 import math
@@ -133,20 +133,20 @@ class Image():
             if 'bounding-radius' in image_dict:
                 self.radius = image_dict['bounding-radius']
         except:
-            print self.info_file + ":\n" + "  load error: " \
-                + str(sys.exc_info()[1])
+            print(self.info_file + ":\n" + "  load error: " \
+                + str(sys.exc_info()[1]))
 
     def load_rgb(self, force_resize=False):
         # print "Loading:", self.image_file, force_resize
         try:
             img_rgb = cv2.imread(self.image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
             if force_resize or self.height == 0 or self.width == 0:
-                print img_rgb.shape
+                print(img_rgb.shape)
                 self.height, self.width = img_rgb.shape[:2]
             return img_rgb
         except:
-            print self.image_file + ":\n" + "  load error: " \
-                + str(sys.exc_info()[1])
+            print(self.image_file + ":\n" + "  load error: " \
+                + str(sys.exc_info()[1]))
 
     def load_source_rgb(self, source_dir):
         #print "Loading " + self.image_file
@@ -156,8 +156,8 @@ class Image():
             return source_image
 
         except:
-            print source_image + ":\n" + "  load error: " \
-                + str(sys.exc_info()[1])
+            print(source_image + ":\n" + "  load error: " \
+                + str(sys.exc_info()[1]))
             return None
 
     def load_gray(self):
@@ -186,8 +186,8 @@ class Image():
             return aeq
 
         except:
-            print self.image_file + ":\n" + "  load error: " \
-                + str(sys.exc_info()[1])
+            print(self.image_file + ":\n" + "  load error: " \
+                + str(sys.exc_info()[1]))
 
     def load_features(self):
         if len(self.kp_list) == 0 and os.path.exists(self.features_file):
@@ -207,8 +207,8 @@ class Image():
                     feature_dict = json.load(f)
                     f.close()
                 except:
-                    print self.features_file + ":\n" + "  load error: " \
-                        + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1])
+                    print(self.features_file + ":\n" + "  load error: " \
+                        + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1]))
                     return
 
                 feature_list = feature_dict['features']
@@ -236,10 +236,10 @@ class Image():
                 #print val
                 #print
             except:
-                print filename + ":\n" + "  load error: " \
-                    + str(sys.exc_info()[1])
+                print(filename + ":\n" + "  load error: " \
+                    + str(sys.exc_info()[1]))
         else:
-            print "no file:", filename
+            print("no file:", filename)
             
     def load_matches(self):
         try:
@@ -251,8 +251,8 @@ class Image():
                 self.match_list = json.load(f)
                 f.close()
             except:
-                print self.features_file + ":\n" + "  load error: " \
-                    + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1])
+                print(self.features_file + ":\n" + "  load error: " \
+                    + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1]))
                 return
 
     def save_features(self):
@@ -265,7 +265,7 @@ class Image():
         try:
             pickle.dump(feature_list, open(self.features_file, "wb"))
         except IOError as e:
-            print "save_features(): I/O error({0}): {1}".format(e.errno, e.strerror)
+            print("save_features(): I/O error({0}): {1}".format(e.errno, e.strerror))
             return
         except:
             raise
@@ -275,8 +275,8 @@ class Image():
         try:
             result = np.save(self.des_file, self.des_list)
         except:
-            print self.des_file + ": error saving file: " \
-                + str(sys.exc_info()[1])
+            print(self.des_file + ": error saving file: " \
+                + str(sys.exc_info()[1]))
 
     def save_matches(self):
         try:
@@ -285,8 +285,8 @@ class Image():
             #json.dump(self.match_list, f, sort_keys=True)
             #f.close()
         except IOError as e:
-            print self.info_file + ": error saving file: " \
-                + str(sys.exc_info()[1])
+            print(self.info_file + ": error saving file: " \
+                + str(sys.exc_info()[1]))
             return
         except:
             raise
@@ -319,8 +319,8 @@ class Image():
             json.dump(image_dict, f, indent=4, sort_keys=True)
             f.close()
         except IOError as e:
-            print self.info_file + ": error saving file: " \
-                + str(sys.exc_info()[1])
+            print(self.info_file + ": error saving file: " \
+                + str(sys.exc_info()[1]))
             return
         except:
             raise
@@ -419,7 +419,7 @@ class Image():
         res = cv2.drawKeypoints(scaled_image, kp_list, None,
                                 color=(0,255,0), flags=flags)
         cv2.imshow(self.name, res)
-        print 'waiting for keyboard input...'
+        print('waiting for keyboard input...')
         key = cv2.waitKey() & 0xff
         cv2.destroyWindow(self.name)
         return key

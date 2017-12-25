@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-import commands
 import cv2
 import fileinput
 import fnmatch
@@ -17,7 +16,7 @@ import sys
 import time
 
 import geojson
-import pyexiv2
+#import pyexiv2
 
 from getchar import find_getch
 import Camera
@@ -121,20 +120,20 @@ class ProjectMgr():
         
         if not os.path.exists(self.project_dir):
             if create_if_needed:
-                print "Notice: creating project directory =", self.project_dir
+                print("Notice: creating project directory: {}".format(self.project_dir))
                 os.makedirs(self.project_dir)
             else:
-                print "Error: project dir doesn't exist =", self.project_dir
+                print("Error: project dir doesn't exist: {}".format(self.project_dir))
                 return False
 
         # and make children directories
         self.image_dir = project_dir + "/" + "Images"
         if not os.path.exists(self.image_dir):
             if create_if_needed:
-                print "Notice: creating image directory =", self.image_dir
+                print("Notice: creating image directory: {}".format(self.image_dir))
                 os.makedirs(self.image_dir)
             else:
-                print "Error: image dir doesn't exist =", self.image_dir
+                print("Error: image dir doesn't exist: {}".format(self.image_dir))
                 return False
             
         # all is good
@@ -146,18 +145,18 @@ class ProjectMgr():
     # image set completely untouched.
     def set_source_dir(self, source_dir):
         if source_dir == self.project_dir:
-            print "Error: image source and project dirs must be different."
+            print("Error: image source and project dirs must be different.")
             return
 
         if not os.path.exists(source_dir):
-            print "Error: image source path does not exist =", source_path
+            print("Error: image source path does not exist: {}".format(source_path))
             
         self.source_dir = source_dir
 
     def save(self):
         # create a project dictionary and write it out as json
         if not os.path.exists(self.project_dir):
-            print "Error: project doesn't exist =", self.project_dir
+            print("Error: project doesn't exist: {}".format(self.project_dir))
             return
 
         dirs = {}
@@ -173,7 +172,7 @@ class ProjectMgr():
             json.dump(project_dict, f, indent=4, sort_keys=True)
             f.close()
         except IOError as e:
-            print "Save project(): I/O error({0}): {1}".format(e.errno, e.strerror)
+            print("Save project(): I/O error({0}): {1}".format(e.errno, e.strerror))
             return
         except:
             raise
@@ -201,9 +200,9 @@ class ProjectMgr():
             self.ned_reference_lla = project_dict['ned-reference-lla']
         except:
             if not create_if_needed:
-                print "load error: " + str(sys.exc_info()[1])
-                print "Notice: unable to read =", project_file
-            print "Continuing with an empty project configuration"
+                print("load error: " + str(sys.exc_info()[1]))
+                print("Notice: unable to read =", project_file)
+            print("Continuing with an empty project configuration")
  
         # load camera configuration
         self.cam.load(self.project_dir)
@@ -212,23 +211,23 @@ class ProjectMgr():
     # to a lower resolution for faster processing.
     def import_images(self, scale=0.25, converter='imagemagick'):
         if self.source_dir == None:
-            print "Error: source_dir not defined."
+            print("Error: source_dir not defined.")
             return
 
         if self.image_dir == None:
-            print "Error: project's image_dir not defined."
+            print("Error: project's image_dir not defined.")
             return
         
         if self.source_dir == self.image_dir:
-            print "Error: source and destination directories must be different."
+            print("Error: source and destination directories must be different.")
             return
 
         if not os.path.exists(self.source_dir):
-            print "Error: source directory not found =", self.source_dir
+            print("Error: source directory not found =", self.source_dir)
             return
 
         if not os.path.exists(self.image_dir):
-            print "Error: destination directory not found =", self.image_dir
+            print("Error: destination directory not found =", self.image_dir)
             return
 
         files = []
@@ -241,12 +240,10 @@ class ProjectMgr():
             name_in = self.source_dir + "/" + file
             name_out = self.image_dir + "/" + file
             if converter == 'imagemagick':
-                command = 'convert -resize %d%% "%s" "%s"' % ( int(scale*100.0), name_in, name_out )
-                print command
-                commands.getstatusoutput( command )
+                subprocess.run(['convert', '-resize', '%d%%' % int(scale*100.0), name_in, name_out])
             elif converter == 'opencv':
                 src = cv2.imread(name_in, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION )
-                print src.shape
+                print(src.shape)
                 #method = cv2.INTER_AREA
                 method = cv2.INTER_LANCZOS4
                 dst = cv2.resize(src, (0,0), fx=scale, fy=scale,
@@ -259,9 +256,9 @@ class ProjectMgr():
                 dst_exif.read()
                 src_exif.copy(dst_exif) # src copies to dst
                 dst_exif.write()
-                print "Scaling (%.1f%%) %s to %s" % ((scale*100.0), name_in, name_out)
+                print("Scaling (%.1f%%) %s to %s" % ((scale*100.0), name_in, name_out))
             else:
-                print "Error: unknown converter =", converter
+                print("Error: unknown converter =", converter)
 
     def load_image_info(self, force_compute_sizes=False):
         #force_compute_sizes=True
@@ -302,11 +299,11 @@ class ProjectMgr():
         bar.finish()
 
     def load_match_pairs(self):
-        print ""
-        print "ProjectMgr.load_match_pairs():"
-        print "Notice: this routine is depricated for most purposes, unless"
-        print "resetting the match state of the system back to the original"
-        print "set of found matches."
+        print("")
+        print("ProjectMgr.load_match_pairs():")
+        print("Notice: this routine is depricated for most purposes, unless")
+        print("resetting the match state of the system back to the original")
+        print("set of found matches.")
         time.sleep(2)
         bar = Bar('Loading keypoint (pair) matches:',
                   max = len(self.image_list))
@@ -489,7 +486,7 @@ class ProjectMgr():
         return uv_distorted
     
     def compute_kp_usage(self, all=False):
-        print "Determing feature usage in matching pairs..."
+        print("Determing feature usage in matching pairs...")
         # but they may have different scaling or other attributes important
         # during feature matching
         if all:
@@ -506,7 +503,7 @@ class ProjectMgr():
                         i2.kp_used[ pair[1] ] = True
                     
     def compute_kp_usage_new(self, matches_direct):
-        print "Determing feature usage in matching pairs..."
+        print("Determing feature usage in matching pairs...")
         for image in self.image_list:
             image.kp_used = np.zeros(len(image.kp_list), np.bool_)
         for match in matches_direct:
@@ -621,10 +618,10 @@ class ProjectMgr():
             uv_filt = []
             for p in uv_grid:
                 if p[0] < -half_width or p[0] > image.width + half_width:
-                    print "rejecting width outlier:", p
+                    print("rejecting width outlier:", p)
                     continue
                 if p[1] < -half_height or p[1] > image.height + half_height:
-                    print "rejecting height outlier:", p
+                    print("rejecting height outlier:", p)
                     continue
                 uv_filt.append(p)
             
@@ -654,7 +651,7 @@ class ProjectMgr():
             coord_filt = []
             for i in reversed(range(len(coord_list))):
                 if np.isnan(coord_list[i][0]):
-                    print "rejecting ground interpolation fault:", uv_filt[i]
+                    print("rejecting ground interpolation fault:", uv_filt[i])
                     coord_list.pop(i)
                     uv_filt.pop(i)
 
@@ -676,10 +673,10 @@ class ProjectMgr():
                     if not np.isnan(coord[0][0]):
                         image.coord_list.append(coord[0])
                     else:
-                        print "nan alert!"
-                        print "a feature is too close to an edge and undistorting puts it in a weird place."
-                        print "  uv:", uv, "coord:", coord
-                        print "  orig:", image.kp_list[i].pt
+                        print("nan alert!")
+                        print("a feature is too close to an edge and undistorting puts it in a weird place.")
+                        print("  uv:", uv, "coord:", coord)
+                        print("  orig:", image.kp_list[i].pt)
                         #or append zeros which would be a hack until
                         #figuring out the root cause of the problem
                         #... if it isn't wrong image dimensions in the
@@ -746,7 +743,7 @@ class ProjectMgr():
 
     # group reprojection error for every used feature
     def compute_reprojection_errors(self, cam_dict, matches_direct):
-        print "Computing reprojection error for all match points..."
+        print("Computing reprojection error for all match points...")
 
         camw, camh = self.cam.get_image_params()
 
@@ -792,8 +789,8 @@ class ProjectMgr():
 # ====================================================================
 
     def setWorldParams(self, ground_alt_m=0.0, yaw_bias=0.0, roll_bias=0.0, pitch_bias=0.0):
-        print "Setting ground=%.1f yaw=%.2f roll=%.2f pitch=%.2f"\
-            % (ground_alt_m, yaw_bias, roll_bias, pitch_bias)
+        print("Setting ground=%.1f yaw=%.2f roll=%.2f pitch=%.2f"\
+            % (ground_alt_m, yaw_bias, roll_bias, pitch_bias))
         self.ground_alt_m = ground_alt_m
         self.group_yaw_bias = yaw_bias
         self.group_roll_bias = roll_bias
@@ -802,7 +799,7 @@ class ProjectMgr():
     def genKeypointUsageMap(self):
         # make the keypoint usage map (used so we don't have to
         # project every keypoint every time)
-        print "Building the keypoint usage map... ",
+        print("Building the keypoint usage map... ",)
         for i1 in self.image_list:
             i1.kp_usage = np.zeros(len(i1.kp_list), np.bool_)
         for i, i1 in enumerate(self.image_list):
@@ -812,11 +809,11 @@ class ProjectMgr():
                 if i == j:
                     continue
                 i2 = self.image_list[j]
-                print "%s vs %s" % (i1.name, i2.name)
+                print("%s vs %s" % (i1.name, i2.name))
                 for pair in pairs:
                     i1.kp_usage[pair[0]] = True
                     i2.kp_usage[pair[1]] = True
-        print "done."
+        print("done.")
 
     def interpolateAircraftPositions(self, correlator, shutter_latency=0.0,
                                      force=False, weight=True):
@@ -838,7 +835,7 @@ class ProjectMgr():
                     t = trig[0] + shutter_latency
                     lon, lat, msl = correlator.get_position(t)
                     roll, pitch, yaw = correlator.get_attitude(t)
-                    print [lat, lon, msl], [yaw, pitch, roll]
+                    print([lat, lon, msl], [yaw, pitch, roll])
                     image.set_aircraft_pose( [lat, lon, msl],
                                              [yaw, pitch, roll] )
                     if weight:
@@ -854,7 +851,7 @@ class ProjectMgr():
                     #print "%s roll=%.1f pitch=%.1f weight=%.2f" % (image.name, roll, pitch, image.weight)
 
                     # update geotag in exif data
-                    print image.image_file
+                    print(image.image_file)
                     exif = pyexiv2.ImageMetadata(image.image_file)
                     exif.read()
                     GPS = 'Exif.GPSInfo.GPS'
@@ -892,7 +889,7 @@ class ProjectMgr():
                 if len(pairs) >= self.m.min_pairs:
                     image.connections += 1
             image.save_meta()
-            print "%s connections: %d" % (image.name, image.connections)
+            print("%s connections: %d" % (image.name, image.connections))
 
 
     # depricate this function .... or replace with better one (or just
@@ -904,7 +901,7 @@ class ProjectMgr():
     # space with 0.5 being the center of image (and hopefully the
     # center of distortion.)
     def doLensUndistort(self, aspect_ratio, xnorm, ynorm):
-        print "DEPRICATED..."
+        print("DEPRICATED...")
         xd = (xnorm * 2.0 - 1.0) * aspect_ratio
         yd = ynorm * 2.0 - 1.0
         r = math.sqrt(xd*xd + yd*yd)
@@ -921,23 +918,23 @@ class ProjectMgr():
         horiz_mm, vert_mm, focal_len_mm = self.cam.get_lens_params()
         h = image.height
         w = image.width
-        print [h, w, self.cam.get_lens_params()]
+        print([h, w, self.cam.get_lens_params()])
         ar = float(w)/float(h)  # aspect ratio
 
         # normalized pixel coordinates to [0.0, 1.0]
         xnorm = pt[0] / float(w-1)
         ynorm = pt[1] / float(h-1)
-        print "norm = %.4f %.4f" % (xnorm, ynorm)
+        print("norm = %.4f %.4f" % (xnorm, ynorm))
 
         # lens un-distortion
         xnorm_u, ynorm_u = self.doLensUndistort(ar, xnorm, ynorm)
-        print "norm_u = %.4f %.4f" % (xnorm_u, ynorm_u)
+        print("norm_u = %.4f %.4f" % (xnorm_u, ynorm_u))
 
         # compute pixel coordinate in sensor coordinate space (mm
         # units) with (0mm, 0mm) being the center of the image.
         x_mm = (xnorm_u * 2.0 - 1.0) * (horiz_mm * 0.5)
         y_mm = (ynorm_u * 2.0 - 1.0) * (vert_mm * 0.5)
-        print "x_mm = %.4f y_mm = %.4f" % ( x_mm, y_mm )
+        print("x_mm = %.4f y_mm = %.4f" % ( x_mm, y_mm ))
         
         # the forward vector (out the nose when the aircraft is
         # straight, level, and flying north) is (x=1.0, y=0.0, z=0.0).
@@ -945,14 +942,14 @@ class ProjectMgr():
         # thus we have to remap the axes.
         #camvec = [y_mm, x_mm, focal_len_mm]
         camvec = [focal_len_mm, x_mm, y_mm]
-        print "camvec orig = ", camvec
+        print("camvec orig = ", camvec)
         camvec = transformations.unit_vector(camvec) # normalize
-        print "camvec = %.3f %.3f %.3f" % (camvec[0], camvec[1], camvec[2])
+        print("camvec = %.3f %.3f %.3f" % (camvec[0], camvec[1], camvec[2]))
 
         # transform camera vector (in body reference frame) to ned
         # reference frame
         ned = transformations.quaternion_backTransform(q, camvec)
-        print "q = %s  ned = %s" % (str(q), str(ned))
+        print("q = %s  ned = %s" % (str(q), str(ned)))
         
         # solve projection
         if ned[2] < 0.0:
@@ -1083,7 +1080,7 @@ class ProjectMgr():
         for i, match in enumerate(i1.match_list):
             if len(match) >= self.m.min_pairs:
                 i2 = self.image_list[i]
-                print "Rotating %s vs %s" % (i1.name, i2.name)
+                print("Rotating %s vs %s" % (i1.name, i2.name))
                 for pair in match:
                     # + 180 (camera is mounted backwards)
                     y1 = i1.yaw + i1.rotate + 180.0
@@ -1104,7 +1101,7 @@ class ProjectMgr():
                         da += 360.0;
                     while da > 180.0:
                         da -= 360.0
-                    print "yaw diff = %.1f  angle diff = %.1f" % (dy, da)
+                    print("yaw diff = %.1f  angle diff = %.1f" % (dy, da))
 
                     error = dy - da
                     while error < -180.0:
@@ -1114,23 +1111,23 @@ class ProjectMgr():
 
                     error_sum += error * i2.weight
                     weight_sum += i2.weight
-                    print str(pair)
-                    print " i1: %.1f %.3f %.1f" % (i1.yaw, i1.kp_list[pair[0]].angle, a1)
-                    print " i2: %.1f %.3f %.1f" % (i2.yaw, i2.kp_list[pair[1]].angle, a2)
-                    print " error: %.1f  weight: %.2f" % (error, i2.weight)
+                    print(str(pair))
+                    print(" i1: %.1f %.3f %.1f" % (i1.yaw, i1.kp_list[pair[0]].angle, a1))
+                    print(" i2: %.1f %.3f %.1f" % (i2.yaw, i2.kp_list[pair[1]].angle, a2))
+                    print(" error: %.1f  weight: %.2f" % (error, i2.weight))
                     print
                 #self.showMatch(i1, i2, match)
         update = 0.0
         if weight_sum > 0.0:
             update = error_sum / weight_sum
         i1.rotate += update * gain
-        print "Rotate %s delta=%.2f = %.2f" % (i1.name,  update, i1.rotate)
+        print("Rotate %s delta=%.2f = %.2f" % (i1.name,  update, i1.rotate))
 
     def rotateImages(self, gain=0.10):
         for image in self.image_list:
             self.findImageRotate(image, gain)
         for image in self.image_list:
-            print "%s: yaw error = %.2f" % (image.name, image.rotate)
+            print("%s: yaw error = %.2f" % (image.name, image.rotate))
                     
     def findImagePairShift(self, i1, i2, match):
         xerror_sum = 0.0
@@ -1165,7 +1162,7 @@ class ProjectMgr():
             weight_sum += i2.weight
         xshift = xerror_sum / weight_sum
         yshift = yerror_sum / weight_sum
-        print "Shift %s -> (%.2f %.2f)" % (i1.name, xshift, yshift)
+        print("Shift %s -> (%.2f %.2f)" % (i1.name, xshift, yshift))
         #print " %s bias before (%.2f %.2f)" % (i1.name, i1.x_bias, i1.y_bias)
         i1.x_bias += xshift * gain
         i1.y_bias += yshift * gain
@@ -1302,10 +1299,10 @@ class ProjectMgr():
             image.error = error
         elif method == "stddev":
             image.stddev = error
-        print "Fit %s (%s) is %.2f %.2f %.2f %.2f (avg=%.3f stddev=%.3f)" \
+        print("Fit %s (%s) is %.2f %.2f %.2f %.2f (avg=%.3f stddev=%.3f)" \
             % (image.name, method,
                image.camera_yaw, image.camera_roll, image.camera_pitch,
-               image.camera_z, image.error, image.stddev)
+               image.camera_z, image.error, image.stddev))
         image.save_meta()
 
     # try to fit individual images by manipulating various parameters
@@ -1331,10 +1328,10 @@ class ProjectMgr():
                 dst[2].append(0.0)
             Aff3D = transformations.superimposition_matrix(src, dst)
             scale, shear, angles, trans, persp = transformations.decompose_matrix(Aff3D)
-            print "%s vs. %s" % (i1.name, i2.name)
+            print("%s vs. %s" % (i1.name, i2.name))
             #print "  scale = %s" % str(scale)
             #print "  shear = %s" % str(shear)
-            print "  angles = %s" % str(angles)
+            print("  angles = %s" % str(angles))
             #print "  trans = %s" % str(trans)
             #print "  persp = %s" % str(persp)
 
@@ -1351,7 +1348,7 @@ class ProjectMgr():
         angles = [ angles_sum[0] / weight_sum,
                    angles_sum[1] / weight_sum,
                    angles_sum[2] / weight_sum ]
-        print "average angles = %s" % str(angles)
+        print("average angles = %s" % str(angles))
 
         rad2deg = 180.0 / math.pi
         i1.roll_bias += angles[0] * rad2deg * gain
@@ -1366,8 +1363,8 @@ class ProjectMgr():
         coord_list, corner_list, grid_list = self.projectImageKeypointsNative2(i1)
         error = self.m.imageError(i, alt_coord_list=coord_list, method="average")
         stddev = self.m.imageError(i, alt_coord_list=coord_list, method="stddev")
-        print "average error = %.3f" % error
-        print "average stddev = %.3f" % stddev
+        print("average error = %.3f" % error)
+        print("average stddev = %.3f" % stddev)
         i1.save_meta()
 
     def fitImagesIndividually(self, method, gain):
@@ -1378,7 +1375,7 @@ class ProjectMgr():
     def geotag_pictures( self, correlator, dir = ".", geotag_dir = "." ):
         ground_sum = 0.0
         ground_count = 0
-        print "master_time_offset = " + str(correlator.master_time_offset)
+        print("master_time_offset = " + str(correlator.master_time_offset))
         for match in correlator.best_matchups:
             pict, trig = correlator.get_match(match)
             trig_time = trig[0] + correlator.master_time_offset
@@ -1387,14 +1384,14 @@ class ProjectMgr():
             time_diff = trig_time - pict_time
             #print str(match[0]) + " <=> " + str(match[1])
             #print str(pict_time) + " <=> " + str(trig_time)
-            print pict[2] + " -> " + str(trig[2]) + ", " + str(trig[3]) + ": " + str(trig[4]) + " (" + str(time_diff) + ")"
+            print(pict[2] + " -> " + str(trig[2]) + ", " + str(trig[3]) + ": " + str(trig[4]) + " (" + str(time_diff) + ")")
             agl_ft = trig[4]
             lon_deg, lat_deg, msl = correlator.get_position( trig[0] )
             msl_ft = msl / 0.3048
             ground_sum += (msl_ft - agl_ft)
             ground_count += 1
             ground_agl_ft = ground_sum / ground_count
-            print "  MSL: " + str( msl_ft ) + " AGL: " + str(agl_ft) + " Ground: " + str(ground_agl_ft)
+            print("  MSL: " + str( msl_ft ) + " AGL: " + str(agl_ft) + " Ground: " + str(ground_agl_ft))
 
             # double check geotag dir exists and make it if not
             if not os.path.exists(geotag_dir):
@@ -1404,11 +1401,7 @@ class ProjectMgr():
             name_in = dir + "/" + pict[2]
             name_out = geotag_dir + "/" + pict[2]
             if not os.path.isfile( name_out ):
-                command = 'convert -geometry 684x456 ' + name_in + ' ' + name_out
-                #command = 'convert -geometry 512x512\! ' + name_in + ' ' + name_out
-                print command
-                commands.getstatusoutput( command )
-
+                suprocess.run(['convert', '-geometry', '684x456', name_in, name_out])
             # update the gps meta data
             exif = pyexiv2.ImageMetadata(name_out)
             exif.read()
@@ -1434,21 +1427,21 @@ class ProjectMgr():
             newdatetime = datetime.datetime.utcfromtimestamp(round(unixtime)).strftime('%Y:%m:%d %H:%M:%S')
             exif = pyexiv2.ImageMetadata(name)
             exif.read()
-            print "old: " + str(exif['Exif.Image.DateTime']) + "  new: " + newdatetime
+            print("old: " + str(exif['Exif.Image.DateTime']) + "  new: " + newdatetime)
             exif['Exif.Image.DateTime'] = newdatetime
             exif.write()
 
     def generate_aircraft_location_report(self):
         for image in self.image_list:
-            print "%s\t%.10f\t%.10f\t%.2f" \
+            print("%s\t%.10f\t%.10f\t%.2f" \
                 % (image.name, image.aircraft_lon, image.aircraft_lat,
-                   image.aircraft_msl)
+                   image.aircraft_msl))
 
     def draw_epilines(self, img1, img2, lines, pts1, pts2):
         ''' img1 - image on which we draw the epilines for the points in img2
             lines - corresponding epilines '''
         r,c,d = img1.shape
-        print img1.shape
+        print(img1.shape)
         for r,pt1,pt2 in zip(lines,pts1,pts2):
             color = tuple(np.random.randint(0,255,3).tolist())
             x0,y0 = map(int, [0, -r[2]/r[1] ])
@@ -1476,11 +1469,11 @@ class ProjectMgr():
                     pts2.append( p2 )
                 pts1 = np.float32(pts1)
                 pts2 = np.float32(pts2)
-                print "pts1 = %s" % str(pts1)
-                print "pts2 = %s" % str(pts2)
+                print("pts1 = %s" % str(pts1))
+                print("pts2 = %s" % str(pts2))
                 F, mask = cv2.findFundamentalMat(pts1, pts2, cv2.FM_LMEDS)
 
-                print "loading full res images ..."
+                print("loading full res images ...")
                 img1 = i1.load_source_rgb(self.source_dir)
                 img2 = i2.load_source_rgb(self.source_dir)
 
@@ -1532,7 +1525,7 @@ class ProjectMgr():
                 (result, rvec, tvec) = cv2.solvePnP(obj_pts, img_pts, K, None)
                 #print "  result = %s, rvec = %s, tvec = %s" \
                 #    % (result, rvec, tvec)
-                print "  rvec = %.2f %.2f %.2f" % (rvec[0], rvec[1], rvec[2])
+                print("  rvec = %.2f %.2f %.2f" % (rvec[0], rvec[1], rvec[2]))
                 R, jac = cv2.Rodrigues(rvec)
                 #print "  R =\n%s" % str(R)
                 # googled how to derive the position in object
@@ -1574,9 +1567,9 @@ class ProjectMgr():
                 weight_sum += i2.weight
 
                 deg2rad = math.pi / 180.0
-                print "  pair euler = %.2f %.2f %.2f" % (yaw/deg2rad,
+                print("  pair euler = %.2f %.2f %.2f" % (yaw/deg2rad,
                                                          pitch/deg2rad,
-                                                         roll/deg2rad)
+                                                         roll/deg2rad))
                 #print "  est = %.2f %.2f %.2f" % (i1.camera_yaw,
                 #                                  i1.camera_pitch,
                 #                                  i1.camera_roll)
@@ -1599,10 +1592,10 @@ class ProjectMgr():
             i1.camera_x = pos_sum[0] / weight_sum
             i1.camera_y = pos_sum[1] / weight_sum
             i1.camera_z = pos_sum[2] / weight_sum
-            print "Camera pose for image %s:" % i1.name
-            print "  PNP pos = %.2f %.2f %.2f" % (i1.camera_x,
+            print("Camera pose for image %s:" % i1.name)
+            print("  PNP pos = %.2f %.2f %.2f" % (i1.camera_x,
                                                   i1.camera_y,
-                                                  i1.camera_z)
+                                                  i1.camera_z))
             yaw_avg = math.atan2(att_sum[0][1]/weight_sum,
                                  att_sum[0][0]/weight_sum)
             pitch_avg = math.atan2(att_sum[1][1]/weight_sum,
@@ -1612,9 +1605,9 @@ class ProjectMgr():
             i1.camera_yaw = yaw_avg / deg2rad
             i1.camera_pitch = pitch_avg / deg2rad
             i1.camera_roll = roll_avg / deg2rad
-            print "  PNP att = %.2f %.2f %.2f" % (i1.camera_yaw,
+            print("  PNP att = %.2f %.2f %.2f" % (i1.camera_yaw,
                                                   i1.camera_pitch,
-                                                  i1.camera_roll)
+                                                  i1.camera_roll))
             i1.save_meta()
 
     # call solvePnP() on all the matching pairs from all the matching
@@ -1710,9 +1703,9 @@ class ProjectMgr():
                                                 i1.camera_roll*deg2rad,
                                                 'rzyx')
 
-            print "Beg cam pose %s %.2f %.2f %.2f  %.2f %.2f %.2f" \
+            print("Beg cam pose %s %.2f %.2f %.2f  %.2f %.2f %.2f" \
                 % (i1.name, i1.camera_yaw, i1.camera_pitch, i1.camera_roll,
-                   i1.camera_x, i1.camera_y, i1.camera_z)
+                   i1.camera_x, i1.camera_y, i1.camera_z))
             i1.camera_yaw = yaw/deg2rad
             i1.camera_pitch = pitch/deg2rad
             i1.camera_roll = roll/deg2rad
@@ -1720,9 +1713,9 @@ class ProjectMgr():
             i1.camera_y = pos.item(1)
             i1.camera_z = pos.item(2)
             i1.save_meta()
-            print "New cam pose %s %.2f %.2f %.2f  %.2f %.2f %.2f" \
+            print("New cam pose %s %.2f %.2f %.2f  %.2f %.2f %.2f" \
                 % (i1.name, i1.camera_yaw, i1.camera_pitch, i1.camera_roll,
-                   i1.camera_x, i1.camera_y, i1.camera_z)
+                   i1.camera_x, i1.camera_y, i1.camera_z))
 
     # find the pose estimate for each match individually and use that
     # pose to project the keypoints.  Then average all the keypoint
@@ -1735,10 +1728,10 @@ class ProjectMgr():
     # whole lot of nonsense
     def fitImagesWithSolvePnP3(self):
         for i, i1 in enumerate(self.image_list):
-            print "solvePnP() (3) for %s" % i1.name
+            print("solvePnP() (3) for %s" % i1.name)
 
             if i1.connections == 0:
-                print "  ... no connections, skipping ..."
+                print("  ... no connections, skipping ...")
                 continue
 
             K = self.cam.get_K()
@@ -1773,13 +1766,13 @@ class ProjectMgr():
                 size = len(status)
                 inliers = np.sum(status)
                 if inliers < size: 
-                    print '%s vs %s: %d / %d  inliers/matched' \
-                        % (i1.name, i2.name, inliers, size)
+                    print('%s vs %s: %d / %d  inliers/matched' \
+                        % (i1.name, i2.name, inliers, size))
                     status = self.m.showMatch(i1, i2, matches, status)
                     delete_list = []
                     for k, flag in enumerate(status):
                         if not flag:
-                            print "    deleting: " + str(matches[k])
+                            print("    deleting: " + str(matches[k]))
                             #match[i] = (-1, -1)
                             delete_list.append(matches[k])
                     for pair in delete_list:
@@ -1843,10 +1836,10 @@ class ProjectMgr():
                 #print "solvePNP =\n%s" % str(Rconv)
                 #print "my FIT =\n%s" % str(Rcam)
 
-                print " %s vs %s cam pose %.2f %.2f %.2f  %.2f %.2f %.2f" \
+                print(" %s vs %s cam pose %.2f %.2f %.2f  %.2f %.2f %.2f" \
                     % (i1.name, i2.name,
                        camera_pose[0], camera_pose[1], camera_pose[2],
-                       camera_pose[3], camera_pose[4], camera_pose[5])
+                       camera_pose[3], camera_pose[4], camera_pose[5]))
     
             # find the average coordinate locations from the set of pair
             # projections
@@ -1904,9 +1897,9 @@ class ProjectMgr():
                                                                    'rzyx')
             deg2rad = math.pi / 180.0
             
-            print "Beg cam pose %s %.2f %.2f %.2f  %.2f %.2f %.2f" \
+            print("Beg cam pose %s %.2f %.2f %.2f  %.2f %.2f %.2f" \
                 % (i1.name, i1.camera_yaw, i1.camera_pitch, i1.camera_roll,
-                   i1.camera_x, i1.camera_y, i1.camera_z)
+                   i1.camera_x, i1.camera_y, i1.camera_z))
             i1.camera_yaw = yaw/deg2rad
             i1.camera_pitch = pitch/deg2rad
             i1.camera_roll = roll/deg2rad
@@ -1914,13 +1907,13 @@ class ProjectMgr():
             i1.camera_y = pos.item(1)
             i1.camera_z = pos.item(2)
             i1.save_meta()
-            print "New cam pose %s %.2f %.2f %.2f  %.2f %.2f %.2f" \
+            print("New cam pose %s %.2f %.2f %.2f  %.2f %.2f %.2f" \
                 % (i1.name, i1.camera_yaw, i1.camera_pitch, i1.camera_roll,
-                   i1.camera_x, i1.camera_y, i1.camera_z)
+                   i1.camera_x, i1.camera_y, i1.camera_z))
 
     def triangulate_test(self):
         for i, i1 in enumerate(self.image_list):
-            print "pnp for %s" % i1.name
+            print("pnp for %s" % i1.name)
             K = self.cam.get_K()
             att_sum = [ [0.0, 0.0], [0.0, 0.0], [0.0, 0.0] ]
             pos_sum = [0.0, 0.0, 0.0]
@@ -1939,7 +1932,7 @@ class ProjectMgr():
 
     def pnp_test(self):
         for i, i1 in enumerate(self.image_list):
-            print "pnp for %s" % i1.name
+            print("pnp for %s" % i1.name)
             K = self.cam.get_K()
             att_sum = [ [0.0, 0.0], [0.0, 0.0], [0.0, 0.0] ]
             pos_sum = [0.0, 0.0, 0.0]
@@ -1963,16 +1956,16 @@ class ProjectMgr():
                 #print "img_pts = %s" % str(img_pts)
                 #print "obj_pts = %s" % str(obj_pts)
                 (result, rvec, tvec) = cv2.solvePnP(obj_pts, img_pts, K, None)
-                print "  result = %s, rvec = %s, tvec = %s" \
-                    % (result, rvec, tvec)
+                print("  result = %s, rvec = %s, tvec = %s" \
+                    % (result, rvec, tvec))
                 R, jac = cv2.Rodrigues(rvec)
-                print "  R =\n%s" % str(R)
+                print("  R =\n%s" % str(R))
                 # googled how to derive the position in object
                 # coordinates from solvePNP()
                 pos = -np.matrix(R).T * np.matrix(tvec)
                 for k in range(0,3):
                     pos_sum[k] += pos[k]
-                print "  PNP pos = %s" % str(pos)
+                print("  PNP pos = %s" % str(pos))
 
                 # Remap the R matrix to match our coordinate system
                 # (by inspection...)
@@ -1992,7 +1985,7 @@ class ProjectMgr():
                 Rconv[2,0] = R[2,2]
                 Rconv[2,1] = R[0,2]
                 Rconv[2,2] = -R[1,2]
-                print "Rconv =\n%s" % str(Rconv)
+                print("Rconv =\n%s" % str(Rconv))
                 (yaw, pitch, roll) = transformations.euler_from_matrix(Rconv, 'rzyx')
                 att_sum[0][0] += math.cos(yaw)
                 att_sum[0][1] += math.sin(yaw)
@@ -2003,45 +1996,45 @@ class ProjectMgr():
                 weight_sum += i2.weight
 
                 deg2rad = math.pi / 180.0
-                print "  euler = %.2f %.2f %.2f" % (yaw/deg2rad,
+                print("  euler = %.2f %.2f %.2f" % (yaw/deg2rad,
                                                     pitch/deg2rad,
-                                                    roll/deg2rad)
-                print "  est = %.2f %.2f %.2f" % (i1.camera_yaw,
+                                                    roll/deg2rad))
+                print("  est = %.2f %.2f %.2f" % (i1.camera_yaw,
                                                   i1.camera_pitch,
-                                                  i1.camera_roll)
+                                                  i1.camera_roll))
 
                 Rcam = transformations.euler_matrix(i1.camera_yaw*deg2rad,
                                                     i1.camera_pitch*deg2rad,
                                                     i1.camera_roll*deg2rad,
                                                     'rzyx')
 
-                print "solvePNP =\n%s" % str(Rconv)
-                print "my FIT =\n%s" % str(Rcam)
+                print("solvePNP =\n%s" % str(Rconv))
+                print("my FIT =\n%s" % str(Rcam))
 
                 v = np.array( [1.0, 0.0, 0.0] )
                 vh = np.array( [1.0, 0.0, 0.0, 1.0] )
-                print "  v = %s" % str(v)
-                print "  Rconv * v = %s" % str(np.dot(Rconv, v))
-                print "  Rcam * v = %s" % str(np.dot(Rcam, vh))
+                print("  v = %s" % str(v))
+                print("  Rconv * v = %s" % str(np.dot(Rconv, v)))
+                print("  Rcam * v = %s" % str(np.dot(Rcam, vh)))
             if weight_sum < 0.0001:
                 continue
-            print "Camera pose for image %s:" % i1.name
-            print "  PNP pos = %.2f %.2f %.2f" % (pos_sum[0]/weight_sum,
+            print("Camera pose for image %s:" % i1.name)
+            print("  PNP pos = %.2f %.2f %.2f" % (pos_sum[0]/weight_sum,
                                               pos_sum[1]/weight_sum,
-                                              pos_sum[2]/weight_sum)
-            print "  Fit pos = %s" % str((i1.camera_x, i1.camera_y, i1.camera_z))            
+                                              pos_sum[2]/weight_sum))
+            print("  Fit pos = %s" % str((i1.camera_x, i1.camera_y, i1.camera_z)))
             yaw_avg = math.atan2(att_sum[0][1]/weight_sum,
                                  att_sum[0][0]/weight_sum)
             pitch_avg = math.atan2(att_sum[1][1]/weight_sum,
                                    att_sum[1][0]/weight_sum)
             roll_avg =  math.atan2(att_sum[2][1]/weight_sum,
                                    att_sum[2][0]/weight_sum)
-            print "  PNP att = %.2f %.2f %.2f" % ( yaw_avg / deg2rad,
+            print("  PNP att = %.2f %.2f %.2f" % ( yaw_avg / deg2rad,
                                                pitch_avg / deg2rad,
-                                               roll_avg / deg2rad )
-            print "  Fit att = %.2f %.2f %.2f" % (i1.camera_yaw,
+                                               roll_avg / deg2rad ))
+            print("  Fit att = %.2f %.2f %.2f" % (i1.camera_yaw,
                                                   i1.camera_pitch,
-                                                  i1.camera_roll)
+                                                  i1.camera_roll))
 
     # should reset the width, height values in the keys files
     def recomputeWidthHeight(self):
@@ -2085,7 +2078,7 @@ class ProjectMgr():
             feature_list.append( f )
         fc = geojson.FeatureCollection( feature_list )
         dump = geojson.dumps(fc)
-        print str(dump)
+        print(str(dump))
 
         f = open( path + "/points.geojson", "w" )
         f.write(dump)
@@ -2095,7 +2088,7 @@ class ProjectMgr():
         if not os.path.exists(warped_dir):
             os.makedirs(warped_dir )
         for i, image in enumerate(self.image_list):
-            print "rendering %s" % image.name
+            print("rendering %s" % image.name)
             w, h, warp = \
                 self.render.drawImage(image,
                                       source_dir=self.source_dir,

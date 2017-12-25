@@ -390,12 +390,12 @@ class Placer():
                 image.placed = True
                 group.append(image)
 
-        print "Group (cycles) report:"
+        print("Group (cycles) report:")
         for group in self.group_list:
-            print "  group:",
+            print("  group:",)
             for image in group:
-                print " %s" % image.name,
-            print ""
+                print(" %s" % image.name,)
+            print
 
         return self.group_list
 
@@ -429,7 +429,7 @@ class Placer():
                         done = False
             if maxidx != None:
                 image = image_list[maxidx]
-                print "Placing %s (connections = %d)" % (image.name, maxcon)
+                print("Placing %s (connections = %d)" % (image.name, maxcon))
                 if affine == "rigid" or affine == "full":
                     fullAffine = (affine == "full")
                     #M = self.findGroupAffine(image, fullAffine=fullAffine)
@@ -499,7 +499,7 @@ class Placer():
                             done = False
             if minidx != None:
                 image = image_list[minidx]
-                print "Placing %s (score = %.3f)" % (image.name, minscore)
+                print("Placing %s (score = %.3f)" % (image.name, minscore))
                 if affine == "rigid" or affine == "full":
                     fullAffine = (affine == "full")
                     #M = self.findGroupAffine(image, fullAffine=fullAffine)

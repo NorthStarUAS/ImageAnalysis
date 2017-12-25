@@ -19,8 +19,8 @@ def coverage(image_list):
             xmax = x1
         if ymax == None or y1 > ymax:
             ymax = y1
-    print "List area coverage: (%.2f %.2f) (%.2f %.2f)" \
-        % (xmin, ymin, xmax, ymax)
+    print("List area coverage: (%.2f %.2f) (%.2f %.2f)" \
+        % (xmin, ymin, xmax, ymax))
     return (xmin, ymin, xmax, ymax)
 
 # return True/False if the given rectangles overlap
@@ -60,7 +60,7 @@ def getImagesCoveringPoint(image_list, x=0.0, y=0.0, pad=20.0, only_placed=False
     for image in coverage_list:
         name_list.append(image.name)
 
-    print "Images covering point (%.2f %.2f): %s" % (x, y, str(name_list))
+    print("Images covering point (%.2f %.2f): %s" % (x, y, str(name_list)))
 
     return coverage_list
 

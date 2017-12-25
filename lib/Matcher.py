@@ -44,7 +44,7 @@ class Matcher():
                                      }
                 self.matcher = cv2.FlannBasedMatcher(flann_params, {}) # bug : need to pass empty dict (#1329)
             elif mparams['matcher'] == 'BF':
-                print "brute force norm = %d" % norm
+                print("brute force norm = %d" % norm)
                 self.matcher = cv2.BFMatcher(norm)
         if 'match-ratio' in mparams:
             self.match_ratio = mparams['match-ratio']
@@ -104,11 +104,11 @@ class Matcher():
             key1 = "%.2f-%.2f" % (kp1.pt[0], kp1.pt[1])
             key2 = "%.2f-%.2f" % (kp2.pt[0], kp2.pt[1])
             if key1 in kp1_dict and key2 in kp2_dict:
-                print "image1 and image2 key point already used:", key1, key2
+                print("image1 and image2 key point already used:", key1, key2)
             elif key1 in kp1_dict:
-                print "image1 key point already used:", key1
+                print("image1 key point already used:", key1)
             elif key2 in kp2_dict:
-                print "image2 key point already used:", key2
+                print( "image2 key point already used:", key2)
             else:
                 kp1_dict[key1] = True
                 kp2_dict[key2] = True
@@ -167,12 +167,12 @@ class Matcher():
         else:
             # fail
             M, status = None, None
-        print '%s vs %s: %d / %d  inliers/matched' \
-            % (i1.name, i2.name, np.sum(status), len(status))
+        print('%s vs %s: %d / %d  inliers/matched' \
+            % (i1.name, i2.name, np.sum(status), len(status)))
         # remove outliers
         for k, flag in enumerate(status):
             if not flag:
-                print "    deleting: " + str(matches[k])
+                print("    deleting: " + str(matches[k]))
                 clean = False
                 matches[k] = (-1, -1)
         for pair in reversed(matches):
@@ -205,12 +205,12 @@ class Matcher():
         after = len(matches)
         if before != after:
             clean = False
-            print "  (%d vs. %d) matches %d -> %d" % (i, j, before, after)
+            print("  (%d vs. %d) matches %d -> %d" % (i, j, before, after))
         return clean
 
     def filter_non_reciprocal(self, image_list):
         clean = True
-        print "Removing non-reciprocal matches:"
+        print("Removing non-reciprocal matches:")
         for i, i1 in enumerate(image_list):
             for j, i2 in enumerate(image_list):
                 if not filter_non_reciprocal_pair(image_list, i, j):
@@ -305,7 +305,7 @@ class Matcher():
 
             rot = np.linalg.norm(angles)
             dist = np.linalg.norm(trans)
-            print "rot=%.6f dist=%.6f" % (rot, dist)
+            print("rot=%.6f dist=%.6f" % (rot, dist))
             if rot < 0.001 and dist < 0.001:
                 done = True
                 a = raw_input("Press Enter to continue...")
@@ -325,11 +325,11 @@ class Matcher():
                 m.queryIdx = result1[qi]
                 ti = m.trainIdx
                 m.trainIdx = result2[ti]
-        print "initial matches =", len(matches)
+        print("initial matches =", len(matches))
         
         # run the classic feature distance ratio test
         p1, p2, kp_pairs, idx_pairs = self.filter_by_feature(i1, i2, matches)
-        print "after distance ratio test =", len(idx_pairs)
+        print("after distance ratio test =", len(idx_pairs))
  
         do_direct_geo_individual_distance_test = False
         if do_direct_geo_individual_distance_test:
@@ -337,14 +337,14 @@ class Matcher():
             # other (fine grain distance check)
             # print "  pairs (before location filter) =", len(idx_pairs)
             idx_pairs = self.filter_by_location(i1, i2, idx_pairs, feature_fuzz)
-            print "after direct goereference distance test =", len(idx_pairs)
+            print("after direct goereference distance test =", len(idx_pairs))
 
         # check for duplicate matches (based on different scales or attributes)
         idx_pairs = self.filter_duplicates(i1, i2, idx_pairs)
         
         if len(idx_pairs) < self.min_pairs:
             idx_pairs = []
-        print "  pairs =", len(idx_pairs)
+        print("  pairs =", len(idx_pairs))
         return idx_pairs
     
     # do initial feature matching of specified image against every
@@ -352,7 +352,7 @@ class Matcher():
     # fuzz units is meters
     def hybridImageMatches(self, i1, i2, image_fuzz=40, feature_fuzz=20, review=False):
         if i1 == i2:
-            print "We shouldn't see this, but i1 == i2"
+            print("We shouldn't see this, but i1 == i2")
             return [], []
         if np.any(i1.des_list):
             size = len(i1.des_list)
@@ -385,7 +385,7 @@ class Matcher():
         for k in result2:
             des_list2.append(i2.des_list[k])
 
-        print "i1 vs. i2 features = %d vs %d" % (len(des_list1), len(des_list2))
+        print("i1 vs. i2 features = %d vs %d" % (len(des_list1), len(des_list2)))
 
         # all vs. all match between overlapping i1 keypoints and i2
         # keypoints (forward match)
@@ -408,7 +408,7 @@ class Matcher():
                 # remove deselected pairs
                 for k, flag in enumerate(status):
                     if not flag:
-                        print "    deleting: " + str(idx_pairs1[k])
+                        print("    deleting: " + str(idx_pairs1[k]))
                         idx_pairs1[k] = (-1, -1)
                 for pair in reversed(idx_pairs1):
                     if pair == (-1, -1):
@@ -419,7 +419,7 @@ class Matcher():
                 # remove deselected pairs
                 for k, flag in enumerate(status):
                     if not flag:
-                        print "    deleting: " + str(idx_pairs2[k])
+                        print("    deleting: " + str(idx_pairs2[k]))
                         idx_pairs2[k] = (-1, -1)
                 for pair in reversed(idx_pairs2):
                     if pair == (-1, -1):
@@ -462,7 +462,7 @@ class Matcher():
             for j, i2 in enumerate(image_list):
                 if j <= i:
                     continue
-                print "Matching %s vs %s" % (i1.name, i2.name)
+                print("Matching %s vs %s" % (i1.name, i2.name))
                 if len(i2.match_list) == 0:
                     # create if needed
                     i2.match_list = [[]] * len(image_list)
@@ -483,7 +483,7 @@ class Matcher():
                     if not self.filter_by_homography(K, i2, i1, i, filter):
                         done = False
                         
-                print "%.1f %% done" % ((n_count / n_work) * 100.0)
+                print("%.1f %% done" % ((n_count / n_work) * 100.0))
 
         # so nothing sneaks through
         self.cullShortMatches(image_list)
@@ -495,10 +495,10 @@ class Matcher():
     # probably ever happen now?)
     def cullShortMatches(self, image_list):
         for i, i1 in enumerate(image_list):
-            print "(needed?) Cull matches for %s" % i1.name
+            print("(needed?) Cull matches for %s" % i1.name)
             for j, matches in enumerate(i1.match_list):
                 if len(matches) < self.min_pairs:
-                    print '  Culling pair index:', j
+                    print('  Culling pair index:', j)
                     i1.match_list[j] = []
 
     def saveMatches(self, image_list):
@@ -641,7 +641,7 @@ class Matcher():
         affine = cv2.estimateRigidTransform(np.array([src]).astype(np.float32),
                                             np.array([dst]).astype(np.float32),
                                             fullAffine)
-        print 'affine:', affine
+        print('affine:', affine)
         if affine is None:
             return status
         (rot, tx, ty, sx, sy) = self.decomposeAffine(affine)
@@ -650,23 +650,23 @@ class Matcher():
         error = []
         for i, p in enumerate(src):
             p_est = affine.dot( np.hstack((p, 1.0)) )[:2]
-            print 'p est:', p_est, 'act:', dst[i]
+            print('p est:', p_est, 'act:', dst[i])
             #np1 = np.array(i1.coord_list[pair[0]])
             #np2 = np.array(i2.coord_list[pair[1]])
             d = np.linalg.norm(p_est - dst[i])
-            print 'dist:', d
+            print('dist:', d)
             error.append(d)
         error = np.array(error)
         avg = np.mean(error)
         std = np.std(error)
-        print 'avg:', avg, 'std:', std
+        print('avg:', avg, 'std:', std)
 
         # mark the potential outliers
         for i in range(len(status)):
             if error[i] > avg + 3*std:
                 status[i] = False
                 
-        print 'orientation:', orient
+        print('orientation:', orient)
         if orient == 'relative':
             # estimate relative orientation between features
             yaw1 = 0
@@ -683,7 +683,7 @@ class Matcher():
         else:
             yaw1 = 0.0
             yaw2 = 0.0
-        print yaw1, yaw2
+        print( yaw1, yaw2)
         h, w = img1.shape[:2]
         scale = 790.0/float(w)
         si1, M1 = self.rotateAndScale(img1, yaw1, scale)
@@ -718,7 +718,7 @@ class Matcher():
             #print str(i1.match_list[j])
             idx_pairs = i1.match_list[j]
             if len(idx_pairs) > self.min_pairs:
-                print "Showing matches for image %s and %s" % (i1.name, i2.name)
+                print("Showing matches for image %s and %s" % (i1.name, i2.name))
                 self.showMatch( i1, i2, idx_pairs )
 
     def showAllMatches(self):
@@ -885,7 +885,7 @@ class Matcher():
         i1 = self.image_list[i]
         i2 = self.image_list[j]
         match = i1.match_list[j]
-        print "pair error report %s v. %s (%d)" % (i1.name, i2.name, len(match))
+        print("pair error report %s v. %s (%d)" % (i1.name, i2.name, len(match)))
         if len(match) == 0:
             return
         report_list = []
@@ -913,7 +913,7 @@ class Matcher():
             error = line[0]
             stddev_sum += (error_avg-error)*(error_avg-error)
         stddev = math.sqrt(stddev_sum / len(match))
-        print "   error avg = %.2f stddev = %.2f" % (error_avg, stddev)
+        print("   error avg = %.2f stddev = %.2f" % (error_avg, stddev))
 
         # compute best estimation of valid vs. suspect pairs
         dirty = False
@@ -932,24 +932,24 @@ class Matcher():
             delete_list = []
             for k, flag in enumerate(status):
                 if not flag:
-                    print "    deleting: " + str(match[k])
+                    print("    deleting: " + str(match[k]))
                     #match[i] = (-1, -1)
                     delete_list.append(match[k])
 
         if False: # for line in report_list:
-            print "    %.1f %s" % (line[0], str(match[line[1]]))
+            print("    %.1f %s" % (line[0], str(match[line[1]])))
             if line[0] > 50.0 or line[0] > (error_avg + 5*stddev):
                 # if positional error > 50m delete pair
                 done = False
                 while not done:
-                    print "Found a suspect match: d)elete v)iew [o]k: ",
+                    print("Found a suspect match: d)elete v)iew [o]k: ",)
                     reply = find_getch()
-                    print ""
+                    print
                     if reply == 'd':
                         match[line[1]] = (-1, -1)
                         dirty = True
                         done = True;
-                        print "    (deleted) " + str(match[line[1]])
+                        print("    (deleted) " + str(match[line[1]]))
                     elif reply == 'v':
                         self.showMatch(i1, i2, match, line[1])
                     else:
@@ -981,7 +981,7 @@ class Matcher():
         for i, i1 in enumerate(self.image_list):
             # rejection range in pixels
             tol = float(i1.width) / 800.0 + fuzz_factor
-            print "tol = %.4f" % tol
+            print("tol = %.4f" % tol)
             if tol < 0.0:
                 tol = 0.0
             for j, matches in enumerate(i1.match_list):
@@ -1005,8 +1005,8 @@ class Matcher():
 
                 size = len(status)
                 inliers = np.sum(status)
-                print '%s vs %s: %d / %d  inliers/matched' \
-                    % (i1.name, i2.name, inliers, size)
+                print('%s vs %s: %d / %d  inliers/matched' \
+                    % (i1.name, i2.name, inliers, size))
 
                 if inliers < size:
                     total_removed += (size - inliers)
@@ -1016,7 +1016,7 @@ class Matcher():
                     delete_list = []
                     for k, flag in enumerate(status):
                         if not flag:
-                            print "    deleting: " + str(matches[k])
+                            print("    deleting: " + str(matches[k]))
                             #match[i] = (-1, -1)
                             delete_list.append(matches[k])
 
@@ -1059,14 +1059,14 @@ class Matcher():
                 # check for degenerate case of all matches being
                 # pretty close to a straight line
                 if self.isLinear(pts, threshold):
-                    print "%s vs %s is a linear match, probably should discard" % (i1.name, i2.name)
+                    print("%s vs %s is a linear match, probably should discard" % (i1.name, i2.name))
                     
                     status = self.showMatch(i1, i2, matches, status)
 
                     delete_list = []
                     for k, flag in enumerate(status):
                         if not flag:
-                            print "    deleting: " + str(matches[k])
+                            print("    deleting: " + str(matches[k]))
                             #match[i] = (-1, -1)
                             delete_list.append(matches[k])
 
@@ -1077,7 +1077,7 @@ class Matcher():
     # keypoints that join a pair of images, the greater the chance
     # that we could have stumbled on a degenerate or incorrect set.
     def reviewByFewestPairs(self, maxpairs=8):
-        print "Review matches by fewest number of pairs"
+        print("Review matches by fewest number of pairs")
         if len(self.image_list):
             report_list = []
             for i, image in enumerate(self.image_list):
@@ -1095,13 +1095,13 @@ class Matcher():
                 if len(pairs) == 0:
                     # probably already deleted by the other match order
                     continue
-                print "showing %s vs %s: %d pairs" \
-                    % (i1.name, i2.name, len(pairs))
+                print("showing %s vs %s: %d pairs" \
+                    % (i1.name, i2.name, len(pairs)))
                 status = self.showMatch(i1, i2, pairs)
                 delete_list = []
                 for k, flag in enumerate(status):
                     if not flag:
-                        print "    deleting: " + str(pairs[k])
+                        print("    deleting: " + str(pairs[k]))
                         #match[i] = (-1, -1)
                         delete_list.append(pairs[k])
                 for pair in delete_list:
@@ -1127,8 +1127,8 @@ class Matcher():
         for line in report_list:
             i1 = self.image_list[line[1]]
             i2 = self.image_list[line[2]]
-            print "min error = %.3f" % minError
-            print "%.1f %s %s" % (line[0], i1.name, i2.name)
+            print("min error = %.3f" % minError)
+            print("%.1f %s %s" % (line[0], i1.name, i2.name))
             if line[0] > minError:
                 #print "  %s" % str(pairs)
                 self.pairErrorReport(line[1], None, line[2], minError)
@@ -1156,8 +1156,8 @@ class Matcher():
         for line in report_list:
             i1 = self.image_list[line[1]]
             i2 = self.image_list[line[2]]
-            print "min error = %.3f" % minError
-            print "%.1f %s %s" % (line[0], i1.name, i2.name)
+            print("min error = %.3f" % minError)
+            print("%.1f %s %s" % (line[0], i1.name, i2.name))
             if line[0] > minError:
                 #print "  %s" % str(pairs)
                 self.pairErrorReport(line[1], None, line[2], minError)
@@ -1166,21 +1166,21 @@ class Matcher():
 
     def reviewPoint(self, lon_deg, lat_deg, ref_lon, ref_lat):
         (x, y) = ImageList.wgs842cart(lon_deg, lat_deg, ref_lon, ref_lat)
-        print "Review images touching %.2f %.2f" % (x, y)
+        print("Review images touching %.2f %.2f" % (x, y))
         review_list = ImageList.getImagesCoveringPoint(self.image_list, x, y, pad=25.0, only_placed=False)
         #print "  Images = %s" % str(review_list)
         for image in review_list:
-            print "    %s -> " % image.name,
+            print("    %s -> " % image.name,)
             for j, pairs in enumerate(image.match_list):
                 if len(pairs):
-                    print "%s (%d) " % (self.image_list[j].name, len(pairs)),
+                    print("%s (%d) " % (self.image_list[j].name, len(pairs)),)
             print
             r2 = image.coverage()
             p = ImageList.getImagesCoveringRectangle(self.image_list, r2)
             p_names = []
             for i in p:
                 p_names.append(i.name)
-            print "      possible matches: %d" % len(p_names)
+            print("      possible matches: %d" % len(p_names))
 
             
 # collect and group match chains that refer to the same keypoint
@@ -1189,13 +1189,13 @@ def group_matches(matches_direct):
     # rather than reduce the entries.  I don't understand how that
     # could be, but it needs to be fixed bore the function is used for
     # anything.
-    print 'WARNING: this function does not seem to work correctly, need to debug it before using!!!!'
-    print 'Number of pair-wise matches:', len(matches_direct)
+    print('WARNING: this function does not seem to work correctly, need to debug it before using!!!!')
+    print('Number of pair-wise matches:', len(matches_direct))
     matches_group = list(matches_direct) # shallow copy
     count = 0
     done = False
     while not done:
-        print "Iteration:", count, len(matches_group)
+        print("Iteration:", count, len(matches_group))
         count += 1
         matches_new = []
         matches_lookup = {}
@@ -1236,6 +1236,6 @@ def group_matches(matches_direct):
             done = True
         else:
             matches_group = list(matches_new) # shallow copy
-    print "Unique features (after grouping):", len(matches_group)
+    print("Unique features (after grouping):", len(matches_group))
     return matches_group
             
