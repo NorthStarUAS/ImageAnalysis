@@ -129,6 +129,7 @@ proj.undistort_keypoints()
 # proj.load_match_pairs()
 
 matches_direct = pickle.load( open( os.path.join(args.project, 'matches_direct'), 'rb' ) )
+matches_direct = pickle.load( open( os.path.join(args.project, 'matches_grouped'), 'rb' ) )
 #matches_direct = pickle.load( open( os.path.join(args.project, 'matches_sba'), 'rb' ) )
 print("direct features: {}".format(len(matches_direct)))
 
@@ -142,15 +143,8 @@ scale = float(image_width) / float(camw)
 print('scale: {}'.format(scale))
 
 opt = Optimizer.Optimizer(args.project)
-opt.prepair_data( proj.image_list, groups[0], matches_direct, proj.cam.get_K(scale), use_sba=False )
-# sba.prepair_data( proj.image_list, None, matches_direct, proj.cam.get_K(scale) )
-cameras, features, cam_index_map, feat_index_map, error_images = opt.run(mode='')
+cameras, features, cam_index_map, feat_index_map = opt.run( proj.image_list, groups[0], matches_direct, proj.cam.get_K(scale), use_sba=False )
 
-if len(error_images):
-    for i in error_images:
-        print('Image blew up: {}'.format(proj.image_list[i].name))
-    quit()
-    
 # wipe the sba pose for all images
 for image in proj.image_list:
     image.camera_pose_sba = None

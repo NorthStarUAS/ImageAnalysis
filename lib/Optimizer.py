@@ -98,8 +98,7 @@ class Optimizer():
     # write the camera (motion) parameters, feature (structure)
     # parameters, and calibration (K) to files in the project
     # directory.
-    def prepair_data(self, image_list, placed_images, matches_list, K,
-                     use_sba=False):
+    def run(self, image_list, placed_images, matches_list, K, use_sba=False):
         if placed_images == None:
             placed_images = set()
             # if no placed images specified, mark them all as placed
@@ -217,6 +216,7 @@ class Optimizer():
         print(x0)
         f0 = fun(x0, n_cameras, n_points, camera_indices, point_indices, points_2d, K)
         plt.plot(f0)
+        mre_start = np.mean(np.abs(f0))
 
         A = bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices)
 
@@ -225,77 +225,30 @@ class Optimizer():
 
         t0 = time.time()
         res = least_squares(fun, x0, jac_sparsity=A, verbose=2, x_scale='jac',
-                            ftol=1e-4, method='trf',
+                            ftol=1e-3, method='trf',
                             args=(n_cameras, n_points, camera_indices, point_indices, points_2d, K))
         t1 = time.time()
         print("Optimization took {0:.0f} seconds".format(t1 - t0))
-        print(res['x'])
+        # print(res['x'])
+        print(res)
         plt.plot(res.fun)
         plt.show()
         
-        command = []
+        camera_params = res.x[:n_cameras * 6].reshape((n_cameras, 6))
+        points_3d = res.x[n_cameras * 6:n_cameras * 6 + n_points * 3].reshape((n_points, 3))
 
+        # command = []
         #result = subprocess.check_output( command )
         # bufsize=1 is line buffered
         #process = subprocess.Popen( command, stdout=subprocess.PIPE)
 
         state = ''
-        mre_start = 0.0         # mre = mean reprojection error
-        mre_final = 0.0         # mre = mean reprojection error
-        iterations = 0
-        time_msec = 0.0
-        cameras = []
-        features = []
-        error_images = set()
+        mre_final = np.mean(np.abs(res.fun))
+        iterations = res.njev
+        time_sec = t1 - t0
 
-        result = process.stdout.readline()
-        print(result)
-        while result:
-            for line in result.split('\n'):
-                #print "line: ", line
-                if re.search('mean reprojection error', line):
-                    print(line)
-                    value = float(re.sub('mean reprojection error', '', line))
-                    if mre_start == 0.0:
-                        mre_start = value
-                    else:
-                        mre_final = value
-                elif re.search('damping term', line):
-                    print(line )
-                elif re.search('iterations=', line):
-                    print(line)
-                    iterations = int(re.sub('iterations=', '', line))
-                elif re.search('Elapsed time:', line):
-                    print(line)
-                    tokens = line.split()
-                    time_msec = float(tokens[4])
-                elif re.search('Motion parameters:', line):
-                    state = 'motion'
-                elif re.search('Structure parameters:', line):
-                    state = 'structure'
-                elif re.search('the estimated projection of point', line):
-                    print(line)
-                    tokens = line.split()
-                    cam_index = int(tokens[12])
-                    image_index = self.camera_map_fwd[cam_index]
-                    print('sba cam: {} image index: {}'.format(cam_index, image_index))
-                    error_images.add(image_index)
-                else:
-                    tokens = line.split()
-                    if state == 'motion' and len(tokens) > 0:
-                        # print "camera:", np.array(tokens, dtype=float)
-                        cameras.append( np.array(tokens, dtype=float) )
-                    elif state == 'structure' and len(tokens) == 3:
-                        # print "feature:", np.array(tokens, dtype=float)
-                        features.append( np.array(tokens, dtype=float) )
-                    elif len(line):
-                        print(line)
-            # read next line
-            result = process.stdout.readline()
-            
         print("Starting mean reprojection error: {}".format(mre_start))
         print("Final mean reprojection error: {}".format(mre_final))
         print("Iterations: {}".format(iterations))
-        print("Elapsed time = {} sec ({} msec)".format(time_msec/1000,
-                                                       time_msec))
-        return cameras, features, self.camera_map_fwd, self.feat_map_rev, error_images
+        print("Elapsed time = {} sec".format(time_sec))
+        return camera_params, points_3d, self.camera_map_fwd, self.feat_map_rev
