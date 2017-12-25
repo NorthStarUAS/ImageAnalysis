@@ -12,6 +12,77 @@ import sys
 sys.path.append('../lib')
 import transformations
 
+def project2(points, cam_M, calib_params):
+    """Convert 3-D points to 2-D by projecting onto images."""
+    #print('points: {}'.format(points.shape))
+    #print('ones: {}'.format( np.ones((points.shape[0], 1)) ))
+    nedh = np.hstack((points, np.ones((points.shape[0], 1))))
+    #print('nedh: {}'.format(nedh))
+    #uvh = np.einsum("...ij,...i", cam_M, nedh)
+    #uvh = cam_M.dot( nedh )
+    uvh = np.zeros( (points.shape[0], 3) )
+    for i in range(points.shape[0]):
+        uvh[i] = cam_M[i].dot(nedh[i])
+    #print('uvh: {}'.format(uvh[:,2:3].shape))
+    uvh = uvh / uvh[:,2:3]
+    #print('uvh: {}'.format(uvh))
+    uv = uvh[:, 0:2]
+    #print('uv: {}'.format(uv))
+    return uv
+
+def fun(params, n_cameras, n_points, camera_indices, point_indices, points_2d, K):
+    """Compute residuals.
+    
+    `params` contains camera parameters, 3-D coordinates, and camera calibration parameters.
+    """
+    camera_params = params[:n_cameras * 6].reshape((n_cameras, 6))
+    cam_M = np.zeros((camera_params.shape[0], 3, 4))
+    for i, cam in enumerate(camera_params):
+        R, jac = cv2.Rodrigues(cam[:3])
+        PROJ = np.concatenate((R, cam[3:6].reshape(3,1)), axis=1)
+        M = K.dot( PROJ )
+        cam_M[i] = M
+    # print('cam_M: {}'.format(cam_M))
+    points_3d = params[n_cameras * 6:n_cameras * 6 + n_points * 3].reshape((n_points, 3))
+    calib_params = params[n_cameras * 6 + n_points * 3:]
+    #print("calib:")
+    #print(calib_params.shape)
+    #print(calib_params)
+    tmp = cam_M[camera_indices]
+    #print('tmp.shape {}'.format(tmp.shape))
+    points_proj = project2(points_3d[point_indices],
+                           cam_M[camera_indices],
+                           calib_params)
+    # mre
+    error = (points_proj - points_2d).ravel()
+    mre = np.mean(np.abs(error))
+    print("mre = {}".format(mre))
+    return (points_proj - points_2d).ravel()
+
+from scipy.sparse import lil_matrix
+
+def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices):
+    m = camera_indices.size * 2
+    n = n_cameras * 6 + n_points * 3 + 3
+    A = lil_matrix((m, n), dtype=int)
+    print('sparcity matrix is {} x {}'.format(m, n))
+
+    i = np.arange(camera_indices.size)
+    for s in range(6):
+        A[2 * i, camera_indices * 6 + s] = 1
+        A[2 * i + 1, camera_indices * 6 + s] = 1
+
+    for s in range(3):
+        A[2 * i, n_cameras * 6 + point_indices * 3 + s] = 1
+        A[2 * i + 1, n_cameras * 6 + point_indices * 3 + s] = 1
+
+    for s in range(3):
+        A[2 * i, n_cameras * 6 + n_points * 3 + s] = 1
+        A[2 * i + 1, n_cameras * 6 + n_points * 3 + s] = 1
+
+    print('A non-zero elements = {}'.format(A.nnz))
+    
+    return A
 
 # This is a python class that optimizes the estimate camera and 3d
 # point fits by minimizing the mean reprojection error.
@@ -135,9 +206,33 @@ class Optimizer():
             camera_params[cam_idx*6:cam_idx*6+6] = np.append(rvec, tvec)
             cam_idx += 1
 
-        return camera_params, points_3d, camera_indices, point_indices, points_2d
+        #return camera_params, points_3d, camera_indices, point_indices, points_2d
 
-    def run(self, mode=''):
+        # def run(self, mode=''):
+        import matplotlib.pyplot as plt
+        f = 0; k1 = 0; k2 = 0
+        x0 = np.hstack((camera_params.ravel(), points_3d.ravel(), f, k1, k2))
+        print('x0:')
+        print(x0.shape)
+        print(x0)
+        f0 = fun(x0, n_cameras, n_points, camera_indices, point_indices, points_2d, K)
+        plt.plot(f0)
+
+        A = bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices)
+
+        import time
+        from scipy.optimize import least_squares
+
+        t0 = time.time()
+        res = least_squares(fun, x0, jac_sparsity=A, verbose=2, x_scale='jac',
+                            ftol=1e-4, method='trf',
+                            args=(n_cameras, n_points, camera_indices, point_indices, points_2d, K))
+        t1 = time.time()
+        print("Optimization took {0:.0f} seconds".format(t1 - t0))
+        print(res['x'])
+        plt.plot(res.fun)
+        plt.show()
+        
         command = []
 
         #result = subprocess.check_output( command )

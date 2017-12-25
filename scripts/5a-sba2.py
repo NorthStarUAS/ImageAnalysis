@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # write out the data in a form useful to pass to the sba (demo) program
 
@@ -8,10 +8,10 @@
 # todo, run sba and automatically parse output ...
 
 import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
+#sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
-import cPickle as pickle
+import pickle
 import cv2
 import math
 import numpy as np
@@ -20,9 +20,8 @@ import random
 
 sys.path.append('../lib')
 import Groups
-import Matcher
+import Optimizer
 import ProjectMgr
-import SBA
 import transformations
 
 d2r = math.pi / 180.0       # a helpful constant
@@ -35,7 +34,7 @@ args = parser.parse_args()
 # return a 3d affine tranformation between current camera locations
 # and original camera locations.
 def get_recenter_affine(src_list, dst_list):
-    print 'get_recenter_affine():'
+    print('get_recenter_affine():')
     src = [[], [], [], []]      # current camera locations
     dst = [[], [], [], []]      # original camera locations
     for i in range(len(src_list)):
@@ -49,9 +48,9 @@ def get_recenter_affine(src_list, dst_list):
         dst[1].append(dst_ned[1])
         dst[2].append(dst_ned[2])
         dst[3].append(1.0)
-        print "%s <-- %s" % (dst_ned, src_ned)
+        print("{} <-- {}".format(dst_ned, src_ned))
     A = transformations.superimposition_matrix(src, dst, scale=True)
-    print "A:\n", A
+    print("A:\n{}".formata(A))
     return A
 
 # transform a point list given an affine transform matrix
@@ -76,13 +75,13 @@ def draw_match(i, index):
     red = (0, 0, 255)
 
     match = matches_direct[i]
-    print 'match:', match, 'index:', index
+    print('match: {} index: {}'.format(match, index))
     for j, m in enumerate(match[1:]):
-        print ' ', m, proj.image_list[m[0]]
+        print('  {} {}'.format(m, proj.image_list[m[0]]))
         img = proj.image_list[m[0]]
         # kp = img.kp_list[m[1]].pt # distorted
         kp = img.uv_list[m[1]]  # undistored
-        print ' ', kp
+        print(' {}'.format(kp))
         rgb = img.load_rgb()
         h, w = rgb.shape[:2]
         crop = True
@@ -106,7 +105,7 @@ def draw_match(i, index):
                 cy = h - range
             else:
                 yshift = 0
-            print 'size:', w, h, 'shift:', xshift, yshift
+            print('size: {} {} shift: {} {}'.format(w, h, xshift, yshift))
             rgb1 = rgb[cy-range:cy+range, cx-range:cx+range]
             if ( j == index ):
                 color = red
@@ -118,7 +117,7 @@ def draw_match(i, index):
             rgb1 = cv2.resize(rgb, (0,0), fx=scale, fy=scale)
             cv2.circle(rgb1, (int(round(kp[0]*scale)), int(round(kp[1]*scale))), 2, green, thickness=2)
         cv2.imshow(img.name, rgb1)
-    print 'waiting for keyboard input...'
+    print('waiting for keyboard input...')
     key = cv2.waitKey() & 0xff
     cv2.destroyAllWindows()
 
@@ -131,25 +130,25 @@ proj.undistort_keypoints()
 
 matches_direct = pickle.load( open( os.path.join(args.project, 'matches_direct'), 'rb' ) )
 #matches_direct = pickle.load( open( os.path.join(args.project, 'matches_sba'), 'rb' ) )
-print "direct features:", len(matches_direct)
+print("direct features: {}".format(len(matches_direct)))
 
 # load the group connections within the image set
 groups = Groups.load(args.project)
-print groups
+print(groups)
 
 image_width = proj.image_list[0].width
 camw, camh = proj.cam.get_image_params()
 scale = float(image_width) / float(camw)
-print 'scale:', scale
+print('scale: {}'.format(scale))
 
-sba = SBA.SBA(args.project)
-sba.prepair_data( proj.image_list, groups[0], matches_direct, proj.cam.get_K(scale), use_sba=False )
+opt = Optimizer.Optimizer(args.project)
+opt.prepair_data( proj.image_list, groups[0], matches_direct, proj.cam.get_K(scale), use_sba=False )
 # sba.prepair_data( proj.image_list, None, matches_direct, proj.cam.get_K(scale) )
-cameras, features, cam_index_map, feat_index_map, error_images = sba.run_live(mode='')
+cameras, features, cam_index_map, feat_index_map, error_images = opt.run(mode='')
 
 if len(error_images):
     for i in error_images:
-        print 'Image blew up:', proj.image_list[i].name
+        print('Image blew up: {}'.format(proj.image_list[i].name))
     quit()
     
 # wipe the sba pose for all images
@@ -162,7 +161,7 @@ for i, cam in enumerate(cameras):
     image_index = cam_index_map[i]
     image = proj.image_list[image_index]
     orig = image.camera_pose
-    print 'sba cam:', cam
+    print('sba cam: {}'.format(cam))
     if len(cam) == 7:
         newq = np.array( [ cam[0], cam[1], cam[2], cam[3] ] )
         tvec = np.array( [ cam[4], cam[5], cam[6] ] )
@@ -171,8 +170,7 @@ for i, cam in enumerate(cameras):
         tvec = np.array( cam[9:12] )
         k = np.array( [ [cam[0], 0, cam[1]],
                         [0, cam[3]*cam[0], cam[2]] ] )
-        print 'est K'
-        print k
+        print('est K:\n{}'.format(k))
     elif len(cam) == 17:
         newq = np.array( cam[10:14] )
         tvec = np.array( cam[14:17] )
@@ -190,7 +188,7 @@ for i, cam in enumerate(cameras):
     image.set_camera_pose_sba( ned=newned, ypr=[yaw/d2r, pitch/d2r, roll/d2r] )
     image.placed = True
 proj.save_images_meta()
-print 'Updated the sba poses for all the cameras'
+print('Updated the sba poses for all the cameras')
 
 # compare original camera locations with sba camera locations and
 # derive a transform matrix to 'best fit' the new camera locations
@@ -216,9 +214,9 @@ if refit_group_orientations:
 
     # extract the rotation matrix (R) from the affine transform
     scale, shear, angles, trans, persp = transformations.decompose_matrix(A)
-    print transformations.decompose_matrix(A)
+    print(transformations.decompose_matrix(A))
     R = transformations.euler_matrix(*angles)
-    print "R:\n", R
+    print("R:\n{}".format(R))
 
     # update the sba camera locations based on best fit
     camera_list = []
@@ -248,10 +246,10 @@ if refit_group_orientations:
         image.set_camera_pose_sba(ned=new_cams[i],
                                   ypr=[yaw/d2r, pitch/d2r, roll/d2r])
         dist = np.linalg.norm( np.array(ned_orig) - np.array(new_cams[i]))
-        print 'image:', image.name
-        print '  orig pos:', ned_orig
-        print '  fit pos:', new_cams[i]
-        print '  dist moved:', dist
+        print('image: {}'.format(image.name))
+        print('  orig pos: {}'.format(ned_orig))
+        print('  fit pos: {}'.format(new_cams[i]))
+        print('  dist moved: {}'.format(dist))
         dist_report.append( (dist, image.name) )
 
         # fixme: are we doing the correct thing here with attitude, or
@@ -262,9 +260,9 @@ if refit_group_orientations:
     dist_report = sorted(dist_report,
                          key=lambda fields: fields[0],
                          reverse=False)
-    print 'Image movement sorted lowest to highest:'
+    print('Image movement sorted lowest to highest:')
     for report in dist_report:
-        print report[1], 'dist:', report[0]
+        print('{} dist: {}'.format(report[1], report[0]))
 
     # update the sba point locations based on same best fit transform
     # derived from the cameras (remember that 'features' is the point
@@ -290,7 +288,7 @@ else:
         match[0] = feat
 
 # write out the updated match_dict
-print "Writing match_sba file ...", len(matches_sba), 'features'
+print("Writing match_sba file ... {} features".format(len(matches_sba)))
 pickle.dump(matches_sba, open(os.path.join(args.project, 'matches_sba'), 'wb'))
 
 # temp write out just the points so we can plot them with gnuplot
