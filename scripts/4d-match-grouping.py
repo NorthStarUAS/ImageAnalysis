@@ -37,16 +37,6 @@ proj.undistort_keypoints()
 print "Loading match points (direct)..."
 matches_direct = pickle.load( open( os.path.join(args.project, "matches_direct"), "rb" ) )
 
-def update_match_location(match):
-    sum = np.array( [0.0, 0.0, 0.0] )
-    for p in match[1:]:
-        # print proj.image_list[ p[0] ].coord_list[ p[1] ]
-        sum += proj.image_list[ p[0] ].coord_list[ p[1] ]
-        ned = sum / len(match[1:])
-        # print "avg =", ned
-        match[0] = ned.tolist()
-    return match
-    
 # collect/group match chains that refer to the same keypoint
 
 # warning 1: if there are bad matches this can over-constrain the
@@ -85,7 +75,8 @@ while not done:
             if key in matches_lookup:
                 index = matches_lookup[key]
                 break
-        if index < 0 or len(matches_new[index][1:]) > 2:
+        # if index < 0 or len(matches_new[index][1:]) > 2: // one way to limit max match chain length
+        if index < 0:
             # not found, append to the new list
             for p in match[1:]:
                 key = "%d-%d" % (p[0], p[1])
