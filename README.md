@@ -30,13 +30,13 @@ Aerial imagery analysis, processing, and presentation scripts.
 This image analysis toolset started as two independent efforts to
 build a better (faster, free-er, more robust) image stitching system
 for aerial surveying compared to what was commercially available.  As
-a consequence of personel changes and project evolution, portions of
-these two efforts were combined and then a large amount of subsequent
-work has been performed.  'A lot' has been learned in the mean time,
-not limited to: how hard the problem is, how good the commercial tools
-actual are, mastering many techniques and strategies related to the
-underlying task of image stitching, applying these techniques to some
-loosely related, but interesting problems.
+a consequence of work, location, and project focus changes, portions
+of these two efforts were combined and then a large amount of
+subsequent work has been performed.  'A lot' has been learned in the
+mean time, not limited to: how hard the problem is, how good the
+commercial tools actual are, mastering many techniques and strategies
+related to the underlying task of image stitching, applying these
+techniques to some loosely related, but interesting problems.
 
 The project goals remain:
 
