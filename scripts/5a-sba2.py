@@ -69,69 +69,25 @@ def transform_points( A, pts_list ):
                          float(dst[2][i]) ] )
     return result
 
-# experimental, draw a visual of a match point in all it's images
-def draw_match(i, index):
-    green = (0, 255, 0)
-    red = (0, 0, 255)
-
-    match = matches_direct[i]
-    print('match: {} index: {}'.format(match, index))
-    for j, m in enumerate(match[1:]):
-        print('  {} {}'.format(m, proj.image_list[m[0]]))
-        img = proj.image_list[m[0]]
-        # kp = img.kp_list[m[1]].pt # distorted
-        kp = img.uv_list[m[1]]  # undistored
-        print(' {}'.format(kp))
-        rgb = img.load_rgb()
-        h, w = rgb.shape[:2]
-        crop = True
-        range = 300
-        if crop:
-            cx = int(round(kp[0]))
-            cy = int(round(kp[1]))
-            if cx < range:
-                xshift = range - cx
-                cx = range
-            elif cx > (w - range):
-                xshift = (w - range) - cx
-                cx = w - range
-            else:
-                xshift = 0
-            if cy < range:
-                yshift = range - cy
-                cy = range
-            elif cy > (h - range):
-                yshift = (h - range) - cy
-                cy = h - range
-            else:
-                yshift = 0
-            print('size: {} {} shift: {} {}'.format(w, h, xshift, yshift))
-            rgb1 = rgb[cy-range:cy+range, cx-range:cx+range]
-            if ( j == index ):
-                color = red
-            else:
-                color = green
-            cv2.circle(rgb1, (range-xshift,range-yshift), 2, color, thickness=2)
-        else:
-            scale = 790.0/float(w)
-            rgb1 = cv2.resize(rgb, (0,0), fx=scale, fy=scale)
-            cv2.circle(rgb1, (int(round(kp[0]*scale)), int(round(kp[1]*scale))), 2, green, thickness=2)
-        cv2.imshow(img.name, rgb1)
-    print('waiting for keyboard input...')
-    key = cv2.waitKey() & 0xff
-    cv2.destroyAllWindows()
-
-
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
 proj.undistort_keypoints()
 # proj.load_match_pairs()
 
-matches_direct = pickle.load( open( os.path.join(args.project, 'matches_direct'), 'rb' ) )
-matches_direct = pickle.load( open( os.path.join(args.project, 'matches_grouped'), 'rb' ) )
-#matches_direct = pickle.load( open( os.path.join(args.project, 'matches_sba'), 'rb' ) )
-print("direct features: {}".format(len(matches_direct)))
+grouped_file = os.path.join(args.project, 'matches_grouped' )
+direct_file = os.path.join(args.project, 'matches_direct' )
+if os.path.isfile( grouped_file ):
+    print('Match file:', grouped_file)
+    matches = pickle.load( open(grouped_file, "rb") )
+elif os.path.isfile( direct_file ):
+    print('Match file:', direct_file)
+    matches = pickle.load( open(direct_file, "rb") )
+else:
+    print("Cannot find a matches file to load... aborting")
+    quit()
+    
+print('Match features:', len(matches))
 
 # load the group connections within the image set
 groups = Groups.load(args.project)
@@ -143,7 +99,7 @@ scale = float(image_width) / float(camw)
 print('scale: {}'.format(scale))
 
 opt = Optimizer.Optimizer(args.project)
-cameras, features, cam_index_map, feat_index_map = opt.run( proj.image_list, groups[0], matches_direct, proj.cam.get_K(scale), use_sba=False )
+cameras, features, cam_index_map, feat_index_map = opt.run( proj.image_list, groups[0], matches, proj.cam.get_K(scale), use_sba=False )
 
 # wipe the sba pose for all images
 for image in proj.image_list:
@@ -275,12 +231,12 @@ if refit_group_orientations:
     matches_sba = []
     for i, feat in enumerate(new_feats):
         match_index = feat_index_map[i]
-        match = list(matches_direct[match_index])
+        match = list(matches[match_index])
         match[0] = feat
         matches_sba.append( match )
 else:
     # not refitting group orientations create a matches_sba
-    matches_sba = list(matches_direct) # shallow copy
+    matches_sba = list(matches) # shallow copy
     for i, feat in enumerate(features):
         match_index = feat_index_map[i]
         match = matches_sba[match_index]

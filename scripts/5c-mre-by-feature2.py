@@ -1,18 +1,16 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # For all the feature matches and camera poses, estimate a mean
 # reprojection error
 
-import sys
-sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
-
 import argparse
-import cPickle as pickle
+import pickle
 import cv2
-#import json
 import math
 import numpy as np
+import os
 
+import sys
 sys.path.append('../lib')
 import Groups
 import ProjectMgr
@@ -22,26 +20,20 @@ import match_culling as cull
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--stddev', type=float, default=3, help='how many stddevs above the mean for auto discarding features')
-parser.add_argument('--direct', action='store_true', help='analyze direct matches (might help if initial sba fit fails.)')
 parser.add_argument('--strong', action='store_true', help='remove entire match chain, not just the worst offending element.')
 parser.add_argument('--interactive', action='store_true', help='interactively review reprojection errors from worst to best and select for deletion or keep.')
 
 args = parser.parse_args()
 
-if args.direct:
-    print "NOTICE: analyzing direct matches list"
-    
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
 proj.undistort_keypoints()
 
-print "Loading original (direct) matches ..."
-matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )
-
-if not args.direct:
-    print "Loading fitted (sba) matches..."
-    matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
+print("Loading grouped matches...")
+matches_grouped = pickle.load( open( os.path.join(args.project, "matches_grouped"), "rb" ) )
+print("Loading optimized (sba) matches...")
+matches_sba = pickle.load( open( os.path.join(args.project, "matches_sba"), "rb" ) )
 
 # image mean reprojection error
 def compute_feature_mre(image, kp, ned):
@@ -52,8 +44,8 @@ def compute_feature_mre(image, kp, ned):
     return dist
 
 # group reprojection error for every used feature
-def compute_reprojection_errors(image_list, group, cam):
-    print "Computing reprojection error for all match points..."
+def compute_reprojection_errors(image_list, matches, group, cam):
+    print("Computing reprojection error for all match points...")
     
     camw, camh = proj.cam.get_image_params()
     scale = float(image_list[0].width) / float(camw)
@@ -63,10 +55,7 @@ def compute_reprojection_errors(image_list, group, cam):
     for i, image in enumerate(image_list):
         if not i in group:
             continue
-        if args.direct:
-            rvec, tvec = image.get_proj() # original direct pose
-        else:
-            rvec, tvec = image.get_proj_sba() # fitted pose
+        rvec, tvec = image.get_proj_sba() # fitted pose
         R, jac = cv2.Rodrigues(rvec)
         image.PROJ = np.concatenate((R, tvec), axis=1)
         image.M = K.dot( image.PROJ )
@@ -75,12 +64,7 @@ def compute_reprojection_errors(image_list, group, cam):
     # obj_pts and img_pts
     result_list = []
 
-    if args.direct:
-        matches_source = matches_direct
-    else:
-        matches_source = matches_sba
-        
-    for i, match in enumerate(matches_source):
+    for i, match in enumerate(matches):
         ned = match[0]
         
         # debug
@@ -104,7 +88,7 @@ def compute_reprojection_errors(image_list, group, cam):
                     max_dist = dist
                     max_index = j
                 if verbose >= 2:
-                    print i, match, dist
+                    print(i, match, dist)
         result_list.append( (max_dist, i, max_index) )
 
     # sort by error, worst is first
@@ -113,7 +97,7 @@ def compute_reprojection_errors(image_list, group, cam):
     return result_list
 
 def mark_outliers(error_list, trim_stddev):
-    print "Marking outliers..."
+    print("Marking outliers...")
     sum = 0.0
     count = len(error_list)
 
@@ -124,79 +108,57 @@ def mark_outliers(error_list, trim_stddev):
         sum += line[0]
         
     # stats on error values
-    print " computing stats..."
+    print(" computing stats...")
     mre = sum / count
     stddev_sum = 0.0
     for line in error_list:
         error = line[0]
         stddev_sum += (mre-error)*(mre-error)
     stddev = math.sqrt(stddev_sum / count)
-    print "mre = %.4f stddev = %.4f" % (mre, stddev)
+    print("mre = %.4f stddev = %.4f" % (mre, stddev))
 
     # mark match items to delete
-    print " marking outliers..."
+    print(" marking outliers...")
     mark_count = 0
     for line in error_list:
         # print "line:", line
         if line[0] > mre + stddev * trim_stddev:
-            cull.mark_outlier(matches_direct, line[1], line[2], line[0])
-            if not args.direct:
-                cull.mark_outlier(matches_sba, line[1], line[2], line[0])
+            cull.mark_outlier(matches_sba, line[1], line[2], line[0])
             mark_count += 1
             
     return mark_count
 
 # delete marked matches
-def delete_marked_matches():
-    print " deleting marked items..."
-    for i in reversed(range(len(matches_direct))):
-        match_direct = matches_direct[i]
-        if not args.direct:
-            match_sba = matches_sba[i]
+def delete_marked_matches(matches):
+    print(" deleting marked items...")
+    for i in reversed(range(len(matches))):
+        match = matches[i]
         has_bad_elem = False
-        for j in reversed(range(1, len(match_direct))):
-            p = match_direct[j]
+        for j in reversed(range(1, len(match))):
+            p = match[j]
             if p == [-1, -1]:
                 has_bad_elem = True
-                match_direct.pop(j)
-                if not args.direct:
-                    match_sba.pop(j)
+                match.pop(j)
         if args.strong and has_bad_elem:
-            print "deleting entire match that contains a bad element"
-            matches_direct.pop(i)
-            if not args.direct:
-                matches_sba.pop(i)
-        elif len(match_direct) < 3:
-            print "deleting match that is now in less than 2 images:", match_direct
-            matches_direct.pop(i)
-            if not args.direct:
-                matches_sba.pop(i)
-        elif False and len(match_direct) < 4:
-            # this is seeming like less and less of a good idea (Jan 3, 2017)
-            print "deleting match that is now in less than 3 images:", match_direct
-            matches_direct.pop(i)
-            if not args.direct:
-                matches_sba.pop(i)
+            print("deleting entire match that contains a bad element")
+            matches.pop(i)
+        elif len(match) < 3:
+            print("deleting match that is now in less than 2 images:", match)
+            matches.pop(i)
 
 # load the group connections within the image set
 groups = Groups.load(args.project)
 
-if args.direct:
-    matches=matches_direct
-else:
-    matches=matches_sba
-
 # fixme: probably should pass in the matches structure to this call
-error_list = compute_reprojection_errors(proj.image_list, groups[0], proj.cam)
+error_list = compute_reprojection_errors(proj.image_list, matches_sba, groups[0], proj.cam)
 
 if args.interactive:
     # interactively pick outliers
-    mark_list = cull.show_outliers(error_list, matches, proj.image_list)
+    mark_list = cull.show_outliers(error_list, matches_sba, proj.image_list)
 
-    # mark both direct and/or sba match lists as requested
-    cull.mark_using_list(mark_list, matches_direct)
-    if not args.direct:
-        cull.mark_using_list(mark_list, matches_sba)
+    # mark selection
+    cull.mark_using_list(mark_list, matches_grouped)
+    cull.mark_using_list(mark_list, matches_sba)
     mark_sum = len(mark_list)
 else:
     # trim outliers by some # of standard deviations high
@@ -206,7 +168,7 @@ else:
 # show up in each image
 for i in proj.image_list:
     i.feature_count = 0
-for i, match in enumerate(matches_direct):
+for i, match in enumerate(matches_sba):
     for j, p in enumerate(match[1:]):
         if p[1] != [-1, -1]:
             image = proj.image_list[ p[0] ]
@@ -218,29 +180,32 @@ for i, img in enumerate(proj.image_list):
     # print img.name, img.feature_count
     if img.feature_count > 0 and img.feature_count < 25:
         weak_dict[i] = True
-print 'weak images:', weak_dict
+print('weak images:', weak_dict)
 
 # mark any features in the weak images list
-for i, match in enumerate(matches_direct):
+for i, match in enumerate(matches_grouped):
     #print 'before:', match
     for j, p in enumerate(match[1:]):
         if p[0] in weak_dict:
              match[j+1] = [-1, -1]
              mark_sum += 1
+for i, match in enumerate(matches_sba):
+    #print 'before:', match
+    for j, p in enumerate(match[1:]):
+        if p[0] in weak_dict:
+             match[j+1] = [-1, -1]
+             mark_sum += 0      # don't count these in the mark_sum
     #print 'after:', match
 
 if mark_sum > 0:
-    print 'Outliers removed from match lists:', mark_sum
-    result=raw_input('Save these changes? (y/n):')
+    print('Outliers removed from match lists:', mark_sum)
+    result=input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
-        delete_marked_matches()
+        delete_marked_matches(matches_grouped)
+        delete_marked_matches(matches_sba)
         # write out the updated match dictionaries
-        print "Writing direct matches..."
-        pickle.dump(matches_direct, open(args.project+"/matches_direct", "wb"))
-
-        if not args.direct:
-            print "Writing sba matches..."
-            pickle.dump(matches_sba, open(args.project + "/matches_sba", "wb"))
-
-#print "Mean reprojection error = %.4f" % (mre)
+        print("Writing grouped matches...")
+        pickle.dump(matches_grouped, open(os.path.join(args.project, "matches_grouped"), "wb"))
+        print("Writing optimized matches...")
+        pickle.dump(matches_sba, open(os.path.join(args.project, "matches_sba"), "wb"))
 
