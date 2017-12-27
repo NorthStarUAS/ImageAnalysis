@@ -24,7 +24,82 @@ Aerial imagery analysis, processing, and presentation scripts.
    So if you are reading this and interested in this field, talk to
    me!  Where do people discuss these topics?  Should we start our own
    forum?
-   
+
+# Brief Overview
+
+This image analysis toolset started as two independent efforts to
+build a better (faster, free-er, more robust) image stitching system
+for aerial surveying compared to what was commercially available.  As
+a consequence of personel changes and project evolution, portions of
+these two efforts were combined and then a large amount of subsequent
+work has been performed.  'A lot' has been learned in the mean time,
+not limited to: how hard the problem is, how good the commercial tools
+actual are, mastering many techniques and strategies related to the
+underlying task of image stitching, applying these techniques to some
+loosely related, but interesting problems.
+
+The project goals remain:
+
+- develop a quality open-source image stitching an scene
+  reconstruction tool chain that is appropriate for examination
+  (education) and modification (research use.)
+
+- leverage well known building blocks including python, opencv, numpy,
+  and scipy.
+
+- continue to develop and refine offshoot projects that support our
+  UAS Lab projects: such as EKF validation, augmented reality, movie +
+  flight data time correlation.
+
+- develop extensions and improvements in support of ongoing research
+  project.  (Such as: invasive species surveys, mapping, and ground
+  truthing.)
+
+# Road Map
+
+Briefly, near term development goals include:
+
+- Finalizing a simple scene rendering system that leverages the
+  optimized surface and optimzed camera poses to correctly place all
+  images.
+
+- Migration towards (support of) python3
+
+Medium term development goals include:
+
+- A scene exploration tool that knows all the views covering any
+  point, can geolocate any selected point in an image, can
+  import/export shape files or feature databases for map creation or
+  validation.
+
+- Continued exploration of machine vision strategies for automatically
+  identifying/locating items of interest in imagery.  (Such as:
+  oriental bittersweet.)
+
+Wish list items:
+
+- The current code optimizes the 'sparse' mesh, but does not do dense
+  mesh reconstruction.  It would be interesting to explore dense mesh
+  generation for creating detailed DEM's and exact orthophotos.  This
+  is a core strength of commercial image stitching tools, but perhaps
+  not necessary for every aerial survey application.
+
+  The most important objective is to answer questions like "Where is
+  all the oriental bittersweet in the survey area?"  A pretty picture,
+  an orthorphoto, or a DEM may not always be the best tool to help
+  answer that question, while other customized approaches may do
+  better.
+
+- I would love to see a community of interested tinkerers grow up
+  around this project.  I think there are many important concepts and
+  strategies here that have far ranging uses and implications.  It
+  would be great to keep a light shining on this area so the expertise
+  doesn't get entirely buried inside the caves of the commercial
+  world.
+
+
+# Code Layout
+
 ## 3rd_party
 
    Home to 3rd party code that needs modifications or adjustments to
@@ -33,12 +108,12 @@ Aerial imagery analysis, processing, and presentation scripts.
 
 ## ils
 
-   This relates to systems that have an illumniation sensor pointing
+   This relates to systems that have an illumination sensor pointing
    up at the sky.  When the drone pitches or rolls for turning or
    forward motion, the sensor no longer points up.  This code
    understands date, time, location, as well as the relative sun
    location and angle.  It attempts to correct the illumination sensor
-   for attitude errors and thus produce more consistant results in the
+   for attitude errors and thus produce more consistent results in the
    output images.
 
 ## lib
