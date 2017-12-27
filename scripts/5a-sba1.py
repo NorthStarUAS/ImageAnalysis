@@ -18,7 +18,7 @@ import numpy as np
 sys.path.append('../lib')
 import Matcher
 import ProjectMgr
-import SBA
+import SBA1
 import transformations
 
 d2r = math.pi / 180.0       # a helpful constant
@@ -80,7 +80,7 @@ camw, camh = proj.cam.get_image_params()
 scale = float(image_width) / float(camw)
 print 'scale:', scale
 
-sba = SBA.SBA(args.project)
+sba = SBA1.SBA1(args.project)
 sba.prepair_data( proj.image_list, matches_direct, proj.cam.get_K(scale) )
 cameras, features = sba.run_live()
 

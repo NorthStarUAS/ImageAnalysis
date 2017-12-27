@@ -20,7 +20,7 @@ import random
 sys.path.append('../lib')
 import Matcher
 import ProjectMgr
-import SBA
+import SBA1
 import transformations
 
 # constants
@@ -619,7 +619,7 @@ while True:
         pass
 
 
-sba = SBA.SBA(args.project)
+sba = SBA1.SBA1(args.project)
 sba.prepair_data( proj.image_list, matches_group, proj.cam.get_K(scale) )
 cameras, features = sba.run_live()
 

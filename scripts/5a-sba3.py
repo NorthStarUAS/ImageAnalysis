@@ -20,7 +20,7 @@ import random
 sys.path.append('../lib')
 import Matcher
 import ProjectMgr
-import SBA
+import SBA1
 import transformations
 
 # constants
@@ -463,7 +463,7 @@ while not done:
 print 'placed images:', placed_images
 print 'failed images:', failed_images
 
-sba = SBA.SBA(args.project)
+sba = SBA1.SBA1(args.project)
 sba.prepair_data( proj.image_list, placed_images, matches_group,
                   proj.cam.get_K(scale) )
 cameras, features = sba.run_live()
