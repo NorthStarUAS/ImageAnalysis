@@ -16,21 +16,21 @@ def draw_match(i, index, matches, image_list):
     red = (0, 0, 255)
 
     match = matches[i]
-    print 'match:', match, 'index:', index
+    print('match:', match, 'index:', index)
     for j, m in enumerate(match[1:]):
-        print ' ', m, image_list[m[0]]
+        print(' ', m, image_list[m[0]])
         img = image_list[m[0]]
         # kp = img.kp_list[m[1]].pt # distorted
         kp = img.uv_list[m[1]]  # undistored
-        print ' ', kp
+        print(' ', kp)
         rgb = img.load_rgb()
         h, w = rgb.shape[:2]
         crop = True
         range = 300
-        if ( j == index ):
+        if ( j == index ) or len(match[1:]) == 2:
             color = red
         else:
-            color = red
+            color = green
         if crop:
             cx = int(round(kp[0]))
             cy = int(round(kp[1]))
@@ -50,7 +50,7 @@ def draw_match(i, index, matches, image_list):
                 cy = h - range
             else:
                 yshift = 0
-            print 'size:', w, h, 'shift:', xshift, yshift
+            print('size:', w, h, 'shift:', xshift, yshift)
             rgb1 = rgb[cy-range:cy+range, cx-range:cx+range]
             cv2.circle(rgb1, (range-xshift,range-yshift), 2, color, thickness=2)
         else:
@@ -60,13 +60,13 @@ def draw_match(i, index, matches, image_list):
                        (int(round(kp[0]*scale)), int(round(kp[1]*scale))),
                        2, color, thickness=2)
         cv2.imshow(img.name, rgb1)
-    print 'waiting for keyboard input...'
+    print('waiting for keyboard input...')
     key = cv2.waitKey() & 0xff
     cv2.destroyAllWindows()
     return key
 
 def show_outliers(result_list, matches, image_list):
-    print "Show outliers..."
+    print("Show outliers...")
     mark_sum = 0
     sum = 0.0
     count = len(result_list)
@@ -78,20 +78,20 @@ def show_outliers(result_list, matches, image_list):
         sum += line[0]
         
     # stats on error values
-    print " computing stats..."
+    print(" computing stats...")
     mre = sum / count
     stddev_sum = 0.0
     for line in result_list:
         error = line[0]
         stddev_sum += (mre-error)*(mre-error)
     stddev = math.sqrt(stddev_sum / count)
-    print "mre = %.4f stddev = %.4f" % (mre, stddev)
+    print("mre = %.4f stddev = %.4f" % (mre, stddev))
 
     mark_list = []
     for line in result_list:
         # print "line:", line
-        print "  outlier index %d-%d err=%.2f" % (line[1], line[2],
-                                                  line[0])
+        print("  outlier index %d-%d err=%.2f" % (line[1], line[2],
+                                                  line[0]))
         result = draw_match(line[1], line[2], matches, image_list)
         if result == ord('d'):
             # add to delete feature
@@ -105,7 +105,7 @@ def show_outliers(result_list, matches, image_list):
 
 # mark the outlier
 def mark_outlier(matches, match_index, feat_index, error):
-    print '  outlier - match index:', match_index, 'feature index:', feat_index, 'error:', error
+    print('  outlier - match index:', match_index, 'feature index:', feat_index, 'error:', error)
     match = matches[match_index]
     match[feat_index+1] = [-1, -1]
 
@@ -115,7 +115,7 @@ def mark_using_list(mark_list, matches):
         
 # delete marked matches
 def delete_marked_matches(matches):
-    print " deleting marked items...", len(matches)
+    print(" deleting marked items...", len(matches))
     for i in reversed(range(len(matches))):
         match = matches[i]
         has_bad_elem = False
@@ -125,14 +125,14 @@ def delete_marked_matches(matches):
                 has_bad_elem = True
                 match.pop(j)
         if False and has_bad_elem: # was 'if args.strong and ...'
-            print "deleting entire match that contains a bad element", i
+            print("deleting entire match that contains a bad element", i)
             matches.pop(i)
         elif len(match) < 3:
-            print "deleting match that is now in less than 2 images:", match, i
+            print("deleting match that is now in less than 2 images:", match, i)
             matches.pop(i)
         elif False and len(match) < 4:
             # this is seeming like less and less of a good idea (Jan 3, 2017)
-            print "deleting match that is now in less than 3 images:", match, i
+            print("deleting match that is now in less than 3 images:", match, i)
             matches.pop(i)
-    print "final matches size:", len(matches)
+    print("final matches size:", len(matches))
 
