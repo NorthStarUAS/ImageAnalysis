@@ -1,10 +1,15 @@
 #!/usr/bin/python3
 
-# for all the images in the project image_dir, compute the camera
-# poses from the aircraft pose (and camera mounting transform).
-# Project the image plane onto an SRTM (DEM) surface for our best
-# layout guess (at this point before we do any matching/bundle
-# adjustment work.)
+# for all the images in the fitted group, generate a 2d polygon
+# surface fit.  Then project the individual images onto this surface
+# and generate an AC3D model.
+#
+# Note: insufficient image overlap (or long linear image match chains)
+# are not good.  Ideally we would have a nice mesh of match pairs for
+# best results.
+#
+# this script can also project onto the SRTM surface, or a flat ground
+# elevation plane.
 
 import sys
 
@@ -69,6 +74,47 @@ def polyval2d(x, y, m):
         z += a * x**i * y**j
     return z
 
+def intersect2d(ned, v, m):
+    p = ned[:] # copy hopefully
+
+    # sanity check (always assume camera pose is above ground!)
+    if v[2] <= 0.0:
+        return p
+
+    eps = 0.01
+    count = 0
+    print("start:", p)
+    print("vec:", v)
+    print("ned:", ned)
+    surface = polyval2d(p[0], p[1], m)
+    error = abs(p[2] - surface)
+    print("  p=%s surface=%s error=%s" % (p, surface, error))
+    while error > eps and count < 25 and surface <= 0:
+        d_proj = -(ned[2] - surface)
+        factor = d_proj / v[2]
+        n_proj = v[0] * factor
+        e_proj = v[1] * factor
+        print("proj = %s %s" % (n_proj, e_proj))
+        p = [ ned[0] + n_proj, ned[1] + e_proj, ned[2] + d_proj ]
+        print("new p:", p)
+        surface = polyval2d(p[0], p[1], m)
+        error = abs(p[2] - surface)
+        print("  p=%s surface=%.2f error = %.3f" % (p, surface, error))
+        count += 1
+    print("surface:", p)
+    if surface <= 100000:
+        return p
+    else:
+        #print " returning nans"
+        return np.zeros(3)*np.nan
+    
+def intersect_vectors(ned, v_list, m):
+    pt_list = []
+    for v in v_list:
+        p = intersect2d(ned, v.flatten(), m)
+        pt_list.append(p)
+    return pt_list
+
 print("Generating a bivariate b-spline approximation to the stitched surface")
 import itertools
 import matplotlib.pyplot as plt
@@ -114,8 +160,8 @@ plt.scatter(xfit, yfit, 100, zfit, cmap=cm.jet)
 plt.colorbar()
 plt.title("Sparsely sampled function.")
 
-# Fit a 3rd order, 2d polynomial
-m = polyfit2d(xfit, yfit, zfit)
+# Fit a n order, 2d polynomial
+m = polyfit2d(xfit, yfit, zfit, order=1)
 
 # test fit
 znew = polyval2d(xfit, yfit, m)
@@ -216,11 +262,14 @@ if True:
                                                            args.ground, proj_list)
         elif args.srtm:
             pts_ned = sss.interpolate_vectors(ned, proj_list)
-        else:
+        elif False:
+            # this never seemed that productive
             print(image.name, image.z_avg)
             pts_ned = proj.intersectVectorsWithGroundPlane(ned,
                                                            image.z_avg,
                                                            proj_list)
+        else:
+            pts_ned = intersect_vectors(ned, proj_list, m)
         #print "pts_3d (ned):\n", pts_ned
 
         # convert ned to xyz and stash the result for each image
