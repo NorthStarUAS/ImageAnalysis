@@ -1,7 +1,10 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # Prep the point and camera data and run it through the scipy least
 # squares optimizer.
+#
+# This version does not try to solve for any camera parameters, just
+# the camera pose and 3d feature locations.
 
 import cv2
 import numpy as np
@@ -12,7 +15,7 @@ import sys
 sys.path.append('../lib')
 import transformations
 
-def project2(points, cam_M, calib_params):
+def project(points, cam_M):
     """Convert 3-D points to 2-D by projecting onto images."""
     #print('points: {}'.format(points.shape))
     #print('ones: {}'.format( np.ones((points.shape[0], 1)) ))
@@ -44,15 +47,11 @@ def fun(params, n_cameras, n_points, camera_indices, point_indices, points_2d, K
         cam_M[i] = M
     # print('cam_M: {}'.format(cam_M))
     points_3d = params[n_cameras * 6:n_cameras * 6 + n_points * 3].reshape((n_points, 3))
-    calib_params = params[n_cameras * 6 + n_points * 3:]
     #print("calib:")
-    #print(calib_params.shape)
-    #print(calib_params)
     tmp = cam_M[camera_indices]
     #print('tmp.shape {}'.format(tmp.shape))
-    points_proj = project2(points_3d[point_indices],
-                           cam_M[camera_indices],
-                           calib_params)
+    points_proj = project(points_3d[point_indices],
+                          cam_M[camera_indices])
     # mre
     error = (points_proj - points_2d).ravel()
     mre = np.mean(np.abs(error))
@@ -63,7 +62,7 @@ from scipy.sparse import lil_matrix
 
 def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices):
     m = camera_indices.size * 2
-    n = n_cameras * 6 + n_points * 3 + 3
+    n = n_cameras * 6 + n_points * 3
     A = lil_matrix((m, n), dtype=int)
     print('sparcity matrix is {} x {}'.format(m, n))
 
@@ -76,9 +75,9 @@ def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indice
         A[2 * i, n_cameras * 6 + point_indices * 3 + s] = 1
         A[2 * i + 1, n_cameras * 6 + point_indices * 3 + s] = 1
 
-    for s in range(3):
-        A[2 * i, n_cameras * 6 + n_points * 3 + s] = 1
-        A[2 * i + 1, n_cameras * 6 + n_points * 3 + s] = 1
+    #for s in range(3):
+    #    A[2 * i, n_cameras * 6 + n_points * 3 + s] = 1
+    #    A[2 * i + 1, n_cameras * 6 + n_points * 3 + s] = 1
 
     print('A non-zero elements = {}'.format(A.nnz))
     
@@ -209,8 +208,7 @@ class Optimizer():
 
         # def run(self, mode=''):
         import matplotlib.pyplot as plt
-        f = 0; k1 = 0; k2 = 0
-        x0 = np.hstack((camera_params.ravel(), points_3d.ravel(), f, k1, k2))
+        x0 = np.hstack((camera_params.ravel(), points_3d.ravel()))
         print('x0:')
         print(x0.shape)
         print(x0)
