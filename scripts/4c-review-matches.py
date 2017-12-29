@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # for all the images in the project image_dir, compute the camera
 # poses from the aircraft pose (and camera mounting transform).
@@ -7,10 +7,10 @@
 # adjustment work.)
 
 import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
+#sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
-import cPickle as pickle
+import pickle
 import cv2
 import numpy as np
 import os.path
@@ -31,7 +31,7 @@ proj.load_image_info()
 proj.load_features()
 proj.undistort_keypoints()
 
-print "Loading match points (direct)..."
+print("Loading match points (direct)...")
 matches_direct = pickle.load( open( os.path.join(args.project, "matches_direct"), "rb" ) )
 
 # load the group connections within the image set
@@ -114,7 +114,7 @@ for i in range(len(proj.image_list)):
             std = np.std(error)
             averages[i][j] = avg
             stddevs[i][j] = std
-            print i, j, 'avg:', avg, 'std:', std
+            print(i, j, 'avg:', avg, 'std:', std)
 
 # run through the match list and compute the homography error (in image space)
 error_list = []
@@ -160,14 +160,14 @@ mark_sum = len(mark_list)
 cull.mark_using_list(mark_list, matches_direct)
 
 if mark_sum > 0:
-    print 'Outliers removed from match lists:', mark_sum
+    print('Outliers removed from match lists:', mark_sum)
     result=raw_input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
         cull.delete_marked_matches(matches_direct)
-        print len(matches_direct)
+        print(len(matches_direct))
         
         # write out the updated match dictionaries
-        print "Writing direct matches..."
+        print("Writing direct matches...")
         pickle.dump(matches_direct, open(os.path.join(args.project, "matches_direct"), "wb"))
 
 

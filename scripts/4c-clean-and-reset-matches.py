@@ -1,22 +1,19 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
+#sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
-import commands
-import cPickle as pickle
+import pickle
 import cv2
-import fnmatch
 import math
 import numpy as np
 import os.path
 from progress.bar import Bar
-import scipy.spatial
 
 sys.path.append('../lib')
 import Matcher
-import Pose
+#import Pose
 import ProjectMgr
 import SRTM
 
@@ -71,9 +68,9 @@ else:
 # uv coordinates.  These duplicates may have different scaling or
 # other attributes important during feature matching, yet ultimately
 # resolve to the same uv coordinate in an image.
-print "Indexing features by unique uv coordinates..."
+print("Indexing features by unique uv coordinates...")
 for image in proj.image_list:
-    print image.name
+    print(image.name)
     # pass one, build a tmp structure of unique keypoints (by uv) and
     # the index of the first instance.
     image.kp_remap = {}
@@ -86,10 +83,10 @@ for image in proj.image_list:
                 image.kp_remap[key] = i
             else:
                 pass
-                print "%d -> %d" % (i, image.kp_remap[key])
-                print " ", image.coord_list[i], image.coord_list[image.kp_remap[key]]
-    print " features used:", used
-    print " unique by uv and used:", len(image.kp_remap)
+                print("%d -> %d" % (i, image.kp_remap[key]))
+                print(" ", image.coord_list[i], image.coord_list[image.kp_remap[key]])
+    print(" features used:", used)
+    print(" unique by uv and used:", len(image.kp_remap))
 
 # after feature matching we don't care about other attributes, just
 # the uv coordinate.
@@ -101,7 +98,7 @@ for image in proj.image_list:
 # duplicates could still exist.  This finds all the duplicates within
 # the entire match set and collapses them down to eliminate any
 # redundancy.
-print "Collapsing keypoints with duplicate uv coordinates..."
+print("Collapsing keypoints with duplicate uv coordinates...")
 for i, i1 in enumerate(proj.image_list):
     for j, matches in enumerate(i1.match_list):
         count = 0
@@ -125,25 +122,25 @@ for i, i1 in enumerate(proj.image_list):
                 uv1 = list(i1.kp_list[idx1].pt)
                 new_uv1 = list(i1.kp_list[new_idx1].pt)
                 if not np.allclose(uv1, new_uv1):
-                    print "OOPS!!!"
-                    print "  index 1: %d -> %d" % (idx1, new_idx1)
-                    print "  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv1[0], uv1[1],
+                    print("OOPS!!!")
+                    print("  index 1: %d -> %d" % (idx1, new_idx1))
+                    print("  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv1[0], uv1[1],
                                                               new_uv1[0],
-                                                              new_uv1[1])
+                                                              new_uv1[1]))
             if idx2 != new_idx2:
                 # sanity check
                 uv2 = list(i2.kp_list[idx2].pt)
                 new_uv2 = list(i2.kp_list[new_idx2].pt)
                 if not np.allclose(uv2, new_uv2):
-                    print "OOPS!"
-                    print "  index 2: %d -> %d" % (idx2, new_idx2)
-                    print "  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv2[0], uv2[1],
+                    print("OOPS!")
+                    print("  index 2: %d -> %d" % (idx2, new_idx2))
+                    print("  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv2[0], uv2[1],
                                                               new_uv2[0],
-                                                              new_uv2[1])
+                                                              new_uv2[1]))
             # rewrite matches
             matches[k] = [new_idx1, new_idx2]
         if count > 0:
-            print 'Match:', i, 'vs', j, 'matches:', len(matches), 'rewrites:', count
+            print('Match:', i, 'vs', j, 'matches:', len(matches), 'rewrites:', count)
 
 # enable the following code to visualize the matches after collapsing
 # identical uv coordinates
@@ -154,7 +151,7 @@ if False:
                 # don't repeat reciprocal matches
                 continue
             if len(i1.match_list[j]):
-                print "Showing %s vs %s" % (i1.name, i2.name)
+                print("Showing %s vs %s" % (i1.name, i2.name))
                 status = m.showMatchOrient(i1, i2, i1.match_list[j])
       
 # after collapsing by uv coordinate, we could be left with duplicate
@@ -165,7 +162,7 @@ if False:
 # be able to find any dups.  These should all get caught in the
 # original pair matching step.  But some dupes seem to survive?
 # Hmmm...
-print "Eliminating pair duplicates..."
+print("Eliminating pair duplicates...")
 for i, i1 in enumerate(proj.image_list):
     for j, matches in enumerate(i1.match_list):
         i2 = proj.image_list[j]
@@ -180,7 +177,7 @@ for i, i1 in enumerate(proj.image_list):
             else:
                 count += 1
         if count > 0:
-            print 'Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count
+            print('Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count)
       
         i1.match_list[j] = new_matches
         
@@ -193,7 +190,7 @@ if False:
                 # don't repeat reciprocal matches
                 continue
             if len(i1.match_list[j]):
-                print "Showing %s vs %s" % (i1.name, i2.name)
+                print("Showing %s vs %s" % (i1.name, i2.name))
                 status = m.showMatchOrient(i1, i2, i1.match_list[j])
 
 # Do we have a keypoint in i1 matching multiple keypoints in i2?
@@ -202,7 +199,7 @@ if False:
 # we start finding these here, I should hunt for the reason earlier in
 # the code that lets some through, or try to understand what larger
 # logic principle allows somne of these to still exist here.
-print "Testing for 1 vs. n keypoint duplicates..."
+print("Testing for 1 vs. n keypoint duplicates...")
 for i, i1 in enumerate(proj.image_list):
     for j, matches in enumerate(i1.match_list):
         i2 = proj.image_list[j]
@@ -212,15 +209,15 @@ for i, i1 in enumerate(proj.image_list):
             if not pair[0] in kp_dict:
                 kp_dict[pair[0]] = pair[1]
             else:
-                print "Warning keypoint idx", pair[0], "already used in another match."
+                print("Warning keypoint idx", pair[0], "already used in another match.")
                 uv2a = list(i2.kp_list[ kp_dict[pair[0]] ].pt)
                 uv2b = list(i2.kp_list[ pair[1] ].pt)
                 if not np.allclose(uv2, new_uv2):
-                    print "  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv2a[0], uv2a[1],
-                                                              uv2b[0], uv2b[1])
+                    print("  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv2a[0], uv2a[1],
+                                                              uv2b[0], uv2b[1]))
                 count += 1
         if count > 0:
-            print 'Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count
+            print('Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count)
 
 def update_match_location(match):
     sum = np.array( [0.0, 0.0, 0.0] )
@@ -232,7 +229,7 @@ def update_match_location(match):
         match[0] = ned.tolist()
     return match
     
-print "Constructing unified match structure..."
+print("Constructing unified match structure...")
 # create an initial pair-wise match list
 matches_direct = []
 for i, img in enumerate(proj.image_list):
@@ -283,7 +280,7 @@ if args.full_grouping:
 else:
     done = True
 while not done:
-    print "Iteration:", count
+    print("Iteration:", count)
     count += 1
     matches_new = []
     matches_lookup = {}
@@ -333,12 +330,12 @@ for match in matches_direct:
     count += 1
         
 if count >= 1:
-    print "total unique features in image set = %d" % count
-    print "keypoint average instances = %.4f" % (sum / count)
+    print("total unique features in image set = %d" % count)
+    print("keypoint average instances = %.4f" % (sum / count))
 
 # compute an initial guess at the 3d location of each unique feature
 # by averaging the locations of each projection
-print "Estimating world coordinates of each keypoint..."
+print("Estimating world coordinates of each keypoint...")
 for match in matches_direct:
     sum = np.array( [0.0, 0.0, 0.0] )
     for p in match[1:]:
@@ -348,7 +345,7 @@ for match in matches_direct:
     # if len(match) >= 4: print "avg =", ned
     match[0] = ned.tolist()
 
-print "Writing match file ..."
+print("Writing match file ...")
 pickle.dump(matches_direct, open(args.project + "/matches_direct", "wb"))
 
 #print "temp: writing ascii version..."

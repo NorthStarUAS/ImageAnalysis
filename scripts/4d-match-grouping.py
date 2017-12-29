@@ -1,18 +1,15 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
+#sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
-#import commands
-import cPickle as pickle
+import pickle
 import cv2
-#import fnmatch
 import math
 import numpy as np
 import os.path
 from progress.bar import Bar
-#import scipy.spatial
 
 sys.path.append('../lib')
 import ProjectMgr
@@ -34,7 +31,7 @@ proj.load_image_info()
 proj.load_features()
 proj.undistort_keypoints()
 
-print "Loading match points (direct)..."
+print("Loading match points (direct)...")
 matches_direct = pickle.load( open( os.path.join(args.project, "matches_direct"), "rb" ) )
 
 # collect/group match chains that refer to the same keypoint
@@ -62,7 +59,7 @@ matches_direct = pickle.load( open( os.path.join(args.project, "matches_direct")
 count = 0
 done = False
 while not done:
-    print "Iteration:", count
+    print("Iteration:", count)
     count += 1
     matches_new = []
     matches_lookup = {}
@@ -103,7 +100,7 @@ while not done:
             ned2 = np.array(existing[0])
             avg = (ned1 * size1 + ned2 * size2) / (size1 + size2)
             existing[0] = avg.tolist()
-            print ned1, ned2, existing[0]
+            print(ned1, ned2, existing[0])
             # print "new:", existing
             # print
     if len(matches_new) == len(matches_direct):
@@ -126,17 +123,17 @@ for i, match in enumerate(matches_direct):
     sum += refs
     if refs > max:
         max = refs
-        print 'new max:', match
+        print('new max:', match)
         max_index = i
         cull.draw_match(i, 0, matches_direct, proj.image_list)
     count += 1
         
 if count >= 1:
-    print "total unique features in image set = %d" % count
-    print "keypoint average instances = %.4f" % (sum / count)
-    print "max chain length =", max, ' @ index =', max_index
+    print("total unique features in image set = %d" % count)
+    print("keypoint average instances = %.4f" % (sum / count))
+    print("max chain length =", max, ' @ index =', max_index)
 
-print "Writing full group chain match file ..."
+print("Writing full group chain match file ...")
 pickle.dump(matches_direct, open(os.path.join(args.project, "matches_grouped"), "wb"))
 
 #print "temp: writing ascii version..."

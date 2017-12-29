@@ -1,11 +1,10 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
+#sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
-import commands
-import cPickle as pickle
+import pickle
 import cv2
 import fnmatch
 import json
@@ -13,7 +12,6 @@ import math
 import numpy as np
 import os.path
 from progress.bar import Bar
-import scipy.spatial
 
 sys.path.append('../lib')
 import Matcher
@@ -33,8 +31,6 @@ parser.add_argument('--min-pairs', default=25, type=int,
                     help='minimum matches between image pairs to keep')
 parser.add_argument('--filter', default='essential',
                     choices=['homography', 'fundamental', 'essential', 'none'])
-parser.add_argument('--image-fuzz', default=40, type=float, help='image fuzz') 
-parser.add_argument('--feature-fuzz', default=20, type=float, help='feature fuzz') 
 parser.add_argument('--ground', type=float, help='ground elevation in meters')
 
 args = parser.parse_args()
@@ -86,97 +82,25 @@ else:
         # 6. interpolate original uv coordinates to 3d locations
         proj.fastProjectKeypointsTo3d(sss)
 
-# compute a bounding sphere for each image
-bar = Bar('Compute bounding spheres:',
-          max = len(proj.image_list))
-for image in proj.image_list:
-    sum = np.array([0.0, 0.0, 0.0])
-    if len(image.coord_list) == 0:
-        image.center = np.array([0.0, 0.0, 0.0])
-        image.radius = 1.0
-        continue
-    for p in image.coord_list:
-        if not np.isnan(p[0]):
-            sum += p
-    image.center = sum / len(image.coord_list)
-    max_dist = 0.0
-    for p in image.coord_list:
-        if not np.isnan(p[0]):
-            dist = np.linalg.norm(image.center - p)
-            if dist > max_dist:
-                max_dist = dist
-    image.radius = max_dist
-    image.save_meta()
-    # print "center = %s radius = %.1f" % (image.center, image.radius)
-    bar.next()
-bar.finish()
-        
-
-# build kdtree() of 3d point locations for fast spacial nearest
-# neighbor lookups.
-bar = Bar('Construct KDTrees:',
-          max = len(proj.image_list))
-for image in proj.image_list:
-    if len(image.coord_list):
-        # print
-        # print image.name
-        # print len(image.coord_list)
-        # xmin = image.coord_list[0][0]
-        # xmax = image.coord_list[0][0]
-        # ymin = image.coord_list[0][1]
-        # ymax = image.coord_list[0][1]
-        # zmin = image.coord_list[0][2]
-        # zmax = image.coord_list[0][2]
-        # for p in image.coord_list:
-        #     if p[0] < xmin: xmin = p[0]
-        #     if p[0] > xmax: xmax = p[0]
-        #     if p[1] < ymin: ymin = p[1]
-        #     if p[1] > ymax: ymax = p[1]
-        #     if p[2] < zmin: zmin = p[2]
-        #     if p[2] > zmax: zmax = p[2]
-        # print xmin, xmax
-        # print ymin, ymax
-        # print zmin, zmax
-        image.kdtree = scipy.spatial.KDTree(image.coord_list)
-    else:
-        image.kdtree = None
-
-    #result = image.kdtree.query_ball_point(image.coord_list[0], 5.0)
-    #p1 = image.coord_list[0]
-    #print "ref =", p1
-    #for i in result:
-    #    p2 = image.coord_list[i]
-    #    d1 = p1[0] - p2[0]
-    #    d2 = p1[1] - p2[1]
-    #    dist = math.sqrt(d1**2 + d2**2)
-    #    print "dist=%.2f  coord=%s" % (dist, p2)
-
-    bar.next()
-bar.finish()
-
 proj.matcher_params = { 'matcher': args.matcher,
                         'match-ratio': args.match_ratio,
-                        'filter': args.filter,
-                        'image-fuzz': args.image_fuzz,
-                        'feature-fuzz': args.feature_fuzz }
+                        'filter': args.filter }
 proj.save()
 
 # determine scale value so we can get correct K matrix
 image_width = proj.image_list[0].width
 camw, camh = proj.cam.get_image_params()
 scale = float(image_width) / float(camw)
-print 'scale:', scale
+print('scale:', scale)
 # camera calibration
 K = proj.cam.get_K(scale)
-print "K:", K
+print("K:", K)
 
 # fire up the matcher
 m = Matcher.Matcher()
 m.min_pairs = args.min_pairs
 m.configure(proj.detector_params, proj.matcher_params)
-m.robustGroupMatches(proj.image_list, K, filter=args.filter,
-                     image_fuzz=args.image_fuzz, feature_fuzz=args.feature_fuzz,
-                     review=False)
+m.robustGroupMatches(proj.image_list, K, filter=args.filter, review=False)
 
 # The following code is deprecated ...
 do_old_match_consolodation = False
@@ -205,8 +129,8 @@ if do_old_match_consolodation:
         sum += len(matches_dict[key]['pts'])
         count += 1
     if count > 0.1:
-        print "total unique features in image set = %d" % count
-        print "kp average instances = %.4f" % (sum / count)
+        print("total unique features in image set = %d" % count)
+        print("kp average instances = %.4f" % (sum / count))
 
     # compute an initial guess at the 3d location of each unique feature
     # by averaging the locations of each projection
@@ -228,7 +152,7 @@ def update_match_location(match):
         match[0] = ned.tolist()
     return match
 
-print "Constructing unified match structure..."
+print("Constructing unified match structure...")
 matches_direct = []
 for i, image in enumerate(proj.image_list):
     # print image.name
@@ -245,5 +169,5 @@ for i, image in enumerate(proj.image_list):
                 matches_direct.append(match)
                 # print pair, match
                 
-print "Writing match file ..."
+print("Writing match file ...")
 pickle.dump(matches_direct, open(args.project + "/matches_direct", "wb"))
