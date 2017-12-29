@@ -6,6 +6,10 @@
 # layout guess (at this point before we do any matching/bundle
 # adjustment work.)
 
+# TODO: after each delete, recompute outliers on the fly and start
+# over.  Also perhaps show all the outliers in decending order by
+# worst image, then features within that image.
+
 import sys
 #sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
@@ -161,7 +165,7 @@ cull.mark_using_list(mark_list, matches_direct)
 
 if mark_sum > 0:
     print('Outliers removed from match lists:', mark_sum)
-    result=raw_input('Save these changes? (y/n):')
+    result=input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
         cull.delete_marked_matches(matches_direct)
         print(len(matches_direct))

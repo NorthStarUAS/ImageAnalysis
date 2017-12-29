@@ -1,18 +1,16 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
+#sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
 import commands
-import cPickle as pickle
+import pickle
 import cv2
-import fnmatch
-import math
+mport math
 import numpy as np
 import os.path
 from progress.bar import Bar
-import scipy.spatial
 
 sys.path.append('../lib')
 import Matcher
@@ -52,21 +50,21 @@ if args.image:
     if i1 != None:
         for j, i2 in enumerate(proj.image_list):
             if len(i1.match_list[j]):
-                print "Showing %s vs %s" % (i1.name, i2.name)
+                print("Showing %s vs %s" % (i1.name, i2.name))
                 status = m.showMatchOrient(i1, i2, i1.match_list[j],
                                            orient=args.orient)
     else:
-        print "Cannot locate:", args.image
+        print("Cannot locate:", args.image)
 elif args.index:
     i1 = proj.image_list[args.index]
     if i1 != None:
         for j, i2 in enumerate(proj.image_list):
             if len(i1.match_list[j]):
-                print "Showing %s vs %s" % (i1.name, i2.name)
+                print("Showing %s vs %s" % (i1.name, i2.name))
                 status = m.showMatchOrient(i1, i2, i1.match_list[j],
                                            orient=args.orient)
     else:
-        print "Cannot locate:", args.index
+        print("Cannot locate:", args.index)
 elif args.direct or args.sba:
     if args.direct:
         matches_list = pickle.load( open( args.project + "/matches_direct", "rb" ) )
@@ -89,7 +87,7 @@ elif args.direct or args.sba:
                 if p1 != None and p2 != None:
                     matches.append( [p1, p2] )
             if len(matches):
-                print "Showing (direct) %s vs %s" % (i1.name, i2.name)
+                print("Showing (direct) %s vs %s" % (i1.name, i2.name))
                 status = m.showMatchOrient(i1, i2, matches,
                                            orient=args.orient)
 elif args.order == 'sequential':
@@ -99,7 +97,7 @@ elif args.order == 'sequential':
                 # don't repeat reciprocal matches
                 continue
             if len(i1.match_list[j]):
-                print "Showing %s vs %s" % (i1.name, i2.name)
+                print("Showing %s vs %s" % (i1.name, i2.name))
                 status = m.showMatchOrient(i1, i2, i1.match_list[j],
                                            orient=args.orient)
 elif args.order == 'fewest-matches':
@@ -120,6 +118,6 @@ elif args.order == 'fewest-matches':
         j = match[2]
         i1 = proj.image_list[i]
         i2 = proj.image_list[j]
-        print "Showing %s vs %s (matches=%d)" % (i1.name, i2.name, count)
+        print("Showing %s vs %s (matches=%d)" % (i1.name, i2.name, count))
         status = m.showMatchOrient(i1, i2, i1.match_list[j],
                                    orient=args.orient)
