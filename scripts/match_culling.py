@@ -115,7 +115,7 @@ def mark_using_list(mark_list, matches):
         
 # delete marked matches
 def delete_marked_matches(matches):
-    print(" deleting marked items...", len(matches))
+    print(" deleting marked items...")
     for i in reversed(range(len(matches))):
         match = matches[i]
         has_bad_elem = False
