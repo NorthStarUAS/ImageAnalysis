@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import copy
 import cv2
 import math
@@ -95,6 +97,7 @@ class Matcher():
     # feature in image1 matching two or more features in images2.
     # Find and filter these out of the set.
     def filter_duplicates(self, i1, i2, idx_pairs):
+        count = 0
         result = []
         kp1_dict = {}
         kp2_dict = {}
@@ -104,15 +107,20 @@ class Matcher():
             key1 = "%.2f-%.2f" % (kp1.pt[0], kp1.pt[1])
             key2 = "%.2f-%.2f" % (kp2.pt[0], kp2.pt[1])
             if key1 in kp1_dict and key2 in kp2_dict:
-                print("image1 and image2 key point already used:", key1, key2)
+                # print("image1 and image2 key point already used:", key1, key2)
+                count += 1
             elif key1 in kp1_dict:
-                print("image1 key point already used:", key1)
+                # print("image1 key point already used:", key1)
+                count += 1
             elif key2 in kp2_dict:
-                print( "image2 key point already used:", key2)
+                # print( "image2 key point already used:", key2)
+                count += 1
             else:
                 kp1_dict[key1] = True
                 kp2_dict[key2] = True
                 result.append(pair)
+        if count > 0:
+            print("  removed %d duplicate features" % count)
         return result
 
     # Iterate through all the matches for the specified image and
@@ -217,187 +225,50 @@ class Matcher():
                     clean = False
         return clean
 
-    # Iterative Closest Point algorithm
-    def ICP(self, i1, i2):
-        if i1 == i2:
-            return []
-        # create a new copy of i2.coord_list
-        coord_list2 = np.array(i2.coord_list, copy=True).T
-        #print coord_list2
-
-        # make homogeneous
-        newcol = np.ones( (1, coord_list2.shape[1]) )
-        #print newcol
-        #print coord_list2.shape, newcol.shape
-        coord_list2 = np.vstack((coord_list2, newcol))
-
-        done = False
-        while not done:
-            # find a pairing for the closest points.  If the closest point
-            # is already taken, then if the distance is less, the old
-            # pairing is dropped and the new one accepted. If the distance
-            # is greater than a previous pairing, the new pairing is
-            # skipped
-            i1.icp_index = np.zeros( len(i1.coord_list), dtype=int )
-            i1.icp_index.fill(-1)
-            i1.icp_dist = np.zeros( len(i1.coord_list) )
-            i1.icp_dist.fill(np.inf) # a big number
-            for i in range(coord_list2.shape[1]):
-                c2 = coord_list2[:3,i]
-                (dist, index) = i1.kdtree.query(c2, k=1)
-                if dist < i1.icp_dist[index]:
-                    i1.icp_dist[index] = dist
-                    i1.icp_index[index] = i
-            pairs = []
-            for i, index in enumerate(i1.icp_index):
-                if index >= 0:
-                    c1 = i1.coord_list[i]
-                    c2 = coord_list2[:3,index]
-                    #print "c1=%s c2=%s" % (c1, c2)
-                    pairs.append( [c1, c2] )
-
-            do_plot = False
-            if do_plot:
-                # This can be plotted in gnuplot with:
-                # plot "c1.txt", "c2.txt", "vector.txt" u 1:2:($3-$1):($4-$2) title "pairs" with vectors
-                f = open('c1.txt', 'w')
-                for c1 in i1.coord_list:
-                    f.write("%.3f %.3f %.3f\n" % (c1[1], c1[0], -c1[2]))
-                f.close()
-                f = open('c2.txt', 'w')
-                for i in range(coord_list2.shape[1]):
-                    c2 = coord_list2[:3,i]
-                    f.write("%.3f %.3f %.3f\n" % (c2[1], c2[0], -c2[2]))
-                f.close()
-                f = open('vector.txt', 'w')
-                for pair in pairs:
-                    c1 = pair[0]
-                    c2 = pair[1]
-                    f.write("%.3f %.3f %.3f %.3f %.3f %.3f\n" % ( c2[1], c2[0], -c2[2], c1[1], c1[0], -c1[2] ))
-                f.close()
-
-            # find the affine transform matrix that brings the paired
-            # points together
-            #print "icp pairs =", len(pairs)
-            v0 = np.zeros( (3, len(pairs)) )
-            v1 = np.zeros( (3, len(pairs)) )
-            weights = np.zeros( len(pairs) )
-            weights.fill(1.0)
-            for i, pair in enumerate(pairs):
-                v0[:,i] = pair[0]
-                v1[:,i] = pair[1]
-            #print "v0\n", v0
-            #print "v1\n", v1
-            #print "weights\n", weights
-            M = transformations.affine_matrix_from_points(v1, v0, shear=False, scale=False)
-            #M = transformations.affine_matrix_from_points_weighted(v0, v1, weights, shear=False, scale=False)
-            #print M
-            scale, shear, angles, trans, persp = transformations.decompose_matrix(M)
-            #print "scale=", scale
-            #print "shear=", shear
-            #print "angles=", angles
-            #print "trans=", trans
-            #print "persp=", persp
-
-            coord_list2 = np.dot(M, coord_list2)
-            coord_list2 /= coord_list2[3]
-            # print coord_list2
-
-            rot = np.linalg.norm(angles)
-            dist = np.linalg.norm(trans)
-            print("rot=%.6f dist=%.6f" % (rot, dist))
-            if rot < 0.001 and dist < 0.001:
-                done = True
-                a = raw_input("Press Enter to continue...")
-
-    def basic_matches(self, i1, i2, des_list1, des_list2,
-                      result1, result2, feature_fuzz):
+    def basic_matches(self, i1, i2):
         # all vs. all match between overlapping i1 keypoints and i2
         # keypoints (forward match)
-        matches = self.matcher.knnMatch(np.array(des_list1),
-                                        trainDescriptors=np.array(des_list2),
+        matches = self.matcher.knnMatch(np.array(i1.des_list),
+                                        trainDescriptors=np.array(i2.des_list),
                                         k=2)
-        # rewrite the query/train indices (from our query subset)
-        # back to referencing the full set of keypoints
-        for match in matches:
-            for m in match:
-                qi = m.queryIdx
-                m.queryIdx = result1[qi]
-                ti = m.trainIdx
-                m.trainIdx = result2[ti]
-        print("initial matches =", len(matches))
+        # print("initial matches =", len(matches))
         
         # run the classic feature distance ratio test
         p1, p2, kp_pairs, idx_pairs = self.filter_by_feature(i1, i2, matches)
-        print("after distance ratio test =", len(idx_pairs))
+        # print("  first matches =", len(idx_pairs))
  
-        do_direct_geo_individual_distance_test = False
-        if do_direct_geo_individual_distance_test:
-            # test each individual match pair for proximity to each
-            # other (fine grain distance check)
-            # print "  pairs (before location filter) =", len(idx_pairs)
-            idx_pairs = self.filter_by_location(i1, i2, idx_pairs, feature_fuzz)
-            print("after direct goereference distance test =", len(idx_pairs))
-
         # check for duplicate matches (based on different scales or attributes)
         idx_pairs = self.filter_duplicates(i1, i2, idx_pairs)
         
         if len(idx_pairs) < self.min_pairs:
             idx_pairs = []
-        print("  pairs =", len(idx_pairs))
+        print("  initial matches =", len(idx_pairs))
         return idx_pairs
     
-    # do initial feature matching of specified image against every
-    # image in the provided image list (except self)
-    # fuzz units is meters
-    def hybridImageMatches(self, i1, i2, image_fuzz=40, feature_fuzz=20, review=False):
+    # do initial feature matching (both ways) for the specified image
+    # pair.
+    def bidirectional_matches(self, i1, i2, review=False):
         if i1 == i2:
             print("We shouldn't see this, but i1 == i2")
             return [], []
-        if np.any(i1.des_list):
-            size = len(i1.des_list)
-        else:
-            size = 0
 
-        # all the points in image1 that are within range of image2
-        if i1.kdtree != None:
-            result1 = i1.kdtree.query_ball_point(i2.center,
-                                                 i2.radius + image_fuzz)
-        else:
-            result1 = [], []
-        if len(result1) <= 1:
+        # camera pose distance check
+        ned1, ypr1, q1 = i1.get_camera_pose()
+        ned2, ypr2, q2 = i2.get_camera_pose()
+        dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
+        print("  dist = %.2f" % dist)
+        if dist > 50:
             return [], []
-
-        # all the points in image2 that are within range of image1
-        if i2.kdtree != None:
-            result2 = i2.kdtree.query_ball_point(i1.center,
-                                                 i1.radius + image_fuzz)
-        else:
-            result2 = [], []
-        if len(result2) <= 1:
-            return [], []
-
-        # build the subset lists for matching
-        des_list1 = []
-        for k in result1:
-            des_list1.append(i1.des_list[k])
-        des_list2 = []
-        for k in result2:
-            des_list2.append(i2.des_list[k])
-
-        print("i1 vs. i2 features = %d vs %d" % (len(des_list1), len(des_list2)))
-
+        
         # all vs. all match between overlapping i1 keypoints and i2
         # keypoints (forward match)
-        idx_pairs1 = self.basic_matches( i1, i2, des_list1, des_list2,
-                                         result1, result2, feature_fuzz )
+        idx_pairs1 = self.basic_matches(i1, i2)
         
         # all vs. all match between overlapping i2 keypoints and i1
         # keypoints (reverse match)
-        idx_pairs2 = self.basic_matches( i2, i1, des_list2, des_list1,
-                                         result2, result1, feature_fuzz )
+        idx_pairs2 = self.basic_matches(i2, i1)
 
-        plot_matches = True
+        plot_matches = False
         if plot_matches:
             self.plot_matches(i1, i2, idx_pairs1)
             self.plot_matches(i2, i1, idx_pairs2)
@@ -448,7 +319,7 @@ class Matcher():
  
 
     def robustGroupMatches(self, image_list, K, filter="fundamental",
-                           image_fuzz=40, feature_fuzz=20, review=False):
+                           review=False):
         n = len(image_list) - 1
         n_work = float(n*(n+1)/2)
         n_count = float(0)
@@ -467,8 +338,7 @@ class Matcher():
                     # create if needed
                     i2.match_list = [[]] * len(image_list)
                 i1.match_list[j], i2.match_list[i] \
-                    = self.hybridImageMatches(i1, i2, image_fuzz, feature_fuzz,
-                                              review)
+                    = self.bidirectional_matches(i1, i2, review)
                 n_count += 1
 
                 done = False
@@ -485,8 +355,9 @@ class Matcher():
                         
                 print("%.1f %% done" % ((n_count / n_work) * 100.0))
 
+        # update 2017/12/29: I believe this cull step shouldn't be needed
         # so nothing sneaks through
-        self.cullShortMatches(image_list)
+        # self.cullShortMatches(image_list)
 
         # and save
         self.saveMatches(image_list)
@@ -509,36 +380,6 @@ class Matcher():
 ###########################################################
 ###   STUFF BELOW HERE IS OLD AND POSSIBLY DEPRECATED   ###
 ###########################################################
-
-    # def safeAddPair(self, i1, i2, refpair):
-    #     image1 = self.image_list[i1]
-    #     image2 = self.image_list[i2]
-    #     matches = image1.match_list[i2]
-    #     hasit = False
-    #     for pair in matches:
-    #         if pair[0] == refpair[0] and pair[1] == refpair[1]:
-    #             hasit = True
-    #             # print " already exists: %s->%s (%d %d)" \
-    #             #    % (image1.name, image2.name, refpair[0], refpair[1])
-    #     if not hasit:
-    #         print "Adding %s->%s (%d %d)" % (image1.name, image2.name, refpair[0], refpair[1])
-    #         matches.append(refpair)
-
-    # the matcher doesn't always find the same matches between a pair
-    # of images in both directions.  This will make sure a found match
-    # in one direction also exists in the reciprocol direction.
-    # def addInverseMatches(self):
-    #     for i, i1 in enumerate(self.image_list):
-    #         print "add inverse matches for %s" % i1.name
-    #         for j, matches in enumerate(i1.match_list):
-    #             if i == j:
-    #                 continue
-    #             i2 = self.image_list[j]
-    #             for pair in matches:
-    #                 inv_pair = (pair[1], pair[0])
-    #                 self.safeAddPair(j, i, inv_pair)
-    #     for i1 in self.image_list:
-    #         i1.save_matches()
 
     def showMatch(self, i1, i2, idx_pairs, status=None):
         #print " -- idx_pairs = " + str(idx_pairs)
