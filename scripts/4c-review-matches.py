@@ -21,6 +21,7 @@ import os.path
 
 sys.path.append('../lib')
 import Groups
+import Matcher
 import ProjectMgr
 
 import match_culling as cull
@@ -35,6 +36,8 @@ proj.load_image_info()
 proj.load_features()
 proj.undistort_keypoints()
 
+matcher = Matcher.Matcher()
+
 print("Loading match points (direct)...")
 matches_direct = pickle.load( open( os.path.join(args.project, "matches_direct"), "rb" ) )
 
@@ -48,12 +51,14 @@ pairs = []
 homography = []
 averages = []
 stddevs = []
+status_flags = []
 for i in range(len(proj.image_list)):
     p = [ [] for j in range(len(proj.image_list)) ]
     pairs.append(p)
     homography.append( [None] * len(proj.image_list) )
     averages.append( [0] * len(proj.image_list) )
     stddevs.append( [0] * len(proj.image_list) )
+    status_flags.append( [None] * len(proj.image_list) )
     
 for match in matches_direct:
     for p1 in match[1:]:
@@ -75,12 +80,13 @@ for match in matches_direct:
 #             print i, j, len(pairs[i][j])
 #             i1 = proj.image_list[i]
 #             i2 = proj.image_list[j]
-#             status = m.showMatchOrient(i1, i2, pairs[i][j] )
+#             status = matcher.showMatchOrient(i1, i2, pairs[i][j] )
 
 # compute the consensus homography matrix for each pairing, then
 # compute projection error stats for each pairing.  (We are looking
 # for outliers that don't fit the homography relationship very well or
 # at all.)
+bypair = []
 for i in range(len(proj.image_list)):
     for j in range(len(proj.image_list)):
         if len(pairs[i][j]):
@@ -118,7 +124,56 @@ for i in range(len(proj.image_list)):
             std = np.std(error)
             averages[i][j] = avg
             stddevs[i][j] = std
-            print(i, j, 'avg:', avg, 'std:', std)
+            status_flags[i][j] = status
+            print('pair:', i, j, 'avg:', avg, 'std:', std)
+            bypair.append( [avg, std, i, j] )
+
+bypair = sorted(bypair, key=lambda fields: fields[0], reverse=True)
+mark_list = []
+for line in bypair:
+    print(line)
+    i = line[2]
+    j = line[3]
+    i1 = proj.image_list[i]
+    i2 = proj.image_list[j]
+    status, key = matcher.showMatchOrient(i1, i2, pairs[i][j])
+    if key == ord('q'):
+        # request quit
+        break
+    elif key == ord(' '):
+        # accept the outliers, find them, and construct a mark list
+        for k, flag in enumerate(status):
+            if not flag:
+                p0 = pairs[i][j][k][0]
+                p1 = pairs[i][j][k][1]
+                print('outlier:', i, j, p0, p1)
+                for k, match in enumerate(matches_direct):
+                    pos1 = pos2 = -1
+                    for pos, m in enumerate(match[1:]):
+                        if m[0] == i and m[1] == p0:
+                            pos1 = pos
+                        if m[0] == j and m[1] == p1:
+                            pos2 = pos
+                    if pos1 >= 0 and pos2 >= 0:
+                        print("found in match: ", k)
+                        mark_list.append([k, pos1])
+                        mark_list.append([k, pos2])
+
+
+if len(mark_list):
+    print('Outliers marked:', len(mark_list))
+    result=input('Save these changes? (y/n):')
+    if result == 'y' or result == 'Y':
+        # mark and delete the outliers
+        cull.mark_using_list(mark_list, matches_direct)
+        cull.delete_marked_matches(matches_direct)
+ 
+        # write out the updated match dictionaries
+        print("Writing direct matches...")
+        pickle.dump(matches_direct, open(os.path.join(args.project, "matches_direct"), "wb"))
+
+print('Hard coded exit in mid script...')
+quit()
 
 # run through the match list and compute the homography error (in image space)
 error_list = []
