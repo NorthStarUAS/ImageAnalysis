@@ -151,8 +151,8 @@ print('Updated the sba poses for all the cameras')
 # our best absolute truth for positioning the system in world
 # coordinates.
 #
-# this can't be done globally, but can only be done for groups within
-# the set
+# this can't be done globally, but can only be done for optimized
+# group within the set
 
 refit_group_orientations = False
 if refit_group_orientations:
