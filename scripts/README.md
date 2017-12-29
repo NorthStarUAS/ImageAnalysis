@@ -98,7 +98,24 @@ Show all the imported images.
     Seems to better handle variations off plane while still being
     pretty robust and rejecting false matches.  (Only with OpenCV3?)
 
-  ## 4b-grouping.py
+  ## 4b-clean-and-reset-matches.py
+
+  Start with the original pair-wise match set, then run several
+  validation and consistency checks to remove some potential weird
+  things.  This should be run after the 4a-matching step, and can be
+  rerun later to reset the matches.
+  
+  ## 4b-simple-matches-reset.py
+
+  Start with the original pair-wise match set and regenerate a
+  matches_direct version of this with no extra checking or validation.
+
+  ## 4c-match-grouping.py
+
+  Iterate through the matches_direct structure, locate and connect all
+  match chains.  Continues until no more chains can be connected.
+  
+  ## 4d-image-groups.py
 
   Images are matches as pairs, but these pairs can be connected into
   larger groups.  Ideally all images will connect with each other, but
@@ -107,19 +124,12 @@ Show all the imported images.
   feature matching filters.  Ultimately, good connectivity is achieved
   by ensuring your images overlap.  70% overlap with neighbors is the
   industry recommendation.
-  
-  ## 4c-clean-and-reset-matches.py
 
-  Start with the original pair-wise match set, then run several
-  validation and consistency checks to remove some potential weird
-  things.  Optionally do a full match chain grouping (but this can
-  cause problems with the optimizer if the match set has bad matches.)
-  
-  ## 4c-simple-matches-reset.py
+  ## 4e-review-matches.py
 
-  Start with the original pair-wise match set and regenerate a
-  matches_direct version of this with no extra checking or validation.
-
+  Interactive script that presents the worst outliers (based on some
+  relationship fit of the match pairs) and allows the user to review
+  and accept or delete the match.  
 
 # 5. Assemble Scene / Bundle Adjustment
 
