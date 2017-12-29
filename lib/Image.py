@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # Image.py - manage all the data scructures associated with an image
 
@@ -133,7 +133,7 @@ class Image():
             if 'bounding-radius' in image_dict:
                 self.radius = image_dict['bounding-radius']
         except:
-            print(self.info_file + ":\n" + "  load error: " \
+            print(self.info_file + ":\n" + "  json/meta load error: " \
                 + str(sys.exc_info()[1]))
 
     def load_rgb(self, force_resize=False):
@@ -145,7 +145,7 @@ class Image():
                 self.height, self.width = img_rgb.shape[:2]
             return img_rgb
         except:
-            print(self.image_file + ":\n" + "  load error: " \
+            print(self.image_file + ":\n" + "  rgb load error: " \
                 + str(sys.exc_info()[1]))
 
     def load_source_rgb(self, source_dir):
@@ -156,7 +156,7 @@ class Image():
             return source_image
 
         except:
-            print(source_image + ":\n" + "  load error: " \
+            print(source_image + ":\n" + "  source rgb load error: " \
                 + str(sys.exc_info()[1]))
             return None
 
@@ -186,7 +186,7 @@ class Image():
             return aeq
 
         except:
-            print(self.image_file + ":\n" + "  load error: " \
+            print(self.image_file + ":\n" + "  gray load error: " \
                 + str(sys.exc_info()[1]))
 
     def load_features(self):
@@ -207,7 +207,7 @@ class Image():
                     feature_dict = json.load(f)
                     f.close()
                 except:
-                    print(self.features_file + ":\n" + "  load error: " \
+                    print(self.features_file + ":\n" + "  feature load error: " \
                         + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1]))
                     return
 
@@ -236,7 +236,7 @@ class Image():
                 #print val
                 #print
             except:
-                print(filename + ":\n" + "  load error: " \
+                print(filename + ":\n" + "  desc load error: " \
                     + str(sys.exc_info()[1]))
         else:
             print("no file:", filename)
@@ -251,7 +251,7 @@ class Image():
                 self.match_list = json.load(f)
                 f.close()
             except:
-                print(self.features_file + ":\n" + "  load error: " \
+                print(self.features_file + ":\n" + "  matches load error: " \
                     + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1]))
                 return
 
