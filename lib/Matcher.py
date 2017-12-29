@@ -252,14 +252,6 @@ class Matcher():
             print("We shouldn't see this, but i1 == i2")
             return [], []
 
-        # camera pose distance check
-        ned1, ypr1, q1 = i1.get_camera_pose()
-        ned2, ypr2, q2 = i2.get_camera_pose()
-        dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
-        print("  dist = %.2f" % dist)
-        if dist > 50:
-            return [], []
-        
         # all vs. all match between overlapping i1 keypoints and i2
         # keypoints (forward match)
         idx_pairs1 = self.basic_matches(i1, i2)
@@ -333,6 +325,15 @@ class Matcher():
             for j, i2 in enumerate(image_list):
                 if j <= i:
                     continue
+                
+                # camera pose distance check
+                ned1, ypr1, q1 = i1.get_camera_pose()
+                ned2, ypr2, q2 = i2.get_camera_pose()
+                dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
+                print("  dist = %.2f" % dist)
+                if dist > 50:
+                    continue
+                
                 print("Matching %s vs %s" % (i1.name, i2.name))
                 if len(i2.match_list) == 0:
                     # create if needed
@@ -341,18 +342,32 @@ class Matcher():
                     = self.bidirectional_matches(i1, i2, review)
                 n_count += 1
 
-                done = False
-                while not done:
-                    done = True
-                    if not self.filter_non_reciprocal_pair(image_list, i, j):
-                        done = False
-                    if not self.filter_non_reciprocal_pair(image_list, j, i):
-                        done = False
-                    if not self.filter_by_homography(K, i1, i2, j, filter):
-                        done = False
-                    if not self.filter_by_homography(K, i2, i1, i, filter):
-                        done = False
-                        
+                scheme = 'one_step'
+                # scheme = 'iterative'
+
+                if scheme == 'iterative':
+                    done = False
+                    while not done:
+                        done = True
+                        if not self.filter_non_reciprocal_pair(image_list, i, j):
+                            done = False
+                        if not self.filter_non_reciprocal_pair(image_list, j, i):
+                            done = False
+                        if not self.filter_by_homography(K, i1, i2, j, filter):
+                            done = False
+                        if not self.filter_by_homography(K, i2, i1, i, filter):
+                            done = False
+                elif scheme == 'one_step':
+                    # quickly dump non-reciprocals from initial results
+                    self.filter_non_reciprocal_pair(image_list, i, j)
+                    self.filter_non_reciprocal_pair(image_list, j, i)
+                    # filter the remaining features by 'filter' relationship
+                    self.filter_by_homography(K, i1, i2, j, filter)
+                    self.filter_by_homography(K, i2, i1, i, filter)
+                    # cull any new non-reciprocals
+                    self.filter_non_reciprocal_pair(image_list, i, j)
+                    self.filter_non_reciprocal_pair(image_list, j, i)
+
                 print("%.1f %% done" % ((n_count / n_work) * 100.0))
 
         # update 2017/12/29: I believe this cull step shouldn't be needed
