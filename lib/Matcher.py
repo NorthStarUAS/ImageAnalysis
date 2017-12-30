@@ -315,6 +315,9 @@ class Matcher():
         n = len(image_list) - 1
         n_work = float(n*(n+1)/2)
         n_count = float(0)
+
+        # camera separation vs. matches stats
+        dist_stats = []
         
         # find basic matches and filter by match ratio and ned
         # location
@@ -326,13 +329,16 @@ class Matcher():
                 if j <= i:
                     continue
                 
+                # increment this even if there is no work to do
+                n_count += 1
+                
                 # camera pose distance check
                 ned1, ypr1, q1 = i1.get_camera_pose()
                 ned2, ypr2, q2 = i2.get_camera_pose()
                 dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
-                print("  dist = %.2f" % dist)
-                if dist > 50:
+                if dist > 75:
                     continue
+                print("  dist = %.2f" % dist)
                 
                 print("Matching %s vs %s" % (i1.name, i2.name))
                 if len(i2.match_list) == 0:
@@ -340,7 +346,6 @@ class Matcher():
                     i2.match_list = [[]] * len(image_list)
                 i1.match_list[j], i2.match_list[i] \
                     = self.bidirectional_matches(i1, i2, review)
-                n_count += 1
 
                 scheme = 'one_step'
                 # scheme = 'iterative'
@@ -367,7 +372,7 @@ class Matcher():
                     # cull any new non-reciprocals
                     self.filter_non_reciprocal_pair(image_list, i, j)
                     self.filter_non_reciprocal_pair(image_list, j, i)
-
+                dist_stats.append( [ dist, len(i1.match_list[j]) ] )
                 print("%.1f %% done" % ((n_count / n_work) * 100.0))
 
         # update 2017/12/29: I believe this cull step shouldn't be needed
@@ -376,6 +381,10 @@ class Matcher():
 
         # and save
         self.saveMatches(image_list)
+
+        dist_stats = np.array(dist_stats)
+        plt.plot(dist_stats[:,0], dist_stats[:,1], 'ro')
+        plt.show()
 
     # remove any match sets shorter than self.min_pair (this shouldn't
     # probably ever happen now?)
@@ -506,11 +515,11 @@ class Matcher():
         error = []
         for i, p in enumerate(src):
             p_est = affine.dot( np.hstack((p, 1.0)) )[:2]
-            print('p est:', p_est, 'act:', dst[i])
+            #print('p est:', p_est, 'act:', dst[i])
             #np1 = np.array(i1.coord_list[pair[0]])
             #np2 = np.array(i2.coord_list[pair[1]])
             d = np.linalg.norm(p_est - dst[i])
-            print('dist:', d)
+            #print('dist:', d)
             error.append(d)
         error = np.array(error)
         avg = np.mean(error)
@@ -558,16 +567,19 @@ class Matcher():
         if status is None:
             status = np.ones(len(kp_pairs), np.bool_)
 
-        explore_match('find_obj', si1, si2, kp_pairs,
-                      hscale=1.0, wscale=1.0, status=status)
+        key = explore_match('find_obj', si1, si2, kp_pairs,
+                            hscale=1.0, wscale=1.0, status=status)
+        
         # status structure will be correct here and represent
-        # in/outlier choices of user
+        # in/outlier choices of user.  explore_match() modifies the
+        # status array in place.
+        
         cv2.destroyAllWindows()
 
         # status is an array of booleans that parallels the pair array
         # and represents the users choice to keep or discard the
         # respective pairs.
-        return status
+        return status, key
 
     def showMatches(self, i1):
         for j, i2 in enumerate(self.image_list):
