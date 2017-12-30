@@ -109,12 +109,13 @@ def explore_match(win, img1, img2, kp_pairs, wscale=1.0, hscale=1.0, status=None
         for (x1, y1), (x2, y2), inlier in zip(p1, p2, status):
             if inlier:
                 cv2.line(vis, (x1, y1), (x2, y2), green)
+            else:
+                cv2.line(vis, (x1, y1), (x2, y2), red)
     draw_keypoints(vis)
     cv2.imshow(win, vis)
 
     def onmouse(event, x, y, flags, param):
-        #cur_vis = vis
-        if flags & cv2.EVENT_FLAG_LBUTTON:
+        if event & cv2.EVENT_LBUTTONDOWN:
             vis = vis0.copy()
             r = 8
             m = (anorm(p1 - (x, y)) < r) | (anorm(p2 - (x, y)) < r)
@@ -124,7 +125,8 @@ def explore_match(win, img1, img2, kp_pairs, wscale=1.0, hscale=1.0, status=None
             draw_keypoints(vis)
             cv2.imshow(win, vis)
 
-        if flags & cv2.EVENT_RBUTTONDOWN:
+        # what is this supposed to do?  Currently it's broken.
+        if event & cv2.EVENT_RBUTTONDOWN:
             vis = vis0.copy()
             r = 8
             m = (anorm(p1 - (x, y)) < r) | (anorm(p2 - (x, y)) < r)
@@ -150,12 +152,14 @@ def explore_match(win, img1, img2, kp_pairs, wscale=1.0, hscale=1.0, status=None
         key = cv2.waitKey() & 0xff
         print("received %s (%d)" % (str(key), int(key)))
         if key == 27:
-            # ESC = restore all pairs and exit
+            # ESC = set all pairs to True (no delete) and exit
             for i in range(len(status)):
                 status[i] = True
             done = True
-        elif key == ord(' '):
-            # spacebar = accept current selection and exit
+        elif key == ord(' ') or key == ord('q'):
+            # accept current selection and exit.  Different keystrokes
+            # may have higher level meaning so we return the key as
+            # well.
             done = True
         elif key == ord('y'):
             # set all pairs as valid
@@ -170,7 +174,7 @@ def explore_match(win, img1, img2, kp_pairs, wscale=1.0, hscale=1.0, status=None
         draw_keypoints(vis)
         cv2.imshow(win, vis)
 
-    return vis
+    return key
 
 
 if __name__ == '__main__':
