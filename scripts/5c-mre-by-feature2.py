@@ -174,28 +174,30 @@ for i, match in enumerate(matches_sba):
             image = proj.image_list[ p[0] ]
             image.feature_count += 1
 
-# make a dict of all images with less than 25 feature matches
-weak_dict = {}
-for i, img in enumerate(proj.image_list):
-    # print img.name, img.feature_count
-    if img.feature_count > 0 and img.feature_count < 25:
-        weak_dict[i] = True
-print('weak images:', weak_dict)
+purge_weak_images = False
+if purge_weak_images:
+    # make a dict of all images with less than 25 feature matches
+    weak_dict = {}
+    for i, img in enumerate(proj.image_list):
+        # print img.name, img.feature_count
+        if img.feature_count > 0 and img.feature_count < 25:
+            weak_dict[i] = True
+    print('weak images:', weak_dict)
 
-# mark any features in the weak images list
-for i, match in enumerate(matches_grouped):
-    #print 'before:', match
-    for j, p in enumerate(match[1:]):
-        if p[0] in weak_dict:
-             match[j+1] = [-1, -1]
-             mark_sum += 1
-for i, match in enumerate(matches_sba):
-    #print 'before:', match
-    for j, p in enumerate(match[1:]):
-        if p[0] in weak_dict:
-             match[j+1] = [-1, -1]
-             mark_sum += 0      # don't count these in the mark_sum
-    #print 'after:', match
+    # mark any features in the weak images list
+    for i, match in enumerate(matches_grouped):
+        #print 'before:', match
+        for j, p in enumerate(match[1:]):
+            if p[0] in weak_dict:
+                 match[j+1] = [-1, -1]
+                 mark_sum += 1
+    for i, match in enumerate(matches_sba):
+        #print 'before:', match
+        for j, p in enumerate(match[1:]):
+            if p[0] in weak_dict:
+                 match[j+1] = [-1, -1]
+                 mark_sum += 0      # don't count these in the mark_sum
+        #print 'after:', match
 
 if mark_sum > 0:
     print('Outliers removed from match lists:', mark_sum)
