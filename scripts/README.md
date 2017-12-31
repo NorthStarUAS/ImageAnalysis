@@ -92,11 +92,18 @@ Show all the imported images.
     to points on a plane in another images.  The fundamental filter is
     more flexible with depth (but could pass more noise through, but
     this noise might be more filterable as mean reprojection error?)
+    We know from epipolar geomtry that any feature in one image will
+    map onto some line in the second image.  The fundamental matrix
+    captures this relationship.  Bad matches can still slip through if
+    they lie on this line.
     
     ### Essential filter
 
     Seems to better handle variations off plane while still being
-    pretty robust and rejecting false matches.  (Only with OpenCV3?)
+    pretty robust and rejecting false matches.  (Only available with
+    OpenCV3?)  The Essential matrix is a more recent discovery and
+    encapsulates the camera calibration matrices as well.  Thus it can
+    also be used to derive relative poses of the two images.
 
   ## 4b-clean-and-reset-matches.py
 
