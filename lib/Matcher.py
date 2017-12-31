@@ -134,7 +134,7 @@ class Matcher():
     def filter_by_homography(self, K, i1, i2, j, filter):
         clean = True
         
-        tol = float(i1.width) / 400.0 # rejection range in pixels
+        tol = float(i1.width) / 200.0 # rejection range in pixels
         if tol < 1.0:
             tol = 1.0
         # print "tol = %.4f" % tol 
@@ -175,7 +175,7 @@ class Matcher():
         else:
             # fail
             M, status = None, None
-        print('%s vs %s: %d / %d  inliers/matched' \
+        print('  %s vs %s: %d / %d  inliers/matched' \
             % (i1.name, i2.name, np.sum(status), len(status)))
         # remove outliers
         for k, flag in enumerate(status):
@@ -336,11 +336,12 @@ class Matcher():
                 ned1, ypr1, q1 = i1.get_camera_pose()
                 ned2, ypr2, q2 = i2.get_camera_pose()
                 dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
-                if dist > 75:
+                if dist > 100:
                     continue
-                print("  dist = %.2f" % dist)
                 
-                print("Matching %s vs %s" % (i1.name, i2.name))
+                print("Matching %s vs %s - %.1f%% done" % (i1.name, i2.name, (n_count / n_work) * 100.0))
+                print("  separation = %.1f (m)" % dist)
+                
                 if len(i2.match_list) == 0:
                     # create if needed
                     i2.match_list = [[]] * len(image_list)
@@ -373,7 +374,6 @@ class Matcher():
                     self.filter_non_reciprocal_pair(image_list, i, j)
                     self.filter_non_reciprocal_pair(image_list, j, i)
                 dist_stats.append( [ dist, len(i1.match_list[j]) ] )
-                print("%.1f %% done" % ((n_count / n_work) * 100.0))
 
         # update 2017/12/29: I believe this cull step shouldn't be needed
         # so nothing sneaks through
@@ -508,19 +508,21 @@ class Matcher():
                                             fullAffine)
         print('affine:', affine)
         if affine is None:
-            return status
+            return status, 0
         (rot, tx, ty, sx, sy) = self.decomposeAffine(affine)
+        print(' ', rot, tx, ty, sx, sy)
 
         # for each src point, compute dst_est[i] = src[i] * affine
         error = []
         for i, p in enumerate(src):
             p_est = affine.dot( np.hstack((p, 1.0)) )[:2]
-            #print('p est:', p_est, 'act:', dst[i])
+            print('p est:', p_est, 'act:', dst[i])
             #np1 = np.array(i1.coord_list[pair[0]])
             #np2 = np.array(i2.coord_list[pair[1]])
             d = np.linalg.norm(p_est - dst[i])
-            #print('dist:', d)
+            print('dist:', d)
             error.append(d)
+        print('errors:', error)
         error = np.array(error)
         avg = np.mean(error)
         std = np.std(error)
@@ -528,7 +530,7 @@ class Matcher():
 
         # mark the potential outliers
         for i in range(len(status)):
-            if error[i] > avg + 3*std:
+            if error[i] > avg + 2*std:
                 status[i] = False
                 
         print('orientation:', orient)
@@ -873,7 +875,7 @@ class Matcher():
 
                 size = len(status)
                 inliers = np.sum(status)
-                print('%s vs %s: %d / %d  inliers/matched' \
+                print('  %s vs %s: %d / %d  inliers/matched' \
                     % (i1.name, i2.name, inliers, size))
 
                 if inliers < size:
