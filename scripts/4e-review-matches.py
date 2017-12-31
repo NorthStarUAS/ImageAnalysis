@@ -51,14 +51,12 @@ pairs = []
 homography = []
 averages = []
 stddevs = []
-status_flags = []
 for i in range(len(proj.image_list)):
     p = [ [] for j in range(len(proj.image_list)) ]
     pairs.append(p)
     homography.append( [None] * len(proj.image_list) )
     averages.append( [0] * len(proj.image_list) )
     stddevs.append( [0] * len(proj.image_list) )
-    status_flags.append( [None] * len(proj.image_list) )
     
 for match in matches:
     for p1 in match[1:]:
@@ -101,34 +99,54 @@ for i in range(len(proj.image_list)):
             dst.append( i2.uv_list[pair[1]] )
         src = np.float32(src)
         dst = np.float32(dst)
-        method = 0          # a regular method using all the points
-        #method = cv2.RANSAC
-        #method = cv2.LMEDS
-        M, status = cv2.findHomography(src, dst, method)
-        if M is None:
-            print("Homography failed, pair:", i, j, "num pairs:", len(pairs[i][j]), pairs[i][j])
-            continue
-        homography[i][j] = M
-        error = []
-        for k, p in enumerate(src):
-            # *wrong* for homography: p_est = M.dot( np.hstack((p, 1.0)) )[:2]
-            tmp = M[2][0]*p[0] + M[2][1]*p[1] + M[2][2]
-            if abs(tmp) > 0.000001:
-                x = (M[0][0]*p[0] + M[0][1]*p[1] + M[0][2]) / tmp
-                y = (M[1][0]*p[0] + M[1][1]*p[1] + M[1][2]) / tmp
-                p_est = np.array([x, y])
-            else:
-                p_est = np.array([0.0, 0.0])
-            #print 'p est:', p_est, 'act:', dst[k]
-            d = np.linalg.norm(p_est - dst[k])
-            #print 'dist:', d
-            error.append(d)
+        filter = 'affine'
+        if filter == 'affine':
+            fullAffine = True
+            affine = cv2.estimateRigidTransform(src, dst, fullAffine)
+            print('affine:', affine)
+            if affine is None:
+                print("Affine failed, pair:", i, j, "num pairs:",
+                      len(pairs[i][j]), pairs[i][j])
+                continue
+            # for each src point, compute dst_est[i] = src[i] * affine
+            error = []
+            for k, p in enumerate(src):
+                p_est = affine.dot( np.hstack((p, 1.0)) )[:2]
+                print('p est:', p_est, 'act:', dst[k])
+                #np1 = np.array(i1.coord_list[pair[0]])
+                #np2 = np.array(i2.coord_list[pair[1]])
+                d = np.linalg.norm(p_est - dst[k])
+                #print('dist:', d)
+                error.append(d)
+        elif filter == 'homography':
+            method = 0          # a regular method using all the points
+            #method = cv2.RANSAC
+            #method = cv2.LMEDS
+            M, status = cv2.findHomography(src, dst, method)
+            if M is None:
+                print("Homography failed, pair:", i, j, "num pairs:",
+                      len(pairs[i][j]), pairs[i][j])
+                continue
+            homography[i][j] = M
+            error = []
+            for k, p in enumerate(src):
+                # *wrong* for homography: p_est = M.dot( np.hstack((p, 1.0)) )[:2]
+                tmp = M[2][0]*p[0] + M[2][1]*p[1] + M[2][2]
+                if abs(tmp) > 0.000001:
+                    x = (M[0][0]*p[0] + M[0][1]*p[1] + M[0][2]) / tmp
+                    y = (M[1][0]*p[0] + M[1][1]*p[1] + M[1][2]) / tmp
+                    p_est = np.array([x, y])
+                else:
+                    p_est = np.array([0.0, 0.0])
+                #print 'p est:', p_est, 'act:', dst[k]
+                d = np.linalg.norm(p_est - dst[k])
+                #print 'dist:', d
+                error.append(d)
         error = np.array(error)
         avg = np.mean(error)
         std = np.std(error)
         averages[i][j] = avg
         stddevs[i][j] = std
-        status_flags[i][j] = status
         print('pair:', i, j, 'avg:', avg, 'std:', std)
         bypair.append( [avg, std, i, j] )
 
