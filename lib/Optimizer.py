@@ -218,11 +218,37 @@ class Optimizer():
 
         A = bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices)
 
+        # quick test of bounds ... allow camera parameters to go free,
+        # but limit 3d points to +/- 100m of initial guess
+        lower = []
+        upper = []
+        tol = 75.0
+        for i in range(n_cameras):
+            # rotation vector is unlimited
+            lower.append( -np.inf )
+            upper.append( np.inf )
+            lower.append( -np.inf )
+            upper.append( np.inf )
+            lower.append( -np.inf )
+            upper.append( np.inf )
+            # translation vector is bounded
+            lower.append( camera_params[i*6+3] - tol )
+            upper.append( camera_params[i*6+3] + tol )
+            lower.append( camera_params[i*6+4] - tol )
+            upper.append( camera_params[i*6+4] + tol )
+            lower.append( camera_params[i*6+5] - tol )
+            upper.append( camera_params[i*6+5] + tol )
+        for i in range(n_points * 3):
+            lower.append( points_3d[i] - tol )
+            upper.append( points_3d[i] + tol )
+
         import time
         from scipy.optimize import least_squares
 
         t0 = time.time()
-        res = least_squares(fun, x0, jac_sparsity=A, verbose=2, x_scale='jac',
+        res = least_squares(fun, x0, bounds=[lower, upper], jac_sparsity=A,
+                            verbose=2,
+                            x_scale='jac',
                             ftol=1e-3, method='trf',
                             args=(n_cameras, n_points, camera_indices,
                                   point_indices, points_2d, K))
