@@ -59,7 +59,7 @@ def draw_match(i, index, matches, image_list):
             cv2.circle(rgb1,
                        (int(round(kp[0]*scale)), int(round(kp[1]*scale))),
                        2, color, thickness=2)
-        cv2.imshow(img.name + '(%d)' % m[0], rgb1)
+        cv2.imshow(img.name + ' (%d)' % m[0], rgb1)
     print('waiting for keyboard input...')
     key = cv2.waitKey() & 0xff
     cv2.destroyAllWindows()
