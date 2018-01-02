@@ -44,7 +44,7 @@ def make_textures_opencv(src_dir, project_dir, image_list, resolution=256):
             cv2.imwrite(dst, result)
             print("Texture %dx%d %s" % (resolution, resolution, dst))
             
-def generate(image_list, ref_image=False, src_dir=".", project_dir=".", base_name="quick", version=1.0, trans=0.0, resolution=512 ):
+def generate(image_list, group, ref_image=False, src_dir=".", project_dir=".", base_name="quick", version=1.0, trans=0.0, resolution=512 ):
     # make the textures if needed
     make_textures_opencv(src_dir, project_dir, image_list, resolution)
     
@@ -60,7 +60,7 @@ def generate(image_list, ref_image=False, src_dir=".", project_dir=".", base_nam
     match_count = 0
     if ref_image:
         match_count += 1
-    match_count += len(image_list)
+    match_count += len(group)
 
     # write AC3D header
     name = project_dir
@@ -77,7 +77,8 @@ def generate(image_list, ref_image=False, src_dir=".", project_dir=".", base_nam
     #   f.write("rot 1.0 0.0 0.0  0.0 0.0 1.0 0.0 1.0 0.0\n")
     f.write("kids " + str(match_count) + "\n")
 
-    for image in image_list:
+    for g in reversed(group):
+        image = image_list[g]
         if len(image.grid_list) == 0:
             continue
         
