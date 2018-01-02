@@ -38,11 +38,8 @@ proj.undistort_keypoints()
 
 matcher = Matcher.Matcher()
 
-print("Loading match points (grouped)...")
-matches = pickle.load( open( os.path.join(args.project, "matches_grouped"), "rb" ) )
-
-# load the group connections within the image set
-groups = Groups.load(args.project)
+print("Loading match points (direct)...")
+matches = pickle.load( open( os.path.join(args.project, "matches_direct"), "rb" ) )
 
 # traverse the matches structure and create a pair-wise match
 # structure.  (Start with an empty n x n list of empty pair lists,
@@ -105,7 +102,7 @@ for i in range(len(proj.image_list)):
             dst.append( i2.uv_list[pair[1]] )
         src = np.float32(src)
         dst = np.float32(dst)
-        filter = 'affine'
+        filter = 'homography'
         if filter == 'affine':
             fullAffine = False
             affine = cv2.estimateRigidTransform(src, dst, fullAffine)
@@ -207,8 +204,8 @@ if len(mark_list):
         cull.delete_marked_matches(matches)
  
         # write out the updated match dictionaries
-        print("Writing matches (grouped) ...")
-        pickle.dump(matches, open(os.path.join(args.project, "matches_grouped"), "wb"))
+        print("Writing matches (direct) ...")
+        pickle.dump(matches, open(os.path.join(args.project, "matches_direct"), "wb"))
 
 print('Hard coded exit in mid script...')
 quit()
