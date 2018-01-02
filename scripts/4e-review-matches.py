@@ -102,7 +102,8 @@ for i in range(len(proj.image_list)):
             dst.append( i2.uv_list[pair[1]] )
         src = np.float32(src)
         dst = np.float32(dst)
-        filter = 'homography'
+        filter = 'affine'
+        #filter = 'homography'
         if filter == 'affine':
             fullAffine = False
             affine = cv2.estimateRigidTransform(src, dst, fullAffine)
@@ -148,15 +149,22 @@ for i in range(len(proj.image_list)):
                 error.append(d)
         error = np.array(error)
         max = np.amax(error)    # maximum
+        max_index = np.argmax(error)
         avg = np.mean(error)    # average of the errors
         std = np.std(error)     # standard dev of the errors
         averages[i][j] = avg
         stddevs[i][j] = std
-        # suggest/flag outliers by std dev
+        
         status = np.ones(len(pairs[i][j]), np.bool_)
-        for k in range(len(pairs[i][j])):
-            if error[k] > avg + 3*std:
-                status[k] = False
+
+        # flag any outliers by std deviation
+        # for k in range(len(pairs[i][j])):
+        #     if error[k] > avg + 3*std:
+        #         status[k] = False
+        
+        # flag only the worst error
+        status[max_index] = False
+        
         status_flags[i][j] = status
         print('pair:', i, j, 'max:', max, 'avg:', avg, 'std:', std)
         bypair.append( [max, avg, std, i, j] )
@@ -262,6 +270,6 @@ if mark_sum > 0:
         
         # write out the updated match dictionaries
         print("Writing direct matches...")
-        pickle.dump(matches, open(os.path.join(args.project, "matches_grouped"), "wb"))
+        pickle.dump(matches, open(os.path.join(args.project, "matches_direct"), "wb"))
 
 
