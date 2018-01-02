@@ -156,7 +156,8 @@ xfit = np.array(xfit)
 yfit = np.array(yfit)
 zfit = np.array(zfit)
 plt.figure()
-plt.scatter(xfit, yfit, 100, zfit, cmap=cm.jet)
+# flip from NED to XYZ
+plt.scatter(yfit, xfit, 100, -zfit, cmap=cm.jet)
 plt.colorbar()
 plt.title("Sparsely sampled function.")
 
@@ -169,7 +170,8 @@ for i in range(len(znew)):
     print(polyval2d(xfit[i], yfit[i], m))
     print('z:', zfit[i], znew[i], zfit[i] - znew[i])
 plt.figure()
-plt.scatter(xfit, yfit, 100, znew, cmap=cm.jet)
+# flip from NED to XYZ
+plt.scatter(yfit, xfit, 100, -znew, cmap=cm.jet)
 plt.colorbar()
 plt.title("Approximation function.")
 plt.show()
@@ -282,7 +284,7 @@ if True:
         depth -= 0.01                # favor last pictures above earlier ones
     
 # call the ac3d generator
-AC3D.generate(proj.image_list, src_dir=proj.source_dir,
+AC3D.generate(proj.image_list, groups[0], src_dir=proj.source_dir,
               project_dir=args.project, base_name='direct',
               version=1.0, trans=0.1, resolution=args.texture_resolution)
 
