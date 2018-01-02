@@ -7,7 +7,7 @@ from pylab import *
 import random
 import scipy.interpolate
 import struct
-import urllib
+import urllib.request
 import zipfile
 
 import navpy
@@ -64,7 +64,7 @@ class SRTM():
             url = self.srtm_dict[fileroot]
             download_file = self.srtm_cache_dir + '/' + fileroot + '.hgt.zip'
             print("Notice: downloading:", url)
-            file = urllib.URLopener()
+            file = urllib.request.URLopener()
             print(file.retrieve(url, download_file))
             return True
         else:
