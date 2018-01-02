@@ -224,7 +224,8 @@ class Optimizer():
         t0 = time.time()
         res = least_squares(fun, x0, jac_sparsity=A, verbose=2, x_scale='jac',
                             ftol=1e-3, method='trf',
-                            args=(n_cameras, n_points, camera_indices, point_indices, points_2d, K))
+                            args=(n_cameras, n_points, camera_indices,
+                                  point_indices, points_2d, K))
         t1 = time.time()
         print("Optimization took {0:.0f} seconds".format(t1 - t0))
         # print(res['x'])
