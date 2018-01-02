@@ -117,7 +117,17 @@ Show all the imported images.
   Start with the original pair-wise match set and regenerate a
   matches_direct version of this with no extra checking or validation.
 
-  ## 4c-match-grouping.py
+  ## 4c-review-matches.py
+
+  * this should be done on the original match pairs before full chain
+    grouping to hopefully avoid incorrectly linking chains due to a
+    bad match pair *
+  
+  Interactive script that presents the worst outliers (based on some
+  relationship fit of the match pairs) and allows the user to review
+  and accept or delete the match.  
+
+  ## 4d-match-grouping.py
 
   Iterate through the matches_direct structure, locate and connect all
   match chains.  Continues until no more chains can be connected.
@@ -132,19 +142,9 @@ Show all the imported images.
   by ensuring your images overlap.  70% overlap with neighbors is the
   industry recommendation.
 
-  ## 4e-review-matches.py
-
-  Interactive script that presents the worst outliers (based on some
-  relationship fit of the match pairs) and allows the user to review
-  and accept or delete the match.  
-
 # 5. Assemble Scene / Bundle Adjustment
 
-  ## 5a-sba1.py
-
-  Original attempt, deprecated in favor of 5a-sba2.py
-
-  ## 5a-sba2.py (best so far)
+  ## 5a-optimize.py
 
   Takes initial direct georeference scene layout and runs bundle
   adjustment.  Currently this is the best code to run.  From the
@@ -154,20 +154,17 @@ Show all the imported images.
   clusters when they match in multiple pairs, but this seems to affect
   the optimizer's ability to find a robust solution.
 
-  ## 5a-sba3.py
+  Note 1: it seems productive to optimize the fully grouped (linked
+  group chains) version of the match file versus the pair-wise match
+  file.
 
-  Uses image connectivity structure combined with the ransac version
-  of solvepnp() and a custom multi-vector triangulation function to
-  assemble scene.  Seems to produce a useful initial scene structure
-  for the set of images that are well connected together.  The ransac
-  version of solvepnp() helps the robustness of the assembly process.
+  Note 2: it seems productive to place bounds on feature and camera
+  locations.  This seems to improve convergence speed in the first few
+  steps, but slows convergence through the trailing steps.  It also
+  may increase the error in the final fit; however, the result is
+  probably more correct considering a better fit requires moving
+  points to impossible places.)
 
-  ## 5a-sba4.py
-
-  Test of opencv3's findEssentialMat() and recoverPose() to build the
-  initial scenery construction.  Given all the pairwise relative
-  rotations, send to optimizer to find an optimal set of camera
-  orientations that minimize the slop.
 
   ## 5c-mre-by-feature2.py
 
@@ -184,9 +181,23 @@ Show all the imported images.
 
 # 6. Render Results
 
+  ## 6a-render-model.py
+
+  Fits a 2d polygon surface through the optimized feature set.  Then
+  project the camera images onto this surface.
+
+  Optionally can project onto the SRTM surface, but surface
+  inaccuracies lead to edge mismatches.  This is where dense mesh
+  construction has an advantage, but the dense mesh may not be the
+  best tool for every application.
+
+  The quality of this result hinges on the accuracy of the surface
+  approximation versus the true surface.
+  
+  
   ## 6b-delaunay3.py
 
-  Current best script for textured output
+  Insert description
 
   ## 6b-delaunay5.py
 
