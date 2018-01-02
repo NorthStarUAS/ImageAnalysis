@@ -486,7 +486,7 @@ class ProjectMgr():
         return uv_distorted
     
     def compute_kp_usage(self, all=False):
-        print("Determing feature usage in matching pairs...")
+        print("Determining feature usage in matching pairs...")
         # but they may have different scaling or other attributes important
         # during feature matching
         if all:
@@ -503,7 +503,7 @@ class ProjectMgr():
                         i2.kp_used[ pair[1] ] = True
                     
     def compute_kp_usage_new(self, matches_direct):
-        print("Determing feature usage in matching pairs...")
+        print("Determining feature usage in matching pairs...")
         for image in self.image_list:
             image.kp_used = np.zeros(len(image.kp_list), np.bool_)
         for match in matches_direct:
