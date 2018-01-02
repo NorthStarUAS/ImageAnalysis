@@ -38,7 +38,7 @@ proj.undistort_keypoints()
 
 matcher = Matcher.Matcher()
 
-print("Loading match points (direct)...")
+print("Loading match points (grouped)...")
 matches = pickle.load( open( os.path.join(args.project, "matches_grouped"), "rb" ) )
 
 # load the group connections within the image set
@@ -51,12 +51,14 @@ pairs = []
 homography = []
 averages = []
 stddevs = []
+status_flags = []
 for i in range(len(proj.image_list)):
     p = [ [] for j in range(len(proj.image_list)) ]
     pairs.append(p)
     homography.append( [None] * len(proj.image_list) )
     averages.append( [0] * len(proj.image_list) )
     stddevs.append( [0] * len(proj.image_list) )
+    status_flags.append( [None] * len(proj.image_list) )
     
 for match in matches:
     for p1 in match[1:]:
@@ -87,7 +89,11 @@ for match in matches:
 bypair = []
 for i in range(len(proj.image_list)):
     for j in range(len(proj.image_list)):
-        if not len(pairs[i][j]):
+        if i >= j:
+            # only worry about matching one direction (don't duplicate
+            # effort with the reciprocal matches.)
+            continue
+        if len(pairs[i][j]) < 4:
             continue
         i1 = proj.image_list[i]
         i2 = proj.image_list[j]
@@ -101,9 +107,9 @@ for i in range(len(proj.image_list)):
         dst = np.float32(dst)
         filter = 'affine'
         if filter == 'affine':
-            fullAffine = True
+            fullAffine = False
             affine = cv2.estimateRigidTransform(src, dst, fullAffine)
-            print('affine:', affine)
+            # print('affine:', affine)
             if affine is None:
                 print("Affine failed, pair:", i, j, "num pairs:",
                       len(pairs[i][j]), pairs[i][j])
@@ -112,7 +118,7 @@ for i in range(len(proj.image_list)):
             error = []
             for k, p in enumerate(src):
                 p_est = affine.dot( np.hstack((p, 1.0)) )[:2]
-                print('p est:', p_est, 'act:', dst[k])
+                #print('p est:', p_est, 'act:', dst[k])
                 #np1 = np.array(i1.coord_list[pair[0]])
                 #np2 = np.array(i2.coord_list[pair[1]])
                 d = np.linalg.norm(p_est - dst[k])
@@ -127,10 +133,11 @@ for i in range(len(proj.image_list)):
                 print("Homography failed, pair:", i, j, "num pairs:",
                       len(pairs[i][j]), pairs[i][j])
                 continue
+            #print('len:', len(pairs[i][j]))
+            #print('M:', M)
             homography[i][j] = M
             error = []
             for k, p in enumerate(src):
-                # *wrong* for homography: p_est = M.dot( np.hstack((p, 1.0)) )[:2]
                 tmp = M[2][0]*p[0] + M[2][1]*p[1] + M[2][2]
                 if abs(tmp) > 0.000001:
                     x = (M[0][0]*p[0] + M[0][1]*p[1] + M[0][2]) / tmp
@@ -138,27 +145,36 @@ for i in range(len(proj.image_list)):
                     p_est = np.array([x, y])
                 else:
                     p_est = np.array([0.0, 0.0])
-                #print 'p est:', p_est, 'act:', dst[k]
+                # print('p est:', p_est, 'act:', dst[k])
                 d = np.linalg.norm(p_est - dst[k])
                 #print 'dist:', d
                 error.append(d)
         error = np.array(error)
-        avg = np.mean(error)
-        std = np.std(error)
+        max = np.amax(error)    # maximum
+        avg = np.mean(error)    # average of the errors
+        std = np.std(error)     # standard dev of the errors
         averages[i][j] = avg
         stddevs[i][j] = std
-        print('pair:', i, j, 'avg:', avg, 'std:', std)
-        bypair.append( [avg, std, i, j] )
+        # suggest/flag outliers by std dev
+        status = np.ones(len(pairs[i][j]), np.bool_)
+        for k in range(len(pairs[i][j])):
+            if error[k] > avg + 3*std:
+                status[k] = False
+        status_flags[i][j] = status
+        print('pair:', i, j, 'max:', max, 'avg:', avg, 'std:', std)
+        bypair.append( [max, avg, std, i, j] )
 
 bypair = sorted(bypair, key=lambda fields: fields[0], reverse=True)
 mark_list = []
 for line in bypair:
     print(line)
-    i = line[2]
-    j = line[3]
+    i = line[3]
+    j = line[4]
     i1 = proj.image_list[i]
     i2 = proj.image_list[j]
-    status, key = matcher.showMatchOrient(i1, i2, pairs[i][j])
+    # pass in our own status array
+    status, key = matcher.showMatchOrient(i1, i2, pairs[i][j],
+                                          status=status_flags[i][j])
     if key == ord('q'):
         # request quit
         break
@@ -191,7 +207,7 @@ if len(mark_list):
         cull.delete_marked_matches(matches)
  
         # write out the updated match dictionaries
-        print("Writing direct matches...")
+        print("Writing matches (grouped) ...")
         pickle.dump(matches, open(os.path.join(args.project, "matches_grouped"), "wb"))
 
 print('Hard coded exit in mid script...')
