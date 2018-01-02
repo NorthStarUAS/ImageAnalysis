@@ -30,9 +30,10 @@ proj.load_image_info()
 proj.load_features()
 proj.undistort_keypoints()
 
-print("Loading grouped matches...")
-matches_grouped = pickle.load( open( os.path.join(args.project, "matches_grouped"), "rb" ) )
-print("Loading optimized (sba) matches...")
+source = 'matches_grouped'
+print("Loading matches:", source)
+matches_orig = pickle.load( open( os.path.join(args.project, source), "rb" ) )
+print("Loading optimized matches: matches_sba")
 matches_sba = pickle.load( open( os.path.join(args.project, "matches_sba"), "rb" ) )
 
 # image mean reprojection error
@@ -157,7 +158,7 @@ if args.interactive:
     mark_list = cull.show_outliers(error_list, matches_sba, proj.image_list)
 
     # mark selection
-    cull.mark_using_list(mark_list, matches_grouped)
+    cull.mark_using_list(mark_list, matches_orig)
     cull.mark_using_list(mark_list, matches_sba)
     mark_sum = len(mark_list)
 else:
@@ -185,7 +186,7 @@ if purge_weak_images:
     print('weak images:', weak_dict)
 
     # mark any features in the weak images list
-    for i, match in enumerate(matches_grouped):
+    for i, match in enumerate(matches_orig):
         #print 'before:', match
         for j, p in enumerate(match[1:]):
             if p[0] in weak_dict:
@@ -203,11 +204,11 @@ if mark_sum > 0:
     print('Outliers removed from match lists:', mark_sum)
     result=input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
-        delete_marked_matches(matches_grouped)
+        delete_marked_matches(matches_orig)
         delete_marked_matches(matches_sba)
         # write out the updated match dictionaries
-        print("Writing grouped matches...")
-        pickle.dump(matches_grouped, open(os.path.join(args.project, "matches_grouped"), "wb"))
+        print("Writing direct matches...")
+        pickle.dump(matches_orig, open(os.path.join(args.project, source), "wb"))
         print("Writing optimized matches...")
         pickle.dump(matches_sba, open(os.path.join(args.project, "matches_sba"), "wb"))
 
