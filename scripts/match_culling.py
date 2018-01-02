@@ -95,7 +95,6 @@ def show_outliers(result_list, matches, image_list):
         result = draw_match(line[1], line[2], matches, image_list)
         if result == ord('d'):
             # add to delete feature
-            # delete this line: mark_outlier(line[1], line[2], line[0])
             mark_list.append( [line[1], line[2]] )
             mark_sum += 1
         elif result == 27 or result == ord('q'):
