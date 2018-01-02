@@ -35,6 +35,8 @@ print("features:", len(matches_direct))
 groups = Groups.groupByConnectedArea(proj.image_list, matches_direct)
 Groups.save(args.project, groups)
 
+print('Main group size:', len(groups[0]))
+
 # this is extra (and I'll put it here for now for lack of a better
 # place), but for visualization's sake, create a gnuplot data file
 # that will show all the match connectivity in the set.
