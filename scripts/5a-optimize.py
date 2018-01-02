@@ -91,7 +91,7 @@ print('Match features:', len(matches))
 
 # load the group connections within the image set
 groups = Groups.load(args.project)
-print(groups)
+print('Main group size:', len(groups[0]))
 
 image_width = proj.image_list[0].width
 camw, camh = proj.cam.get_image_params()
