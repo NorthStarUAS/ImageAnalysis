@@ -9,7 +9,9 @@
 import cv2
 import numpy as np
 import os
-# import re
+
+import matplotlib.pyplot as plt
+from matplotlib import cm
 
 import sys
 sys.path.append('../lib')
@@ -33,11 +35,15 @@ def project(points, cam_M):
     #print('uv: {}'.format(uv))
     return uv
 
+graph = None
+last_mre = 1.0e+10              # a big number
 def fun(params, n_cameras, n_points, camera_indices, point_indices, points_2d, K):
     """Compute residuals.
     
     `params` contains camera parameters, 3-D coordinates, and camera calibration parameters.
     """
+    global last_mre
+    
     camera_params = params[:n_cameras * 6].reshape((n_cameras, 6))
     cam_M = np.zeros((camera_params.shape[0], 3, 4))
     for i, cam in enumerate(camera_params):
@@ -55,7 +61,22 @@ def fun(params, n_cameras, n_points, camera_indices, point_indices, points_2d, K
     # mre
     error = (points_proj - points_2d).ravel()
     mre = np.mean(np.abs(error))
-    print("mre = {}".format(mre))
+    if abs(1.0 - mre/last_mre) > 0.001:
+        # mre has changed by more than 0.1%
+        print('mre:', mre)
+        if not graph is None:
+            last_mre = mre
+            graph.set_offsets(points_3d[:,[1,0]])
+            graph.set_array(-points_3d[:,2])
+            plt.xlim(points_3d[:,1].min(), points_3d[:,1].max() )
+            plt.ylim(points_3d[:,0].min(), points_3d[:,0].max() )
+            cmin = int(-points_3d[:,2].min() / 5) * 5
+            cmax = (int(-points_3d[:,2].max() / 5) + 1) * 5
+            #plt.clim(-points_3d[:,2].min(), -points_3d[:,2].max() )
+            plt.clim(cmin, cmax)
+            plt.draw()
+            plt.savefig('opt-plot.png', dpi=80)
+            plt.pause(0.01)
     return (points_proj - points_2d).ravel()
 
 from scipy.sparse import lil_matrix
@@ -98,6 +119,8 @@ class Optimizer():
     # parameters, and calibration (K) to files in the project
     # directory.
     def run(self, image_list, placed_images, matches_list, K, use_sba=False):
+        global graph
+        
         if placed_images == None:
             placed_images = set()
             # if no placed images specified, mark them all as placed
@@ -207,13 +230,13 @@ class Optimizer():
         #return camera_params, points_3d, camera_indices, point_indices, points_2d
 
         # def run(self, mode=''):
-        import matplotlib.pyplot as plt
         x0 = np.hstack((camera_params.ravel(), points_3d.ravel()))
         print('x0:')
         print(x0.shape)
         print(x0)
         f0 = fun(x0, n_cameras, n_points, camera_indices, point_indices, points_2d, K)
-        plt.plot(f0)
+        #plt.figure()
+        #plt.plot(f0)
         mre_start = np.mean(np.abs(f0))
 
         A = bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices)
@@ -245,6 +268,14 @@ class Optimizer():
         import time
         from scipy.optimize import least_squares
 
+        plt.figure(figsize=(16,9))
+        plt.ion()
+        mypts = points_3d.reshape((n_points, 3))
+        graph = plt.scatter(mypts[:,1], mypts[:,0], 100, -mypts[:,2], cmap=cm.jet)
+        plt.colorbar()
+        plt.draw()
+        plt.pause(0.01)
+        
         t0 = time.time()
         res = least_squares(fun, x0, bounds=[lower, upper], jac_sparsity=A,
                             verbose=2,
@@ -256,7 +287,8 @@ class Optimizer():
         print("Optimization took {0:.0f} seconds".format(t1 - t0))
         # print(res['x'])
         print(res)
-        plt.plot(res.fun)
+        #plt.plot(res.fun)
+        plt.ioff()
         plt.show()
         
         camera_params = res.x[:n_cameras * 6].reshape((n_cameras, 6))
