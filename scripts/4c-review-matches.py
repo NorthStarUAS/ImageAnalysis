@@ -102,8 +102,8 @@ for i in range(len(proj.image_list)):
             dst.append( i2.uv_list[pair[1]] )
         src = np.float32(src)
         dst = np.float32(dst)
-        filter = 'affine'
         #filter = 'homography'
+        filter = 'affine'
         if filter == 'affine':
             fullAffine = False
             affine = cv2.estimateRigidTransform(src, dst, fullAffine)
@@ -215,6 +215,8 @@ if len(mark_list):
         print("Writing matches (direct) ...")
         pickle.dump(matches, open(os.path.join(args.project, "matches_direct"), "wb"))
 
+print('Number of features:', len(matches))
+
 print('Hard coded exit in mid script...')
 quit()
 
@@ -266,10 +268,13 @@ if mark_sum > 0:
     result=input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
         cull.delete_marked_matches(matches)
-        print(len(matches))
+        print('Number of matches:', len(matches))
         
         # write out the updated match dictionaries
         print("Writing direct matches...")
         pickle.dump(matches, open(os.path.join(args.project, "matches_direct"), "wb"))
+else:
+    print('Number of matches:', len(matches))
+
 
 
