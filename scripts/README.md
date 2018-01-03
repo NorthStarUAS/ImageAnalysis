@@ -84,7 +84,10 @@ Show all the imported images.
     Enforces a planer relationship between features matched in a pair
     of images.  Features off that plane tend to be rejected.  This
     seems to be the recommended filter relationship in all the
-    examples and literature.
+    examples and literature.  This is the filter that tends to show up
+    in all the feature matching tutorials, however it doesn't perform
+    well if your features aren't planar (think trees, terrain,
+    structures, etc.)
 
     ### Fundamental filter
 
@@ -97,13 +100,16 @@ Show all the imported images.
     captures this relationship.  Bad matches can still slip through if
     they lie on this line.
     
-    ### Essential filter
+    ### Essential filter (*)
 
     Seems to better handle variations off plane while still being
     pretty robust and rejecting false matches.  (Only available with
     OpenCV3?)  The Essential matrix is a more recent discovery and
     encapsulates the camera calibration matrices as well.  Thus it can
-    also be used to derive relative poses of the two images.
+    also be used to derive relative poses of the two images.  Results
+    in a few percent fewer matches, but fewer outlier matches.
+    Initial optimization may also be slightly tighter.  This is my
+    favorite filter right now.
 
   ## 4b-clean-and-reset-matches.py
 
@@ -119,13 +125,13 @@ Show all the imported images.
 
   ## 4c-review-matches.py
 
-  * this should be done on the original match pairs before full chain
-    grouping to hopefully avoid incorrectly linking chains due to a
-    bad match pair *
+  This should be done on the original match pairs before full chain
+  grouping to hopefully avoid incorrectly linking chains due to a bad
+  match pair.
   
   Interactive script that presents the worst outliers (based on some
   relationship fit of the match pairs) and allows the user to review
-  and accept or delete the match.  
+  and accept or delete potential outliers.  
 
   ## 4d-match-grouping.py
 
