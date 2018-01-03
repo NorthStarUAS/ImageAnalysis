@@ -115,7 +115,6 @@ def intersect_vectors(ned, v_list, m):
         pt_list.append(p)
     return pt_list
 
-print("Generating a bivariate b-spline approximation to the stitched surface")
 import itertools
 import matplotlib.pyplot as plt
 from matplotlib import cm
@@ -166,14 +165,75 @@ m = polyfit2d(xfit, yfit, zfit, order=1)
 
 # test fit
 znew = polyval2d(xfit, yfit, m)
-for i in range(len(znew)):
-    print(polyval2d(xfit[i], yfit[i], m))
-    print('z:', zfit[i], znew[i], zfit[i] - znew[i])
+#for i in range(len(znew)):
+#    print(polyval2d(xfit[i], yfit[i], m))
+#    print('z:', zfit[i], znew[i], zfit[i] - znew[i])
 plt.figure()
 # flip from NED to XYZ
 plt.scatter(yfit, xfit, 100, -znew, cmap=cm.jet)
 plt.colorbar()
 plt.title("Approximation function.")
+
+import scipy.stats
+bins=20
+mean, xedges, yedges, binnumber = scipy.stats.binned_statistic_2d(xfit, yfit, -zfit, bins=bins, statistic='mean')
+count, xedges, yedges, binnumber = scipy.stats.binned_statistic_2d(xfit, yfit, -zfit, bins=bins, statistic='count')
+print('bins:', bins)
+done = True
+while not done:
+    done = True
+    tmp_mean = np.copy(mean)
+    tmp_count = np.copy(count)
+    for i in range(bins):
+        for j in range(bins):
+            if np.isnan(mean[i][j]):
+                print("nan:", i, j)
+                nsum = 0
+                ncount = 0
+                ncells = 0
+                for ii in range(i-1,i+2):
+                    for jj in range(j-1,j+2):
+                        if ii < 0 or ii >= bins:
+                            continue
+                        if jj < 0 or jj >= bins:
+                            continue
+                        if not np.isnan(mean[ii][jj]):
+                            nsum += mean[ii][jj]*count[ii][jj]
+                            ncount += count[ii][jj]
+                            ncells += 1
+                if ncount > 0:
+                    tmp_mean[i][j] = nsum / float(ncount)
+                    tmp_count[i][j] = int(ncount / ncells)
+                    print('filled in:', i, j, mean[i][j])
+                    done = False
+    mean = tmp_mean
+    count = tmp_count
+
+plt.figure()
+#plt.pcolormesh(xedges, yedges, stats, cmap=cm.jet)
+#plt.colorbar()
+#print(mean)
+#plt.pcolormesh(xedges[1:], yedges[1:], stats)
+plt.imshow(mean, origin='lower', cmap=cm.jet)
+plt.colorbar()
+plt.title("Binned data.")
+
+# test scipy.interpolate.Rbf() (Uses LOTS of memory if the data set is
+# anything but tiny!)
+test_rbf = False
+if test_rbf:
+    import scipy.interpolate
+    #f = scipy.interpolate.interp2d(xfit, yfit, zfit, kind='cubic')
+    f = scipy.interpolate.Rbf(xfit, yfit, zfit, smooth=3.0)
+    # test fit
+    znew = f(xfit, yfit)
+    plt.figure()
+    # flip from NED to XYZ
+    plt.scatter(yfit, xfit, 100, -znew, cmap=cm.jet)
+    plt.colorbar()
+    plt.title("radial basis functions.")
+
+# show any plots
 plt.show()
 
 # compute the uv grid for each image and project each point out into
@@ -190,7 +250,6 @@ for i, match in enumerate(matches_sba):
     for p in match[1:]:
         index = p[0]
         proj.image_list[index].z_list.append(-ned[2])
-#        proj.image_list[index].z_list.append(znew[i])
 for image in proj.image_list:
     if len(image.z_list):
         avg = np.mean(np.array(image.z_list))
@@ -200,7 +259,7 @@ for image in proj.image_list:
         std = None
     image.z_avg = avg
     image.z_std = std
-    print(image.name, 'features:', len(image.z_list), 'avg:', avg, 'std:', std)
+    # print(image.name, 'features:', len(image.z_list), 'avg:', avg, 'std:', std)
 
 # for fun rerun through the matches and find elevation outliers
 outliers = []
@@ -212,12 +271,13 @@ for i, match in enumerate(matches_sba):
         dist = abs(-ned[2] - image.z_avg)
         error_sum += dist
     if error_sum > 3 * (image.z_std * len(match[1:])):
-        print('possible outlier match index:', i, error_sum, 'z:', ned[2])
+        # print('possible outlier match index:', i, error_sum, 'z:', ned[2])
         outliers.append( [error_sum, i] )
 
 result = sorted(outliers, key=lambda fields: fields[0], reverse=True)
 for line in result:
-    print('index:', line[1], 'error:', line[0])
+    pass
+    #print('index:', line[1], 'error:', line[0])
     #cull.draw_match(line[1], 1, matches_sba, proj.image_list)
     
 depth = 0.0
