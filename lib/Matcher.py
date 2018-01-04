@@ -510,7 +510,9 @@ class Matcher():
                                             fullAffine)
         print('affine:', affine)
         if affine is None:
-            return status, 0
+            affine = np.array([[1.0, 0.0, 0.0],
+                               [0.0, 1.0, 0.0]])
+             #return status, 0
         (rot, tx, ty, sx, sy) = self.decomposeAffine(affine)
         print(' ', rot, tx, ty, sx, sy)
 
