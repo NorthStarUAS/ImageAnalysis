@@ -102,7 +102,7 @@ for i in range(len(proj.image_list)):
             dst.append( i2.uv_list[pair[1]] )
         src = np.float32(src)
         dst = np.float32(dst)
-        #filter = 'homography'
+        # filter = 'homography'
         filter = 'affine'
         if filter == 'affine':
             fullAffine = False
@@ -111,7 +111,8 @@ for i in range(len(proj.image_list)):
             if affine is None:
                 print("Affine failed, pair:", i, j, "num pairs:",
                       len(pairs[i][j]), pairs[i][j])
-                continue
+                affine = np.array([[1.0, 0.0, 0.0],
+                                   [0.0, 1.0, 0.0]])
             # for each src point, compute dst_est[i] = src[i] * affine
             error = []
             for k, p in enumerate(src):
@@ -275,6 +276,3 @@ if mark_sum > 0:
         pickle.dump(matches, open(os.path.join(args.project, "matches_direct"), "wb"))
 else:
     print('Number of matches:', len(matches))
-
-
-
