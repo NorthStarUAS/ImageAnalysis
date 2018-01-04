@@ -56,13 +56,12 @@ def fun(params, n_cameras, n_points, camera_indices, point_indices, points_2d, K
     #print("calib:")
     tmp = cam_M[camera_indices]
     #print('tmp.shape {}'.format(tmp.shape))
-    points_proj = project(points_3d[point_indices],
-                          cam_M[camera_indices])
+    points_proj = project(points_3d[point_indices], cam_M[camera_indices])
     # mre
     error = (points_proj - points_2d).ravel()
     mre = np.mean(np.abs(error))
-    if abs(1.0 - mre/last_mre) > 0.001:
-        # mre has changed by more than 0.1%
+    if 1.0 - mre/last_mre > 0.001:
+        # mre has improved by more than 0.1%
         print('mre:', mre)
         if not graph is None:
             last_mre = mre
@@ -70,8 +69,8 @@ def fun(params, n_cameras, n_points, camera_indices, point_indices, points_2d, K
             graph.set_array(-points_3d[:,2])
             plt.xlim(points_3d[:,1].min(), points_3d[:,1].max() )
             plt.ylim(points_3d[:,0].min(), points_3d[:,0].max() )
-            cmin = int(-points_3d[:,2].min() / 5) * 5
-            cmax = (int(-points_3d[:,2].max() / 5) + 1) * 5
+            cmin = int(-points_3d[:,2].min() / 10) * 10
+            cmax = (int(-points_3d[:,2].max() / 10) + 1) * 10
             #plt.clim(-points_3d[:,2].min(), -points_3d[:,2].max() )
             plt.clim(cmin, cmax)
             plt.draw()
@@ -277,7 +276,13 @@ class Optimizer():
         plt.pause(0.01)
         
         t0 = time.time()
-        res = least_squares(fun, x0, bounds=[lower, upper], jac_sparsity=A,
+#        res = least_squares(fun, x0, bounds=[lower, upper], jac_sparsity=A,
+#                            verbose=2,
+#                            x_scale='jac',
+#                            ftol=1e-3, method='trf',
+#                            args=(n_cameras, n_points, camera_indices,
+#                                  point_indices, points_2d, K))
+        res = least_squares(fun, x0, jac_sparsity=A,
                             verbose=2,
                             x_scale='jac',
                             ftol=1e-3, method='trf',
