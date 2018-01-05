@@ -46,6 +46,8 @@ def fun(params, n_cameras, n_points, by_camera_point_indices, by_camera_points_2
     for i, cam in enumerate(camera_params):
         rvec = cam[:3]
         tvec = cam[3:6]
+        if len(by_camera_point_indices[i]) == 0:
+            continue
         proj_points, jac = cv2.projectPoints(points_3d[by_camera_point_indices[i]], rvec, tvec, K, distCoeffs)
         # print(i, points_3d[by_camera_point_indices[i]].shape, proj_points.shape, proj_points.ravel().shape)
         sum += len(proj_points.ravel())
