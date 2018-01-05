@@ -102,8 +102,10 @@ for i in range(len(proj.image_list)):
             dst.append( i2.uv_list[pair[1]] )
         src = np.float32(src)
         dst = np.float32(dst)
-        # filter = 'homography'
-        filter = 'affine'
+        error = []
+        filter = 'homography'
+        #filter = 'affine'
+        # filter = 'margin' (just a test, we probably want the margins for better distorting parameter fitting.)
         if filter == 'affine':
             fullAffine = False
             affine = cv2.estimateRigidTransform(src, dst, fullAffine)
@@ -114,7 +116,6 @@ for i in range(len(proj.image_list)):
                 affine = np.array([[1.0, 0.0, 0.0],
                                    [0.0, 1.0, 0.0]])
             # for each src point, compute dst_est[i] = src[i] * affine
-            error = []
             for k, p in enumerate(src):
                 p_est = affine.dot( np.hstack((p, 1.0)) )[:2]
                 #print('p est:', p_est, 'act:', dst[k])
@@ -135,7 +136,6 @@ for i in range(len(proj.image_list)):
             #print('len:', len(pairs[i][j]))
             #print('M:', M)
             homography[i][j] = M
-            error = []
             for k, p in enumerate(src):
                 tmp = M[2][0]*p[0] + M[2][1]*p[1] + M[2][2]
                 if abs(tmp) > 0.000001:
@@ -148,6 +148,26 @@ for i in range(len(proj.image_list)):
                 d = np.linalg.norm(p_est - dst[k])
                 #print 'dist:', d
                 error.append(d)
+        elif filter == 'margin':
+            margin = 0.1
+            hmargin = int(i1.width * margin)
+            vmargin = int(i1.height * margin)
+            for k in range(len(src)):
+                p1 = src[k]
+                p2 = dst[k]
+                flag = False
+                if p1[0] < hmargin or p1[0] > i1.width - hmargin:
+                    flag = True
+                elif p2[0] < hmargin or p2[0] > i1.width - hmargin:
+                    flag = True
+                elif p1[1] < vmargin or p1[1] > i1.height - vmargin:
+                    flag = True
+                elif p2[1] < vmargin or p2[1] > i1.height - vmargin:
+                    flag = True
+                if flag:
+                    error.append(1)
+                else:
+                    error.append(0)
         error = np.array(error)
         max = np.amax(error)    # maximum
         max_index = np.argmax(error)
@@ -162,15 +182,30 @@ for i in range(len(proj.image_list)):
         # for k in range(len(pairs[i][j])):
         #     if error[k] > avg + 3*std:
         #         status[k] = False
-        
-        # flag only the worst error
-        status[max_index] = False
-        
+
+        if filter == 'homography' or filter == 'affine':
+            # flag only the worst error
+            status[max_index] = False
+        elif filter == 'margin':
+            # flag any non-zero
+            for k in range(len(error)):
+                if error[k] > 0.5:
+                    status[k] = False
+            
         status_flags[i][j] = status
         print('pair:', i, j, 'max:', max, 'avg:', avg, 'std:', std)
         bypair.append( [max, avg, std, i, j] )
 
-bypair = sorted(bypair, key=lambda fields: fields[0], reverse=True)
+sort_by = 'worst'
+if sort_by == 'best':
+    # best first shows our most likely co-located image pairs.  These
+    # introduce feature location volatility into the solution so we'd
+    # prefer to not have these.
+    bypair = sorted(bypair, key=lambda fields: fields[0])
+else:
+    # worst to first shows our most likely outliers (bad matches)
+    bypair = sorted(bypair, key=lambda fields: fields[0], reverse=True)
+    
 mark_list = []
 for line in bypair:
     print(line)
