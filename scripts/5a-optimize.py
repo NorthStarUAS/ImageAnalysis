@@ -97,9 +97,11 @@ image_width = proj.image_list[0].width
 camw, camh = proj.cam.get_image_params()
 scale = float(image_width) / float(camw)
 print('scale: {}'.format(scale))
+K = proj.cam.get_K(scale)
+tfx, tfy, tcu, tcv, distCoeffs, skew = proj.cam.get_calibration_params()
 
 opt = Optimizer.Optimizer(args.project)
-cameras, features, cam_index_map, feat_index_map = opt.run( proj.image_list, groups[0], matches, proj.cam.get_K(scale), use_sba=False )
+cameras, features, cam_index_map, feat_index_map = opt.run( proj.image_list, groups[0], matches, K, distCoeffs, use_sba=False )
 
 # wipe the sba pose for all images
 for image in proj.image_list:
