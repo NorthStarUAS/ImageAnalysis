@@ -32,15 +32,14 @@ def fun(params, n_cameras, n_points, by_camera_point_indices, by_camera_points_2
     error = None
     camera_params = params[:n_cameras * 6].reshape((n_cameras, 6))
     points_3d = params[n_cameras * 6:n_cameras * 6 + n_points * 3].reshape((n_points, 3))
-    calib_params = params[n_cameras * 6 + n_points * 3:]
+    calib_calib = params[n_cameras * 6 + n_points * 3:]
     
     K = np.identity(3)
-    K[0,0] = calib_params[0]
-    K[1,1] = calib_params[1]
-    K[0,2] = calib_params[2]
-    K[1,2] = calib_params[3]
-    distCoeffs = calib_params[4:]
-    #print('K:', K, 'distCoeffs', distCoeffs)
+    K[0,0] = calib_calib[0]
+    K[1,1] = calib_calib[1]
+    K[0,2] = calib_calib[2]
+    K[1,2] = calib_calib[3]
+    distCoeffs = calib_calib[4:]
 
     sum = 0
     for i, cam in enumerate(camera_params):
@@ -66,6 +65,8 @@ def fun(params, n_cameras, n_points, by_camera_point_indices, by_camera_points_2
     mre = np.mean(np.abs(error))
     if 1.0 - mre/last_mre > 0.001:
         # mre has improved by more than 0.1%
+        print("K:\n", K)
+        print("distCoeffs:", distCoeffs)
         print('mre:', mre)
         if not graph is None:
             last_mre = mre
@@ -226,9 +227,10 @@ class Optimizer():
                 if p[0] in placed_images:
                     cam_index = self.camera_map_rev[p[0]]
                     feat_index = self.feat_map_fwd[i]
-                    uv = image_list[p[0]].uv_list[p[1]]
+                    kp = image_list[p[0]].kp_list[p[1]].pt # orig/distorted
+                    #kp = image_list[p[0]].uv_list[p[1]] # undistorted
                     by_camera_point_indices[cam_index].append(feat_index)
-                    by_camera_points_2d[cam_index].append(uv)
+                    by_camera_points_2d[cam_index].append(kp)
                     #camera_indices[obs_idx] = cam_index
                     #point_indices[obs_idx] = feat_index
                     #obs_idx += 1
@@ -321,13 +323,11 @@ class Optimizer():
         print("Optimization took {0:.0f} seconds".format(t1 - t0))
         # print(res['x'])
         print(res)
-        #plt.plot(res.fun)
-        plt.ioff()
-        plt.show()
         
         camera_params = res.x[:n_cameras * 6].reshape((n_cameras, 6))
         points_3d = res.x[n_cameras * 6:n_cameras * 6 + n_points * 3].reshape((n_points, 3))
-
+        camera_calib = res.x[n_cameras * 6 + n_points * 3:]
+        
         # command = []
         #result = subprocess.check_output( command )
         # bufsize=1 is line buffered
@@ -338,8 +338,15 @@ class Optimizer():
         iterations = res.njev
         time_sec = t1 - t0
 
-        print("Starting mean reprojection error: {}".format(mre_start))
-        print("Final mean reprojection error: {}".format(mre_final))
-        print("Iterations: {}".format(iterations))
-        print("Elapsed time = {} sec".format(time_sec))
+        print("Starting mean reprojection error: %.2f" % mre_start)
+        print("Final mean reprojection error: %.2f" % mre_final)
+        print("Iterations:", iterations)
+        print("Elapsed time = %.1f sec" % time_sec)
+        print("Final camera calib:\n", camera_calib)
+
+        # final plot
+        #plt.plot(res.fun)
+        plt.ioff()
+        plt.show()
+
         return camera_params, points_3d, self.camera_map_fwd, self.feat_map_rev
