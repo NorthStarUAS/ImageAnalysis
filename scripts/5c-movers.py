@@ -27,8 +27,9 @@ args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
-proj.load_features()
-proj.undistort_keypoints()
+if args.interactive:
+    proj.load_features()
+    #proj.undistort_keypoints()
 
 print("Loading matches_grouped...")
 matches_grouped = pickle.load( open( os.path.join(args.project, "matches_grouped"), "rb" ) )
@@ -61,42 +62,27 @@ def compute_movers(matches_grouped, matches_sba):
 # paired from nearly colocated camera poses.
 def compute_shakers(matches):
     result_list = []
-    for i, match in enumerate(matches):
+    for k, match in enumerate(matches):
         # compute avg of camera locations
         sum = np.zeros(3)
         count = 0
-        for p in match[1:]:
-            if p[0] in groups[0]:
-                img = proj.image_list[p[0]]
-                ned, ypr, q = img.get_camera_pose_sba()
-                sum += np.array(ned)
-                count += 1
-        if count == 0:
-            # not part of the gropu
-            continue
-        avg = sum / float(count)
-        print(i, 'avg cam:', avg)
-
-        # distance from feature to the average of the camera locations
-        x = np.linalg.norm(np.array(match[0]) - avg)
+        size = len(match[1:])
+        for i in range(size):
+            for j in range(i+1,size):
+                p0 = match[i+1]
+                p1 = match[j+1]
+                i1 =  proj.image_list[p0[0]]
+                i2 =  proj.image_list[p1[0]]
+                ned1, ypr1, q1 = i1.get_camera_pose_sba()
+                ned2, ypr2, q2 = i2.get_camera_pose_sba()
+                avg = (np.array(ned1) + np.array(ned2)) * 0.5
+                y = np.linalg.norm(np.array(ned2) - np.array(ned1))
+                x = np.linalg.norm(avg - np.array(match[0]))
+                angle = math.atan2(y, x)
+                result_list.append( [angle, k, j] )
+                print( [angle, k, j] )
         
-        # compute separation metric
-        sum = 0.0
-        count = 0
-        for p in match[1:]:
-            if p[0] in groups[0]:
-                img = proj.image_list[p[0]]
-                ned, ypr, q = img.get_camera_pose_sba()
-                d = np.linalg.norm(avg - np.array(ned))
-                sum += d
-                count += 1
-        # the average error which is sort of like a radius
-        y = sum / float(count)
-        angle = math.atan2(y, x)
-        print('  angle:', angle*180.0/math.pi)
-        result_list.append( [ angle, i, 0 ] )
-        
-    # smallest is worst (forward sort)
+    # smallest angle is worst (do a forward sort)
     result_list = sorted(result_list, key=lambda fields: fields[0])
     return result_list
 
@@ -162,8 +148,7 @@ else:
     # 3+ way matches are less likely to show up on this bad list.)
     mark_list = []
     for line in error_list:
-        if line[0] < 0.07:      # radians
-            # less than 6 meter distance from center point
+        if line[0] < 0.175:      # 10 degrees
             mark_list.append( [line[1], line[2]] )
 
 # mark selection
