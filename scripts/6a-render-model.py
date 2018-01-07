@@ -276,9 +276,9 @@ for i, match in enumerate(matches_sba):
 
 result = sorted(outliers, key=lambda fields: fields[0], reverse=True)
 for line in result:
-    pass
     #print('index:', line[1], 'error:', line[0])
     #cull.draw_match(line[1], 1, matches_sba, proj.image_list)
+    pass
     
 depth = 0.0
 camw, camh = proj.cam.get_image_params()

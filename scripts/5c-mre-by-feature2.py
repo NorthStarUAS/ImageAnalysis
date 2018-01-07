@@ -50,7 +50,7 @@ def compute_reprojection_errors(image_list, matches, group, cam):
     
     camw, camh = proj.cam.get_image_params()
     scale = float(image_list[0].width) / float(camw)
-    K = cam.get_K(scale)
+    K = cam.get_K(scale, optimized=True)
     
     # compute PROJ and M=K*PROJ matrices
     for i, image in enumerate(image_list):

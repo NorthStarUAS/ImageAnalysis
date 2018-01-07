@@ -98,10 +98,10 @@ camw, camh = proj.cam.get_image_params()
 scale = float(image_width) / float(camw)
 print('scale: {}'.format(scale))
 K = proj.cam.get_K(scale)
-tfx, tfy, tcu, tcv, distCoeffs = proj.cam.get_calibration_params()
+distCoeffs = proj.cam.get_dist_coeffs()
 
 opt = Optimizer.Optimizer(args.project)
-cameras, features, cam_index_map, feat_index_map = opt.run( proj.image_list, groups[0], matches, K, distCoeffs, use_sba=False )
+cameras, features, cam_index_map, feat_index_map, fx_opt, fy_opt, cu_opt, cv_opt, distCoeffs_opt = opt.run( proj.image_list, groups[0], matches, K, distCoeffs, use_sba=False )
 
 # wipe the sba pose for all images
 for image in proj.image_list:
@@ -146,6 +146,11 @@ for i, cam in enumerate(cameras):
     image.placed = True
 proj.save_images_meta()
 print('Updated the sba poses for all the cameras')
+
+# save the optimized camera calibration
+proj.cam.set_K(fx_opt/scale, fy_opt/scale, cu_opt/scale, cv_opt/scale, optimized=True)
+proj.cam.set_dist_coeffs(distCoeffs_opt.tolist(), optimized=True)
+proj.cam.save(args.project)
 
 # compare original camera locations with sba camera locations and
 # derive a transform matrix to 'best fit' the new camera locations

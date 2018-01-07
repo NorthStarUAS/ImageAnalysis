@@ -61,12 +61,15 @@ if args.horiz_mm or args.vert_mm or args.focal_len_mm:
         print "Must set horiz-mm, vert-mm, and focal-len-mm together"
 
 print args
-if args.fx or args.fy or args.cu or args.cv or args.kcoeffs:
-    if args.fx and args.fy and args.cu and args.cv and args.kcoeffs:
-        proj.cam.set_calibration_params(args.fx, args.fy, args.cu, args.cv, args.kcoeffs)
+if args.fx or args.fy or args.cu or args.cv:
+    if args.fx and args.fy and args.cu and args.cv:
+        proj.cam.set_K(args.fx, args.fy, args.cu, args.cv)
     else:
-         print "Must set fx, fy, cu, cv, and kcoeffs together"
-   
+         print "Must set fx, fy, cu, and cv together"
+
+if args.kcoeffs:
+    proj.cam.set_dist_coeffs(args.kcoeffs)
+    
 if args.width_px or args.height_px:
     if args.width_px and args.height_px:
         proj.cam.set_image_params(args.width_px, args.height_px)
@@ -98,8 +101,8 @@ if args.sentera_3M:
     focal_len_mm = (fx * horiz_mm) / width_px
     dist_coeffs = [0.0, 0.0, 0.0, 0.0, 0.0]
     proj.cam.set_lens_params(horiz_mm, vert_mm, focal_len_mm)
-    proj.cam.set_calibration_params(fx, fy, width_px/2, height_px/2,
-                                    dist_coeffs, 0.0)
+    proj.cam.set_K(fx, fy, width_px/2, height_px/2)
+    proj.cam_set_dist_coeffs(dist_coeffs)
     proj.cam.set_image_params(width_px, height_px)
     proj.cam.set_mount_params(0.0, -90.0, 0.0)
 elif args.sentera_global:
@@ -112,8 +115,8 @@ elif args.sentera_global:
     # dist_coeffs = array[5] = k1, k2, p1, p2, k3
     dist_coeffs = [-0.387486, 0.211065, 0.0, 0.0, 0.0]
     proj.cam.set_lens_params(horiz_mm, vert_mm, focal_len_mm)
-    proj.cam.set_calibration_params(fx, fy, width_px/2, height_px/2,
-                                    dist_coeffs, 0.0)
+    proj.cam.set_K(fx, fy, width_px/2, height_px/2)
+    proj.cam.set_dist_coeffs(dist_coeffs)
     proj.cam.set_image_params(width_px, height_px)
     proj.cam.set_mount_params(0.0, -90.0, 0.0)
 elif args.sentera_global_aem:
@@ -130,8 +133,8 @@ elif args.sentera_global_aem:
     # dist_coeffs = array[5] = k1, k2, p1, p2, k3
     dist_coeffs = [-0.37158252, 0.4333338, 0.0, 0.0, -1.40601407]
     proj.cam.set_lens_params(horiz_mm, vert_mm, focal_len_mm)
-    proj.cam.set_calibration_params(fx, fy, width_px/2, height_px/2,
-                                    dist_coeffs, 0.0)
+    proj.cam.set_K(fx, fy, width_px/2, height_px/2)
+    proj.cam.set_dist_coeffs(dist_coeffs)
     proj.cam.set_image_params(width_px, height_px)
     proj.cam.set_mount_params(0.0, -90.0, 0.0)
 

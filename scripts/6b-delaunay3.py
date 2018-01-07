@@ -275,7 +275,7 @@ for tri in tri.simplices:
                     -grid_values[vert] ]
             scale = float(image.width) / float(camw)
             uv = compute_feature_uv(proj.cam.get_K(scale), image, ned)
-            fx, fy, cu, cv, dist_coeffs = proj.cam.get_calibration_params()
+            dist_coeffs = proj.cam.get_dist_coeffs()
             uv[0], uv[1] = redistort(uv[0], uv[1], dist_coeffs, proj.cam.get_K(scale))
             uv[0] /= image.width
             uv[1] /= image.height
