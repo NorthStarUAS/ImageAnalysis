@@ -39,7 +39,7 @@ class Camera():
             print("Error: project doesn't exist =", project_dir)
             return
         
-        camera_file = project_dir + "/Camera.json"
+        camera_file = os.path.join(project_dir, "Camera.json")
         try:
             f = open(camera_file, 'w')
             json.dump(self.camera_dict, f, indent=4, sort_keys=True)
@@ -51,7 +51,7 @@ class Camera():
             raise
 
     def load(self, project_dir):
-        camera_file = project_dir + "/Camera.json"
+        camera_file = os.path.join(project_dir, "Camera.json")
         try:
             f = open(camera_file, 'r')
             self.camera_dict = json.load(f)
@@ -66,10 +66,9 @@ class Camera():
         self.camera_dict['focal-len-mm'] = focal_len_mm
         
     def get_lens_params(self):
-        return \
-            self.camera_dict['horiz-mm'], \
-            self.camera_dict['vert-mm'], \
-            self.camera_dict['focal-len-mm']
+        return ( self.camera_dict['horiz-mm'],
+                 self.camera_dict['vert-mm'],
+                 self.camera_dict['focal-len-mm'] )
 
     def get_K(self, scale=1.0):
         """
@@ -96,21 +95,19 @@ class Camera():
         self.camera_dict['dist-coeffs'] = dist_coeffs 
         
     def get_calibration_params(self):
-        return \
-            self.camera_dict['fx'], \
-            self.camera_dict['fy'], \
-            self.camera_dict['cu'], \
-            self.camera_dict['cv'], \
-            self.camera_dict['dist-coeffs'], \
+        return ( self.camera_dict['fx'],
+                 self.camera_dict['fy'],
+                 self.camera_dict['cu'],
+                 self.camera_dict['cv'],
+                 self.camera_dict['dist-coeffs'] )
         
     def set_image_params(self, width_px, height_px):
         self.camera_dict['width-px'] = width_px
         self.camera_dict['height-px'] = height_px
         
     def get_image_params(self):
-        return \
-            self.camera_dict['width-px'], \
-            self.camera_dict['height-px']
+        return ( self.camera_dict['width-px'],
+                 self.camera_dict['height-px'] )
 
     def set_mount_params(self, yaw_deg, pitch_deg, roll_deg):
         self.camera_dict['mount-ypr'] = [yaw_deg, pitch_deg, roll_deg]
