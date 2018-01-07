@@ -20,8 +20,8 @@ def draw_match(i, index, matches, image_list):
     for j, m in enumerate(match[1:]):
         print(' ', m, image_list[m[0]])
         img = image_list[m[0]]
-        # kp = img.kp_list[m[1]].pt # distorted
-        kp = img.uv_list[m[1]]  # undistored
+        kp = img.kp_list[m[1]].pt # distorted
+        #kp = img.uv_list[m[1]]  # undistored
         print(' ', kp)
         rgb = img.load_rgb()
         h, w = rgb.shape[:2]
