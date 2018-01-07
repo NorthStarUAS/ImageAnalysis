@@ -10,28 +10,23 @@ class Camera():
         # loading/saving.  We don't need fast access to these values
         self.camera_dict = {}
         
-        cd = self.camera_dict
-
         # camera lens parameters
-        cd['horiz-mm'] = 0.0
-        cd['vert-mm'] = 0.0
-        cd['focal-len-mm'] = 0.0
+        self.camera_dict['horiz_mm'] = 0.0
+        self.camera_dict['vert_mm'] = 0.0
+        self.camera_dict['focal_len_mm'] = 0.0
 
         # camera calibration parameters
-        cd['fx'] = 0.0
-        cd['fy'] = 0.0
-        cd['cu'] = 0.0
-        cd['cv'] = 0.0
-        cd['dist-coeffs'] = [0.0]*5
+        self.camera_dict['K'] = [0.0]*9
+        self.camera_dict['dist_coeffs'] = [0.0]*5
 
         # full size of camera image (these values may be needed for
         # sentera images processed through their rolling shutter
         # corrector that are not full width/height.
-        cd['width-px'] = 0
-        cd['height-px'] = 0
+        self.camera_dict['width_px'] = 0
+        self.camera_dict['height_px'] = 0
 
         # camera mount parameters: these are offsets from the aircraft body
-        cd['mount-ypr'] = [ 0.0, 0.0, 0.0 ]
+        self.camera_dict['mount_ypr'] = [ 0.0, 0.0, 0.0 ]
 
     def save(self, project_dir):
         # create a dictionary and write it out as json
@@ -61,75 +56,90 @@ class Camera():
             print("Continuing with an empty camera configuration")
 
     def set_lens_params(self, horiz_mm, vert_mm, focal_len_mm):
-        self.camera_dict['horiz-mm'] = horiz_mm
-        self.camera_dict['vert-mm'] = vert_mm
-        self.camera_dict['focal-len-mm'] = focal_len_mm
+        self.camera_dict['horiz_mm'] = horiz_mm
+        self.camera_dict['vert_mm'] = vert_mm
+        self.camera_dict['focal_len_mm'] = focal_len_mm
         
     def get_lens_params(self):
-        return ( self.camera_dict['horiz-mm'],
-                 self.camera_dict['vert-mm'],
-                 self.camera_dict['focal-len-mm'] )
+        return ( self.camera_dict['horiz_mm'],
+                 self.camera_dict['vert_mm'],
+                 self.camera_dict['focal_len_mm'] )
 
-    def get_K(self, scale=1.0):
+    def get_K(self, scale=1.0, optimized=False):
         """
         Form the camera calibration matrix K using 5 parameters of 
-        Finite Projective Camera model.
+        Finite Projective Camera model.  (Note skew parameter is 0)
 
         See Eqn (6.10) in:
         R.I. Hartley & A. Zisserman, Multiview Geometry in Computer Vision,
         Cambridge University Press, 2004.
         """
-        fx, fy, cu, cv, dist_coeffs = self.get_calibration_params()
-        K = np.array( [ [fx*scale, 0,        cu*scale],
-                        [ 0,       fy*scale, cv*scale],
-                        [ 0,       0,        1       ] ],
-                      dtype=np.float32 )
+        tmp = self.camera_dict['K']
+        if optimized and 'K_opt' in self.camera_dict:
+            tmp = self.camera_dict['K_opt']
+        K = np.copy(np.array(tmp)).reshape(3,3)
+        K[0,0] *= scale
+        K[1,1] *= scale
+        K[0,2] *= scale
+        K[1,2] *= scale
+        #print('stored K:', self.camera_dict['K'], 'scaled K:', K)
         return K
         
+    def set_K(self, fx, fy, cu, cv, optimized=False):
+        K = np.identity(3)
+        K[0,0] = fx
+        K[1,1] = fy
+        K[0,2] = cu
+        K[1,2] = cv
+        # store as linear python list
+        if optimized:
+            self.camera_dict['K_opt'] = K.ravel().tolist()
+        else:
+            self.camera_dict['K'] = K.ravel().tolist()
+
     # dist_coeffs = array[5] = k1, k2, p1, p2, k3
-    def set_calibration_params(self, fx, fy, cu, cv, dist_coeffs):
-        self.camera_dict['fx'] = fx
-        self.camera_dict['fy'] = fy
-        self.camera_dict['cu'] = cu
-        self.camera_dict['cv'] = cv
-        self.camera_dict['dist-coeffs'] = dist_coeffs 
-        
-    def get_calibration_params(self):
-        return ( self.camera_dict['fx'],
-                 self.camera_dict['fy'],
-                 self.camera_dict['cu'],
-                 self.camera_dict['cv'],
-                 self.camera_dict['dist-coeffs'] )
+    def get_dist_coeffs(self, optimized=False):
+        dist_coeffs = self.camera_dict['dist_coeffs']
+        if optimized and 'dist_coeffs_opt' in self.camera_dict:
+            dist_ceoffs = self.camera_dict['dist_coeffs_opt']
+        return dist_coeffs
+    
+    def set_dist_coeffs(self, dist_coeffs, optimized=False):
+        if optimized:
+            self.camera_dict['dist_coeffs_opt'] = dist_coeffs
+        else:
+            self.camera_dict['dist_coeffs'] = dist_coeffs
         
     def set_image_params(self, width_px, height_px):
-        self.camera_dict['width-px'] = width_px
-        self.camera_dict['height-px'] = height_px
+        self.camera_dict['width_px'] = width_px
+        self.camera_dict['height_px'] = height_px
         
     def get_image_params(self):
-        return ( self.camera_dict['width-px'],
-                 self.camera_dict['height-px'] )
+        return ( self.camera_dict['width_px'],
+                 self.camera_dict['height_px'] )
 
     def set_mount_params(self, yaw_deg, pitch_deg, roll_deg):
-        self.camera_dict['mount-ypr'] = [yaw_deg, pitch_deg, roll_deg]
+        self.camera_dict['mount_ypr'] = [yaw_deg, pitch_deg, roll_deg]
        
     def get_mount_params(self):
-        return self.camera_dict['mount-ypr']
+        return self.camera_dict['mount_ypr']
 
     def derive_other_params(self):
-        fx = self.camera_dict['fx']
-        fy = self.camera_dict['fy']
-        cu = self.camera_dict['cu']
-        cv = self.camera_dict['cv']
-        width_px = self.camera_dict['width-px']
-        height_px = self.camera_dict['height-px']
-        horiz_mm = self.camera_dict['horiz-mm']
-        vert_mm = self.camera_dict['vert-mm']
-        focal_len_mm = self.camera_dict['focal-len-mm']
+        K = self.get_K()
+        fx = K[0,0]
+        fy = K[1,1]
+        cu = K[0,2]
+        cv = K[1,2]
+        width_px = self.camera_dict['width_px']
+        height_px = self.camera_dict['height_px']
+        horiz_mm = self.camera_dict['horiz_mm']
+        vert_mm = self.camera_dict['vert_mm']
+        focal_len_mm = self.camera_dict['focal_len_mm']
         if cu < 1.0 and width_px > 0:
-            self.camera_dict['cu'] = width_px * 0.5
+            cu = width_px * 0.5
         if cv < 1.0 and height_px > 0:
-            self.camera_dict['cv'] = height_px * 0.5
+            cv = height_px * 0.5
         if fx < 1 and focal_len_mm > 0 and width_px > 0 and horiz_mm > 0:
-            self.camera_dict['fx'] = (focal_len_mm * width_px) / horiz_mm
+            fx = (focal_len_mm * width_px) / horiz_mm
         if fy < 1 and focal_len_mm > 0 and height_px > 0 and vert_mm > 0:
-            self.camera_dict['fy'] = (focal_len_mm * height_px) / vert_mm
+            fy = (focal_len_mm * height_px) / vert_mm

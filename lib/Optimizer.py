@@ -32,14 +32,14 @@ def fun(params, n_cameras, n_points, by_camera_point_indices, by_camera_points_2
     error = None
     camera_params = params[:n_cameras * 6].reshape((n_cameras, 6))
     points_3d = params[n_cameras * 6:n_cameras * 6 + n_points * 3].reshape((n_points, 3))
-    calib_calib = params[n_cameras * 6 + n_points * 3:]
+    camera_calib = params[n_cameras * 6 + n_points * 3:]
     
     K = np.identity(3)
-    K[0,0] = calib_calib[0]
-    K[1,1] = calib_calib[1]
-    K[0,2] = calib_calib[2]
-    K[1,2] = calib_calib[3]
-    distCoeffs = calib_calib[4:]
+    K[0,0] = camera_calib[0]
+    K[1,1] = camera_calib[1]
+    K[0,2] = camera_calib[2]
+    K[1,2] = camera_calib[3]
+    distCoeffs = camera_calib[4:]
 
     sum = 0
     for i, cam in enumerate(camera_params):
@@ -328,12 +328,12 @@ class Optimizer():
         points_3d = res.x[n_cameras * 6:n_cameras * 6 + n_points * 3].reshape((n_points, 3))
         camera_calib = res.x[n_cameras * 6 + n_points * 3:]
         
-        # command = []
-        #result = subprocess.check_output( command )
-        # bufsize=1 is line buffered
-        #process = subprocess.Popen( command, stdout=subprocess.PIPE)
-
-        state = ''
+        fx = camera_calib[0]
+        fy = camera_calib[1]
+        cu = camera_calib[2]
+        cv = camera_calib[3]
+        distCoeffs_opt = camera_calib[4:]
+        
         mre_final = np.mean(np.abs(res.fun))
         iterations = res.njev
         time_sec = t1 - t0
@@ -349,4 +349,6 @@ class Optimizer():
         plt.ioff()
         plt.show()
 
-        return camera_params, points_3d, self.camera_map_fwd, self.feat_map_rev
+        return ( camera_params, points_3d,
+                 self.camera_map_fwd, self.feat_map_rev,
+                 fx, fy, cu, cv, distCoeffs_opt )

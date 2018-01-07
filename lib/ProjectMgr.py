@@ -413,8 +413,7 @@ class ProjectMgr():
             return []
         # camera parameters
         camw, camh = self.cam.get_image_params()
-        dist_coeffs = np.array(self.cam.camera_dict['dist-coeffs'],
-                               dtype=np.float32)
+        dist_coeffs = self.cam.get_dist_coeffs()
         # scaled calibration matrix
         scale = float(image.width) / float(camw)
         K = self.cam.get_K(scale)
@@ -433,7 +432,7 @@ class ProjectMgr():
         
     # for each feature in each image, compute the undistorted pixel
     # location (from the calibrated distortion parameters)
-    def undistort_keypoints(self):
+    def undistort_keypoints(self, optimized=False):
         bar = Bar('Undistorting keypoints:', max = len(self.image_list))
         camw, camh = self.cam.get_image_params()
         for image in self.image_list:
@@ -444,9 +443,8 @@ class ProjectMgr():
             uv_raw = np.zeros((len(image.kp_list),1,2), dtype=np.float32)
             for i, kp in enumerate(image.kp_list):
                 uv_raw[i][0] = (kp.pt[0], kp.pt[1])
-            dist_coeffs = np.array(self.cam.camera_dict['dist-coeffs'],
-                                   dtype=np.float32)
-            uv_new = cv2.undistortPoints(uv_raw, K, dist_coeffs, P=K)
+            dist_coeffs = self.cam.get_dist_coeffs(optimized)
+            uv_new = cv2.undistortPoints(uv_raw, K, np.array(dist_coeffs), P=K)
             image.uv_list = []
             for i, uv in enumerate(uv_new):
                 image.uv_list.append(uv_new[i][0])
