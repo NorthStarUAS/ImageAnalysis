@@ -23,14 +23,6 @@ class Camera():
         cd['cu'] = 0.0
         cd['cv'] = 0.0
         cd['dist-coeffs'] = [0.0]*5
-        cd['skew'] = 0.0
-
-        cd['fx-std'] = 0.0
-        cd['fy-std'] = 0.0
-        cd['cu-std'] = 0.0
-        cd['cv-std'] = 0.0
-        cd['dist-coeffs-std'] = [0.0]*5
-        cd['skew-std'] = 0.0
 
         # full size of camera image (these values may be needed for
         # sentera images processed through their rolling shutter
@@ -88,21 +80,20 @@ class Camera():
         R.I. Hartley & A. Zisserman, Multiview Geometry in Computer Vision,
         Cambridge University Press, 2004.
         """
-        fx, fy, cu, cv, dist_coeffs, skew = self.get_calibration_params()
-        K = np.array( [ [fx*scale, skew*scale, cu*scale],
-                        [ 0,       fy  *scale, cv*scale],
-                        [ 0,       0,          1       ] ],
+        fx, fy, cu, cv, dist_coeffs = self.get_calibration_params()
+        K = np.array( [ [fx*scale, 0,        cu*scale],
+                        [ 0,       fy*scale, cv*scale],
+                        [ 0,       0,        1       ] ],
                       dtype=np.float32 )
         return K
         
     # dist_coeffs = array[5] = k1, k2, p1, p2, k3
-    def set_calibration_params(self, fx, fy, cu, cv, dist_coeffs, skew):
+    def set_calibration_params(self, fx, fy, cu, cv, dist_coeffs):
         self.camera_dict['fx'] = fx
         self.camera_dict['fy'] = fy
         self.camera_dict['cu'] = cu
         self.camera_dict['cv'] = cv
         self.camera_dict['dist-coeffs'] = dist_coeffs 
-        self.camera_dict['skew'] = skew
         
     def get_calibration_params(self):
         return \
@@ -111,26 +102,7 @@ class Camera():
             self.camera_dict['cu'], \
             self.camera_dict['cv'], \
             self.camera_dict['dist-coeffs'], \
-            self.camera_dict['skew']
         
-    def set_calibration_std(self, fx_std, fy_std, cu_std, cv_std,
-                            dist_coeffs_std, skew_std):
-        self.camera_dict['fx-std'] = fx_std
-        self.camera_dict['fy-std'] = fy_std
-        self.camera_dict['cu-std'] = cu_std
-        self.camera_dict['cv-std'] = cv_std
-        self.camera_dict['dist-coeffs-std'] = dist_coeffs_std
-        self.camera_dict['skew-std'] = skew_std
-
-    def get_calibration_std(self):
-        return \
-            self.camera_dict['fx-std'], \
-            self.camera_dict['fy-std'], \
-            self.camera_dict['cu-std'], \
-            self.camera_dict['cv-std'], \
-            self.camera_dict['dist-coeffs-std'], \
-            self.camera_dict['skew-std']
-    
     def set_image_params(self, width_px, height_px):
         self.camera_dict['width-px'] = width_px
         self.camera_dict['height-px'] = height_px

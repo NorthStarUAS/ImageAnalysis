@@ -30,15 +30,6 @@ parser.add_argument('--cu', type=float, help='cu')
 parser.add_argument('--cv', type=float, help='cv')
 parser.add_argument('--kcoeffs', type=float, nargs=5,
                     help='distortion parameters k1 ... k5')
-parser.add_argument('--skew', type=float, default=0.0, help='skew')
-
-parser.add_argument('--fx-std', type=float, help='fx standard deviation')
-parser.add_argument('--fy-std', type=float, help='fy standard deviation')
-parser.add_argument('--cu-std', type=float, help='cu standard deviation')
-parser.add_argument('--cv-std', type=float, help='cv standard deviation')
-parser.add_argument('--kcoeffs-std', type=float, nargs=5,
-                    help='distortion paramsstandard deviation k1_std ... k5_std')
-parser.add_argument('--skew-std', type=float, help='skew standard deviation')
 
 parser.add_argument('--width-px', type=int,
                     help='expected image width in pixels')
@@ -72,15 +63,9 @@ if args.horiz_mm or args.vert_mm or args.focal_len_mm:
 print args
 if args.fx or args.fy or args.cu or args.cv or args.kcoeffs:
     if args.fx and args.fy and args.cu and args.cv and args.kcoeffs:
-        proj.cam.set_calibration_params(args.fx, args.fy, args.cu, args.cv, args.kcoeffs, args.skew)
+        proj.cam.set_calibration_params(args.fx, args.fy, args.cu, args.cv, args.kcoeffs)
     else:
          print "Must set fx, fy, cu, cv, and kcoeffs together"
-   
-if args.fx_std or args.fy_std or args.cu_std or args.cv_std or args.kcoeffs_std or args.skew_std:
-    if args.fx_std and args.fy_std and args.cu_std and args.cv_std and args.kcoeffs_std and args.skew_std:
-        proj.cam.set_calibration_std(args.fx_std, args.fy_std, args.cu_std, args.cv_std, args.kcoeffs_std, args.skew_std)
-    else:
-         print "Must set fx-std, fy-std, cu-std, cv-std, kcoeffs-std, and skew-std together"
    
 if args.width_px or args.height_px:
     if args.width_px and args.height_px:
@@ -115,8 +100,6 @@ if args.sentera_3M:
     proj.cam.set_lens_params(horiz_mm, vert_mm, focal_len_mm)
     proj.cam.set_calibration_params(fx, fy, width_px/2, height_px/2,
                                     dist_coeffs, 0.0)
-    proj.cam.set_calibration_std(0.0, 0.0, 0.0, 0.0,
-                                 [0.0, 0.0, 0.0, 0.0, 0.0], 0.0)
     proj.cam.set_image_params(width_px, height_px)
     proj.cam.set_mount_params(0.0, -90.0, 0.0)
 elif args.sentera_global:
@@ -131,8 +114,6 @@ elif args.sentera_global:
     proj.cam.set_lens_params(horiz_mm, vert_mm, focal_len_mm)
     proj.cam.set_calibration_params(fx, fy, width_px/2, height_px/2,
                                     dist_coeffs, 0.0)
-    proj.cam.set_calibration_std(0.0, 0.0, 0.0, 0.0,
-                                 [0.0, 0.0, 0.0, 0.0, 0.0], 0.0)
     proj.cam.set_image_params(width_px, height_px)
     proj.cam.set_mount_params(0.0, -90.0, 0.0)
 elif args.sentera_global_aem:
@@ -151,8 +132,6 @@ elif args.sentera_global_aem:
     proj.cam.set_lens_params(horiz_mm, vert_mm, focal_len_mm)
     proj.cam.set_calibration_params(fx, fy, width_px/2, height_px/2,
                                     dist_coeffs, 0.0)
-    proj.cam.set_calibration_std(0.0, 0.0, 0.0, 0.0,
-                                 [0.0, 0.0, 0.0, 0.0, 0.0], 0.0)
     proj.cam.set_image_params(width_px, height_px)
     proj.cam.set_mount_params(0.0, -90.0, 0.0)
 
