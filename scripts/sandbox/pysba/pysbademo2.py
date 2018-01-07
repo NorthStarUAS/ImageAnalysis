@@ -33,8 +33,8 @@ FILE_NAME = "problem-49-7776-pre.txt.bz2"
 #FILE_NAME = "problem-1064-113655-pre.txt.bz2"
 URL = BASE_URL + FILE_NAME
 
-FILE_NAME = '../../rw87-small-test/bundler.txt.bz2'
-K_FILE = '../../rw87-small-test/sba-calib.txt'
+FILE_NAME = '../../rw87/bundler.txt.bz2'
+K_FILE = '../../rw87/sba-calib.txt'
 
 if not os.path.isfile(FILE_NAME):
     urllib.request.urlretrieve(URL, FILE_NAME)

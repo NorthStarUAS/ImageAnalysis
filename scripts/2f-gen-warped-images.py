@@ -41,7 +41,7 @@ ref = proj.ned_reference_lla
 sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
 
 camw, camh = proj.cam.get_image_params()
-fx, fy, cu, cv, dist_coeffs, skew = proj.cam.get_calibration_params()
+fx, fy, cu, cv, dist_coeffs = proj.cam.get_calibration_params()
 for image in proj.image_list:
     print image.name
     scale = float(image.width) / float(camw)

@@ -211,7 +211,7 @@ for tri in tri.simplices:
             #for v in triangle:
             #    ned = [ v[0], v[1], v[2] ]
             #    uv = compute_feature_uv(proj.cam.get_K(), image, ned)
-            #    fx, fy, cu, cv, dist_coeffs, skew = proj.cam.get_calibration_params()
+            #    fx, fy, cu, cv, dist_coeffs = proj.cam.get_calibration_params()
             #    uv[0], uv[1] = redistort(uv[0], uv[1], dist_coeffs, proj.cam.get_K())
             #    uv[0] /= image.width
             #    uv[1] /= image.height
@@ -235,7 +235,7 @@ for tri in tri.simplices:
                 feat = matches_sba[rkeys[vert]]
                 ned = feat['ned']
                 uv = compute_feature_uv(proj.cam.get_K(), image, ned)
-                fx, fy, cu, cv, dist_coeffs, skew = proj.cam.get_calibration_params()
+                fx, fy, cu, cv, dist_coeffs = proj.cam.get_calibration_params()
                 uv[0], uv[1] = redistort(uv[0], uv[1], dist_coeffs, proj.cam.get_K())
                 uv[0] /= image.width
                 uv[1] /= image.height

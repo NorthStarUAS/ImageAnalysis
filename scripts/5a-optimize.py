@@ -98,7 +98,7 @@ camw, camh = proj.cam.get_image_params()
 scale = float(image_width) / float(camw)
 print('scale: {}'.format(scale))
 K = proj.cam.get_K(scale)
-tfx, tfy, tcu, tcv, distCoeffs, skew = proj.cam.get_calibration_params()
+tfx, tfy, tcu, tcv, distCoeffs = proj.cam.get_calibration_params()
 
 opt = Optimizer.Optimizer(args.project)
 cameras, features, cam_index_map, feat_index_map = opt.run( proj.image_list, groups[0], matches, K, distCoeffs, use_sba=False )
