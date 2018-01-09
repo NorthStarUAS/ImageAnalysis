@@ -12,13 +12,20 @@
 # hopefully let me add the K and distortion parameters to the
 # optimizer.
 
-import cv2
-import numpy as np
 import os
+import time
 
+import cv2
 import matplotlib.pyplot as plt
 from matplotlib import cm
+import numpy as np
+from scipy.optimize import least_squares
+from scipy.sparse import lil_matrix
 
+config = 'optimize_f'
+config = 'optimize_K'
+config = 'optimize_dist'
+config = 'optimize_K_and_dist'
 
 graph = None
 last_mre = 1.0e+10              # a big number
@@ -83,14 +90,12 @@ def fun(params, n_cameras, n_points, by_camera_point_indices, by_camera_points_2
             plt.pause(0.01)
     return error
 
-from scipy.sparse import lil_matrix
-
 def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices):
     m = camera_indices.size * 2
     n = n_cameras * 6 + n_points * 3
     n += 9                      # four K params + five dist params
     A = lil_matrix((m, n), dtype=int)
-    print('sparcity matrix is {} x {}'.format(m, n))
+    print('sparcity matrix is %d x %d' % (m, n))
 
     i = np.arange(camera_indices.size)
     for s in range(6):
@@ -289,9 +294,6 @@ class Optimizer():
         for i in range(n_points * 3):
             lower.append( points_3d[i] - tol )
             upper.append( points_3d[i] + tol )
-
-        import time
-        from scipy.optimize import least_squares
 
         plt.figure(figsize=(16,9))
         plt.ion()
