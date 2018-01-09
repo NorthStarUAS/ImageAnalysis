@@ -24,15 +24,17 @@ proj.load_image_info()
 proj.load_features()
 proj.undistort_keypoints()
 
-print("Loading direct matches...")
-matches_direct = pickle.load( open( os.path.join(args.project, 'matches_direct'), 'rb' ) )
-print("features:", len(matches_direct))
+#print("Loading direct matches...")
+#matches = pickle.load( open( os.path.join(args.project, 'matches_direct'), 'rb' ) )
+print("Loading grouped matches...")
+matches = pickle.load( open( os.path.join(args.project, 'matches_grouped'), 'rb' ) )
+print("features:", len(matches))
 
 # compute the group connections within the image set (not used
 # currently in the bundle adjustment process, but here's how it's
 # done...)
-#groups = Groups.groupByFeatureConnections(proj.image_list, matches_direct)
-groups = Groups.groupByConnectedArea(proj.image_list, matches_direct)
+#groups = Groups.groupByFeatureConnections(proj.image_list, matches)
+groups = Groups.groupByConnectedArea(proj.image_list, matches)
 Groups.save(args.project, groups)
 
 print('Main group size:', len(groups[0]))
@@ -43,7 +45,7 @@ print('Main group size:', len(groups[0]))
 file = os.path.join(args.project, 'connections.gnuplot')
 f = open(file, 'w')
 pair_dict = {}
-for match in matches_direct:
+for match in matches:
     for m1 in match[1:]:
         for m2 in match[1:]:
             if m1[0] == m2[0]:
