@@ -27,96 +27,8 @@ config = 'optimize_K'
 config = 'optimize_dist'
 config = 'optimize_K_and_dist'
 
-graph = None
-last_mre = 1.0e+10              # a big number
-def fun(params, n_cameras, n_points, by_camera_point_indices, by_camera_points_2d):
-    """Compute residuals.
-    
-    `params` contains camera parameters, 3-D coordinates, and camera calibration parameters.
-    """
-    global last_mre
-
-    error = None
-    camera_params = params[:n_cameras * 6].reshape((n_cameras, 6))
-    points_3d = params[n_cameras * 6:n_cameras * 6 + n_points * 3].reshape((n_points, 3))
-    camera_calib = params[n_cameras * 6 + n_points * 3:]
-    
-    K = np.identity(3)
-    K[0,0] = camera_calib[0]
-    K[1,1] = camera_calib[1]
-    K[0,2] = camera_calib[2]
-    K[1,2] = camera_calib[3]
-    distCoeffs = camera_calib[4:]
-
-    sum = 0
-    for i, cam in enumerate(camera_params):
-        rvec = cam[:3]
-        tvec = cam[3:6]
-        if len(by_camera_point_indices[i]) == 0:
-            continue
-        proj_points, jac = cv2.projectPoints(points_3d[by_camera_point_indices[i]], rvec, tvec, K, distCoeffs)
-        # print(i, points_3d[by_camera_point_indices[i]].shape, proj_points.shape, proj_points.ravel().shape)
-        sum += len(proj_points.ravel())
-        #print('cam:', proj_points)
-        #print('point2d:', by_camera_points_2d[i])
-        #print('error:', (by_camera_points_2d[i] - proj_points).ravel())
-        #print('debug:', by_camera_points_2d[i].shape, proj_points.shape)
-        if error is None:
-            #print("first time")
-            error = (by_camera_points_2d[i] - proj_points).ravel()
-            #print('error:', error)
-        else:
-            error = np.append(error, (by_camera_points_2d[i] - proj_points).ravel())
-        #print('sum:', sum, 'len error:', len(error), error.shape)
-            
-    mre = np.mean(np.abs(error))
-    if 1.0 - mre/last_mre > 0.001:
-        # mre has improved by more than 0.1%
-        print("K:\n", K)
-        print("distCoeffs:", distCoeffs)
-        print('mre:', mre)
-        if not graph is None:
-            last_mre = mre
-            graph.set_offsets(points_3d[:,[1,0]])
-            graph.set_array(-points_3d[:,2])
-            plt.xlim(points_3d[:,1].min(), points_3d[:,1].max() )
-            plt.ylim(points_3d[:,0].min(), points_3d[:,0].max() )
-            cmin = int(-points_3d[:,2].min() / 10) * 10
-            cmax = (int(-points_3d[:,2].max() / 10) + 1) * 10
-            #plt.clim(-points_3d[:,2].min(), -points_3d[:,2].max() )
-            plt.clim(cmin, cmax)
-            plt.draw()
-            plt.savefig('opt-plot.png', dpi=80)
-            plt.pause(0.01)
-    return error
-
-def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices):
-    m = camera_indices.size * 2
-    n = n_cameras * 6 + n_points * 3
-    n += 9                      # four K params + five dist params
-    A = lil_matrix((m, n), dtype=int)
-    print('sparcity matrix is %d x %d' % (m, n))
-
-    i = np.arange(camera_indices.size)
-    for s in range(6):
-        A[2 * i, camera_indices * 6 + s] = 1
-        A[2 * i + 1, camera_indices * 6 + s] = 1
-
-    for s in range(3):
-        A[2 * i, n_cameras * 6 + point_indices * 3 + s] = 1
-        A[2 * i + 1, n_cameras * 6 + point_indices * 3 + s] = 1
-
-    for s in range(9):
-        A[2 * i, n_cameras * 6 + n_points * 3 + s] = 1
-        A[2 * i + 1, n_cameras * 6 + n_points * 3 + s] = 1
-
-    print('A non-zero elements = {}'.format(A.nnz))
-    
-    return A
-
 # This is a python class that optimizes the estimate camera and 3d
 # point fits by minimizing the mean reprojection error.
-
 class Optimizer():
     def __init__(self, root):
         self.root = root
@@ -124,14 +36,110 @@ class Optimizer():
         self.camera_map_rev = {}
         self.feat_map_fwd = {}
         self.feat_map_rev = {}
+        self.last_mre = 1.0e+10 # a big number
+        self.graph = None
 
-    # write the camera (motion) parameters, feature (structure)
-    # parameters, and calibration (K) to files in the project
-    # directory.
+    # compute the sparcity matrix (dependency relationships between
+    # observations and parameters the optimizer can manipulate.)
+    # Because of the extreme number of parameters and observations, a
+    # sparse matrix is almost required to run in finite time.
+    def bundle_adjustment_sparsity(self, n_cameras, n_points,
+                                   camera_indices, point_indices):
+        m = camera_indices.size * 2
+        n = n_cameras * 6 + n_points * 3
+        n += 9                      # four K params + five dist params
+        A = lil_matrix((m, n), dtype=int)
+        print('sparcity matrix is %d x %d' % (m, n))
+
+        i = np.arange(camera_indices.size)
+        for s in range(6):
+            A[2 * i, camera_indices * 6 + s] = 1
+            A[2 * i + 1, camera_indices * 6 + s] = 1
+
+        for s in range(3):
+            A[2 * i, n_cameras * 6 + point_indices * 3 + s] = 1
+            A[2 * i + 1, n_cameras * 6 + point_indices * 3 + s] = 1
+
+        optimize_K = True
+        optimize_dist = True
+        if optimize_K:
+            for s in range(0,4):
+                A[2 * i, n_cameras * 6 + n_points * 3 + s] = 1
+                A[2 * i + 1, n_cameras * 6 + n_points * 3 + s] = 1
+        if optimize_dist:
+            for s in range(4,9):
+                A[2 * i, n_cameras * 6 + n_points * 3 + s] = 1
+                A[2 * i + 1, n_cameras * 6 + n_points * 3 + s] = 1
+
+        print('A non-zero elements:', A.nnz)
+
+        return A
+
+    def fun(self, params, n_cameras, n_points, by_camera_point_indices, by_camera_points_2d):
+        """Compute residuals.
+
+        `params` contains camera parameters, 3-D coordinates, and camera calibration parameters.
+        """
+
+        error = None
+        camera_params = params[:n_cameras * 6].reshape((n_cameras, 6))
+        points_3d = params[n_cameras * 6:n_cameras * 6 + n_points * 3].reshape((n_points, 3))
+        camera_calib = params[n_cameras * 6 + n_points * 3:]
+
+        K = np.identity(3)
+        K[0,0] = camera_calib[0]
+        K[1,1] = camera_calib[1]
+        K[0,2] = camera_calib[2]
+        K[1,2] = camera_calib[3]
+        distCoeffs = camera_calib[4:]
+
+        sum = 0
+        for i, cam in enumerate(camera_params):
+            rvec = cam[:3]
+            tvec = cam[3:6]
+            if len(by_camera_point_indices[i]) == 0:
+                continue
+            proj_points, jac = cv2.projectPoints(points_3d[by_camera_point_indices[i]], rvec, tvec, K, distCoeffs)
+            # print(i, points_3d[by_camera_point_indices[i]].shape, proj_points.shape, proj_points.ravel().shape)
+            sum += len(proj_points.ravel())
+            #print('cam:', proj_points)
+            #print('point2d:', by_camera_points_2d[i])
+            #print('error:', (by_camera_points_2d[i] - proj_points).ravel())
+            #print('debug:', by_camera_points_2d[i].shape, proj_points.shape)
+            if error is None:
+                #print("first time")
+                error = (by_camera_points_2d[i] - proj_points).ravel()
+                #print('error:', error)
+            else:
+                error = np.append(error, (by_camera_points_2d[i] - proj_points).ravel())
+            #print('sum:', sum, 'len error:', len(error), error.shape)
+
+        mre = np.mean(np.abs(error))
+        if 1.0 - mre/self.last_mre > 0.001:
+            # mre has improved by more than 0.1%
+            print("K:\n", K)
+            print("distCoeffs:", distCoeffs)
+            print('mre:', mre)
+            if not self.graph is None:
+                self.last_mre = mre
+                self.graph.set_offsets(points_3d[:,[1,0]])
+                self.graph.set_array(-points_3d[:,2])
+                plt.xlim(points_3d[:,1].min(), points_3d[:,1].max() )
+                plt.ylim(points_3d[:,0].min(), points_3d[:,0].max() )
+                cmin = int(-points_3d[:,2].min() / 10) * 10
+                cmax = (int(-points_3d[:,2].max() / 10) + 1) * 10
+                #plt.clim(-points_3d[:,2].min(), -points_3d[:,2].max() )
+                plt.clim(cmin, cmax)
+                plt.draw()
+                plt.savefig('opt-plot.png', dpi=80)
+                plt.pause(0.01)
+        return error
+
+    # assemble the structures and remapping indices required for
+    # optimizing a group of images/features, call the optimizer, and
+    # save the result.
     def run(self, image_list, placed_images, matches_list, K, distCoeff,
             use_sba=False):
-        global graph
-        
         if placed_images == None:
             placed_images = set()
             # if no placed images specified, mark them all as placed
@@ -264,12 +272,13 @@ class Optimizer():
         print('x0:')
         print(x0.shape)
         print(x0)
-        f0 = fun(x0, n_cameras, n_points, by_camera_point_indices, by_camera_points_2d)
+        f0 = self.fun(x0, n_cameras, n_points, by_camera_point_indices, by_camera_points_2d)
         #plt.figure()
         #plt.plot(f0)
         mre_start = np.mean(np.abs(f0))
 
-        A = bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices)
+        A = self.bundle_adjustment_sparsity(n_cameras, n_points,
+                                            camera_indices, point_indices)
 
         # quick test of bounds ... allow camera parameters to go free,
         # but limit 3d points to +/- 100m of initial guess
@@ -298,7 +307,7 @@ class Optimizer():
         plt.figure(figsize=(16,9))
         plt.ion()
         mypts = points_3d.reshape((n_points, 3))
-        graph = plt.scatter(mypts[:,1], mypts[:,0], 100, -mypts[:,2], cmap=cm.jet)
+        self.graph = plt.scatter(mypts[:,1], mypts[:,0], 100, -mypts[:,2], cmap=cm.jet)
         plt.colorbar()
         plt.draw()
         plt.pause(0.01)
@@ -306,7 +315,7 @@ class Optimizer():
         t0 = time.time()
         with_bounds = False
         if with_bounds:
-            res = least_squares(fun, x0, bounds=[lower, upper], jac_sparsity=A,
+            res = least_squares(self.fun, x0, bounds=[lower, upper], jac_sparsity=A,
                                 verbose=2,
                                 x_scale='jac',
                                 ftol=1e-3, method='trf',
@@ -314,7 +323,7 @@ class Optimizer():
                                       by_camera_point_indices,
                                       by_camera_points_2d))
         else:
-            res = least_squares(fun, x0, jac_sparsity=A,
+            res = least_squares(self.fun, x0, jac_sparsity=A,
                                 verbose=2,
                                 x_scale='jac',
                                 ftol=1e-3, method='trf',
