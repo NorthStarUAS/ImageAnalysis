@@ -40,28 +40,17 @@ matches_sba = pickle.load( open( os.path.join(args.project, "matches_sba"), "rb"
 groups = Groups.load(args.project)
 print('Main group size:', len(groups[0]))
 
-# find the difference between original and sba positions (this is
-# helpful for big movers, but depends on accuracy of the original
-# point location estimate and surface height.)
-def compute_movers(matches_grouped, matches_sba):
-    print("Computing movers...")
-
-    result_list = []
-    for i in range(len(matches_grouped)):
-        p1 = np.array(matches_grouped[i][0])
-        p2 = np.array(matches_sba[i][0])
-        error = np.linalg.norm(p1 - p2)
-        result_list.append( [error, i, 0] )
-
-    # sort by error, worst is first
-    result_list = sorted(result_list, key=lambda fields: fields[0],
-                         reverse=True)
-    return result_list
-
 # find matches that are likely to be 'volatile' because they are
 # paired from nearly colocated camera poses.
 def compute_shakers(matches):
-    result_list = []
+    by_feature = []
+    by_pair = []
+    
+    pair_angles = []
+    for i in range(len(proj.image_list)):
+        p = [ [] for j in range(len(proj.image_list)) ]
+        pair_angles.append(p)
+        
     for k, match in enumerate(matches):
         # compute avg of camera locations
         sum = np.zeros(3)
@@ -79,12 +68,38 @@ def compute_shakers(matches):
                 y = np.linalg.norm(np.array(ned2) - np.array(ned1))
                 x = np.linalg.norm(avg - np.array(match[0]))
                 angle = math.atan2(y, x)
-                result_list.append( [angle, k, j] )
-                print( [angle, k, j] )
-        
+                pair_angles[p0[0]][p1[0]].append(angle)
+                by_feature.append( [angle, k, j] )
+                # print( [angle, k, j] )
+
+    for i in range(len(proj.image_list)):
+        for j in range(len(proj.image_list)):
+            if len(pair_angles[i][j]):
+                angles = np.array(pair_angles[i][j])
+                avg = np.mean(angles)
+                std = np.std(angles)
+                min = np.amin(angles)
+                #print(i, j, 'avg:', avg, 'std:', std, 'min:', min)
+                by_pair.append( [i, j, avg, std, min] )
+    
     # smallest angle is worst (do a forward sort)
-    result_list = sorted(result_list, key=lambda fields: fields[0])
-    return result_list
+    by_feature = sorted(by_feature, key=lambda fields: fields[0])
+    by_pair = sorted(by_pair, key=lambda fields: fields[2]) # by avg
+    return by_feature, by_pair
+
+# make a list of all matches between an image pair (for deletion),
+# records the index of the matches_list and the index of the 2nd pair.
+def find_image_pairs(i1, i2):
+    mark_list = []
+    for k, match in enumerate(matches_sba):
+        size = len(match[1:])
+        for i in range(size):
+            for j in range(i+1,size):
+                p0 = match[i+1]
+                p1 = match[j+1]
+                if p0[0] == i1 and p1[0] == i2:
+                    mark_list.append( [k, j] )
+    return mark_list
 
 def mark_outliers(error_list, trim_stddev):
     print("Marking outliers...")
@@ -136,21 +151,34 @@ def delete_marked_matches(matches):
             print("deleting match that is now in less than 2 images:", match)
             matches.pop(i)
 
-#error_list = compute_movers(matches_grouped, matches_sba)
-error_list = compute_shakers(matches_sba)
+by_feature, by_pair = compute_shakers(matches_sba)
+
+for line in by_pair:
+    print(line[0], line[1], 'avg:', line[2], 'std:', line[3], 'min:', line[4])
+
+#mode = 'by_feature'
+mode = 'by_pair'
 
 if args.interactive:
-    mark_list = cull.show_outliers(error_list, matches_sba, proj.image_list)
-else:
-    # trim outliers by some # of standard deviations high
+    mark_list = cull.show_outliers(by_feature, matches_sba, proj.image_list)
+elif mode == 'by_feature':
+    # trim outliers by some number of standard deviations high
     # (for movers) mark_sum = mark_outliers(error_list, args.stddev)
     # construct a 'mark list' from the most colocated image pairs (note,
     # 3+ way matches are less likely to show up on this bad list.)
     mark_list = []
-    for line in error_list:
+    for line in by_feature:
         if line[0] < 0.175:      # 10 degrees
             mark_list.append( [line[1], line[2]] )
-
+elif mode == 'by_pair':
+    mark_list = []
+    for line in by_pair:
+        # 0.175 = 10 degrees
+        # 0.262 = 15 degrees
+        if line[2] < 0.175:
+            print(line)
+            mark_list += find_image_pairs( line[0], line[1] )
+            
 # mark selection
 cull.mark_using_list(mark_list, matches_grouped)
 cull.mark_using_list(mark_list, matches_sba)
