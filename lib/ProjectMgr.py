@@ -413,7 +413,7 @@ class ProjectMgr():
             return []
         # camera parameters
         camw, camh = self.cam.get_image_params()
-        dist_coeffs = self.cam.get_dist_coeffs()
+        dist_coeffs = np.array(self.cam.get_dist_coeffs())
         # scaled calibration matrix
         scale = float(image.width) / float(camw)
         K = self.cam.get_K(scale)
