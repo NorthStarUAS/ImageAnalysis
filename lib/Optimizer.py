@@ -22,10 +22,6 @@ import numpy as np
 from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix
 
-config = 'optimize_f'
-config = 'optimize_K'
-config = 'optimize_dist'
-config = 'optimize_K_and_dist'
 
 # This is a python class that optimizes the estimate camera and 3d
 # point fits by minimizing the mean reprojection error.
@@ -38,6 +34,7 @@ class Optimizer():
         self.feat_map_rev = {}
         self.last_mre = 1.0e+10 # a big number
         self.graph = None
+        self.optimize_camera = False
 
     # compute the sparcity matrix (dependency relationships between
     # observations and parameters the optimizer can manipulate.)
@@ -47,7 +44,8 @@ class Optimizer():
                                    camera_indices, point_indices):
         m = camera_indices.size * 2
         n = n_cameras * 6 + n_points * 3
-        n += 9                      # four K params + five dist params
+        if self.optimize_camera:
+            n += 9              # four K params + five dist params
         A = lil_matrix((m, n), dtype=int)
         print('sparcity matrix is %d x %d' % (m, n))
 
@@ -60,38 +58,39 @@ class Optimizer():
             A[2 * i, n_cameras * 6 + point_indices * 3 + s] = 1
             A[2 * i + 1, n_cameras * 6 + point_indices * 3 + s] = 1
 
-        optimize_K = True
-        optimize_dist = True
-        if optimize_K:
+        if self.optimize_camera:
             for s in range(0,4):
                 A[2 * i, n_cameras * 6 + n_points * 3 + s] = 1
                 A[2 * i + 1, n_cameras * 6 + n_points * 3 + s] = 1
-        if optimize_dist:
             for s in range(4,9):
                 A[2 * i, n_cameras * 6 + n_points * 3 + s] = 1
                 A[2 * i + 1, n_cameras * 6 + n_points * 3 + s] = 1
 
         print('A non-zero elements:', A.nnz)
-
         return A
 
+    # compute an array of residuals (one for each observation)
+    # params contains camera parameters, 3-D coordinates, and
+    # camera calibration parameters.
     def fun(self, params, n_cameras, n_points, by_camera_point_indices, by_camera_points_2d):
-        """Compute residuals.
-
-        `params` contains camera parameters, 3-D coordinates, and camera calibration parameters.
-        """
-
         error = None
+        
+        # extract the parameters
         camera_params = params[:n_cameras * 6].reshape((n_cameras, 6))
         points_3d = params[n_cameras * 6:n_cameras * 6 + n_points * 3].reshape((n_points, 3))
-        camera_calib = params[n_cameras * 6 + n_points * 3:]
-
-        K = np.identity(3)
-        K[0,0] = camera_calib[0]
-        K[1,1] = camera_calib[1]
-        K[0,2] = camera_calib[2]
-        K[1,2] = camera_calib[3]
-        distCoeffs = camera_calib[4:]
+        if self.optimize_camera:
+            # assemble K and distCoeffs from the optimizer param list
+            camera_calib = params[n_cameras * 6 + n_points * 3:]
+            K = np.identity(3)
+            K[0,0] = camera_calib[0]
+            K[1,1] = camera_calib[1]
+            K[0,2] = camera_calib[2]
+            K[1,2] = camera_calib[3]
+            distCoeffs = camera_calib[4:]
+        else:
+            # use a fixed K and distCoeffs
+            K = self.K
+            distCoeffs = self.distCoeffs
 
         sum = 0
         for i, cam in enumerate(camera_params):
@@ -114,12 +113,14 @@ class Optimizer():
                 error = np.append(error, (by_camera_points_2d[i] - proj_points).ravel())
             #print('sum:', sum, 'len error:', len(error), error.shape)
 
+        # provide some runtime feedback for the operator
         mre = np.mean(np.abs(error))
         if 1.0 - mre/self.last_mre > 0.001:
             # mre has improved by more than 0.1%
-            print("K:\n", K)
-            print("distCoeffs:", distCoeffs)
             print('mre:', mre)
+            if self.optimize_camera:
+                print("K:\n", K)
+                print("distCoeffs:", distCoeffs)
             if not self.graph is None:
                 self.last_mre = mre
                 self.graph.set_offsets(points_3d[:,[1,0]])
@@ -138,7 +139,7 @@ class Optimizer():
     # assemble the structures and remapping indices required for
     # optimizing a group of images/features, call the optimizer, and
     # save the result.
-    def run(self, image_list, placed_images, matches_list, K, distCoeff,
+    def run(self, image_list, placed_images, matches_list, K, distCoeffs,
             use_sba=False):
         if placed_images == None:
             placed_images = set()
@@ -158,6 +159,9 @@ class Optimizer():
         # initialize the feature index remapping
         self.feat_map_fwd = {}
         self.feat_map_rev = {}
+
+        self.K = K
+        self.distCoeffs = distCoeffs
         
         # iterate through the matches dictionary to produce a list of matches
         feat_used = 0
@@ -267,11 +271,14 @@ class Optimizer():
         print("num observations:", obs_idx)
             
         # def run(self, mode=''):
-        x0 = np.hstack((camera_params.ravel(), points_3d.ravel(),
-                        K[0,0], K[1,1], K[0,2], K[1,2], distCoeff))
-        print('x0:')
-        print(x0.shape)
-        print(x0)
+        if self.optimize_camera:
+            x0 = np.hstack((camera_params.ravel(), points_3d.ravel(),
+                            K[0,0], K[1,1], K[0,2], K[1,2], distCoeff))
+        else:
+            x0 = np.hstack((camera_params.ravel(), points_3d.ravel()))
+        #print('x0:')
+        #print(x0.shape)
+        #print(x0)
         f0 = self.fun(x0, n_cameras, n_points, by_camera_point_indices, by_camera_points_2d)
         #plt.figure()
         #plt.plot(f0)
@@ -315,17 +322,15 @@ class Optimizer():
         t0 = time.time()
         with_bounds = False
         if with_bounds:
-            res = least_squares(self.fun, x0, bounds=[lower, upper], jac_sparsity=A,
-                                verbose=2,
-                                x_scale='jac',
-                                ftol=1e-3, method='trf',
+            res = least_squares(self.fun, x0, bounds=[lower, upper],
+                                jac_sparsity=A, verbose=2,
+                                x_scale='jac', ftol=1e-3, method='trf',
                                 args=(n_cameras, n_points,
                                       by_camera_point_indices,
                                       by_camera_points_2d))
         else:
             res = least_squares(self.fun, x0, jac_sparsity=A,
-                                verbose=2,
-                                x_scale='jac',
+                                verbose=2, x_scale='jac',
                                 ftol=1e-3, method='trf',
                                 args=(n_cameras, n_points,
                                       by_camera_point_indices,
@@ -337,13 +342,19 @@ class Optimizer():
         
         camera_params = res.x[:n_cameras * 6].reshape((n_cameras, 6))
         points_3d = res.x[n_cameras * 6:n_cameras * 6 + n_points * 3].reshape((n_points, 3))
-        camera_calib = res.x[n_cameras * 6 + n_points * 3:]
-        
-        fx = camera_calib[0]
-        fy = camera_calib[1]
-        cu = camera_calib[2]
-        cv = camera_calib[3]
-        distCoeffs_opt = camera_calib[4:]
+        if self.optimize_camera:
+            camera_calib = res.x[n_cameras * 6 + n_points * 3:]
+            fx = camera_calib[0]
+            fy = camera_calib[1]
+            cu = camera_calib[2]
+            cv = camera_calib[3]
+            distCoeffs_opt = camera_calib[4:]
+        else:
+            fx = K[0,0]
+            fy = K[1,1]
+            cu = K[0,2]
+            cv = K[1,2]
+            distCoeffs_opt = self.distCoeffs
         
         mre_final = np.mean(np.abs(res.fun))
         iterations = res.njev
@@ -353,7 +364,8 @@ class Optimizer():
         print("Final mean reprojection error: %.2f" % mre_final)
         print("Iterations:", iterations)
         print("Elapsed time = %.1f sec" % time_sec)
-        print("Final camera calib:\n", camera_calib)
+        if self.optimize_camera:
+            print("Final camera calib:\n", camera_calib)
 
         # final plot
         #plt.plot(res.fun)
