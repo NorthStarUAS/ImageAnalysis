@@ -3,14 +3,8 @@
 # Prep the point and camera data and run it through the scipy least
 # squares optimizer.
 #
-# (old: This version does not try to solve for any camera parameters, just
-# the camera pose and 3d feature locations.)
-#
 # This optimizer explores using cv2 native functions to do per-image
-# reprojection, and then extract out the errors from that.  This will
-# require some 'assembly' and 'accounting' work.  It will also
-# hopefully let me add the K and distortion parameters to the
-# optimizer.
+# reprojection, and then extract out the errors from that.
 
 import os
 import time
@@ -34,7 +28,8 @@ class Optimizer():
         self.feat_map_rev = {}
         self.last_mre = 1.0e+10 # a big number
         self.graph = None
-        self.optimize_camera = False
+        self.optimize_camera = True
+        self.with_bounds = True
 
     # compute the sparcity matrix (dependency relationships between
     # observations and parameters the optimizer can manipulate.)
@@ -45,7 +40,7 @@ class Optimizer():
         m = camera_indices.size * 2
         n = n_cameras * 6 + n_points * 3
         if self.optimize_camera:
-            n += 9              # four K params + five dist params
+            n += 9              # four K params + five distortion params
         A = lil_matrix((m, n), dtype=int)
         print('sparcity matrix is %d x %d' % (m, n))
 
@@ -77,6 +72,8 @@ class Optimizer():
         
         # extract the parameters
         camera_params = params[:n_cameras * 6].reshape((n_cameras, 6))
+        cams_3d = camera_params[:,3:6]
+        print(cams_3d)
         points_3d = params[n_cameras * 6:n_cameras * 6 + n_points * 3].reshape((n_points, 3))
         if self.optimize_camera:
             # assemble K and distCoeffs from the optimizer param list
@@ -99,37 +96,31 @@ class Optimizer():
             if len(by_camera_point_indices[i]) == 0:
                 continue
             proj_points, jac = cv2.projectPoints(points_3d[by_camera_point_indices[i]], rvec, tvec, K, distCoeffs)
-            # print(i, points_3d[by_camera_point_indices[i]].shape, proj_points.shape, proj_points.ravel().shape)
             sum += len(proj_points.ravel())
-            #print('cam:', proj_points)
-            #print('point2d:', by_camera_points_2d[i])
-            #print('error:', (by_camera_points_2d[i] - proj_points).ravel())
-            #print('debug:', by_camera_points_2d[i].shape, proj_points.shape)
             if error is None:
-                #print("first time")
                 error = (by_camera_points_2d[i] - proj_points).ravel()
-                #print('error:', error)
             else:
                 error = np.append(error, (by_camera_points_2d[i] - proj_points).ravel())
-            #print('sum:', sum, 'len error:', len(error), error.shape)
 
         # provide some runtime feedback for the operator
         mre = np.mean(np.abs(error))
         if 1.0 - mre/self.last_mre > 0.001:
             # mre has improved by more than 0.1%
+            self.last_mre = mre
             print('mre:', mre)
             if self.optimize_camera:
                 print("K:\n", K)
                 print("distCoeffs:", distCoeffs)
             if not self.graph is None:
-                self.last_mre = mre
-                self.graph.set_offsets(points_3d[:,[1,0]])
-                self.graph.set_array(-points_3d[:,2])
-                plt.xlim(points_3d[:,1].min(), points_3d[:,1].max() )
-                plt.ylim(points_3d[:,0].min(), points_3d[:,0].max() )
-                cmin = int(-points_3d[:,2].min() / 10) * 10
-                cmax = (int(-points_3d[:,2].max() / 10) + 1) * 10
-                #plt.clim(-points_3d[:,2].min(), -points_3d[:,2].max() )
+                #points = points_3d
+                points = cams_3d
+                self.graph.set_offsets(points[:,[1,0]])
+                self.graph.set_array(-points[:,2])
+                plt.xlim(points[:,1].min(), points[:,1].max() )
+                plt.ylim(points[:,0].min(), points[:,0].max() )
+                cmin = int(-points[:,2].min() / 10) * 10
+                cmax = (int(-points[:,2].max() / 10) + 1) * 10
+                #plt.clim(-points[:,2].min(), -points[:,2].max() )
                 plt.clim(cmin, cmax)
                 plt.draw()
                 plt.savefig('opt-plot.png', dpi=80)
@@ -270,47 +261,58 @@ class Optimizer():
                 obs_idx += 1
         print("num observations:", obs_idx)
             
-        # def run(self, mode=''):
         if self.optimize_camera:
             x0 = np.hstack((camera_params.ravel(), points_3d.ravel(),
-                            K[0,0], K[1,1], K[0,2], K[1,2], distCoeff))
+                            K[0,0], K[1,1], K[0,2], K[1,2], distCoeffs))
         else:
             x0 = np.hstack((camera_params.ravel(), points_3d.ravel()))
-        #print('x0:')
-        #print(x0.shape)
-        #print(x0)
         f0 = self.fun(x0, n_cameras, n_points, by_camera_point_indices, by_camera_points_2d)
-        #plt.figure()
-        #plt.plot(f0)
         mre_start = np.mean(np.abs(f0))
 
         A = self.bundle_adjustment_sparsity(n_cameras, n_points,
                                             camera_indices, point_indices)
 
-        # quick test of bounds ... allow camera parameters to go free,
-        # but limit 3d points to +/- 100m of initial guess
-        lower = []
-        upper = []
-        tol = 75.0
-        for i in range(n_cameras):
-            # rotation vector is unlimited
-            lower.append( -np.inf )
-            upper.append( np.inf )
-            lower.append( -np.inf )
-            upper.append( np.inf )
-            lower.append( -np.inf )
-            upper.append( np.inf )
-            # translation vector is bounded
-            lower.append( camera_params[i*6+3] - tol )
-            upper.append( camera_params[i*6+3] + tol )
-            lower.append( camera_params[i*6+4] - tol )
-            upper.append( camera_params[i*6+4] + tol )
-            lower.append( camera_params[i*6+5] - tol )
-            upper.append( camera_params[i*6+5] + tol )
-        for i in range(n_points * 3):
-            lower.append( points_3d[i] - tol )
-            upper.append( points_3d[i] + tol )
-
+        if self.with_bounds:
+            # quick test of bounds ... allow camera parameters to go free,
+            # but limit 3d points to +/- 100m of initial guess
+            lower = []
+            upper = []
+            tol = 75.0
+            for i in range(n_cameras):
+                # rotation vector is unlimited
+                lower.append( -np.inf )
+                upper.append( np.inf )
+                lower.append( -np.inf )
+                upper.append( np.inf )
+                lower.append( -np.inf )
+                upper.append( np.inf )
+                # translation vector is bounded
+                lower.append( camera_params[i*6+3] - tol )
+                upper.append( camera_params[i*6+3] + tol )
+                lower.append( camera_params[i*6+4] - tol )
+                upper.append( camera_params[i*6+4] + tol )
+                lower.append( camera_params[i*6+5] - tol )
+                upper.append( camera_params[i*6+5] + tol )
+            for i in range(n_points * 3):
+                lower.append( points_3d[i] - tol )
+                upper.append( points_3d[i] + tol )
+            if self.optimize_camera:
+                # allow 1% change in K values
+                lower.append( K[0,0] * 0.99 )
+                upper.append( K[0,0] * 1.01 )
+                lower.append( K[1,1] * 0.99 )
+                upper.append( K[1,1] * 1.01 )
+                lower.append( K[0,2] * 0.99 )
+                upper.append( K[0,2] * 1.01 )
+                lower.append( K[1,2] * 0.99 )
+                upper.append( K[1,2] * 1.01 )
+                # allow distortion coefficients to float
+                for i in range(5):
+                    lower.append( -np.inf )
+                    upper.append( np.inf )
+            bounds = [lower, upper]
+        else:
+            bounds = None    
         plt.figure(figsize=(16,9))
         plt.ion()
         mypts = points_3d.reshape((n_points, 3))
@@ -320,21 +322,12 @@ class Optimizer():
         plt.pause(0.01)
         
         t0 = time.time()
-        with_bounds = False
-        if with_bounds:
-            res = least_squares(self.fun, x0, bounds=[lower, upper],
-                                jac_sparsity=A, verbose=2,
-                                x_scale='jac', ftol=1e-3, method='trf',
-                                args=(n_cameras, n_points,
-                                      by_camera_point_indices,
-                                      by_camera_points_2d))
-        else:
-            res = least_squares(self.fun, x0, jac_sparsity=A,
-                                verbose=2, x_scale='jac',
-                                ftol=1e-3, method='trf',
-                                args=(n_cameras, n_points,
-                                      by_camera_point_indices,
-                                      by_camera_points_2d))
+        res = least_squares(self.fun, x0, bounds=bounds,
+                            jac_sparsity=A, verbose=2,
+                            x_scale='jac', ftol=1e-3, method='trf',
+                            args=(n_cameras, n_points,
+                                  by_camera_point_indices,
+                                  by_camera_points_2d))
         t1 = time.time()
         print("Optimization took {0:.0f} seconds".format(t1 - t0))
         # print(res['x'])
