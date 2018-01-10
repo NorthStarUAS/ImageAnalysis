@@ -28,7 +28,7 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
-proj.undistort_keypoints()
+proj.undistort_keypoints(optimized=True)
 
 source = 'matches_grouped'
 print("Loading matches:", source)
