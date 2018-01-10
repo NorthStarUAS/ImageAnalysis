@@ -517,7 +517,7 @@ class Matcher():
         print(' ', rot, tx, ty, sx, sy)
 
         if status is None:
-            status = np.ones(len(kp_pairs), np.bool_)
+            status = np.ones(len(idx_pairs), np.bool_)
             # for each src point, compute dst_est[i] = src[i] * affine
             error = []
             for i, p in enumerate(src):
