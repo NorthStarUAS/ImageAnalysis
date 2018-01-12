@@ -28,7 +28,7 @@ class Optimizer():
         self.feat_map_rev = {}
         self.last_mre = 1.0e+10 # a big number
         self.graph = None
-        self.optimize_camera = True
+        self.optimize_camera = False
         self.with_bounds = True
 
     # compute the sparcity matrix (dependency relationships between
@@ -73,7 +73,7 @@ class Optimizer():
         # extract the parameters
         camera_params = params[:n_cameras * 6].reshape((n_cameras, 6))
         cams_3d = camera_params[:,3:6]
-        print(cams_3d)
+        #print(cams_3d)
         points_3d = params[n_cameras * 6:n_cameras * 6 + n_points * 3].reshape((n_points, 3))
         if self.optimize_camera:
             # assemble K and distCoeffs from the optimizer param list
@@ -286,13 +286,23 @@ class Optimizer():
                 upper.append( np.inf )
                 lower.append( -np.inf )
                 upper.append( np.inf )
-                # translation vector is bounded
-                lower.append( camera_params[i*6+3] - tol )
-                upper.append( camera_params[i*6+3] + tol )
-                lower.append( camera_params[i*6+4] - tol )
-                upper.append( camera_params[i*6+4] + tol )
-                lower.append( camera_params[i*6+5] - tol )
-                upper.append( camera_params[i*6+5] + tol )
+                # translation vector is dependent on rotation vector
+                # so bounding it here may not make much sense
+                bound_tvec = False
+                if bound_tvec:
+                    lower.append( camera_params[i*6+3] - tol )
+                    upper.append( camera_params[i*6+3] + tol )
+                    lower.append( camera_params[i*6+4] - tol )
+                    upper.append( camera_params[i*6+4] + tol )
+                    lower.append( camera_params[i*6+5] - tol )
+                    upper.append( camera_params[i*6+5] + tol )
+                else:
+                    lower.append( -np.inf )
+                    upper.append( np.inf )
+                    lower.append( -np.inf )
+                    upper.append( np.inf )
+                    lower.append( -np.inf )
+                    upper.append( np.inf )
             for i in range(n_points * 3):
                 lower.append( points_3d[i] - tol )
                 upper.append( points_3d[i] + tol )
@@ -312,7 +322,7 @@ class Optimizer():
                     upper.append( np.inf )
             bounds = [lower, upper]
         else:
-            bounds = None    
+            bounds = (-np.inf, np.inf)
         plt.figure(figsize=(16,9))
         plt.ion()
         mypts = points_3d.reshape((n_points, 3))
