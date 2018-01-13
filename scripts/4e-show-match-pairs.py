@@ -4,10 +4,9 @@ import sys
 #sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
-import commands
 import pickle
 import cv2
-mport math
+import math
 import numpy as np
 import os.path
 from progress.bar import Bar
