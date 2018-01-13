@@ -173,9 +173,10 @@ elif mode == 'by_feature':
 elif mode == 'by_pair':
     mark_list = []
     for line in by_pair:
+        # 0.087 = 5 degrees
         # 0.175 = 10 degrees
         # 0.262 = 15 degrees
-        if line[2] < 0.175:
+        if line[2] < 0.087:
             print(line)
             mark_list += find_image_pairs( line[0], line[1] )
             
