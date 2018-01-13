@@ -114,24 +114,9 @@ for i, cam in enumerate(cameras):
     image = proj.image_list[image_index]
     orig = image.camera_pose
     print('sba cam: {}'.format(cam))
-    if len(cam) == 6:
-        Rned2cam, jac = cv2.Rodrigues(cam[0:3])
-        tvec = cam[3:6]
-    elif len(cam) == 7:
-        newq = np.array( [ cam[0], cam[1], cam[2], cam[3] ] )
-        Rned2cam = transformations.quaternion_matrix(newq)[:3,:3]
-        tvec = np.array( [ cam[4], cam[5], cam[6] ] )
-    elif len(cam) == 12:
-        newq = np.array( cam[5:9] )
-        Rned2cam = transformations.quaternion_matrix(newq)[:3,:3]
-        tvec = np.array( cam[9:12] )
-        k = np.array( [ [cam[0], 0, cam[1]],
-                        [0, cam[3]*cam[0], cam[2]] ] )
-        print('est K:\n{}'.format(k))
-    elif len(cam) == 17:
-        newq = np.array( cam[10:14] )
-        tvec = np.array( cam[14:17] )
-        Rned2cam = transformations.quaternion_matrix(newq)[:3,:3]
+    rvec = cam[0:3]
+    tvec = cam[3:6]
+    Rned2cam, jac = cv2.Rodrigues(rvec)
     cam2body = image.get_cam2body()
     Rned2body = cam2body.dot(Rned2cam)
     Rbody2ned = np.matrix(Rned2body).T
@@ -140,8 +125,7 @@ for i, cam in enumerate(cameras):
     #print "new ypr =", [yaw/d2r, pitch/d2r, roll/d2r]
     pos = -np.matrix(Rned2cam).T * np.matrix(tvec).T
     newned = pos.T[0].tolist()[0]
-    #print "orig ned =", image.camera_pose['ned']
-    #print "new ned =", newned
+    print(image.name, image.camera_pose['ned'], '->', newned, 'dist:', np.linalg.norm(np.array(image.camera_pose['ned']) - np.array(newned)))
     image.set_camera_pose_sba( ned=newned, ypr=[yaw/d2r, pitch/d2r, roll/d2r] )
     image.placed = True
 proj.save_images_meta()
