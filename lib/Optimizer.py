@@ -10,6 +10,7 @@ import os
 import time
 
 import cv2
+import math
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import numpy as np
@@ -29,9 +30,22 @@ class Optimizer():
         self.feat_map_rev = {}
         self.last_mre = 1.0e+10 # a big number
         self.graph = None
+        self.graph_counter = 0
         self.optimize_calib = 'global' # individual/global camera optimization
-        self.with_bounds = False
+        self.with_bounds = True
 
+    # plot range
+    def my_plot_range(self, data, stats=False):
+        if stats:
+            avg = np.mean(data)
+            std = np.std(data)
+            min = math.floor((avg-3*std) / 10) * 10
+            max = math.ceil((avg+3*std) / 10) * 10
+        else:
+            min = math.floor(np.amin(data) / 10) * 10
+            max = math.ceil(np.amax(data) / 10) * 10
+        return min, max
+    
     # for lack of a better function name, input rvec, tvec, and return
     # corresponding ypr and ned values
     def rvectvec2yprned(self, rvec, tvec):
@@ -149,14 +163,19 @@ class Optimizer():
                 #points = cams_3d
                 self.graph.set_offsets(points[:,[1,0]])
                 self.graph.set_array(-points[:,2])
-                plt.xlim(points[:,1].min(), points[:,1].max() )
-                plt.ylim(points[:,0].min(), points[:,0].max() )
-                cmin = int(-points[:,2].min() / 10) * 10
-                cmax = (int(-points[:,2].max() / 10) + 1) * 10
-                #plt.clim(-points[:,2].min(), -points[:,2].max() )
+                xmin, xmax = self.my_plot_range(points[:,1])
+                ymin, ymax = self.my_plot_range(points[:,0])
+                plt.xlim(xmin, xmax)
+                plt.ylim(ymin, ymax)
+                cmin, cmax = self.my_plot_range(-points[:,2], stats=True)
                 plt.clim(cmin, cmax)
+                plt.gcf().set_size_inches(16,9,forward=True)
                 plt.draw()
-                plt.savefig('opt-plot.png', dpi=80)
+                # ex: ffmpeg -f image2 -r 2 -s 1280x720 -i optimizer-%03d.png -vcodec libx264 -crf 25  -pix_fmt yuv420p optimizer.mp4
+                plt_name = 'optimizer-%03d.png' % self.graph_counter
+                out_file = os.path.join(self.root, plt_name)
+                plt.savefig(out_file, dpi=80)
+                self.graph_counter += 1
                 plt.pause(0.01)
         return error
 
@@ -305,8 +324,9 @@ class Optimizer():
         print("num observations:", obs_idx)
             
         if self.optimize_calib == 'global':
+            # fixme, start with kind of hard coded view params
             x0 = np.hstack((camera_params.ravel(), points_3d.ravel(),
-                            K[0,0], K[1,1], K[0,2], K[1,2], distCoeffs))
+                            K[0,0], K[0,0], 450, 300, np.zeros(5)))
         else:
             x0 = np.hstack((camera_params.ravel(), points_3d.ravel()))
         f0 = self.fun(x0, n_cameras, n_points, by_camera_point_indices, by_camera_points_2d)
@@ -317,10 +337,10 @@ class Optimizer():
 
         if self.with_bounds:
             # quick test of bounds ... allow camera parameters to go free,
-            # but limit 3d points to +/- 100m of initial guess
+            # but limit 3d points =to +/- 100m of initial guess
             lower = []
             upper = []
-            tol = 75.0
+            tol = 100.0
             for i in range(n_cameras):
                 # unlimit the camera params
                 for j in range(ncp):
@@ -332,11 +352,26 @@ class Optimizer():
                         lower.append( -np.inf )
                         upper.append( np.inf )
             for i in range(n_points * 3):
-                lower.append( points_3d[i] - tol )
-                upper.append( points_3d[i] + tol )
+                #lower.append( points_3d[i] - tol )
+                #upper.append( points_3d[i] + tol )
+                # what if we let point locations float without constraint?
+                lower.append( -np.inf )
+                upper.append( np.inf )
             if self.optimize_calib == 'global':
+                tol = 0.01
+                # bound focal length
+                lower.append(K[0,0]*(1-tol))
+                upper.append(K[0,0]*(1+tol))
+                lower.append(K[1,1]*(1-tol))
+                upper.append(K[1,1]*(1+tol))
+                cu = 450
+                cv = 300
+                lower.append(cu*(1-tol))
+                upper.append(cu*(1+tol))
+                lower.append(cv*(1-tol))
+                upper.append(cv*(1+tol))
                 # unlimit distortion params
-                for i in range(9):
+                for i in range(5):
                     lower.append( -np.inf )
                     upper.append( np.inf )
             bounds = [lower, upper]
