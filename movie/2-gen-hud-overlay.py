@@ -174,7 +174,7 @@ else:
     time = flight_max - flight_min
     for x in np.linspace(flight_min, flight_max, time*args.resample_hz):
         flight_interp.append( [x, y_spline(x)] )
-        print "flight len:", len(flight_interp)
+        #print "flight len:", len(flight_interp)
 
     # compute best correlation between movie and flight data logs
     movie_interp = np.array(movie_interp, dtype=float)
@@ -371,7 +371,7 @@ while True:
     else:
         stop_count = 0
 
-    if frame == None:
+    if frame is None:
         print "Skipping bad frame ..."
         continue
     time = float(counter) / fps + time_shift
