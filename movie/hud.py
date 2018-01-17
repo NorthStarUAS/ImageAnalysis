@@ -24,7 +24,7 @@ m2ft = 1 / ft2m
 
 # color definitions
 green2 = (0, 238, 0)
-red2 = (238, 0, 0)
+red2 = (0, 0, 238)
 medium_orchid = (186, 85, 211)
 yellow = (50, 255, 255)
 white = (255, 255, 255)
@@ -739,11 +739,27 @@ class HUD:
         minrange = int(altitude/100)*10 - 30
         maxrange = int(altitude/100)*10 + 30
 
-        # current altitude
+        # current altitude (computed first so we can size all elements)
         label = "%.0f" % (round(altitude/10.0) * 10)
         lsize = cv2.getTextSize(label, self.font, self.font_size, self.line_width)
+        spacing = lsize[0][1]
         xsize = lsize[0][0] + pad
         ysize = lsize[0][1] + pad
+
+        # draw ground
+        offset = int((self.ground_m*m2ft - altitude)/10.0 * spacing)
+        if cy - offset >= miny and cy - offset <= maxy:
+            uv1 = (cx,                cy - offset)
+            uv2 = (cx + int(ysize*3), cy - offset)
+            cv2.line(self.frame, uv1, uv2, red2, self.line_width*2, cv2.LINE_AA)
+        
+        # draw max altitude
+        offset = int((self.ground_m*m2ft + 400.0 - altitude)/10.0 * spacing)
+        if cy - offset >= miny and cy - offset <= maxy:
+            uv1 = (cx,                cy - offset)
+            uv2 = (cx + int(ysize*3), cy - offset)
+            cv2.line(self.frame, uv1, uv2, yellow, self.line_width*2, cv2.LINE_AA)
+        # draw current altitude
         uv = ( int(cx - ysize*0.7 - lsize[0][0]), cy + lsize[0][1] / 2)
         cv2.putText(self.frame, label, uv, self.font, self.font_size, color, self.line_width, cv2.LINE_AA)
         uv1 = (cx, cy)
@@ -758,7 +774,6 @@ class HUD:
         cv2.line(self.frame, uv5, uv1, color, self.line_width, cv2.LINE_AA)
 
         # msl tics
-        spacing = lsize[0][1]
         y = cy - int((minrange*10 - altitude)/10 * spacing)
         if y < miny: y = miny
         if y > maxy: y = maxy
