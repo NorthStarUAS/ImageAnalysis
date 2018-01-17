@@ -229,12 +229,16 @@ else:
 print "movie time shift:", time_shift
 
 # quick estimate ground elevation
-ground_m = None
+sum = 0.0
+count = 0
 for f in data['filter']:
-    if ground_m == None:
-        ground_m = f.alt
-    if f.alt < ground_m:
-        ground_m = f.alt
+    if interp.air_speed < 10.0:
+        sum += f.alt
+        count += 1
+if count > 0:
+    ground_m = sum / float(count)
+else:
+    ground_m = data['filter'][0].alt
 print "ground est:", ground_m
 
 if args.plot:
