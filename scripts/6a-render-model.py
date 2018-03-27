@@ -29,7 +29,7 @@ import transformations
 
 import match_culling as cull
 
-ac3d_steps = 8
+ac3d_steps = 4
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
@@ -144,7 +144,7 @@ for match in matches_sba:
     if used:
         ned = match[0]
         d = abs(ned[2] - zavg)
-        if d <= 2*zstd:
+        if True or d <= 2*zstd:
             xfit.append(ned[0])
             yfit.append(ned[1])
             zfit.append(ned[2])
@@ -174,47 +174,25 @@ plt.scatter(yfit, xfit, 100, -znew, cmap=cm.jet)
 plt.colorbar()
 plt.title("Approximation function.")
 
-import scipy.stats
-bins=20
-mean, xedges, yedges, binnumber = scipy.stats.binned_statistic_2d(xfit, yfit, -zfit, bins=bins, statistic='mean')
-count, xedges, yedges, binnumber = scipy.stats.binned_statistic_2d(xfit, yfit, -zfit, bins=bins, statistic='count')
-print('bins:', bins)
-done = True
-while not done:
-    done = True
-    tmp_mean = np.copy(mean)
-    tmp_count = np.copy(count)
-    for i in range(bins):
-        for j in range(bins):
-            if np.isnan(mean[i][j]):
-                print("nan:", i, j)
-                nsum = 0
-                ncount = 0
-                ncells = 0
-                for ii in range(i-1,i+2):
-                    for jj in range(j-1,j+2):
-                        if ii < 0 or ii >= bins:
-                            continue
-                        if jj < 0 or jj >= bins:
-                            continue
-                        if not np.isnan(mean[ii][jj]):
-                            nsum += mean[ii][jj]*count[ii][jj]
-                            ncount += count[ii][jj]
-                            ncells += 1
-                if ncount > 0:
-                    tmp_mean[i][j] = nsum / float(ncount)
-                    tmp_count[i][j] = int(ncount / ncells)
-                    print('filled in:', i, j, mean[i][j])
-                    done = False
-    mean = tmp_mean
-    count = tmp_count
+import binned_surface
+bin2d = binned_surface.binned_surface()
+bin2d.make(xfit, yfit, zfit, bins=128)
+bin2d.fill()
 
+if False:
+    # test surface approximation fit
+    print('size:', xfit.size)
+    for i in range(xfit.size):
+        za = bin2d.query(xfit[i], yfit[i])
+        e = za - zfit[i]
+        print(i, e)
+               
 plt.figure()
 #plt.pcolormesh(xedges, yedges, stats, cmap=cm.jet)
 #plt.colorbar()
 #print(mean)
 #plt.pcolormesh(xedges[1:], yedges[1:], stats)
-plt.imshow(mean, origin='lower', cmap=cm.jet)
+plt.imshow(bin2d.mean, origin='lower', cmap=cm.jet)
 plt.colorbar()
 plt.title("Binned data.")
 
@@ -309,7 +287,7 @@ if True:
             proj_list = proj.projectVectors( IK, image.get_body2ned(),
                                              image.get_cam2body(), grid_list )
         else:
-            print(image.get_body2ned_sba())
+            #print(image.get_body2ned_sba())
             proj_list = proj.projectVectors( IK, image.get_body2ned_sba(),
                                              image.get_cam2body(), grid_list )
         #print 'proj_list:', proj_list
@@ -318,7 +296,7 @@ if True:
             ned = image.camera_pose['ned']
         else:
             ned = image.camera_pose_sba['ned']
-        print('ned', image.camera_pose['ned'], ned)
+        print('cam orig:', image.camera_pose['ned'], 'optimized:', ned)
         if args.ground:
             pts_ned = proj.intersectVectorsWithGroundPlane(ned,
                                                            args.ground, proj_list)
@@ -330,8 +308,13 @@ if True:
             pts_ned = proj.intersectVectorsWithGroundPlane(ned,
                                                            image.z_avg,
                                                            proj_list)
-        else:
+        elif False:
+            # intersect with our polygon surface approximation
             pts_ned = intersect_vectors(ned, proj_list, m)
+        else:
+            # intersect with 2d binned surface approximation
+            pts_ned = bin2d.intersect_vectors(ned, proj_list, -image.z_avg)
+            
         #print "pts_3d (ned):\n", pts_ned
 
         # convert ned to xyz and stash the result for each image
