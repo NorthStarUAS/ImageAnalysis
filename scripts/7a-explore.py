@@ -6,7 +6,8 @@ import os.path
 from progress.bar import Bar
 import sys
 
-from math import pi, sin, cos
+import math
+import numpy as np
 
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
@@ -45,15 +46,16 @@ class MyApp(ShowBase):
 
         # setup keyboard handlers
         #self.messenger.toggleVerbose()
-        self.accept('arrow_left', self.move_left)
-        self.accept('arrow_right', self.move_right)
-        self.accept('arrow_down', self.move_down)
-        self.accept('arrow_up', self.move_up)
-        self.accept('=', self.move_closer)
-        self.accept('shift-=', self.move_closer)
-        self.accept('-', self.move_further)
+        self.accept('arrow_left', self.cam_move, [-1, 0, 0])
+        self.accept('arrow_right', self.cam_move, [1, 0, 0])
+        self.accept('arrow_down', self.cam_move, [0, -1, 0])
+        self.accept('arrow_up', self.cam_move, [0, 1, 0])
+        self.accept('=', self.cam_zoom, [1.1])
+        self.accept('shift-=', self.cam_zoom, [1.1])
+        self.accept('-', self.cam_zoom, [1.0 / 1.1])
+        self.accept('escape', self.quit)
         
-        # Add the updateCameraTask procedure to the task manager.
+        # Add the tasks to the task manager.
         self.taskMgr.add(self.updateCameraTask, "updateCameraTask")
 
     def load(self, path):
@@ -69,30 +71,45 @@ class MyApp(ShowBase):
             self.models.append(model)
             bar.next()
         bar.finish()
+        self.sortImages()
 
-    def move_left(self):
-        self.cam_pos[0] -= self.view_size / 10.0
-    def move_right(self):
-        self.cam_pos[0] += self.view_size / 10.0
-    def move_down(self):
-        self.cam_pos[1] -= self.view_size / 10.0
-    def move_up(self):
-        self.cam_pos[1] += self.view_size / 10.0
-    def move_closer(self):
-        self.cam_pos[2] -= 10
-        self.view_size /= 1.1
-    def move_further(self):
-        self.cam_pos[2] += 10
-        self.view_size *= 1.1
+    def cam_move(self, x, y, z):
+        self.cam_pos[0] += x * self.view_size / 10.0
+        self.cam_pos[1] += y * self.view_size / 10.0
+        self.sortImages()
+        
+    def cam_zoom(self, f):
+        self.view_size /= f
+
+    def quit(self):
+        quit()
         
     # Define a procedure to move the camera.
     def updateCameraTask(self, task):
-        print(base.getAspectRatio())
         self.camera.setPos(self.cam_pos[0], self.cam_pos[1], self.cam_pos[2])
         self.camera.setHpr(0, -90, 0)
         self.lens.setFilmSize(self.view_size*base.getAspectRatio(),
                               self.view_size)
         return Task.cont
+
+    def sortImages(self):
+        result_list = []
+        for m in self.models:
+            b = m.getBounds()
+            # print(b.getCenter(), b.getRadius())
+            dx = b.getCenter()[0] - self.cam_pos[0]
+            dy = b.getCenter()[1] - self.cam_pos[1]
+            dist = math.sqrt(dx*dx + dy*dy)
+            result_list.append( [dist, m] )
+        result_list = sorted(result_list, key=lambda fields: fields[0],
+                             reverse=True)
+        for i, line in enumerate(result_list):
+            m = line[1]
+            m.setBin("fixed", i)
+            m.setDepthTest(False)
+            m.setDepthWrite(False)
+            m.setColor(0.7, 0.7, 0.7, 1.0)
+        result_list[-1][1].setColor(1.0, 1.0, 1.0, 1.0)
     
 app = MyApp()
 app.load( os.path.join(args.project, "Textures") )
