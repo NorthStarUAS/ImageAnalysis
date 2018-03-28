@@ -3,6 +3,7 @@
 import argparse
 import fnmatch
 import os.path
+from progress.bar import Bar
 import sys
 
 from math import pi, sin, cos
@@ -29,29 +30,58 @@ class MyApp(ShowBase):
  
         # Load the environment model.
         # self.scene1 = self.loader.loadModel("models/environment")
+        self.models = []
 
-        # Add the spinCameraTask procedure to the task manager.
-        self.taskMgr.add(self.spinCameraTask, "SpinCameraTask")
+        self.cam_pos = [ ref[1], ref[0], -ref[2] + 1000 ]
+        print(self.cam_pos)
+        self.camera.setPos(self.cam_pos[0], self.cam_pos[1], self.cam_pos[2])
+        self.camera.setHpr(0, -89.9, 0)
+
+        # setup keyboard handlers
+        self.messenger.toggleVerbose()
+        self.accept('arrow_left', self.move_left)
+        self.accept('arrow_right', self.move_right)
+        self.accept('arrow_down', self.move_down)
+        self.accept('arrow_up', self.move_up)
+        self.accept('shift-=', self.move_closer)
+        self.accept('-', self.move_further)
+        
+        # Add the updateCameraTask procedure to the task manager.
+        self.taskMgr.add(self.updateCameraTask, "updateCameraTask")
 
     def load(self, path):
         files = []
         for file in os.listdir(path):
             if fnmatch.fnmatch(file, '*.egg'):
                 files.append(file)
+        bar = Bar('Loading textures:', max=len(files))
 	for file in files:
             # load and reparent each egg file
-            self.model = self.loader.loadModel(os.path.join(path, file))
-            self.model.reparentTo(self.render)
+            model = self.loader.loadModel(os.path.join(path, file))
+            model.reparentTo(self.render)
+            self.models.append(model)
+            bar.next()
+        bar.finish()
+
+    def move_left(self):
+        self.cam_pos[0] -= 10
+    def move_right(self):
+        self.cam_pos[0] += 10
+    def move_down(self):
+        self.cam_pos[1] -= 10
+    def move_up(self):
+        self.cam_pos[1] += 10
+    def move_closer(self):
+        self.cam_pos[2] -= 10
+    def move_further(self):
+        self.cam_pos[2] += 10
         
     # Define a procedure to move the camera.
-    def spinCameraTask(self, task):
-        angleDegrees = task.time * 12.0
-        angleRadians = angleDegrees * (pi / 180.0)
-        self.camera.setPos(20 * sin(angleRadians), -20.0 * cos(angleRadians), 600)
-        self.camera.setHpr(angleDegrees, -80, 0)
-	print angleDegrees
+    def updateCameraTask(self, task):
+        self.camera.setPos(self.cam_pos[0], self.cam_pos[1], self.cam_pos[2])
+        self.camera.setHpr(0, -90, 0)
         return Task.cont
- 
+    
 app = MyApp()
 app.load( os.path.join(args.project, "Textures") )
 app.run()
