@@ -1,12 +1,27 @@
 #!/usr/bin/python
 
+import argparse
+import fnmatch
 import os.path
+import sys
 
 from math import pi, sin, cos
 
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
- 
+
+sys.path.append('../lib')
+import ProjectMgr
+
+parser = argparse.ArgumentParser(description='Set the initial camera poses.')
+parser.add_argument('--project', required=True, help='project directory')
+args = parser.parse_args()
+
+proj = ProjectMgr.ProjectMgr(args.project)
+proj.load_image_info()
+
+ref = proj.ned_reference_lla
+
 class MyApp(ShowBase):
  
     def __init__(self):
@@ -14,18 +29,19 @@ class MyApp(ShowBase):
  
         # Load the environment model.
         # self.scene1 = self.loader.loadModel("models/environment")
-        # self.scene1 = self.loader.loadModel("ex1")
-	for n in [ "DSC06368", "DSC06369", "DSC06370", "DSC06371", "DSC06372" ]:
-            mn = os.path.join("Textures", n)
-            self.model = self.loader.loadModel(mn)
-            # Reparent the model to render.
-            self.model.reparentTo(self.render)
-            # Apply scale and position transforms on the model.
-            # self.scene1.setScale(0.25, 0.25, 0.25)
-            # self.scene1.setPos(-8, 42, 0)
 
         # Add the spinCameraTask procedure to the task manager.
         self.taskMgr.add(self.spinCameraTask, "SpinCameraTask")
+
+    def load(self, path):
+        files = []
+        for file in os.listdir(path):
+            if fnmatch.fnmatch(file, '*.egg'):
+                files.append(file)
+	for file in files:
+            # load and reparent each egg file
+            self.model = self.loader.loadModel(os.path.join(path, file))
+            self.model.reparentTo(self.render)
         
     # Define a procedure to move the camera.
     def spinCameraTask(self, task):
@@ -37,4 +53,5 @@ class MyApp(ShowBase):
         return Task.cont
  
 app = MyApp()
+app.load( os.path.join(args.project, "Textures") )
 app.run()
