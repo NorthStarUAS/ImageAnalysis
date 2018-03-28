@@ -10,6 +10,7 @@ from math import pi, sin, cos
 
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
+from panda3d.core import OrthographicLens
 
 sys.path.append('../lib')
 import ProjectMgr
@@ -32,17 +33,23 @@ class MyApp(ShowBase):
         # self.scene1 = self.loader.loadModel("models/environment")
         self.models = []
 
+        # we would like an orthographic lens
+        self.lens = OrthographicLens()
+        self.lens.setFilmSize(20, 15)
+        base.camNode.setLens(self.lens)
+
         self.cam_pos = [ ref[1], ref[0], -ref[2] + 1000 ]
-        print(self.cam_pos)
         self.camera.setPos(self.cam_pos[0], self.cam_pos[1], self.cam_pos[2])
         self.camera.setHpr(0, -89.9, 0)
+        self.view_size = 100.0
 
         # setup keyboard handlers
-        self.messenger.toggleVerbose()
+        #self.messenger.toggleVerbose()
         self.accept('arrow_left', self.move_left)
         self.accept('arrow_right', self.move_right)
         self.accept('arrow_down', self.move_down)
         self.accept('arrow_up', self.move_up)
+        self.accept('=', self.move_closer)
         self.accept('shift-=', self.move_closer)
         self.accept('-', self.move_further)
         
@@ -64,22 +71,27 @@ class MyApp(ShowBase):
         bar.finish()
 
     def move_left(self):
-        self.cam_pos[0] -= 10
+        self.cam_pos[0] -= self.view_size / 10.0
     def move_right(self):
-        self.cam_pos[0] += 10
+        self.cam_pos[0] += self.view_size / 10.0
     def move_down(self):
-        self.cam_pos[1] -= 10
+        self.cam_pos[1] -= self.view_size / 10.0
     def move_up(self):
-        self.cam_pos[1] += 10
+        self.cam_pos[1] += self.view_size / 10.0
     def move_closer(self):
         self.cam_pos[2] -= 10
+        self.view_size /= 1.1
     def move_further(self):
         self.cam_pos[2] += 10
+        self.view_size *= 1.1
         
     # Define a procedure to move the camera.
     def updateCameraTask(self, task):
+        print(base.getAspectRatio())
         self.camera.setPos(self.cam_pos[0], self.cam_pos[1], self.cam_pos[2])
         self.camera.setHpr(0, -90, 0)
+        self.lens.setFilmSize(self.view_size*base.getAspectRatio(),
+                              self.view_size)
         return Task.cont
     
 app = MyApp()
