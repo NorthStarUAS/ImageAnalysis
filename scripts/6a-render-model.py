@@ -22,6 +22,7 @@ import os.path
 sys.path.append('../lib')
 import AC3D
 import Groups
+import Panda3d
 import Pose
 import ProjectMgr
 import SRTM
@@ -328,6 +329,10 @@ if True:
     
 # call the ac3d generator
 AC3D.generate(proj.image_list, groups[0], src_dir=proj.source_dir,
+              project_dir=args.project, base_name='direct',
+              version=1.0, trans=0.1, resolution=args.texture_resolution)
+
+Panda3d.generate(proj.image_list, groups[0], src_dir=proj.source_dir,
               project_dir=args.project, base_name='direct',
               version=1.0, trans=0.1, resolution=args.texture_resolution)
 
