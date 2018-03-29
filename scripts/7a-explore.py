@@ -5,13 +5,14 @@ import fnmatch
 import os.path
 from progress.bar import Bar
 import sys
+import time
 
 import math
 import numpy as np
 
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
-from panda3d.core import OrthographicLens
+from panda3d.core import LineSegs, NodePath, OrthographicLens, PNMImage, Texture
 
 sys.path.append('../lib')
 import ProjectMgr
@@ -25,6 +26,8 @@ proj.load_image_info()
 
 ref = proj.ned_reference_lla
 
+tcache = {}
+
 class MyApp(ShowBase):
  
     def __init__(self):
@@ -33,6 +36,7 @@ class MyApp(ShowBase):
         # Load the environment model.
         # self.scene1 = self.loader.loadModel("models/environment")
         self.models = []
+        self.base_textures = []
 
         # we would like an orthographic lens
         self.lens = OrthographicLens()
@@ -43,6 +47,19 @@ class MyApp(ShowBase):
         self.camera.setPos(self.cam_pos[0], self.cam_pos[1], self.cam_pos[2])
         self.camera.setHpr(0, -89.9, 0)
         self.view_size = 100.0
+
+        # test line drawing
+        ls = LineSegs()
+        ls.setThickness(1)
+        ls.setColor(1.0, 0.0, 0.0, 1.0)
+        ls.moveTo(-100, -100, 400)
+        ls.drawTo(100, -100, 400)
+        ls.drawTo(100, 100, 400)
+        ls.drawTo(-100, 100, 400)
+        ls.drawTo(-100, -100, 400)
+        node = NodePath(ls.create())
+        node.setBin("unsorted", 0)
+        node.reparentTo(self.render)
 
         # setup keyboard handlers
         #self.messenger.toggleVerbose()
@@ -69,6 +86,10 @@ class MyApp(ShowBase):
             model = self.loader.loadModel(os.path.join(path, file))
             model.reparentTo(self.render)
             self.models.append(model)
+            tex = model.findTexture('*')
+            tex.setWrapU(Texture.WM_clamp)
+            tex.setWrapV(Texture.WM_clamp)
+            self.base_textures.append(tex)
             bar.next()
         bar.finish()
         self.sortImages()
@@ -93,6 +114,7 @@ class MyApp(ShowBase):
         return Task.cont
 
     def sortImages(self):
+        # sort images by depth
         result_list = []
         for m in self.models:
             b = m.getBounds()
@@ -103,13 +125,50 @@ class MyApp(ShowBase):
             result_list.append( [dist, m] )
         result_list = sorted(result_list, key=lambda fields: fields[0],
                              reverse=True)
+        top = result_list[-1][1]
+        top.setColor(1.0, 1.0, 1.0, 1.0)
+        self.updateTexture(top)
         for i, line in enumerate(result_list):
             m = line[1]
-            m.setBin("fixed", i)
+            if m.getName() in tcache:
+                # reward draw order for models with high res texture loaded
+                m.setBin("fixed", i + len(self.models))
+            else:
+                m.setBin("fixed", i)
             m.setDepthTest(False)
             m.setDepthWrite(False)
-            m.setColor(0.7, 0.7, 0.7, 1.0)
-        result_list[-1][1].setColor(1.0, 1.0, 1.0, 1.0)
+            #if m != top:
+            #    m.setColor(0.7, 0.7, 0.7, 1.0)
+
+    def updateTexture(self, main):
+        # reset base textures
+        for i, m in enumerate(self.models):
+            if m != main:
+                if m.getName() in tcache:
+                    fulltex = tcache[m.getName()][1]
+                    self.models[i].setTexture(fulltex, 1)
+                else:
+                    self.models[i].setTexture(self.base_textures[i], 1)
+            else:
+                print(m.getName())
+                base, ext = os.path.splitext(m.getName())
+                fullpath = os.path.join(args.project, "Images", base + '.JPG')
+                print(fullpath)
+                fulltex = self.loader.loadTexture(fullpath)
+                fulltex.setWrapU(Texture.WM_clamp)
+                fulltex.setWrapV(Texture.WM_clamp)
+                print('fulltex:', fulltex)
+                m.setTexture(fulltex, 1)
+                tcache[m.getName()] = [m, fulltex, time.time()]
+        cachesize = 5
+        while len(tcache) > cachesize:
+            oldest_time = time.time()
+            oldest_name = ""
+            for name in tcache:
+                if tcache[name][2] < oldest_time:
+                    oldest_time = tcache[name][2]
+                    oldest_name = name
+            del tcache[oldest_name]
     
 app = MyApp()
 app.load( os.path.join(args.project, "Textures") )
