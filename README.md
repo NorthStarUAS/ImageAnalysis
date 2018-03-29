@@ -2,29 +2,6 @@
 
 Aerial imagery analysis, processing, and presentation scripts.
 
-## Urgent plea!
-
-   If anyone sees this and knows of a forum or mailing list or some
-   other discussion group that focuses on image stitching and bundle
-   adjustment, please contact me and let me know where to find it!
-
-   It feels like the experts in the field fall into one of the
-   following groups:
-
-   - As soon as they gain some knowledge, they are snatched up by a
-     big company and are unable to talk about any of this technology.
-
-   - They became an expert for their phd work or some research
-     project, but now it's 10 years later and they have different
-     things to be interested in.
-
-   - As soon as they get something to work, they spin off a commercial
-     venture and are busy with their new business.
-
-   So if you are reading this and interested in this field, talk to
-   me!  Where do people discuss these topics?  Should we start our own
-   forum?
-
 # Brief Overview
 
 This image analysis toolset started as two independent efforts to
