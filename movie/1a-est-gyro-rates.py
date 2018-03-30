@@ -165,6 +165,9 @@ def filterMatches(kp1, kp2, matches):
         if len(m) == 2 and m[0].distance < m[1].distance * match_ratio:
             #print " dist[0] = %d  dist[1] = %d" % (m[0].distance, m[1].distance)
             m = m[0]
+            # FIXME: ignore the bottom section of movie for feature detection
+            #if kp1[m.queryIdx].pt[1] > h*0.75:
+            #    continue
             if not used[m.trainIdx]:
                 used[m.trainIdx] = True
                 mkp1.append( kp1[m.queryIdx] )
@@ -330,9 +333,87 @@ def motion5(frame, counter):
     if filt_frame is None:
         filt_frame = np.float32(frame)
 
-    factor = 0.95
+    factor = 0.96
     filt_frame = factor * filt_frame + (1 - factor) * np.float32(frame)
     cv2.imshow('motion5', np.uint8(filt_frame))
+    
+# low pass filter of frames
+filt1_frame = None
+filt2_frame = None
+filt_mask = None
+def motion6(frame, counter):
+    global filt1_frame
+    global filt2_frame
+    global filt_mask
+    
+    #gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray = frame
+    if filt1_frame is None: filt1_frame = np.float32(gray)
+    if filt2_frame is None: filt2_frame = np.float32(gray)
+
+    factor1 = 0.9
+    factor2 = 0.995
+    factor3 = 0.995
+    
+    filt1_frame = factor1 * filt1_frame + (1 - factor1) * np.float32(gray)
+    filt2_frame = factor2 * filt2_frame + (1 - factor2) * np.float32(gray)
+    mask = np.absolute(filt1_frame - filt2_frame)
+    if filt_mask is None: filt_mask = mask
+    filt_mask = factor3 * filt_mask + (1 - factor3) * mask
+    
+    cv2.imshow('motion6-1', np.uint8(filt1_frame))
+    cv2.imshow('motion6-2', np.uint8(filt2_frame))
+    cv2.imshow('motion6', np.uint8(filt_mask))
+
+# this one doesn't work very well on my movies
+fgbg = None
+def motion7(frame, counter):
+    global fgbg
+
+    if fgbg is None:
+        fgbg = cv2.bgsegm.createBackgroundSubtractorMOG()
+
+    fgmask = fgbg.apply(frame)
+    cv2.imshow('motion7', fgmask)    
+
+# uses Knuth's 'real-time' avg/var algorithm
+m = None
+S = None
+n = 0
+def motion8(frame, counter):
+    global m
+    global S
+    global n
+    
+    gray = np.float64(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
+    if m is None: m = gray * 0
+    if S is None: S = gray * 0
+
+    prev_mean = m
+    n += 1
+    delta = gray - m
+    m += delta / float(n)
+    S += delta * (gray - prev_mean)
+    cv2.imshow('motion8 mean', np.uint8(m))
+    var = S / float(n)
+    min = var.min()
+    max = var.max()
+    var1 = var / (max / 255.0)
+    cv2.imshow('motion8 var', np.uint8(var1))
+    # counter8 += 1
+    # delta = gray - mean
+    # mean += delta / float(counter8)
+    # delta2 = gray - mean
+    # M2 += np.multiply(delta, delta2)
+    # if counter8 >= 2:
+    #     var = M2 / float(counter8 - 1)
+    #     min = var.min()
+    #     max = var.max()
+    #     print min, max
+    #     var1 = np.uint8(var / (max / 255))
+    #     cv2.imshow('motion8 mean', np.uint8(mean))
+    #     cv2.imshow('motion8 var', np.uint8(var1))
+
     
 # for ORB
 detector = cv2.ORB_create(max_features)
@@ -439,7 +520,7 @@ while True:
     # motion3(frame_undist, counter)
 
     # average frame
-    motion5(frame_undist, counter)
+    motion6(frame_undist, counter)
     
     process_hsv = False
     if process_hsv:
@@ -486,7 +567,7 @@ while True:
 
     affine = findAffine(p2, p1, fullAffine=False)
     (rot, tx, ty, sx, sy) = decomposeAffine(affine)
-    if abs(rot) > 2:
+    if abs(rot) > 6:
         (rot, tx, ty, sx, sy) = (0.0, 0.0, 0.0, 1.0, 1.0)
     #print affine
     #print (rot, tx, ty, sx, sy)
