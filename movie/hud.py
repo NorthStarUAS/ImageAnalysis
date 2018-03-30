@@ -124,6 +124,10 @@ class HUD:
         self.time = time
         self.unixtime = unixtime
 
+    def update_test_index(self, mode, index):
+        self.excite_mode = mode
+        self.test_index = index
+
     def update_ned_history(self, ned, seconds):
         if int(self.time) > self.ned_last_time:
             self.ned_last_time = int(self.time)
@@ -747,17 +751,23 @@ class HUD:
         ysize = lsize[0][1] + pad
 
         # draw ground
-        offset = int((self.ground_m*m2ft - altitude)/10.0 * spacing)
+        if self.altitude_units == 'm':
+            offset = int((self.ground_m - altitude)/10.0 * spacing)
+        else:
+            offset = int((self.ground_m*m2ft - altitude)/10.0 * spacing)
         if cy - offset >= miny and cy - offset <= maxy:
             uv1 = (cx,                cy - offset)
             uv2 = (cx + int(ysize*3), cy - offset)
             cv2.line(self.frame, uv1, uv2, red2, self.line_width*2, cv2.LINE_AA)
         
         # draw max altitude
-        offset = int((self.ground_m*m2ft + 400.0 - altitude)/10.0 * spacing)
+        if self.altitude_units == 'm':
+            offset = int((self.ground_m + 121.92 - altitude)/10.0 * spacing)
+        else:
+            offset = int((self.ground_m*m2ft + 400.0 - altitude)/10.0 * spacing)
         if cy - offset >= miny and cy - offset <= maxy:
             uv1 = (cx,                cy - offset)
-            uv2 = (cx + int(ysize*3), cy - offset)
+            uv2 = (cx + int(ysize*2), cy - offset)
             cv2.line(self.frame, uv1, uv2, yellow, self.line_width*2, cv2.LINE_AA)
         # draw current altitude
         uv = ( int(cx - ysize*0.7 - lsize[0][0]), cy + lsize[0][1] / 2)
@@ -870,6 +880,18 @@ class HUD:
         label = '%.1f' % self.time
         size = cv2.getTextSize(label, self.font, 0.7, self.line_width)
         uv = (2, h - int(size[0][1]*0.5 + 2))
+        cv2.putText(self.frame, label, uv, self.font, 0.7,
+                    self.color, self.line_width, cv2.LINE_AA)
+
+    def draw_test_index(self):
+        if not hasattr(self, 'excite_mode'):
+            return
+        if not self.excite_mode:
+            return
+        h, w, d = self.frame.shape
+        label = 'T%d' % self.test_index
+        size = cv2.getTextSize(label, self.font, 0.7, self.line_width)
+        uv = (w - int(size[0][0]) - 2, h - int(size[0][1]*0.5 + 2))
         cv2.putText(self.frame, label, uv, self.font, 0.7,
                     self.color, self.line_width, cv2.LINE_AA)
 
@@ -999,6 +1021,7 @@ class HUD:
                                 self.altitude_units.capitalize())
         self.draw_sticks()
         self.draw_time()
+        self.draw_test_index()
 
     # draw autopilot symbology
     def draw_ap(self):

@@ -6,6 +6,7 @@ sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 import cv2
 
 import argparse
+import copy
 import math
 from matplotlib import pyplot as plt 
 import navpy
@@ -232,7 +233,7 @@ print "movie time shift:", time_shift
 sum = 0.0
 count = 0
 for f in data['filter']:
-    if interp.air_speed < 10.0:
+    if interp.air_speed(f.time) < 5.0:
         sum += f.alt
         count += 1
 if count > 0:
@@ -284,7 +285,7 @@ K[2,2] = 1.0
 
 # overlay hud(s)
 hud1 = hud.HUD(K)
-hud2 = hud.HUD(K)
+hud2 = copy.deepcopy(hud1)
 
 # these are fixed tranforms between ned and camera reference systems
 proj2ned = np.array( [[0, 0, 1], [1, 0, 0], [0, 1, 0]],
@@ -379,10 +380,7 @@ while True:
         print "Skipping bad frame ..."
         continue
     time = float(counter) / fps + time_shift
-    if args.time_shift:
-        print "frame: ", counter, "%.3f" % time, 'time shift:', time_shift
-    else:
-        print "frame: ", counter, time
+    print "frame: ", counter, "%.3f" % time, 'time shift:', time_shift
     
     counter += 1
     if args.start_time and time < args.start_time:
@@ -447,6 +445,9 @@ while True:
     else:
         flight_mode = 'auto'            
 
+    excite_mode = float(interp.excite_mode(time))
+    test_index = float(interp.test_index(time))        
+
     body2cam = transformations.quaternion_from_euler( cam_yaw * d2r,
                                                       cam_pitch * d2r,
                                                       cam_roll * d2r,
@@ -491,6 +492,7 @@ while True:
     hud1_frame = frame_undist.copy()
 
     hud1.update_time(time, interp.gps_unixtime(time))
+    hud1.update_test_index(excite_mode, test_index)
     hud1.update_proj(PROJ)
     hud1.update_cam_att(cam_yaw, cam_pitch, cam_roll)
     hud1.update_ned(ned, args.flight_track_seconds)
@@ -552,6 +554,10 @@ while True:
         cam_roll += 0.5
         config.setFloatEnum('mount_ypr', 2, cam_roll)
         props_json.save(camera_config, config)
+    elif key == ord('-'):
+        time_shift -= 1.0;
+    elif key == ord('+'):
+        time_shift += 1.0;
     elif key == 81:
         # left arrow
         time_shift -= 1.0/60.0
