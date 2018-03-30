@@ -42,23 +42,7 @@ Briefly, near term development goals include:
   the real world location as we are able to do with the given data
   set.)
 
-- Migration towards (support of) python3
-
-- Retool the feature matching process.  The original scheme was overly
-  confident about our ability to direct locate camera poses and 3d
-  feature locations.  I would like to back off of that and depend more
-  on proximity of the image geotags (camera poses) assuming we are
-  taking mostly down-looking images.  The optimizer will be robust to
-  location errors, so a robust and correct match set is more
-  important.
-
-  Part 2 is a small overhaul to feature filtering scheme.  Instead of
-  iterating on homography/fundamental feature rejection, then
-  reciprocal pair matching, repeat until nothing is dropped, I think
-  we can do a fundamental matrix filter followed by a single
-  reciprocal match test and call it good enough.  Then we can use down
-  stream tools to catch and reject any false matches that slip
-  through.
+- Continued improvement of python3 support
 
 Medium term development goals include:
 
