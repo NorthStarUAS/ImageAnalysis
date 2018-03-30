@@ -30,7 +30,7 @@ import transformations
 
 import match_culling as cull
 
-ac3d_steps = 4
+ac3d_steps = 8
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
@@ -225,9 +225,12 @@ for image in proj.image_list:
     image.z_list = []
     image.grid_list = []
 for i, match in enumerate(matches_sba):
+    print(match)
     ned = match[0]
+    print(ned)
     for p in match[1:]:
         index = p[0]
+        print('index:', index)
         proj.image_list[index].z_list.append(-ned[2])
 for image in proj.image_list:
     if len(image.z_list):

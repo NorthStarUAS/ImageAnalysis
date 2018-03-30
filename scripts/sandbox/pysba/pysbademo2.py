@@ -8,7 +8,7 @@
 # this script is a modification of the original demo script to
 # optimize only 6 individual camera paramters (rotation and
 # translation).  focal len, k1, and k2 are 3 additional parameters
-# that are optimized universally.  The intension/assumption is that
+# that are optimized globally.  The intension/assumption is that
 # all images in a set are captured with the same camera and we want to
 # also refine the camera calibration estimate as part of the overall
 # optimization.

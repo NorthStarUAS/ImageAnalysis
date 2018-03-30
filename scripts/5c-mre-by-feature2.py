@@ -17,6 +17,8 @@ import ProjectMgr
 
 import match_culling as cull
 
+print("Fixme: match the new MRE in the new Optimizer.py, otherwise this will be bunk, bunk I say!")
+
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--stddev', type=float, default=3, help='how many stddevs above the mean for auto discarding features')
@@ -35,6 +37,10 @@ print("Loading matches:", source)
 matches_orig = pickle.load( open( os.path.join(args.project, source), "rb" ) )
 print("Loading optimized matches: matches_sba")
 matches_sba = pickle.load( open( os.path.join(args.project, "matches_sba"), "rb" ) )
+
+# load the group connections within the image set
+groups = Groups.load(args.project)
+print('Main group size:', len(groups[0]))
 
 # image mean reprojection error
 def compute_feature_mre(image, kp, ned):
@@ -67,15 +73,6 @@ def compute_reprojection_errors(image_list, matches, group, cam):
 
     for i, match in enumerate(matches):
         ned = match[0]
-        
-        # debug
-        verbose = 0
-        for p in match[1:]:
-            if image_list[p[0]].name == 'DSC05841.JPG':
-                verbose += 1
-            if image_list[p[0]].name == 'DSC06299.JPG':
-                verbose += 1
-                
         for j, p in enumerate(match[1:]):
             max_dist = 0
             max_index = 0
@@ -88,8 +85,6 @@ def compute_reprojection_errors(image_list, matches, group, cam):
                 if dist > max_dist:
                     max_dist = dist
                     max_index = j
-                if verbose >= 2:
-                    print(i, match, dist)
         result_list.append( (max_dist, i, max_index) )
 
     # sort by error, worst is first
@@ -146,9 +141,6 @@ def delete_marked_matches(matches):
         elif len(match) < 3:
             print("deleting match that is now in less than 2 images:", match)
             matches.pop(i)
-
-# load the group connections within the image set
-groups = Groups.load(args.project)
 
 # fixme: probably should pass in the matches structure to this call
 error_list = compute_reprojection_errors(proj.image_list, matches_sba, groups[0], proj.cam)
