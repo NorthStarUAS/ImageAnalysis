@@ -37,9 +37,8 @@ if __name__ == '__main__':
     debug_dir = args.get('--debug')
     square_size = float(args.get('--square_size', 1.0))
 
-    #pattern_size = (9, 6)
     #pattern_size = (9, 7)
-    pattern_size = (6, 4)
+    pattern_size = (8, 6)
     pattern_points = np.zeros( (np.prod(pattern_size), 3), np.float32 )
     pattern_points[:,:2] = np.indices(pattern_size).T.reshape(-1, 2)
     pattern_points *= square_size
@@ -50,12 +49,15 @@ if __name__ == '__main__':
     print "ready to start ..."
     for fn in img_names:
         print 'processing %s...' % fn,
-        img = cv2.imread(fn, 0)
+        #img = cv2.imread(fn, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
+        #img = cv2.imread(fn, 0)
+        img = cv2.imread(fn, flags=cv2.IMREAD_IGNORE_ORIENTATION)
         if img is None:
           print "Failed to load", fn
           continue
 
         h, w = img.shape[:2]
+        print w, h
         found, corners = cv2.findChessboardCorners(img, pattern_size)
         if found:
             term = ( cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_COUNT, 30, 0.1 )
@@ -67,12 +69,12 @@ if __name__ == '__main__':
             name, ext = os.path.splitext(basefile)
             cv2.imwrite('%s/%s_chess.jpg' % (debug_dir, name), vis)
         if not found:
-            print 'chessboard not found'
+            print '  ...chessboard not found'
             continue
         img_points.append(corners.reshape(-1, 2))
         obj_points.append(pattern_points)
 
-        print 'ok'
+        print '  ...ok'
 
     rms, camera_matrix, dist_coefs, rvecs, tvecs = cv2.calibrateCamera(obj_points, img_points, (w, h), None, None)
     np.set_printoptions(suppress=True)
