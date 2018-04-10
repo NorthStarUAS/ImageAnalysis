@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import argparse
 import fnmatch
@@ -81,7 +81,7 @@ class MyApp(ShowBase):
             if fnmatch.fnmatch(file, '*.egg'):
                 files.append(file)
         bar = Bar('Loading textures:', max=len(files))
-	for file in files:
+        for file in files:
             # load and reparent each egg file
             model = self.loader.loadModel(os.path.join(path, file))
             model.reparentTo(self.render)
