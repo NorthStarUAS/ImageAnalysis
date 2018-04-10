@@ -177,7 +177,7 @@ plt.title("Approximation function.")
 
 import binned_surface
 bin2d = binned_surface.binned_surface()
-bin2d.make(xfit, yfit, zfit, bins=128)
+bin2d.make(xfit, yfit, zfit, bins=48)
 bin2d.fill()
 
 if False:
@@ -312,7 +312,7 @@ if True:
             pts_ned = proj.intersectVectorsWithGroundPlane(ned,
                                                            image.z_avg,
                                                            proj_list)
-        elif False:
+        elif True:
             # intersect with our polygon surface approximation
             pts_ned = intersect_vectors(ned, proj_list, m)
         else:
@@ -329,13 +329,15 @@ if True:
             #image.grid_list.append( [p[1], p[0], -(depth)] )
             ground_sum += -p[2]
         depth -= 0.01                # favor last pictures above earlier ones
-    
-# call the ac3d generator
-AC3D.generate(proj.image_list, groups[0], src_dir=proj.source_dir,
+
+# generate the panda3d egg models
+img_src_dir = os.path.join(args.project, "Images")
+Panda3d.generate(proj.image_list, groups[0], src_dir=img_src_dir,
               project_dir=args.project, base_name='direct',
               version=1.0, trans=0.1, resolution=args.texture_resolution)
 
-Panda3d.generate(proj.image_list, groups[0], src_dir=proj.source_dir,
+# call the ac3d generator
+AC3D.generate(proj.image_list, groups[0], src_dir=proj.source_dir,
               project_dir=args.project, base_name='direct',
               version=1.0, trans=0.1, resolution=args.texture_resolution)
 
