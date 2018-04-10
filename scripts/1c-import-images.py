@@ -1,10 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import sys
 sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
-import commands
 import cv2
 import fnmatch
 import os.path
@@ -34,4 +33,6 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.set_source_dir( args.source )
 proj.import_images( scale=args.scale, converter=args.converter)
+proj.load_image_info(force_compute_sizes=True)
 proj.save()
+
