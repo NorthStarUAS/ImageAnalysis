@@ -237,6 +237,7 @@ class ProjectMgr():
         files.sort()
 
         for file in files:
+            print('Import/scaling:', file)
             name_in = self.source_dir + "/" + file
             name_out = self.image_dir + "/" + file
             if converter == 'imagemagick':

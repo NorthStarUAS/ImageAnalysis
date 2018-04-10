@@ -1,5 +1,10 @@
 #!/usr/bin/python3
 
+
+# need to explore this more:
+# https://github.com/JiawangBian/GMS-Feature-Matcher/blob/master/python/gms_matcher.py
+
+
 import copy
 import cv2
 import math
@@ -9,6 +14,8 @@ import numpy as np
 from find_obj import filter_matches,explore_match
 import ImageList
 import transformations
+
+import gms_matcher
 
 
 class Matcher():
@@ -24,12 +31,16 @@ class Matcher():
         if 'detector' in dparams:
             if dparams['detector'] == 'SIFT':
                 norm = cv2.NORM_L2
+                self.max_distance = 270.0
             elif dparams['detector'] == 'SURF':
                 norm = cv2.NORM_L2
+                self.max_distance = 270.0
             elif dparams['detector'] == 'ORB':
                 norm = cv2.NORM_HAMMING
+                self.max_distance = 64
             elif dparams['detector'] == 'Star':
                 norm = cv2.NORM_HAMMING
+                self.max_distance = 64
 
         FLANN_INDEX_KDTREE = 1  # bug: flann enums are missing
         FLANN_INDEX_LSH    = 6
@@ -134,7 +145,8 @@ class Matcher():
     def filter_by_homography(self, K, i1, i2, j, filter):
         clean = True
         
-        tol = float(i1.width) / 200.0 # rejection range in pixels
+        # tol = float(i1.width) / 200.0 # rejection range in pixels
+        tol = math.pow(i1.width, 0.25)
         if tol < 1.0:
             tol = 1.0
         # print "tol = %.4f" % tol 
@@ -150,7 +162,8 @@ class Matcher():
                 p1.append( i1.kp_list[pair[0]].pt )
                 p2.append( i2.kp_list[pair[1]].pt )
             else:
-                # undistorted uv points should be better, right?
+                # undistorted uv points should be better if the camera
+                # calibration is known, right?
                 p1.append( i1.uv_list[pair[0]] )
                 p2.append( i2.uv_list[pair[1]] )
 
@@ -188,6 +201,24 @@ class Matcher():
                 matches.remove(pair)
         return clean
 
+    # iterate through idx_pairs1 and mark/remove any pairs that don't
+    # exist in idx_pairs2.  Then recreate idx_pairs2 as the inverse of
+    # idx_pairs1
+    def filter_cross_check(self, idx_pairs1, idx_pairs2):
+        new1 = []
+        new2 = []
+        for k, pair in enumerate(idx_pairs1):
+            rpair = [pair[1], pair[0]]
+            for r in idx_pairs2:
+                #print "%s - %s" % (rpair, r)
+                if rpair == r:
+                    new1.append( pair )
+                    new2.append( rpair )
+                    break
+        if len(idx_pairs1) != len(new1) or len(idx_pairs2) != len(new2):
+            print("  cross check: (%d, %d) => (%d, %d)" % (len(idx_pairs1), len(idx_pairs2), len(new1), len(new2)))
+        return new1, new2                                               
+            
     def filter_non_reciprocal_pair(self, image_list, i, j):
         clean = True
         i1 = image_list[i]
@@ -221,7 +252,7 @@ class Matcher():
         print("Removing non-reciprocal matches:")
         for i, i1 in enumerate(image_list):
             for j, i2 in enumerate(image_list):
-                if not filter_non_reciprocal_pair(image_list, i, j):
+                if not self.filter_non_reciprocal_pair(image_list, i, j):
                     clean = False
         return clean
 
@@ -231,12 +262,48 @@ class Matcher():
         matches = self.matcher.knnMatch(np.array(i1.des_list),
                                         trainDescriptors=np.array(i2.des_list),
                                         k=2)
-        # print("initial matches =", len(matches))
-        
-        # run the classic feature distance ratio test
-        p1, p2, kp_pairs, idx_pairs = self.filter_by_feature(i1, i2, matches)
-        # print("  first matches =", len(idx_pairs))
- 
+        print("  raw matches =", len(matches))
+
+        sum = 0.0
+        max_good = 0
+        sum_good = 0.0
+        count_good = 0
+        for m in matches:
+            sum += m[0].distance
+            if m[0].distance <= m[1].distance * self.match_ratio:
+                sum_good += m[0].distance
+                count_good += 1
+                if m[0].distance > max_good:
+                    max_good = m[0].distance
+        print('  avg dist =', sum / len(matches))
+        print('  avg good dist = ', sum_good / count_good, '(%d)' % count_good)
+        print('  max good dist = ', max_good)
+
+        # filter by absolute distance (for ORB, statistically all real
+        # matches will have a distance < 64, for SIFT I don't know,
+        # but I'm guessing anything more than 270.0 is a bad match.
+        matches_thresh = []
+        for m in matches:
+            if m[0].distance < self.max_distance:
+                matches_thresh.append(m[0])
+        print('  quality matches:', len(matches_thresh))
+
+        size1 = gms_matcher.Size(i1.width, i1.height)
+        size2 = gms_matcher.Size(i2.width, i2.height)
+        gms = gms_matcher.GmsMatcher(i1.kp_list, size1, i2.kp_list, size2, matches_thresh)
+        vbInliers, num_inliers = gms.GetInlierMask(with_scale=False, with_rotation=True)
+        print('gms inliers:', num_inliers)
+
+        idx_pairs = []
+        for i, m in enumerate(matches_thresh):
+            if vbInliers[i]:
+                idx_pairs.append( [m.queryIdx, m.trainIdx] )
+            
+        if False:
+            # run the classic feature distance ratio test
+            p1, p2, kp_pairs, idx_pairs = self.filter_by_feature(i1, i2, matches)
+            print("  dist ratio matches =", len(idx_pairs))
+
         # check for duplicate matches (based on different scales or attributes)
         idx_pairs = self.filter_duplicates(i1, i2, idx_pairs)
         
@@ -247,19 +314,29 @@ class Matcher():
     
     # do initial feature matching (both ways) for the specified image
     # pair.
-    def bidirectional_matches(self, i1, i2, review=False):
-        if i1 == i2:
-            print("We shouldn't see this, but i1 == i2")
+    def bidirectional_matches(self, image_list, i, j, review=False):
+        if i == j:
+            print("We shouldn't see this, but i == j", i, j)
             return [], []
+
+        i1 = image_list[i]
+        i2 = image_list[j]
 
         # all vs. all match between overlapping i1 keypoints and i2
         # keypoints (forward match)
         idx_pairs1 = self.basic_matches(i1, i2)
-        
-        # all vs. all match between overlapping i2 keypoints and i1
-        # keypoints (reverse match)
-        idx_pairs2 = self.basic_matches(i2, i1)
 
+        if len(idx_pairs1) >= self.min_pairs:
+            # all vs. all match between overlapping i2 keypoints and i1
+            # keypoints (reverse match)
+            idx_pairs2 = self.basic_matches(i2, i1)
+        else:
+            # don't bother checking the reciprocal direction if we
+            # didn't find matches in the forward direction
+            idx_pairs2 = []
+
+        idx_pairs1, idx_pairs2 = self.filter_cross_check(idx_pairs1, idx_pairs2)
+        
         plot_matches = False
         if plot_matches:
             self.plot_matches(i1, i2, idx_pairs1)
@@ -267,7 +344,7 @@ class Matcher():
             
         if review:
             if len(idx_pairs1):
-                status = self.showMatch(i1, i2, idx_pairs1)
+                status, key = self.showMatchOrient(i1, i2, idx_pairs1)
                 # remove deselected pairs
                 for k, flag in enumerate(status):
                     if not flag:
@@ -278,7 +355,7 @@ class Matcher():
                         idx_pairs1.remove(pair)
                         
             if len(idx_pairs2):
-                status = self.showMatch(i2, i1, idx_pairs2)
+                status, key = self.showMatchOrient(i2, i1, idx_pairs2)
                 # remove deselected pairs
                 for k, flag in enumerate(status):
                     if not flag:
@@ -308,7 +385,7 @@ class Matcher():
             f.write("%.3f %.3f %.3f %.3f %.3f %.3f\n" % ( c2[1], c2[0], -c2[2], c1[1], c1[0], -c1[2] ))
         f.close()
         # a = raw_input("Press Enter to continue...")
- 
+
 
     def robustGroupMatches(self, image_list, K, filter="fundamental",
                            review=False):
@@ -336,7 +413,7 @@ class Matcher():
                 ned1, ypr1, q1 = i1.get_camera_pose()
                 ned2, ypr2, q2 = i2.get_camera_pose()
                 dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
-                if dist > 100:
+                if dist > 75:
                     continue
                 
                 print("Matching %s vs %s - %.1f%% done" % (i1.name, i2.name, (n_count / n_work) * 100.0))
@@ -346,9 +423,10 @@ class Matcher():
                     # create if needed
                     i2.match_list = [[]] * len(image_list)
                 i1.match_list[j], i2.match_list[i] \
-                    = self.bidirectional_matches(i1, i2, review)
+                    = self.bidirectional_matches(image_list, i, j, review)
 
-                scheme = 'one_step'
+                scheme = 'none'
+                # scheme = 'one_step'
                 # scheme = 'iterative'
 
                 if scheme == 'iterative':
@@ -386,7 +464,7 @@ class Matcher():
         plt.plot(dist_stats[:,0], dist_stats[:,1], 'ro')
         plt.show()
 
-    # remove any match sets shorter than self.min_pair (this shouldn't
+    # remove any match sets shorter than self.min_pairs (this shouldn't
     # probably ever happen now?)
     def cullShortMatches(self, image_list):
         for i, i1 in enumerate(image_list):
@@ -512,7 +590,9 @@ class Matcher():
         if affine is None:
             affine = np.array([[1.0, 0.0, 0.0],
                                [0.0, 1.0, 0.0]])
-             #return status, 0
+            # auto reject any pairs where we can't determine a proper affine transformation at all
+            status = np.zeros(len(idx_pairs), np.bool_)
+            return status, ord(' ')
         (rot, tx, ty, sx, sy) = self.decomposeAffine(affine)
         print(' ', rot, tx, ty, sx, sy)
 
