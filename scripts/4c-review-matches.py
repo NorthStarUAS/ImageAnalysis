@@ -178,19 +178,20 @@ for i in range(len(proj.image_list)):
         
         status = np.ones(len(pairs[i][j]), np.bool_)
 
-        # flag any outliers by std deviation
-        # for k in range(len(pairs[i][j])):
-        #     if error[k] > avg + 3*std:
-        #         status[k] = False
-
-        if filter == 'homography' or filter == 'affine':
-            # flag only the worst error
-            status[max_index] = False
-        elif filter == 'margin':
-            # flag any non-zero
-            for k in range(len(error)):
-                if error[k] > 0.5:
+        if True:
+            # flag any outliers by std deviation
+            for k in range(len(pairs[i][j])):
+                if error[k] > avg + 5*std:
                     status[k] = False
+        else:
+            if filter == 'homography' or filter == 'affine':
+                # flag only the worst error
+                status[max_index] = False
+            elif filter == 'margin':
+                # flag any non-zero
+                for k in range(len(error)):
+                    if error[k] > 0.5:
+                        status[k] = False
             
         status_flags[i][j] = status
         print('pair:', i, j, 'max:', max, 'avg:', avg, 'std:', std)
