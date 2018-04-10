@@ -131,7 +131,10 @@ Show all the imported images.
   
   Interactive script that presents the worst outliers (based on some
   relationship fit of the match pairs) and allows the user to review
-  and accept or delete potential outliers.  
+  and accept or delete potential outliers.
+
+  Make sure to re-run 4d-match-grouping.py after 4c-review-matches.py
+  if you return and review more matches later.
 
   ## 4d-match-grouping.py
 
