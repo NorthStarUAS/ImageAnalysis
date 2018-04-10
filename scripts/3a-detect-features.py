@@ -1,10 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import sys
 sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
-import commands
 import cv2
 import fnmatch
 import numpy as np
@@ -80,7 +79,7 @@ proj.undistort_keypoints()
 
 # if any undistorted keypoints extend beyond the image bounds, remove them!
 margin = args.reject_margin
-print "Features that fall out of the image bounds after undistortion."
+print("Features that fall out of the image bounds after undistortion.")
 bar = Bar('Filtering:', max = len(proj.image_list))
 for image in proj.image_list:
     # traverse the list in reverse so we can safely remove features if
@@ -108,4 +107,4 @@ for image in proj.image_list:
     feature_count += len(image.kp_list)
     image_count += 1
 
-print "Average # of features per image found = %.0f" % (feature_count / image_count)
+print("Average # of features per image found = %.0f" % (feature_count / image_count))
