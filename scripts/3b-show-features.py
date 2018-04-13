@@ -1,10 +1,8 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
-import commands
 import cv2
 import fnmatch
 import os.path
