@@ -79,6 +79,7 @@ class MyApp(ShowBase):
         files = []
         for file in os.listdir(path):
             if fnmatch.fnmatch(file, '*.egg'):
+                print('load:', file)
                 files.append(file)
         bar = Bar('Loading textures:', max=len(files))
         for file in files:
@@ -118,7 +119,7 @@ class MyApp(ShowBase):
         result_list = []
         for m in self.models:
             b = m.getBounds()
-            # print(b.getCenter(), b.getRadius())
+            print(b.getCenter(), b.getRadius())
             dx = b.getCenter()[0] - self.cam_pos[0]
             dy = b.getCenter()[1] - self.cam_pos[1]
             dist = math.sqrt(dx*dx + dy*dy)
