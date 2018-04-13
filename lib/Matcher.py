@@ -276,18 +276,46 @@ class Matcher():
                 if m[0].distance > max_good:
                     max_good = m[0].distance
         print('  avg dist =', sum / len(matches))
-        print('  avg good dist = ', sum_good / count_good, '(%d)' % count_good)
+        if count_good:
+            print('  avg good dist = ', sum_good / count_good, '(%d)' % count_good)
         print('  max good dist = ', max_good)
 
-        # filter by absolute distance (for ORB, statistically all real
-        # matches will have a distance < 64, for SIFT I don't know,
-        # but I'm guessing anything more than 270.0 is a bad match.
-        matches_thresh = []
-        for m in matches:
-            if m[0].distance < self.max_distance:
-                matches_thresh.append(m[0])
-        print('  quality matches:', len(matches_thresh))
+        if False:
+            # filter by absolute distance (for ORB, statistically all real
+            # matches will have a distance < 64, for SIFT I don't know,
+            # but I'm guessing anything more than 270.0 is a bad match.
+            matches_thresh = []
+            for m in matches:
+                if m[0].distance < self.max_distance and m[0].distance <= m[1].distance * self.match_ratio:
+                    matches_thresh.append(m[0])
+            print('  quality matches:', len(matches_thresh))
 
+        if True:
+            # generate a quality metric for each match, sort and only
+            # pass along the top 'n' matches.  Testing the idea that
+            # 2000 matches aren't better than 20 if they are good
+            # matches (with respect to optimizing the fit.)
+            by_metric = []
+            for m in matches:
+                ratio = m[0].distance / m[1].distance # smaller is better
+                metric = m[0].distance * ratio
+                by_metric.append( [metric, m[0]] )
+            by_metric = sorted(by_metric, key=lambda fields: fields[0])
+            matches_thresh = []
+            for line in by_metric:
+                if line[0] < 190.0:
+                    matches_thresh.append(line[1])
+            print('  quality matches:', len(matches_thresh))
+            mymax = 500
+            if len(matches_thresh) > mymax:
+                # clip list to n best rated matches
+                matches_thresh = matches_thresh[:100]
+                print('  clipping to:', mymax)
+            
+        if len(matches_thresh) < self.min_pairs:
+            # just quit now
+            return []
+            
         size1 = gms_matcher.Size(i1.width, i1.height)
         size2 = gms_matcher.Size(i2.width, i2.height)
         gms = gms_matcher.GmsMatcher(i1.kp_list, size1, i2.kp_list, size2, matches_thresh)
@@ -307,10 +335,12 @@ class Matcher():
         # check for duplicate matches (based on different scales or attributes)
         idx_pairs = self.filter_duplicates(i1, i2, idx_pairs)
         
-        if len(idx_pairs) < self.min_pairs:
-            idx_pairs = []
         print("  initial matches =", len(idx_pairs))
-        return idx_pairs
+        if len(idx_pairs) < self.min_pairs:
+            # sorry
+            return []
+        else:
+            return idx_pairs
     
     # do initial feature matching (both ways) for the specified image
     # pair.
