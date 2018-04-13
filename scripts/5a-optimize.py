@@ -101,7 +101,8 @@ K = proj.cam.get_K(scale)
 distCoeffs = np.array(proj.cam.get_dist_coeffs())
 
 opt = Optimizer.Optimizer(args.project)
-cameras, features, cam_index_map, feat_index_map, fx_opt, fy_opt, cu_opt, cv_opt, distCoeffs_opt = opt.run( proj.image_list, groups[0], matches, K, distCoeffs, use_sba=False )
+opt.setup( proj.image_list, groups[0], matches, K, distCoeffs )
+cameras, features, cam_index_map, feat_index_map, fx_opt, fy_opt, cu_opt, cv_opt, distCoeffs_opt = opt.run()
 
 # wipe the sba pose for all images
 for image in proj.image_list:
