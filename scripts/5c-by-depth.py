@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # When solving a bundle adjustment problem with pair-wise feature
 # matches (i.e. no 3+ way matches), the bad matches will often find a
@@ -21,7 +21,7 @@ import sys
 sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
 
 import argparse
-import cPickle as pickle
+import pickle
 import cv2
 #import json
 import math
@@ -45,15 +45,15 @@ proj.load_image_info()
 proj.load_features()
 proj.undistort_keypoints()
 
-print "Loading original (direct) matches ..."
+print("Loading original (direct) matches ...")
 matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )
 
-print "Loading fitted (sba) matches..."
+print("Loading fitted (sba) matches...")
 matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
 
 # compute the depth of each feature for each image
 def compute_feature_depths(image_list, group, matches):
-    print "Computing depths for all match points..."
+    print("Computing depths for all match points...")
 
     # init structures
     for image in image_list:
@@ -79,7 +79,7 @@ def compute_feature_depths(image_list, group, matches):
             std = None
         image.z_avg = avg
         image.z_std = std
-        print image.name, 'features:', len(image.z_list), 'avg:', avg, 'std:', std
+        print(image.name, 'features:', len(image.z_list), 'avg:', avg, 'std:', std)
 
     # make a list of relative depth errors corresponding to the
     # matches list
@@ -102,7 +102,7 @@ def compute_feature_depths(image_list, group, matches):
     return error_list
 
 def mark_outliers(error_list, trim_stddev):
-    print "Marking outliers..."
+    print("Marking outliers...")
     sum = 0.0
     count = len(error_list)
 
@@ -113,17 +113,17 @@ def mark_outliers(error_list, trim_stddev):
         sum += line[0]
         
     # stats on error values
-    print " computing stats..."
+    print(" computing stats...")
     mre = sum / count
     stddev_sum = 0.0
     for line in error_list:
         error = line[0]
         stddev_sum += (mre-error)*(mre-error)
     stddev = math.sqrt(stddev_sum / count)
-    print "mre = %.4f stddev = %.4f" % (mre, stddev)
+    print("mre = %.4f stddev = %.4f" % (mre, stddev))
 
     # mark match items to delete
-    print " marking outliers..."
+    print(" marking outliers...")
     mark_count = 0
     for line in error_list:
         # print "line:", line
@@ -167,7 +167,7 @@ for i, img in enumerate(proj.image_list):
     # print img.name, img.feature_count
     if img.feature_count > 0 and img.feature_count < 25:
         weak_dict[i] = True
-print 'weak images:', weak_dict
+print('weak images:', weak_dict)
 
 # mark any features in the weak images list
 for i, match in enumerate(matches_direct):
@@ -179,16 +179,16 @@ for i, match in enumerate(matches_direct):
     #print 'after:', match
 
 if mark_sum > 0:
-    print 'Outliers removed from match lists:', mark_sum
+    print('Outliers removed from match lists:', mark_sum)
     result=raw_input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
         cull.delete_marked_matches(matches_direct)
         cull.delete_marked_matches(matches_sba)
         
         # write out the updated match dictionaries
-        print "Writing direct matches..."
+        print("Writing direct matches...")
         pickle.dump(matches_direct, open(args.project+"/matches_direct", "wb"))
 
-        print "Writing sba matches..."
+        print("Writing sba matches...")
         pickle.dump(matches_sba, open(args.project + "/matches_sba", "wb"))
 
