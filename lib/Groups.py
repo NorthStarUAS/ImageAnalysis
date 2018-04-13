@@ -196,6 +196,7 @@ def groupByConnectedArea(image_list, matches):
                     if image.connected_area > max_area:
                         new_index = i
                         max_area = image.connected_area
+            # fixme: should be automatic or something
             if max_area >= 15000:
                 print("New image with max area:", image_list[new_index].name)
                 print("  area:", image_list[new_index].connected_area)
