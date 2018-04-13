@@ -31,7 +31,9 @@ class Optimizer():
         self.last_mre = 1.0e+10 # a big number
         self.graph = None
         self.graph_counter = 0
-        self.optimize_calib = 'global' # individual/global camera optimization
+        #self.optimize_calib = 'individual' # individual camera optimization
+        self.optimize_calib = 'global' # global camera optimization
+        #self.optimize_calib = 'none' # no camera calibration optimization
         self.with_bounds = True
 
     # plot range
@@ -63,7 +65,8 @@ class Optimizer():
     # compute the sparcity matrix (dependency relationships between
     # observations and parameters the optimizer can manipulate.)
     # Because of the extreme number of parameters and observations, a
-    # sparse matrix is almost required to run in finite time.
+    # sparse matrix is required to run in finite time for all but the
+    # smallest data sets.
     def bundle_adjustment_sparsity(self, n_cameras, n_points,
                                    camera_indices, point_indices):
         m = camera_indices.size * 2
@@ -125,6 +128,10 @@ class Optimizer():
             K = self.K
             distCoeffs = self.distCoeffs
 
+        #fixme: global calibration optimization, but force distortion
+        #paramters to stay fixed to those originally given
+        #distCoeffs = self.distCoeffs
+
         sum = 0
         cams_3d = np.zeros((n_cameras, 3)) # for plotting
         for i, cam in enumerate(camera_params):
@@ -154,8 +161,8 @@ class Optimizer():
         if 1.0 - mre/self.last_mre > 0.001:
             # mre has improved by more than 0.1%
             self.last_mre = mre
-            print('mre:', mre)
-            if self.optimize_calib == 'global':
+            print('mre: %.3f std: %.3f max: %.2f' % (mre, np.std(error), np.amax(np.abs(error))) )
+            if self.optimize_calib != 'individual':
                 print("K:\n", K)
                 print("distCoeffs:", distCoeffs)
             if not self.graph is None:
@@ -180,10 +187,8 @@ class Optimizer():
         return error
 
     # assemble the structures and remapping indices required for
-    # optimizing a group of images/features, call the optimizer, and
-    # save the result.
-    def run(self, image_list, placed_images, matches_list, K, distCoeffs,
-            use_sba=False):
+    # optimizing a group of images/features
+    def setup(self, image_list, placed_images, matches_list, K, distCoeffs, optimized=False):
         if placed_images == None:
             placed_images = set()
             # if no placed images specified, mark them all as placed
@@ -236,26 +241,29 @@ class Optimizer():
 
         # assemble the initial camera estimates
         if self.optimize_calib == 'individual':
-            ncp = 9
+            self.ncp = 9
         else:
-            ncp = 6
-        n_cameras = len(placed_images)
-        camera_params = np.empty(n_cameras * ncp)
+            self.ncp = 6
+        self.n_cameras = len(placed_images)
+        self.camera_params = np.empty(self.n_cameras * self.ncp)
         cam_idx = 0
         for index in placed_images:
             image = image_list[index]
-            rvec, tvec = image.get_proj()
+            if not optimized:
+                rvec, tvec = image.get_proj()
+            else:
+                rvec, tvec = image.get_proj_sba()
             if self.optimize_calib == 'individual':
                 tmp = np.append(rvec, tvec)
-                tmp = np.append(tmp, [K[0,0], distCoeffs[0], distCoeffs[1]])
+                tmp = np.append(tmp, [self.K[0,0], distCoeffs[0], distCoeffs[1]])
                 print(tmp)
-                camera_params[cam_idx*ncp:cam_idx*ncp+ncp] = tmp
+                self.camera_params[cam_idx*self.ncp:cam_idx*self.ncp+self.ncp] = tmp
             else:
-                camera_params[cam_idx*ncp:cam_idx*ncp+ncp] = np.append(rvec, tvec)
+                self.camera_params[cam_idx*self.ncp:cam_idx*self.ncp+self.ncp] = np.append(rvec, tvec)
             cam_idx += 1
 
         # count number of 3d points and observations
-        n_points = 0
+        self.n_points = 0
         n_observations = 0
         for i, match in enumerate(matches_list):
             # count the number of referenced observations
@@ -265,10 +273,10 @@ class Optimizer():
                     n_observations += 1
                     used = True
             if used:
-                n_points += 1
+                self.n_points += 1
 
         # assemble 3d point estimates and build indexing maps
-        points_3d = np.empty(n_points * 3)
+        self.points_3d = np.empty(self.n_points * 3)
         point_idx = 0
         feat_used = 0
         for i, match in enumerate(matches_list):
@@ -281,14 +289,14 @@ class Optimizer():
                 self.feat_map_fwd[i] = feat_used
                 self.feat_map_rev[feat_used] = i
                 feat_used += 1
-                points_3d[point_idx] = ned[0]
-                points_3d[point_idx+1] = ned[1]
-                points_3d[point_idx+2] = ned[2]
+                self.points_3d[point_idx] = ned[0]
+                self.points_3d[point_idx+1] = ned[1]
+                self.points_3d[point_idx+2] = ned[2]
                 point_idx += 3
                 
         # assemble observations (image index, feature index, u, v)
-        by_camera_point_indices = [ [] for i in range(n_cameras) ]
-        by_camera_points_2d = [ [] for i in range(n_cameras) ]
+        self.by_camera_point_indices = [ [] for i in range(self.n_cameras) ]
+        self.by_camera_points_2d = [ [] for i in range(self.n_cameras) ]
         #print('by_camera:', by_camera)
         #points_2d = np.empty((n_observations, 2))
         #obs_idx = 0
@@ -299,41 +307,46 @@ class Optimizer():
                     feat_index = self.feat_map_fwd[i]
                     kp = image_list[p[0]].kp_list[p[1]].pt # orig/distorted
                     #kp = image_list[p[0]].uv_list[p[1]] # undistorted
-                    by_camera_point_indices[cam_index].append(feat_index)
-                    by_camera_points_2d[cam_index].append(kp)
+                    self.by_camera_point_indices[cam_index].append(feat_index)
+                    self.by_camera_points_2d[cam_index].append(kp)
                     #camera_indices[obs_idx] = cam_index
                     #point_indices[obs_idx] = feat_index
                     #obs_idx += 1
         # convert to numpy native structures
-        for i in range(n_cameras):
-            size = len(by_camera_point_indices[i])
-            by_camera_point_indices[i] = np.array(by_camera_point_indices[i])
-            by_camera_points_2d[i] = np.asarray([by_camera_points_2d[i]]).reshape(size, 1, 2)
+        for i in range(self.n_cameras):
+            size = len(self.by_camera_point_indices[i])
+            self.by_camera_point_indices[i] = np.array(self.by_camera_point_indices[i])
+            self.by_camera_points_2d[i] = np.asarray([self.by_camera_points_2d[i]]).reshape(size, 1, 2)
 
         # generate the camera and point indices (for mapping the
         # sparse jacobian entries which define which observations
         # depend on which parameters.)
-        camera_indices = np.empty(n_observations, dtype=int)
-        point_indices = np.empty(n_observations, dtype=int)
+        self.camera_indices = np.empty(n_observations, dtype=int)
+        self.point_indices = np.empty(n_observations, dtype=int)
         obs_idx = 0
-        for i in range(n_cameras):
-            for j in range(len(by_camera_point_indices[i])):
-                camera_indices[obs_idx] = i
-                point_indices[obs_idx] = by_camera_point_indices[i][j]
+        for i in range(self.n_cameras):
+            for j in range(len(self.by_camera_point_indices[i])):
+                self.camera_indices[obs_idx] = i
+                self.point_indices[obs_idx] = self.by_camera_point_indices[i][j]
                 obs_idx += 1
         print("num observations:", obs_idx)
-            
+
+
+    # assemble the structures and remapping indices required for
+    # optimizing a group of images/features, call the optimizer, and
+    # save the result.
+    def run(self):
         if self.optimize_calib == 'global':
-            # fixme, start with kind of hard coded view params
-            x0 = np.hstack((camera_params.ravel(), points_3d.ravel(),
-                            K[0,0], K[0,0], 450, 300, np.zeros(5)))
+            x0 = np.hstack((self.camera_params.ravel(), self.points_3d.ravel(),
+                            self.K[0,0], self.K[1,1], self.K[0,2], self.K[1,2],
+                            self.distCoeffs))
         else:
-            x0 = np.hstack((camera_params.ravel(), points_3d.ravel()))
-        f0 = self.fun(x0, n_cameras, n_points, by_camera_point_indices, by_camera_points_2d)
+            x0 = np.hstack((self.camera_params.ravel(), self.points_3d.ravel()))
+        f0 = self.fun(x0, self.n_cameras, self.n_points, self.by_camera_point_indices, self.by_camera_points_2d)
         mre_start = np.mean(np.abs(f0))
 
-        A = self.bundle_adjustment_sparsity(n_cameras, n_points,
-                                            camera_indices, point_indices)
+        A = self.bundle_adjustment_sparsity(self.n_cameras, self.n_points,
+                                            self.camera_indices, self.point_indices)
 
         if self.with_bounds:
             # quick test of bounds ... allow camera parameters to go free,
@@ -341,17 +354,17 @@ class Optimizer():
             lower = []
             upper = []
             tol = 100.0
-            for i in range(n_cameras):
+            for i in range(self.n_cameras):
                 # unlimit the camera params
-                for j in range(ncp):
+                for j in range(self.ncp):
                     if j == 6:
                         # bound focal length
-                        lower.append(K[0,0]*0.95)
-                        upper.append(K[0,0]*1.05)
+                        lower.append(self.K[0,0]*0.95)
+                        upper.append(self.K[0,0]*1.05)
                     else:
                         lower.append( -np.inf )
                         upper.append( np.inf )
-            for i in range(n_points * 3):
+            for i in range(self.n_points * 3):
                 #lower.append( points_3d[i] - tol )
                 #upper.append( points_3d[i] + tol )
                 # what if we let point locations float without constraint?
@@ -360,12 +373,12 @@ class Optimizer():
             if self.optimize_calib == 'global':
                 tol = 0.01
                 # bound focal length
-                lower.append(K[0,0]*(1-tol))
-                upper.append(K[0,0]*(1+tol))
-                lower.append(K[1,1]*(1-tol))
-                upper.append(K[1,1]*(1+tol))
-                cu = 450
-                cv = 300
+                lower.append(self.K[0,0]*(1-tol))
+                upper.append(self.K[0,0]*(1+tol))
+                lower.append(self.K[1,1]*(1-tol))
+                upper.append(self.K[1,1]*(1+tol))
+                cu = self.K[0,2]
+                cv = self.K[1,2]
                 lower.append(cu*(1-tol))
                 upper.append(cu*(1+tol))
                 lower.append(cv*(1-tol))
@@ -379,7 +392,7 @@ class Optimizer():
             bounds = (-np.inf, np.inf)
         plt.figure(figsize=(16,9))
         plt.ion()
-        mypts = points_3d.reshape((n_points, 3))
+        mypts = self.points_3d.reshape((self.n_points, 3))
         self.graph = plt.scatter(mypts[:,1], mypts[:,0], 100, -mypts[:,2], cmap=cm.jet)
         plt.colorbar()
         plt.draw()
@@ -389,28 +402,28 @@ class Optimizer():
         res = least_squares(self.fun, x0, bounds=bounds,
                             jac_sparsity=A, verbose=2,
                             x_scale='jac', ftol=1e-3, method='trf',
-                            args=(n_cameras, n_points,
-                                  by_camera_point_indices,
-                                  by_camera_points_2d))
+                            args=(self.n_cameras, self.n_points,
+                                  self.by_camera_point_indices,
+                                  self.by_camera_points_2d))
         t1 = time.time()
         print("Optimization took {0:.0f} seconds".format(t1 - t0))
         # print(res['x'])
         print(res)
         
-        camera_params = res.x[:n_cameras * ncp].reshape((n_cameras, ncp))
-        points_3d = res.x[n_cameras * ncp:n_cameras * ncp + n_points * 3].reshape((n_points, 3))
+        self.camera_params = res.x[:self.n_cameras * self.ncp].reshape((self.n_cameras, self.ncp))
+        self.points_3d = res.x[self.n_cameras * self.ncp:self.n_cameras * self.ncp + self.n_points * 3].reshape((self.n_points, 3))
         if self.optimize_calib == 'global':
-            camera_calib = res.x[n_cameras * ncp + n_points * 3:]
+            camera_calib = res.x[self.n_cameras * self.ncp + self.n_points * 3:]
             fx = camera_calib[0]
             fy = camera_calib[1]
             cu = camera_calib[2]
             cv = camera_calib[3]
             distCoeffs_opt = camera_calib[4:]
         else:
-            fx = K[0,0]
-            fy = K[1,1]
-            cu = K[0,2]
-            cv = K[1,2]
+            fx = self.K[0,0]
+            fy = self.K[1,1]
+            cu = self.K[0,2]
+            cv = self.K[1,2]
             distCoeffs_opt = self.distCoeffs
         
         mre_final = np.mean(np.abs(res.fun))
@@ -429,6 +442,6 @@ class Optimizer():
         plt.ioff()
         plt.show()
 
-        return ( camera_params, points_3d,
+        return ( self.camera_params, self.points_3d,
                  self.camera_map_fwd, self.feat_map_rev,
                  fx, fy, cu, cv, distCoeffs_opt )
