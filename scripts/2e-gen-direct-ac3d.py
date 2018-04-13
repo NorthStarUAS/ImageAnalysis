@@ -1,10 +1,10 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
+#sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
-import commands
+#import commands
 import cv2
 import fnmatch
 import numpy as np
@@ -47,7 +47,7 @@ ac3d_steps = 8
 # ned space, then intersect each vector with the srtm ground.
 
 # build our local image list for placing
-print args.sba
+print(args.sba)
 if not args.sba:
     image_list = proj.image_list
 else:
@@ -60,7 +60,7 @@ else:
 depth = 0.0
 camw, camh = proj.cam.get_image_params()
 for image in image_list:
-    print image.name
+    print(image.name)
     # scale the K matrix if we have scaled the images
     scale = float(image.width) / float(camw)
     K = proj.cam.get_K(scale)
@@ -74,28 +74,28 @@ for image in image_list:
     for v in v_list:
         for u in u_list:
             grid_list.append( [u, v] )
-    print 'grid_list:', grid_list
+    print('grid_list:', grid_list)
     
     if not args.sba:
         proj_list = proj.projectVectors( IK, image.get_body2ned(),
                                          image.get_cam2body(), grid_list )
     else:
-        print image.get_body2ned_sba()
+        print(image.get_body2ned_sba())
         proj_list = proj.projectVectors( IK, image.get_body2ned_sba(),
                                          image.get_cam2body(), grid_list )
-    print 'proj_list:', proj_list
+    print('proj_list:', proj_list)
         
     if not args.sba:
         ned = image.camera_pose['ned']
     else:
         ned = image.camera_pose_sba['ned']
-    print 'ned', image.camera_pose['ned'], ned
+    print('ned', image.camera_pose['ned'], ned)
     if args.ground:
         pts_ned = proj.intersectVectorsWithGroundPlane(ned,
                                                        args.ground, proj_list)
     else:
         pts_ned = sss.interpolate_vectors(ned, proj_list)
-    print "pts_3d (ned):\n", pts_ned
+    print("pts_3d (ned):\n", pts_ned)
 
     # convert ned to xyz and stash the result for each image
     image.grid_list = []
@@ -111,4 +111,4 @@ AC3D.generate(image_list, src_dir=proj.source_dir,
               version=1.0, trans=0.1, resolution=args.texture_resolution)
 
 if not args.ground:
-    print 'Avg ground elevation (SRTM):', ground_sum / len(pts_ned)
+    print('Avg ground elevation (SRTM):', ground_sum / len(pts_ned))
