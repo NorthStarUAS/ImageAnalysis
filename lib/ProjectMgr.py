@@ -440,7 +440,7 @@ class ProjectMgr():
             if len(image.kp_list) == 0:
                 continue
             scale = float(image.width) / float(camw)
-            K = self.cam.get_K(scale)
+            K = self.cam.get_K(scale, optimized)
             uv_raw = np.zeros((len(image.kp_list),1,2), dtype=np.float32)
             for i, kp in enumerate(image.kp_list):
                 uv_raw[i][0] = (kp.pt[0], kp.pt[1])
@@ -449,7 +449,7 @@ class ProjectMgr():
             image.uv_list = []
             for i, uv in enumerate(uv_new):
                 image.uv_list.append(uv_new[i][0])
-                #print "  orig = %s  undistort = %s" % (uv_raw[i][0], uv_new[i][0])
+                # print("  orig = %s  undistort = %s" % (uv_raw[i][0], uv_new[i][0]))
             bar.next()
         bar.finish()
                 
