@@ -137,7 +137,7 @@ class GmsMatcher:
                 self.SetScale(scale)
                 for RotationType in range(1, 9):
                     num_inlier = self.run(RotationType)
-                    print(scale, RotationType, num_inlier)
+                    print('    ', scale, RotationType, num_inlier)
                     if num_inlier > max_inlier:
                         vb_inliers = self.mvbInlierMask
                         max_inlier = num_inlier
@@ -151,7 +151,7 @@ class GmsMatcher:
             vb_inliers = []
             for RotationType in range(1, 9):
                 num_inlier = self.run(RotationType)
-                print(RotationType, num_inlier)
+                print('    ', RotationType, num_inlier)
                 if num_inlier > max_inlier:
                     vb_inliers = self.mvbInlierMask
                     max_inlier = num_inlier
@@ -176,7 +176,6 @@ class GmsMatcher:
 
     def SetScale(self, Scale):
         # Set Scale
-        print('setscale left:', self.mGridSizeLeft.width, mScaleRatios[Scale])
         self.mGridSizeRight.width = int(self.mGridSizeLeft.width * mScaleRatios[Scale])
         self.mGridSizeRight.height = int(self.mGridSizeLeft.height * mScaleRatios[Scale])
         self.mGridNumberRight = int(self.mGridSizeRight.width * self.mGridSizeRight.height)
@@ -184,8 +183,6 @@ class GmsMatcher:
         # Initialize the neighbour of right grid
         self.mGridNeighborRight = np.zeros((int(self.mGridNumberRight), 9))
         self.InitializeNeighbors(self.mGridNeighborRight, self.mGridSizeRight)
-
-        print('setscale:', self.mGridSizeRight.width, self.mGridSizeRight.height)
 
     def run(self, RotationType):
         self.mvbInlierMask = [False for _ in range(self.mNumberMatches)]
