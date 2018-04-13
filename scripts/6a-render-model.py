@@ -44,7 +44,7 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
-proj.undistort_keypoints()
+proj.undistort_keypoints(optimized=True)
 
 ref = proj.ned_reference_lla
 
@@ -274,7 +274,7 @@ if True:
         print(image.name, image.z_avg)
         # scale the K matrix if we have scaled the images
         scale = float(image.width) / float(camw)
-        K = proj.cam.get_K(scale)
+        K = proj.cam.get_K(scale, optimized=True)
         IK = np.linalg.inv(K)
 
         grid_list = []
@@ -312,7 +312,7 @@ if True:
             pts_ned = proj.intersectVectorsWithGroundPlane(ned,
                                                            image.z_avg,
                                                            proj_list)
-        elif True:
+        elif False:
             # intersect with our polygon surface approximation
             pts_ned = intersect_vectors(ned, proj_list, m)
         else:
