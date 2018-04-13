@@ -99,10 +99,10 @@ class Camera():
 
     # dist_coeffs = array[5] = k1, k2, p1, p2, k3
     def get_dist_coeffs(self, optimized=False):
-        dist_coeffs = self.camera_dict['dist_coeffs']
         if optimized and 'dist_coeffs_opt' in self.camera_dict:
-            dist_ceoffs = self.camera_dict['dist_coeffs_opt']
-        return dist_coeffs
+            return self.camera_dict['dist_coeffs_opt']
+        else:
+            return self.camera_dict['dist_coeffs']
     
     def set_dist_coeffs(self, dist_coeffs, optimized=False):
         if optimized:
