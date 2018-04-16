@@ -110,17 +110,17 @@ class ProjectMgr():
          
         # detector defaults
         detector_node = getNode('/detector', True)
-        detector_node.setString('detector', 'SIFT') # { SIFT, SURF, ORB, Star }
-        detector_node.setInt('grid_detect', 1)
-        detector_node.setInt('sift_max_features', 2000)
-        detector_node.setInt('surf_hessian_threshold', 600)
-        detector_node.setInt('surf_noctaves', 4)
-        detector_node.setInt('orb_max_features', 2000)
-        detector_node.setInt('star_max_size', 16)
-        detector_node.setInt('star_response_threshold', 30)
-        detector_node.setInt('star_line_threshold_projected', 10)
-        detector_node.setInt('star_line_threshold_binarized', 8)
-        detector_node.setInt('star_suppress_nonmax_size', 5)
+        # detector_node.setString('detector', 'SIFT') # { SIFT, SURF, ORB, Star }
+        # detector_node.setInt('grid_detect', 1)
+        # detector_node.setInt('sift_max_features', 2000)
+        # detector_node.setInt('surf_hessian_threshold', 600)
+        # detector_node.setInt('surf_noctaves', 4)
+        # detector_node.setInt('orb_max_features', 2000)
+        # detector_node.setInt('star_max_size', 16)
+        # detector_node.setInt('star_response_threshold', 30)
+        # detector_node.setInt('star_line_threshold_projected', 10)
+        # detector_node.setInt('star_line_threshold_binarized', 8)
+        # detector_node.setInt('star_suppress_nonmax_size', 5)
 
     # project_dir is a new folder for all derived files
     def set_project_dir(self, project_dir, create_if_needed=True):
@@ -151,7 +151,7 @@ class ProjectMgr():
     # The expected work flow is that we will import/scale all the
     # original images into our project folder leaving the original
     # image set completely untouched.
-    def set_source_dir(self, source_dir):
+    def set_images_source(self, source_dir):
         if source_dir == self.dir_node.getString('project'):
             print("Error: image source and project dirs must be different.")
             return
@@ -349,21 +349,33 @@ class ProjectMgr():
     def set_matcher_params(self, mparams):
         self.matcher_params = mparams
         
-    def detect_features(self, force=True, show=False):
+    def detect_features(self, scale, show=False):
+        # clear the image list if there is one
+        self.image_list = []
+        
+        source_dir = self.dir_node.getString('images_source')
+        meta_dir = os.path.join( self.dir_node.getString('project'), 'Images')
+        files = []
+        for file in os.listdir(source_dir):
+            if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
+                files.append(file)
+        files.sort()
+        
         if not show:
-            bar = Bar('Detecting features:', max = len(self.image_list))
-        for image in self.image_list:
-            if force or len(image.kp_list) == 0 or image.des_list == None:
-                #print "detecting features and computing descriptors: " + image.name
-                gray = image.load_gray()
-                image.detect_features(gray)
-                image.save_features()
-                image.save_descriptors()
-                image.save_matches()
-                if show:
-                    result = image.show_features()
-                    if result == 27 or result == ord('q'):
-                        break
+            bar = Bar('Detecting features:', max = len(files))
+        for file in files:
+            #print "detecting features and computing descriptors: " + image.name
+            image = Image.Image(source_dir, meta_dir, file)
+            self.image_list.append( image )
+            rgb = image.load_rgb()
+            image.detect_features(rgb, scale)
+            image.save_features()
+            image.save_descriptors()
+            image.save_matches()
+            if show:
+                result = image.show_features()
+                if result == 27 or result == ord('q'):
+                    break
             if not show:
                 bar.next()
         if not show:
@@ -432,12 +444,10 @@ class ProjectMgr():
     # location (from the calibrated distortion parameters)
     def undistort_keypoints(self, optimized=False):
         bar = Bar('Undistorting keypoints:', max = len(self.image_list))
-        camw, camh = self.cam.get_image_params()
         for image in self.image_list:
             if len(image.kp_list) == 0:
                 continue
-            scale = float(image.width) / float(camw)
-            K = self.cam.get_K(scale, optimized)
+            K = self.cam.get_K(optimized)
             uv_raw = np.zeros((len(image.kp_list),1,2), dtype=np.float32)
             for i, kp in enumerate(image.kp_list):
                 uv_raw[i][0] = (kp.pt[0], kp.pt[1])
@@ -446,7 +456,7 @@ class ProjectMgr():
             image.uv_list = []
             for i, uv in enumerate(uv_new):
                 image.uv_list.append(uv_new[i][0])
-                # print("  orig = %s  undistort = %s" % (uv_raw[i][0], uv_new[i][0]))
+                print("  orig = %s  undistort = %s" % (uv_raw[i][0], uv_new[i][0]))
             bar.next()
         bar.finish()
                 
