@@ -3,11 +3,13 @@
 import sys
 
 import argparse
-import cv2
+#import cv2
 import fnmatch
 import numpy as np
 import os.path
 from progress.bar import Bar
+
+from props import getNode
 
 sys.path.append('../lib')
 import ProjectMgr
@@ -26,6 +28,7 @@ import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Load the project\'s images.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--scale', type=float, default=0.2, help='scale images before detecting features')
 parser.add_argument('--detector', default='SIFT',
                     choices=['SIFT', 'SURF', 'ORB', 'Star'])
 parser.add_argument('--sift-max-features', default=5000,
@@ -46,8 +49,6 @@ parser.add_argument('--star-line-threshold-binarized', default=8)
 parser.add_argument('--star-suppress-nonmax-size', default=5)
 parser.add_argument('--reject-margin', default=5, help='reject features within this distance of the image margin')
 
-parser.add_argument('--force', action='store_true',
-                    help='force redection of features even if features already exist')
 parser.add_argument('--show', action='store_true',
                     help='show features as we detect them')
 
@@ -59,19 +60,27 @@ proj.load_image_info()
 # setup project detector params
 detector_node = getNode('/detector', True)
 detector_node.setString('detector', args.detector)
-detector_node.setInt('grid_detect', args.grid_detect)
-detector_node.setInt('sift_max_features', args.sift_max_features)
-detector_node.setInt('surf_hessian_threshold', args.surf_hessian_threshold)
-detector_node.setInt('surf_noctaves', args.surf_noctaves)
-detector_node.setInt('orb_max_features', args.orb_max_features)
-detector_node.setInt('star_max_size', args.star_max_size)
-detector_node.setInt('star_response_threshold', args.star_response_threshold)
-detector_node.setInt('star_line_threshold_projected', args.star_response_threshold)
-detector_node.setInt('star_line_threshold_binarized', args.star_line_threshold_binarized)
-detector_node.setInt('star_suppress_nonmax_size', args.star_suppress_nonmax_size)
+if args.detector == 'SIFT':
+    detector_node.setInt('sift_max_features', args.sift_max_features)
+elif args.detector == 'SURF':
+    detector_node.setInt('surf_hessian_threshold', args.surf_hessian_threshold)
+    detector_node.setInt('surf_noctaves', args.surf_noctaves)
+elif args.detector == 'ORB':
+    detector_node.setInt('grid_detect', args.grid_detect)
+    detector_node.setInt('orb_max_features', args.orb_max_features)
+elif args.detector == 'Star':
+    detector_node.setInt('star_max_size', args.star_max_size)
+    detector_node.setInt('star_response_threshold',
+                         args.star_response_threshold)
+    detector_node.setInt('star_line_threshold_projected',
+                         args.star_response_threshold)
+    detector_node.setInt('star_line_threshold_binarized',
+                         args.star_line_threshold_binarized)
+    detector_node.setInt('star_suppress_nonmax_size',
+                         args.star_suppress_nonmax_size)
 
 # find features in the full image set
-proj.detect_features(force=args.force, show=args.show)
+proj.detect_features(scale=args.scale, show=args.show)
 
 # compute the undistorted mapping of the keypoints (features)
 proj.undistort_keypoints()
