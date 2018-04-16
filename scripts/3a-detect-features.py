@@ -56,19 +56,19 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_image_info()
 
-detector_params = { 'detector': args.detector,
-                    'sift-max-features': args.sift_max_features,
-                    'surf-hessian-threshold': args.surf_hessian_threshold,
-                    'surf-noctaves': args.surf_noctaves,
-                    'orb-max-features': args.orb_max_features,
-                    'grid-detect': args.grid_detect,
-                    'star-max-size': args.star_max_size,
-                    'star-response-threshold': args.star_response_threshold,
-                    'star-line-threshold-projected': args.star_line_threshold_projected,
-                    'star-line-threshold-binarized': args.star_line_threshold_binarized,
-                    'star-suppress-nonmax-size': args.star_suppress_nonmax_size }
-proj.set_detector_params(detector_params)
-proj.save()
+# setup project detector params
+detector_node = getNode('/detector', True)
+detector_node.setString('detector', args.detector)
+detector_node.setInt('grid_detect', args.grid_detect)
+detector_node.setInt('sift_max_features', args.sift_max_features)
+detector_node.setInt('surf_hessian_threshold', args.surf_hessian_threshold)
+detector_node.setInt('surf_noctaves', args.surf_noctaves)
+detector_node.setInt('orb_max_features', args.orb_max_features)
+detector_node.setInt('star_max_size', args.star_max_size)
+detector_node.setInt('star_response_threshold', args.star_response_threshold)
+detector_node.setInt('star_line_threshold_projected', args.star_response_threshold)
+detector_node.setInt('star_line_threshold_binarized', args.star_line_threshold_binarized)
+detector_node.setInt('star_suppress_nonmax_size', args.star_suppress_nonmax_size)
 
 # find features in the full image set
 proj.detect_features(force=args.force, show=args.show)
@@ -107,3 +107,6 @@ for image in proj.image_list:
     image_count += 1
 
 print("Average # of features per image found = %.0f" % (feature_count / image_count))
+
+print("Saving project configuration")
+proj.save()

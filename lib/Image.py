@@ -12,6 +12,8 @@ import numpy as np
 import os.path
 import sys
 
+from props import getNode
+
 import transformations
 
 
@@ -326,26 +328,27 @@ class Image():
             raise
 
     def make_detector(self, dparams):
+        detector_node = getNode('/detector', True)
         detector = None
-        if dparams['detector'] == 'SIFT':
-            max_features = int(dparams['sift-max-features'])
+        if detector_node.getString('detector') == 'SIFT':
+            max_features = detector_node.getInt('sift_max_features')
             detector = cv2.xfeatures2d.SIFT_create(nfeatures=max_features)
-        elif dparams['detector'] == 'SURF':
-            threshold = float(dparams['surf-hessian-threshold'])
-            nOctaves = int(dparams['surf-noctaves'])
+        elif detector_node.getString('detector') == 'SURF':
+            threshold = detector_node.getFloat('surf-hessian-threshold')
+            nOctaves = detector_node.getInt('surf-noctaves')
             detector = cv2.SURF(hessianThreshold=threshold, nOctaves=nOctaves)
-        elif dparams['detector'] == 'ORB':
-            max_features = int(dparams['orb-max-features'])
-            grid_size = int(dparams['grid-detect'])
+        elif detector_node.getString('detector') == 'ORB':
+            max_features = detector_node.getInt('orb-max-features')
+            grid_size = detector_node.getInt('grid-detect')
             cells = grid_size * grid_size
             max_cell_features = int(max_features / cells)
             detector = cv2.ORB_create(max_cell_features)
-        elif dparams['detector'] == 'Star':
-            maxSize = int(dparams['star-max-size'])
-            responseThreshold = int(dparams['star-response-threshold'])
-            lineThresholdProjected = int(dparams['star-line-threshold-projected'])
-            lineThresholdBinarized = int(dparams['star-line-threshold-binarized'])
-            suppressNonmaxSize = int(dparams['star-suppress-nonmax-size'])
+        elif detector_node.getString('detector') == 'Star':
+            maxSize = detector_node.getInt('star-max-size')
+            responseThreshold = detector_node.getInt('star-response-threshold')
+            lineThresholdProjected = detector_node.getInt('star-line-threshold-projected')
+            lineThresholdBinarized = detector_node.getInt('star-line-threshold-binarized')
+            suppressNonmaxSize = detector_node.getInt('star-suppress-nonmax-size')
             detector = cv2.StarDetector(maxSize, responseThreshold,
                                         lineThresholdProjected,
                                         lineThresholdBinarized,
@@ -372,10 +375,11 @@ class Image():
             x += dx
         return kp_list
 
-    def detect_features(self, dparams, gray):
-        detector = self.make_detector(dparams)
-        grid_size = int(dparams['grid-detect'])
-        if dparams['detector'] == 'ORB' and grid_size > 1:
+    def detect_features(self, gray):
+        detector_node = getNode('/detector', True)
+        detector = self.make_detector()
+        grid_size = detector_node.getInt('grid_detect')
+        if detector_node.getString('detector') == 'ORB' and grid_size > 1:
             kp_list = self.orb_grid_detect(detector, gray, grid_size)
         else:
             kp_list = detector.detect(gray)
@@ -386,7 +390,7 @@ class Image():
         # compute() could potential add/remove keypoints so we want to
         # save the returned keypoint list, not our original detected
         # keypoint list
-        if dparams['detector'] == 'Star':
+        if detector_node.getString('detector') == 'Star':
             extractor = cv2.DescriptorExtractor_create('ORB')
         else:
             extractor = detector

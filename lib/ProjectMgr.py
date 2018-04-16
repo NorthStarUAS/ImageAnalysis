@@ -16,7 +16,9 @@ import sys
 import time
 
 import geojson
-#import pyexiv2
+
+from props import root, getNode
+import props_json
 
 from getchar import find_getch
 import Camera
@@ -69,27 +71,14 @@ def decimal_to_dms(decimal):
     return [Fraction(n) for n in (degrees, minutes, remainder * 60)]
 
 class ProjectMgr():
-    def __init__(self, project_dir=None):
+    def __init__(self, project_dir, create=False):
         # directories
-        self.project_dir = None  # project working directory
-        self.source_dir = None   # original images
         self.image_dir = None    # working set of images
 
         self.cam = Camera.Camera()
         
         self.image_list = []
 
-        self.detector_params = { 'detector': 'SIFT', # { SIFT, SURF, ORB, Star }
-                                 'grid-detect': 1,
-                                 'sift-max-features': 2000,
-                                 'surf-hessian-threshold': 600,
-                                 'surf-noctaves': 4,
-                                 'orb-max-features': 2000,
-                                 'star-max-size': 16,
-                                 'star-response-threshold': 30,
-                                 'star-line-threshold-projected': 10,
-                                 'star-line-threshold-binarized': 8,
-                                 'star-suppress-nonmax-size': 5 }
         self.matcher_params = { 'matcher': 'FLANN', # { FLANN or 'BF' }
                                 'match-ratio': 0.75,
                                 'filter': 'fundamental',
@@ -111,29 +100,48 @@ class ProjectMgr():
         self.placer = Placer.Placer()
         self.render = Render.Render()
         
-        if project_dir != None:
-            self.load( project_dir )
+        self.dir_node = getNode('/directories', True)
+        
+        self.load( project_dir, create )
+
+    def set_defaults(self):
+        # camera defaults
+        self.cam.set_defaults()
+         
+        # detector defaults
+        detector_node = getNode('/detector', True)
+        detector_node.setString('detector', 'SIFT') # { SIFT, SURF, ORB, Star }
+        detector_node.setInt('grid_detect', 1)
+        detector_node.setInt('sift_max_features', 2000)
+        detector_node.setInt('surf_hessian_threshold', 600)
+        detector_node.setInt('surf_noctaves', 4)
+        detector_node.setInt('orb_max_features', 2000)
+        detector_node.setInt('star_max_size', 16)
+        detector_node.setInt('star_response_threshold', 30)
+        detector_node.setInt('star_line_threshold_projected', 10)
+        detector_node.setInt('star_line_threshold_binarized', 8)
+        detector_node.setInt('star_suppress_nonmax_size', 5)
 
     # project_dir is a new folder for all derived files
     def set_project_dir(self, project_dir, create_if_needed=True):
-        self.project_dir = project_dir
+        self.dir_node.setString('project', project_dir)
         
-        if not os.path.exists(self.project_dir):
+        if not os.path.exists(project_dir):
             if create_if_needed:
-                print("Notice: creating project directory: {}".format(self.project_dir))
-                os.makedirs(self.project_dir)
+                print("Notice: creating project directory:", project_dir)
+                os.makedirs(project_dir)
             else:
-                print("Error: project dir doesn't exist: {}".format(self.project_dir))
+                print("Error: project dir doesn't exist: ", project_dir)
                 return False
 
         # and make children directories
-        self.image_dir = project_dir + "/" + "Images"
+        self.image_dir = os.path.join(project_dir, "Images")
         if not os.path.exists(self.image_dir):
             if create_if_needed:
-                print("Notice: creating image directory: {}".format(self.image_dir))
+                print("Notice: creating image directory:", self.image_dir)
                 os.makedirs(self.image_dir)
             else:
-                print("Error: image dir doesn't exist: {}".format(self.image_dir))
+                print("Error: image dir doesn't exist:", self.image_dir)
                 return False
             
         # all is good
@@ -144,102 +152,94 @@ class ProjectMgr():
     # original images into our project folder leaving the original
     # image set completely untouched.
     def set_source_dir(self, source_dir):
-        if source_dir == self.project_dir:
+        if source_dir == self.dir_node.getString('project'):
             print("Error: image source and project dirs must be different.")
             return
 
         if not os.path.exists(source_dir):
-            print("Error: image source path does not exist: {}".format(source_path))
-            
-        self.source_dir = source_dir
+            print("Error: image source path does not exist:", source_dir)
+
+        self.dir_node.setString('images_source', source_dir)
 
     def save(self):
         # create a project dictionary and write it out as json
-        if not os.path.exists(self.project_dir):
-            print("Error: project doesn't exist: {}".format(self.project_dir))
+        project_dir = self.dir_node.getString('project')
+        if not os.path.exists(project_dir):
+            print("Error: project doesn't exist:", project_dir)
             return
 
-        dirs = {}
-        dirs['images-source'] = self.source_dir
-        project_dict = {}
-        project_dict['detector'] = self.detector_params
-        project_dict['matcher'] = self.matcher_params
-        project_dict['directories'] = dirs
-        project_dict['ned-reference-lla'] = self.ned_reference_lla
-        project_file = self.project_dir + "/Project.json"
-        try:
-            f = open(project_file, 'w')
-            json.dump(project_dict, f, indent=4, sort_keys=True)
-            f.close()
-        except IOError as e:
-            print("Save project(): I/O error({0}): {1}".format(e.errno, e.strerror))
-            return
-        except:
-            raise
+        # fixme: remove me
+        # dirs = {}
+        # project_dict = {}
+        # project_dict['matcher'] = self.matcher_params
+        # project_dict['directories'] = dirs
+        # project_dict['ned-reference-lla'] = self.ned_reference_lla
+        
+        project_file = os.path.join(project_dir, "Project.json")
+        props_json.save(project_file, root)
 
-        # save camera configuration
-        self.cam.save(self.project_dir)
-
-    def load(self, project_dir, create_if_needed=True):
+    def load(self, project_dir, create=True):
         if not self.set_project_dir( project_dir ):
             return
 
         # load project configuration
-        project_file = self.project_dir + "/Project.json"
-        try:
-            f = open(project_file, 'r')
-            project_dict = json.load(f)
-            f.close()
-
-            if 'detector' in project_dict:
-                self.detector_params = project_dict['detector']
-            if 'matcher' in project_dict:
-                self.matcher_params = project_dict['matcher']
-            dirs = project_dict['directories']
-            self.source_dir = dirs['images-source']
-            self.ned_reference_lla = project_dict['ned-reference-lla']
-        except:
-            if not create_if_needed:
-                print("load error: " + str(sys.exc_info()[1]))
-                print("Notice: unable to read =", project_file)
+        result = False
+        project_file = os.path.join(project_dir, "Project.json")
+        if os.path.isfile(project_file):
+            if props_json.load(project_file, root):
+                # fixme:
+                # if 'matcher' in project_dict:
+                #     self.matcher_params = project_dict['matcher']
+                # dirs = project_dict['directories']
+                # self.ned_reference_lla = project_dict['ned-reference-lla']
+                result = True
+            else:
+                print("Notice: unable to load: ", project_file)
+        else:
+            print("Notice: project configuration doesn't exist:", project_file)
+        if not result and create:
             print("Continuing with an empty project configuration")
- 
-        # load camera configuration
-        self.cam.load(self.project_dir)
+            self.set_defaults()
+        elif not result:
+            print("aborting...")
+            quit()
+
+        #root.pretty_print()
 
     # import an image set into the project directory, possibly scaling them
     # to a lower resolution for faster processing.
     def import_images(self, scale=0.25, converter='imagemagick'):
-        if self.source_dir == None:
-            print("Error: source_dir not defined.")
+        source_dir = self.dir_node.getString('images_source')
+        if source_dir == '':
+            print("Error: images_source not defined.")
             return
 
         if self.image_dir == None:
             print("Error: project's image_dir not defined.")
             return
         
-        if self.source_dir == self.image_dir:
+        if source_dir == self.image_dir:
             print("Error: source and destination directories must be different.")
             return
 
-        if not os.path.exists(self.source_dir):
-            print("Error: source directory not found =", self.source_dir)
+        if not os.path.exists(source_dir):
+            print("Error: source directory not found:", source_dir)
             return
 
         if not os.path.exists(self.image_dir):
-            print("Error: destination directory not found =", self.image_dir)
+            print("Error: destination directory not found:", self.image_dir)
             return
 
         files = []
-        for file in os.listdir(self.source_dir):
+        for file in os.listdir(source_dir):
             if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
                 files.append(file)
         files.sort()
 
         for file in files:
             print('Import/scaling:', file)
-            name_in = self.source_dir + "/" + file
-            name_out = self.image_dir + "/" + file
+            name_in = os.path.join(source_dir, file)
+            name_out = os.path.join(self.image_dir, file)
             if converter == 'imagemagick':
                 subprocess.run(['convert', '-resize', '%d%%' % int(scale*100.0), name_in, name_out])
             elif converter == 'opencv':
@@ -346,9 +346,6 @@ class ProjectMgr():
         for image in self.image_list:
             image.save_meta()
 
-    def set_detector_params(self, dparams):
-        self.detector_params = dparams
-        
     def set_matcher_params(self, mparams):
         self.matcher_params = mparams
         
@@ -359,7 +356,7 @@ class ProjectMgr():
             if force or len(image.kp_list) == 0 or image.des_list == None:
                 #print "detecting features and computing descriptors: " + image.name
                 gray = image.load_gray()
-                image.detect_features(self.detector_params, gray)
+                image.detect_features(gray)
                 image.save_features()
                 image.save_descriptors()
                 image.save_matches()
@@ -419,7 +416,7 @@ class ProjectMgr():
         scale = float(image.width) / float(camw)
         K = self.cam.get_K(scale)
         # assemble the points in the proper format
-        uv_raw = np.zeros((len(uv_orig),1,2), dtype=np.float32)
+        uv_raw = np.zeros((len(uv_orig),12,), dtype=np.float32)
         for i, kp in enumerate(uv_orig):
             uv_raw[i][0] = (kp[0], kp[1])
         # do the actual undistort
@@ -1473,8 +1470,8 @@ class ProjectMgr():
                 F, mask = cv2.findFundamentalMat(pts1, pts2, cv2.FM_LMEDS)
 
                 print("loading full res images ...")
-                img1 = i1.load_source_rgb(self.source_dir)
-                img2 = i2.load_source_rgb(self.source_dir)
+                img1 = i1.load_source_rgb(source_dir)
+                img2 = i2.load_source_rgb(source_dir)
 
                 # Find epilines corresponding to points in right image
                 # (second image) and drawing its lines on left image
@@ -2068,7 +2065,7 @@ class ProjectMgr():
 
             # group
             gc = geojson.GeometryCollection( [cam, poly] )
-            source = "%s/%s" % (self.source_dir, image.name)
+            source = "%s/%s" % (source_dir, image.name)
             work = "%s/%s" % (self.image_dir, image.name)
             f = geojson.Feature(geometry=gc, id=i,
                                 properties={"name": image.name,
@@ -2090,7 +2087,7 @@ class ProjectMgr():
             print("rendering %s" % image.name)
             w, h, warp = \
                 self.render.drawImage(image,
-                                      source_dir=self.source_dir,
+                                      source_dir=dir_node.getString('images_source'),
                                       cm_per_pixel=cm_per_pixel,
                                       keypoints=False,
                                       bounds=None)

@@ -1,10 +1,8 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
-import commands
 import cv2
 import fnmatch
 import os.path
@@ -58,14 +56,14 @@ if args.horiz_mm or args.vert_mm or args.focal_len_mm:
     if args.horiz_mm and args.vert_mm and args.focal_len_mm:
         proj.cam.set_lens_params(args.horiz_mm, args.vert_mm, args.focal_len_mm)
     else:
-        print "Must set horiz-mm, vert-mm, and focal-len-mm together"
+        print("Must set horiz-mm, vert-mm, and focal-len-mm together")
 
-print args
+print(args)
 if args.fx or args.fy or args.cu or args.cv:
     if args.fx and args.fy and args.cu and args.cv:
         proj.cam.set_K(args.fx, args.fy, args.cu, args.cv)
     else:
-         print "Must set fx, fy, cu, and cv together"
+         print("Must set fx, fy, cu, and cv together")
 
 if args.kcoeffs:
     proj.cam.set_dist_coeffs(args.kcoeffs)
@@ -74,13 +72,13 @@ if args.width_px or args.height_px:
     if args.width_px and args.height_px:
         proj.cam.set_image_params(args.width_px, args.height_px)
     else:
-         print "Must set width-px and height-px together"
+         print("Must set width-px and height-px together")
 
 if args.yaw_deg != None or args.pitch_deg != None or args.roll_deg != None:
     if args.yaw_deg != None and args.pitch_deg != None and args.roll_deg != None:
         proj.cam.set_mount_params(args.yaw_deg, args.pitch_deg, args.roll_deg)
     else:
-         print "Must set yaw-deg, pitch-deg, and roll-deg together"
+         print("Must set yaw-deg, pitch-deg, and roll-deg together")
 
 # note: fx = (focal_len_mm * width_px) / horiz_mm
 # note: fy = (focal_len_mm * height_px) / vert_mm

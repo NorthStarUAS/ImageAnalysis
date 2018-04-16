@@ -1,69 +1,44 @@
 #!/usr/bin/python
 
-import json
 import numpy as np
-import os.path
+
+from props import getNode
+
+# camera parameters are stored in the global property tree, but this
+# class provides convenient getter/setter functions
 
 class Camera():
     def __init__(self):
-        # note: store parameters inside a dict() to make life easy for
-        # loading/saving.  We don't need fast access to these values
-        self.camera_dict = {}
-        
+        self.camera_node = getNode('/camera', True)
+
+    def set_defaults(self):
         # camera lens parameters
-        self.camera_dict['horiz_mm'] = 0.0
-        self.camera_dict['vert_mm'] = 0.0
-        self.camera_dict['focal_len_mm'] = 0.0
+        self.camera_node.setFloat('horiz_mm', 0.0)
+        self.camera_node.setFloat('vert_mm', 0.0)
+        self.camera_node.setFloat('focal_len_mm', 0.0)
 
         # camera calibration parameters
-        self.camera_dict['K'] = [0.0]*9
-        self.camera_dict['dist_coeffs'] = [0.0]*5
+        self.camera_node.setLen('K', 9, init_val=0.0)
+        self.camera_node.setLen('dist_coeffs', 5, init_val=0.0)
 
         # full size of camera image (these values may be needed for
         # sentera images processed through their rolling shutter
         # corrector that are not full width/height.
-        self.camera_dict['width_px'] = 0
-        self.camera_dict['height_px'] = 0
+        self.camera_node.setFloat('width_px', 0)
+        self.camera_node.setFloat('height_px', 0)
 
         # camera mount parameters: these are offsets from the aircraft body
-        self.camera_dict['mount_ypr'] = [ 0.0, 0.0, 0.0 ]
-
-    def save(self, project_dir):
-        # create a dictionary and write it out as json
-        if not os.path.exists(project_dir):
-            print("Error: project doesn't exist =", project_dir)
-            return
-        
-        camera_file = os.path.join(project_dir, "Camera.json")
-        try:
-            f = open(camera_file, 'w')
-            json.dump(self.camera_dict, f, indent=4, sort_keys=True)
-            f.close()
-        except IOError as e:
-            print("Save camera(): I/O error({0}): {1}".format(e.errno, e.strerror))
-            return
-        except:
-            raise
-
-    def load(self, project_dir):
-        camera_file = os.path.join(project_dir, "Camera.json")
-        try:
-            f = open(camera_file, 'r')
-            self.camera_dict = json.load(f)
-            f.close()
-        except:
-            print("Notice: unable to read =", camera_file)
-            print("Continuing with an empty camera configuration")
+        self.camera_node.setLen('mount_ypr', 3, init_val=0.0)
 
     def set_lens_params(self, horiz_mm, vert_mm, focal_len_mm):
-        self.camera_dict['horiz_mm'] = horiz_mm
-        self.camera_dict['vert_mm'] = vert_mm
-        self.camera_dict['focal_len_mm'] = focal_len_mm
+        self.camera_node.setFloat('horiz_mm', horiz_mm)
+        self.camera_node.setFloat('vert_mm', vert_mm)
+        self.camera_node.setFloat('focal_len_mm', focal_len_mm)
         
     def get_lens_params(self):
-        return ( self.camera_dict['horiz_mm'],
-                 self.camera_dict['vert_mm'],
-                 self.camera_dict['focal_len_mm'] )
+        return ( self.camera_node.getFloat('horiz_mm'), 
+                 self.camera_node.getFloat('vert_mm'),
+                 self.camera_node.getFloat('focal_len_mm') )
 
     def get_K(self, scale=1.0, optimized=False):
         """
@@ -74,15 +49,19 @@ class Camera():
         R.I. Hartley & A. Zisserman, Multiview Geometry in Computer Vision,
         Cambridge University Press, 2004.
         """
-        tmp = self.camera_dict['K']
-        if optimized and 'K_opt' in self.camera_dict:
-            tmp = self.camera_dict['K_opt']
+        tmp = []
+        if optimized and self.camera_node.hasChild('K_opt'):
+            for i in range(9):
+                tmp.append( self.camera_node.getFloatEnum('K_opt', i) )
+        else:
+            for i in range(9):
+                tmp.append( self.camera_node.getFloatEnum('K', i) )
         K = np.copy(np.array(tmp)).reshape(3,3)
         K[0,0] *= scale
         K[1,1] *= scale
         K[0,2] *= scale
         K[1,2] *= scale
-        #print('stored K:', self.camera_dict['K'], 'scaled K:', K)
+        #print('stored K:', self.camera_node.setFloat('K'], 'scaled K:', K)
         return K
         
     def set_K(self, fx, fy, cu, cv, optimized=False):
@@ -92,37 +71,55 @@ class Camera():
         K[0,2] = cu
         K[1,2] = cv
         # store as linear python list
+        tmp = K.ravel().tolist()
         if optimized:
-            self.camera_dict['K_opt'] = K.ravel().tolist()
+            self.camera_node.setLen('K_opt', 9)
+            for i in range(9):
+                self.camera_node.setFloatEnum('K_opt', i, tmp[i])
         else:
-            self.camera_dict['K'] = K.ravel().tolist()
+            self.camera_node.setLen('K', 9)
+            for i in range(9):
+                self.camera_node.setFloatEnum('K', i, tmp[i])
 
     # dist_coeffs = array[5] = k1, k2, p1, p2, k3
     def get_dist_coeffs(self, optimized=False):
-        if optimized and 'dist_coeffs_opt' in self.camera_dict:
-            return self.camera_dict['dist_coeffs_opt']
+        tmp = []
+        if optimized and self.camera_node.hasChild('dist_coeffs_opt'):
+            for i in range(5):
+                tmp.append( self.camera_node.getFloatEnum('dist_coeffs_opt', i) )
         else:
-            return self.camera_dict['dist_coeffs']
+            for i in range(5):
+                tmp.append( self.camera_node.getFloatEnum('dist_coeffs', i) )
+        return np.array(tmp)
     
     def set_dist_coeffs(self, dist_coeffs, optimized=False):
         if optimized:
-            self.camera_dict['dist_coeffs_opt'] = dist_coeffs
+            self.camera_node.setLen('dist_coeffs_opt', 5)
+            for i in range(5):
+                self.camera_node.setFloatEnum('dist_coeffs_opt', dist_coeffs[i])
         else:
-            self.camera_dict['dist_coeffs'] = dist_coeffs
+            self.camera_node.setLen('dist_coeffs', 5)
+            for i in range(5):
+                self.camera_node.setFloatEnum('dist_coeffs', i, dist_coeffs[i])
         
     def set_image_params(self, width_px, height_px):
-        self.camera_dict['width_px'] = width_px
-        self.camera_dict['height_px'] = height_px
+        self.camera_node.setFloat('width_px', width_px)
+        self.camera_node.setFloat('height_px', height_px)
         
     def get_image_params(self):
-        return ( self.camera_dict['width_px'],
-                 self.camera_dict['height_px'] )
+        return ( self.camera_node.getFloat('width_px'),
+                 self.camera_node.getFloat('height_px') )
 
     def set_mount_params(self, yaw_deg, pitch_deg, roll_deg):
-        self.camera_dict['mount_ypr'] = [yaw_deg, pitch_deg, roll_deg]
+        self.camera_node.setLen('mount_ypr', 3)
+        self.camera_node.setFloatEnum('mount_ypr', 0, yaw_deg)
+        self.camera_node.setFloatEnum('mount_ypr', 1, pitch_deg)
+        self.camera_node.setFloatEnum('mount_ypr', 2, roll_deg)
        
     def get_mount_params(self):
-        return self.camera_dict['mount_ypr']
+        return [ self.camera_node.getFloatEnum('mount_ypr', 0),
+                 self.camera_node.getFloatEnum('mount_ypr', 1),
+                 self.camera_node.getFloatEnum('mount_ypr', 2) ]
 
     def derive_other_params(self):
         K = self.get_K()
@@ -130,11 +127,11 @@ class Camera():
         fy = K[1,1]
         cu = K[0,2]
         cv = K[1,2]
-        width_px = self.camera_dict['width_px']
-        height_px = self.camera_dict['height_px']
-        horiz_mm = self.camera_dict['horiz_mm']
-        vert_mm = self.camera_dict['vert_mm']
-        focal_len_mm = self.camera_dict['focal_len_mm']
+        width_px = self.camera_node.getFloat('width_px')
+        height_px = self.camera_node.getFloat('height_px')
+        horiz_mm = self.camera_node.getFloat('horiz_mm')
+        vert_mm = self.camera_node.getFloat('vert_mm')
+        focal_len_mm = self.camera_node.getFloat('focal_len_mm')
         if cu < 1.0 and width_px > 0:
             cu = width_px * 0.5
         if cv < 1.0 and height_px > 0:

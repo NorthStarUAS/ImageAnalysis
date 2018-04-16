@@ -1,14 +1,7 @@
-#!/usr/bin/python
-
-import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
+#!/usr/bin/python3
 
 import argparse
-import commands
-import cv2
-import fnmatch
-import os.path
-
+import sys
 sys.path.append('../lib')
 import ProjectMgr
 
@@ -19,5 +12,5 @@ parser.add_argument('--project', required=True, help='project directory')
 
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = ProjectMgr.ProjectMgr(args.project, create=True)
 proj.save()
