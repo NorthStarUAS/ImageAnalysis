@@ -40,7 +40,7 @@ class Camera():
                  self.camera_node.getFloat('vert_mm'),
                  self.camera_node.getFloat('focal_len_mm') )
 
-    def get_K(self, scale=1.0, optimized=False):
+    def get_K(self, optimized=False):
         """
         Form the camera calibration matrix K using 5 parameters of 
         Finite Projective Camera model.  (Note skew parameter is 0)
@@ -57,11 +57,6 @@ class Camera():
             for i in range(9):
                 tmp.append( self.camera_node.getFloatEnum('K', i) )
         K = np.copy(np.array(tmp)).reshape(3,3)
-        K[0,0] *= scale
-        K[1,1] *= scale
-        K[0,2] *= scale
-        K[1,2] *= scale
-        #print('stored K:', self.camera_node.setFloat('K'], 'scaled K:', K)
         return K
         
     def set_K(self, fx, fy, cu, cv, optimized=False):
