@@ -20,7 +20,7 @@ import transformations
 d2r = math.pi / 180.0           # a helpful constant
     
 class Image():
-    def __init__(self, image_dir=None, image_file=None):
+    def __init__(self, source_dir=None, meta_dir=None, image_file=None):
         self.name = None
         #self.img = None
         #self.img_rgb = None
@@ -79,8 +79,8 @@ class Image():
         if image_file:
             self.name = image_file
             root, ext = os.path.splitext(image_file)
-            file_root = image_dir + "/" + root
-            self.image_file = image_dir + "/" + image_file
+            file_root = os.path.join(meta_dir, root)
+            self.image_file = os.path.join(source_dir, image_file)
             self.features_file = file_root + ".feat"
             self.des_file = file_root + ".desc"
             self.match_file = file_root + ".match"
@@ -138,27 +138,28 @@ class Image():
             print(self.info_file + ":\n" + "  json/meta load error: " \
                 + str(sys.exc_info()[1]))
 
-    def load_rgb(self, force_resize=False):
-        # print "Loading:", self.image_file, force_resize
+    # original, also set's image shape values....
+    # def load_rgb(self, force_resize=False):
+    #     # print "Loading:", self.image_file, force_resize
+    #     try:
+    #         img_rgb = cv2.imread(self.image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
+    #         if force_resize or self.height == 0 or self.width == 0:
+    #             print(img_rgb.shape)
+    #             self.height, self.width = img_rgb.shape[:2]
+    #         return img_rgb
+    #     except:
+    #         print(self.image_file + ":\n" + "  rgb load error: " \
+    #             + str(sys.exc_info()[1]))
+
+    def load_rgb(self):
+        #print "Loading " + self.image_file
         try:
             img_rgb = cv2.imread(self.image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
-            if force_resize or self.height == 0 or self.width == 0:
-                print(img_rgb.shape)
-                self.height, self.width = img_rgb.shape[:2]
+            self.height, self.width = img_rgb.shape[:2]
             return img_rgb
-        except:
-            print(self.image_file + ":\n" + "  rgb load error: " \
-                + str(sys.exc_info()[1]))
-
-    def load_source_rgb(self, source_dir):
-        #print "Loading " + self.image_file
-        source_name = source_dir + "/" + self.name
-        try:
-            source_image = cv2.imread(source_name, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
-            return source_image
 
         except:
-            print(source_image + ":\n" + "  source rgb load error: " \
+            print(self.image_name + ":\n" + "  rgb load error: " \
                 + str(sys.exc_info()[1]))
             return None
 
@@ -327,7 +328,7 @@ class Image():
         except:
             raise
 
-    def make_detector(self, dparams):
+    def make_detector(self):
         detector_node = getNode('/detector', True)
         detector = None
         if detector_node.getString('detector') == 'SIFT':
@@ -375,14 +376,22 @@ class Image():
             x += dx
         return kp_list
 
-    def detect_features(self, gray):
+    def detect_features(self, img, scale):
+        # scale image for feature detection.  Note that with feature
+        # detection, often less is more ... scaling to a smaller image
+        # can allow the feature detector to see bigger scale features.
+        # With outdoor natural images at full detail, oftenthe
+        # detector/matcher gets lots in the microscopic details and
+        # sees more noise than valid features.
+        scaled = cv2.resize(img, (0,0), fx=scale, fy=scale)
+        
         detector_node = getNode('/detector', True)
         detector = self.make_detector()
         grid_size = detector_node.getInt('grid_detect')
         if detector_node.getString('detector') == 'ORB' and grid_size > 1:
-            kp_list = self.orb_grid_detect(detector, gray, grid_size)
+            kp_list = self.orb_grid_detect(detector, scaled, grid_size)
         else:
-            kp_list = detector.detect(gray)
+            kp_list = detector.detect(scaled)
 
         # compute the descriptors for the found features (Note: Star
         # is a special case that uses the brief extractor
@@ -394,8 +403,14 @@ class Image():
             extractor = cv2.DescriptorExtractor_create('ORB')
         else:
             extractor = detector
-        self.kp_list, self.des_list = extractor.compute(gray, kp_list)
-        
+        self.kp_list, self.des_list = extractor.compute(scaled, kp_list)
+
+        # scale the keypoint coordinates back to the original image size
+        for kp in self.kp_list:
+            #print('scaled:', kp.pt, ' ', end='')
+            kp.pt = (kp.pt[0]/scale, kp.pt[1]/scale)
+            #print('full:', kp.pt)
+            
         # wipe matches because we've touched the keypoints
         self.match_list = []
 
