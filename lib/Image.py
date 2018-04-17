@@ -21,7 +21,11 @@ d2r = math.pi / 180.0           # a helpful constant
     
 class Image():
     def __init__(self, source_dir=None, meta_dir=None, image_file=None):
-        self.name = None
+        if image_file != None:
+            self.name = image_file
+            self.node = getNode("/images/" + self.name, True)
+        else:
+            self.name = None
         #self.img = None
         #self.img_rgb = None
         self.height = 0
@@ -77,66 +81,65 @@ class Image():
         self.radius = 0.0
         
         if image_file:
-            self.name = image_file
             root, ext = os.path.splitext(image_file)
             file_root = os.path.join(meta_dir, root)
             self.image_file = os.path.join(source_dir, image_file)
             self.features_file = file_root + ".feat"
             self.des_file = file_root + ".desc"
             self.match_file = file_root + ".match"
-            self.info_file = file_root + ".info"
+            #self.info_file = file_root + ".info"
             # only load meta data when instance is created, other
             # items will be loaded 'just in time' depending on the
             # task to be performed later on
-            self.load_meta()
+            #self.load_meta()
             
-    def load_meta(self):
-        if not os.path.exists(self.info_file):
-            # no info file, create a new file
-            self.save_meta()
-            return
+    # def load_meta(self):
+    #     if not os.path.exists(self.info_file):
+    #         # no info file, create a new file
+    #         self.save_meta()
+    #         return
         
-        try:
-            f = open(self.info_file, 'r')
-            image_dict = json.load(f)
-            f.close()
-            self.num_matches = image_dict['num-matches']
-            if 'aircraft-pose' in image_dict:
-                self.aircraft_pose = image_dict['aircraft-pose']
-            if 'camera-pose' in image_dict:
-                self.camera_pose = image_dict['camera-pose']
-            if 'camera-pose-sba' in image_dict:
-                self.camera_pose_sba = image_dict['camera-pose-sba']
-            if 'height' in image_dict:
-                self.height = image_dict['height']
-            if 'width' in image_dict:
-                self.width = image_dict['width']
+    #     try:
+    #         f = open(self.info_file, 'r')
+    #         image_dict = json.load(f)
+    #         f.close()
+    #         self.num_matches = image_dict['num-matches']
+    #         if 'aircraft-pose' in image_dict:
+    #             self.aircraft_pose = image_dict['aircraft-pose']
+    #         if 'camera-pose' in image_dict:
+    #             self.camera_pose = image_dict['camera-pose']
+    #         if 'camera-pose-sba' in image_dict:
+    #             self.camera_pose_sba = image_dict['camera-pose-sba']
+    #         if 'height' in image_dict:
+    #             self.height = image_dict['height']
+    #         if 'width' in image_dict:
+    #             self.width = image_dict['width']
             
-            self.alt_bias = image_dict['altitude-bias']
-            self.roll_bias = image_dict['roll-bias']
-            self.pitch_bias = image_dict['pitch-bias']
-            self.yaw_bias = image_dict['yaw-bias']
-            self.x_bias = image_dict['x-bias']
-            self.y_bias = image_dict['y-bias']
-            self.weight = image_dict['weight']
-            self.connections = image_dict['connections']
-            if 'connection-order' in image_dict:
-                self.connection_order = image_dict['connection-order']
-            else:
-                self.connection_order = -1
-            if 'cycle-depth' in image_dict:
-                self.cycle_depth = image_dict['cycle-depth']
-            elif 'cycle-distance' in image_dict:
-                self.cycle_depth = image_dict['cycle-distance']
-            self.error = image_dict['error']
-            self.stddev = image_dict['stddev']
-            if 'bounding-center' in image_dict:
-                self.center = np.array(image_dict['bounding-center'])
-            if 'bounding-radius' in image_dict:
-                self.radius = image_dict['bounding-radius']
-        except:
-            print(self.info_file + ":\n" + "  json/meta load error: " \
-                + str(sys.exc_info()[1]))
+    #         self.alt_bias = image_dict['altitude-bias']
+    #         self.roll_bias = image_dict['roll-bias']
+    #         self.pitch_bias = image_dict['pitch-bias']
+    #         self.yaw_bias = image_dict['yaw-bias']
+    #         self.x_bias = image_dict['x-bias']
+    #         self.y_bias = image_dict['y-bias']
+    #         self.weight = image_dict['weight']
+    #         self.connections = image_dict['connections']
+    #         if 'connection-order' in image_dict:
+    #             self.connection_order = image_dict['connection-order']
+    #         else:
+    #             self.connection_order = -1
+    #         if 'cycle-depth' in image_dict:
+    #             self.cycle_depth = image_dict['cycle-depth']
+    #         elif 'cycle-distance' in image_dict:
+    #             self.cycle_depth = image_dict['cycle-distance']
+    #         self.error = image_dict['error']
+    #         self.stddev = image_dict['stddev']
+    #         if 'bounding-center' in image_dict:
+    #             self.center = np.array(image_dict['bounding-center'])
+    #         if 'bounding-radius' in image_dict:
+    #             self.radius = image_dict['bounding-radius']
+    #     except:
+    #         print(self.info_file + ":\n" + "  json/meta load error: " \
+    #             + str(sys.exc_info()[1]))
 
     # original, also set's image shape values....
     # def load_rgb(self, force_resize=False):
@@ -156,6 +159,8 @@ class Image():
         try:
             img_rgb = cv2.imread(self.image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
             self.height, self.width = img_rgb.shape[:2]
+            self.node.setInt('height', self.height)
+            self.node.setInt('width', self.width)
             return img_rgb
 
         except:
@@ -166,28 +171,13 @@ class Image():
     def load_gray(self):
         #print "Loading " + self.image_file
         try:
-            rgb = cv2.imread(self.image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
-            if self.height == 0 or self.width == 0:
-                self.height, self.width, self.fulld = img_rgb.shape
+            rgb = load_rgb()
             gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
-
-            #cv2.imshow('rgb', rgb)
-            #cv2.imshow('grayscale', gray)
-
-            # histogram equalization
-            #eq = cv2.equalizeHist(gray)
-            #cv2.imshow('history equalization', eq)
-
             # adaptive histogram equilization (block by block)
             clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
             aeq = clahe.apply(gray)
             #cv2.imshow('adaptive history equalization', aeq)
-
-            #print 'waiting for keyboard input...'
-            #key = cv2.waitKey() & 0xff
-
             return aeq
-
         except:
             print(self.image_file + ":\n" + "  gray load error: " \
                 + str(sys.exc_info()[1]))
@@ -288,69 +278,69 @@ class Image():
             #json.dump(self.match_list, f, sort_keys=True)
             #f.close()
         except IOError as e:
-            print(self.info_file + ": error saving file: " \
+            print(self.match_file + ": error saving file: " \
                 + str(sys.exc_info()[1]))
             return
         except:
             raise
 
-    def save_meta(self):
-        image_dict = {}
-        image_dict['num-matches'] = self.num_matches
-        image_dict['aircraft-pose'] = self.aircraft_pose
-        image_dict['camera-pose'] = self.camera_pose
-        image_dict['camera-pose-sba'] = self.camera_pose_sba
-        image_dict['height'] = self.height
-        image_dict['width'] = self.width
-        image_dict['altitude-bias'] = self.alt_bias
-        image_dict['roll-bias'] = self.roll_bias
-        image_dict['pitch-bias'] = self.pitch_bias
-        image_dict['yaw-bias'] = self.yaw_bias
-        image_dict['x-bias'] = self.x_bias
-        image_dict['y-bias'] = self.y_bias
-        image_dict['weight'] = self.weight
-        image_dict['connections'] = self.connections
-        image_dict['connection-order'] = self.connection_order
-        image_dict['cycle-depth'] = self.cycle_depth
-        image_dict['error'] = self.error
-        image_dict['stddev'] = self.stddev
-        image_dict['bounding-center'] = list(self.center)
-        image_dict['bounding-radius'] = self.radius
+    # def save_meta(self):
+    #     image_dict = {}
+    #     image_dict['num-matches'] = self.num_matches
+    #     image_dict['aircraft-pose'] = self.aircraft_pose
+    #     image_dict['camera-pose'] = self.camera_pose
+    #     image_dict['camera-pose-sba'] = self.camera_pose_sba
+    #     image_dict['height'] = self.height
+    #     image_dict['width'] = self.width
+    #     image_dict['altitude-bias'] = self.alt_bias
+    #     image_dict['roll-bias'] = self.roll_bias
+    #     image_dict['pitch-bias'] = self.pitch_bias
+    #     image_dict['yaw-bias'] = self.yaw_bias
+    #     image_dict['x-bias'] = self.x_bias
+    #     image_dict['y-bias'] = self.y_bias
+    #     image_dict['weight'] = self.weight
+    #     image_dict['connections'] = self.connections
+    #     image_dict['connection-order'] = self.connection_order
+    #     image_dict['cycle-depth'] = self.cycle_depth
+    #     image_dict['error'] = self.error
+    #     image_dict['stddev'] = self.stddev
+    #     image_dict['bounding-center'] = list(self.center)
+    #     image_dict['bounding-radius'] = self.radius
 
-        try:
-            f = open(self.info_file, 'w')
-            json.dump(image_dict, f, indent=4, sort_keys=True)
-            f.close()
-        except IOError as e:
-            print(self.info_file + ": error saving file: " \
-                + str(sys.exc_info()[1]))
-            return
-        except:
-            raise
+    #     try:
+    #         f = open(self.info_file, 'w')
+    #         json.dump(image_dict, f, indent=4, sort_keys=True)
+    #         f.close()
+    #     except IOError as e:
+    #         print(self.info_file + ": error saving file: " \
+    #             + str(sys.exc_info()[1]))
+    #         return
+    #     except:
+    #         raise
 
     def make_detector(self):
-        detector_node = getNode('/detector', True)
+        detector_node = getNode('/config/detector', True)
         detector = None
         if detector_node.getString('detector') == 'SIFT':
             max_features = detector_node.getInt('sift_max_features')
             detector = cv2.xfeatures2d.SIFT_create(nfeatures=max_features)
         elif detector_node.getString('detector') == 'SURF':
-            threshold = detector_node.getFloat('surf-hessian-threshold')
-            nOctaves = detector_node.getInt('surf-noctaves')
-            detector = cv2.SURF(hessianThreshold=threshold, nOctaves=nOctaves)
+            threshold = detector_node.getFloat('surf_hessian_threshold')
+            nOctaves = detector_node.getInt('surf_noctaves')
+            detector = cv2.xfeatures2d.SURF_create(hessianThreshold=threshold, nOctaves=nOctaves)
         elif detector_node.getString('detector') == 'ORB':
-            max_features = detector_node.getInt('orb-max-features')
-            grid_size = detector_node.getInt('grid-detect')
+            max_features = detector_node.getInt('orb_max_features')
+            grid_size = detector_node.getInt('grid_detect')
             cells = grid_size * grid_size
             max_cell_features = int(max_features / cells)
             detector = cv2.ORB_create(max_cell_features)
         elif detector_node.getString('detector') == 'Star':
-            maxSize = detector_node.getInt('star-max-size')
-            responseThreshold = detector_node.getInt('star-response-threshold')
-            lineThresholdProjected = detector_node.getInt('star-line-threshold-projected')
-            lineThresholdBinarized = detector_node.getInt('star-line-threshold-binarized')
-            suppressNonmaxSize = detector_node.getInt('star-suppress-nonmax-size')
-            detector = cv2.StarDetector(maxSize, responseThreshold,
+            maxSize = detector_node.getInt('star_max_size')
+            responseThreshold = detector_node.getInt('star_response_threshold')
+            lineThresholdProjected = detector_node.getInt('star_line_threshold_projected')
+            lineThresholdBinarized = detector_node.getInt('star_line_threshold_binarized')
+            suppressNonmaxSize = detector_node.getInt('star_suppress_nonmax_size')
+            detector = cv2.xfeatures2d.StarDetector_create(maxSize, responseThreshold,
                                         lineThresholdProjected,
                                         lineThresholdBinarized,
                                         suppressNonmaxSize)
@@ -385,7 +375,7 @@ class Image():
         # sees more noise than valid features.
         scaled = cv2.resize(img, (0,0), fx=scale, fy=scale)
         
-        detector_node = getNode('/detector', True)
+        detector_node = getNode('/config/detector', True)
         detector = self.make_detector()
         grid_size = detector_node.getInt('grid_detect')
         if detector_node.getString('detector') == 'ORB' and grid_size > 1:

@@ -9,7 +9,7 @@ from props import getNode
 
 class Camera():
     def __init__(self):
-        self.camera_node = getNode('/camera', True)
+        self.camera_node = getNode('/config/camera', True)
 
     def set_defaults(self):
         # camera lens parameters

@@ -56,11 +56,8 @@ args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 
-# there shouldn't be any image info to load here...
-# proj.load_image_info()
-
 # setup project detector params
-detector_node = getNode('/detector', True)
+detector_node = getNode('/config/detector', True)
 detector_node.setString('detector', args.detector)
 if args.detector == 'SIFT':
     detector_node.setInt('sift_max_features', args.sift_max_features)

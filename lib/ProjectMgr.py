@@ -100,8 +100,8 @@ class ProjectMgr():
         self.placer = Placer.Placer()
         self.render = Render.Render()
         
-        self.dir_node = getNode('/directories', True)
-        
+        self.dir_node = getNode('/config/directories', True)
+
         self.load( project_dir, create )
 
     def set_defaults(self):
@@ -109,7 +109,7 @@ class ProjectMgr():
         self.cam.set_defaults()
          
         # detector defaults
-        detector_node = getNode('/detector', True)
+        detector_node = getNode('/config/detector', True)
         # detector_node.setString('detector', 'SIFT') # { SIFT, SURF, ORB, Star }
         # detector_node.setInt('grid_detect', 1)
         # detector_node.setInt('sift_max_features', 2000)
@@ -175,8 +175,9 @@ class ProjectMgr():
         # project_dict['directories'] = dirs
         # project_dict['ned-reference-lla'] = self.ned_reference_lla
         
-        project_file = os.path.join(project_dir, "Project.json")
-        props_json.save(project_file, root)
+        project_file = os.path.join(project_dir, "config.json")
+        config_node = getNode("/config", True)
+        props_json.save(project_file, config_node)
 
     def load(self, project_dir, create=True):
         if not self.set_project_dir( project_dir ):
@@ -184,14 +185,15 @@ class ProjectMgr():
 
         # load project configuration
         result = False
-        project_file = os.path.join(project_dir, "Project.json")
+        project_file = os.path.join(project_dir, "config.json")
+        config_node = getNode("/config", True)
         if os.path.isfile(project_file):
-            if props_json.load(project_file, root):
+            if props_json.load(project_file, config_node):
                 # fixme:
                 # if 'matcher' in project_dict:
                 #     self.matcher_params = project_dict['matcher']
-                # dirs = project_dict['directories']
                 # self.ned_reference_lla = project_dict['ned-reference-lla']
+                # root.pretty_print()
                 result = True
             else:
                 print("Notice: unable to load: ", project_file)
@@ -261,30 +263,27 @@ class ProjectMgr():
     #         else:
     #             print("Error: unknown converter =", converter)
 
-    def load_image_info(self, force_compute_sizes=False):
-        #force_compute_sizes=True
-        file_list = []
-        for file in os.listdir(self.image_dir):
-            if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
-                file_list.append(file)
-        file_list.sort()
+    def load_images_info(self):
+        # load images meta info
+        result = False
+        images_file = os.path.join(project_dir, "images.json")
+        images_node = getNode("/images", True)
+        if os.path.isfile(images_file):
+            if props_json.load(images_file, images_node):
+                result = True
+            else:
+                print("Notice: unable to load: ", images_file)
+        else:
+            print("Notice: images info file doesn't exist:", images_file)
 
+        images_node.pretty_print()
+        
         # wipe image list (so we don't double load)
         self.image_list = []
-        for file_name in file_list:
-            image = Image.Image(self.image_dir, file_name)
+        for name in images_node.getChildren():
+            image = Image.Image(self.image_dir, name)
             self.image_list.append( image )
 
-        # load rgb and determine image dimensions of this step has not
-        # already been done
-        bar = Bar('Computing image dimensions:', max = len(self.image_list))
-        for image in self.image_list:
-            if force_compute_sizes or (image.height == 0) or (image.width == 0):
-                image.load_rgb(force_resize=True)
-                image.save_meta()
-            bar.next()
-        bar.finish()
-            
         # make sure our matcher gets a copy of the image list
         #self.m.setImageList(self.image_list)
         self.placer.setImageList(self.image_list)
@@ -342,9 +341,16 @@ class ProjectMgr():
         #        print 'b:', result[i][j]
         return result
                 
-    def save_images_meta(self):
-        for image in self.image_list:
-            image.save_meta()
+    def save_images_info(self):
+        # create a project dictionary and write it out as json
+        project_dir = self.dir_node.getString('project')
+        if not os.path.exists(project_dir):
+            print("Error: project doesn't exist:", project_dir)
+            return
+
+        meta_file = os.path.join(project_dir, "images.json")
+        images_node = getNode("/images", True)
+        props_json.save(meta_file, images_node)
 
     def set_matcher_params(self, mparams):
         self.matcher_params = mparams
@@ -380,6 +386,8 @@ class ProjectMgr():
                 bar.next()
         if not show:
             bar.finish()
+
+        self.save_images_info()
 
     def show_features_image(self, image):
         result = image.show_features()
