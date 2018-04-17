@@ -273,8 +273,6 @@ class ProjectMgr():
         else:
             print("Notice: images info file doesn't exist:", images_file)
 
-        # images_node.pretty_print()
-        
         # wipe image list (so we don't double load)
         self.image_list = []
         for name in images_node.getChildren():

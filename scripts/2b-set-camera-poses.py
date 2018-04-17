@@ -1,14 +1,8 @@
-#!/usr/bin/python
-
-import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
+#!/usr/bin/python3
 
 import argparse
-import commands
-import cv2
-import fnmatch
-import os.path
 
+import sys
 sys.path.append('../lib')
 import Pose
 import ProjectMgr
@@ -22,10 +16,9 @@ parser.add_argument('--project', required=True, help='project directory')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_image_info()
+proj.load_images_info()
 
-Pose.compute_camera_poses(proj.image_list, proj.cam, proj.ned_reference_lla,
-                          force=True)
+Pose.compute_camera_poses()
 
-proj.save_images_meta()
+proj.save_images_info()
     
