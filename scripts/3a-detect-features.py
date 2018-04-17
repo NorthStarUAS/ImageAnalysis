@@ -55,7 +55,9 @@ parser.add_argument('--show', action='store_true',
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_image_info()
+
+# there shouldn't be any image info to load here...
+# proj.load_image_info()
 
 # setup project detector params
 detector_node = getNode('/detector', True)
@@ -82,32 +84,35 @@ elif args.detector == 'Star':
 # find features in the full image set
 proj.detect_features(scale=args.scale, show=args.show)
 
-# compute the undistorted mapping of the keypoints (features)
-proj.undistort_keypoints()
+# I don't know if I want to mess around with undistorting keypoints at
+# this stage.
+if False:
+    # compute the undistorted mapping of the keypoints (features)
+    proj.undistort_keypoints()
 
-# if any undistorted keypoints extend beyond the image bounds, remove them!
-margin = args.reject_margin
-print("Features that fall out of the image bounds after undistortion.")
-bar = Bar('Filtering:', max = len(proj.image_list))
-for image in proj.image_list:
-    # traverse the list in reverse so we can safely remove features if
-    # needed
-    dirty = False
-    for i in reversed(range(len(image.uv_list))):
-        uv = image.uv_list[i]
-        if uv[0] < margin or uv[0] > image.width - margin \
-           or uv[1] < margin or uv[1] > image.height - margin:
-            dirty = True
-            #print ' ', i, uv
-            image.kp_list.pop(i)                             # python list
-            image.des_list = np.delete(image.des_list, i, 0) # np array
+    # if any undistorted keypoints extend beyond the image bounds, remove them!
+    margin = args.reject_margin
+    print("Features that fall out of the image bounds after undistortion.")
+    bar = Bar('Filtering:', max = len(proj.image_list))
+    for image in proj.image_list:
+        # traverse the list in reverse so we can safely remove features if
+        # needed
+        dirty = False
+        for i in reversed(range(len(image.uv_list))):
+            uv = image.uv_list[i]
+            if uv[0] < margin or uv[0] > image.width - margin \
+               or uv[1] < margin or uv[1] > image.height - margin:
+                dirty = True
+                #print ' ', i, uv
+                image.kp_list.pop(i)                             # python list
+                image.des_list = np.delete(image.des_list, i, 0) # np array
 
-    if dirty:
-        image.save_features()
-        image.save_descriptors()
-    #print image.name, len(image.kp_list), image.des_list.size
-    bar.next()
-bar.finish()
+        if dirty:
+            image.save_features()
+            image.save_descriptors()
+        #print image.name, len(image.kp_list), image.des_list.size
+        bar.next()
+    bar.finish()
     
 feature_count = 0
 image_count = 0
