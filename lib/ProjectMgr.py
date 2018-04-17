@@ -85,8 +85,6 @@ class ProjectMgr():
                                 'image-fuzz': 40,
                                 'feature-fuzz': 20 }
 
-        self.ned_reference_lla = []
-        
         # the following member variables need to be reviewed/organized
 
         self.ac3d_steps = 8
@@ -173,7 +171,6 @@ class ProjectMgr():
         # project_dict = {}
         # project_dict['matcher'] = self.matcher_params
         # project_dict['directories'] = dirs
-        # project_dict['ned-reference-lla'] = self.ned_reference_lla
         
         project_file = os.path.join(project_dir, "config.json")
         config_node = getNode("/config", True)
@@ -192,7 +189,6 @@ class ProjectMgr():
                 # fixme:
                 # if 'matcher' in project_dict:
                 #     self.matcher_params = project_dict['matcher']
-                # self.ned_reference_lla = project_dict['ned-reference-lla']
                 # root.pretty_print()
                 result = True
             else:
@@ -266,6 +262,7 @@ class ProjectMgr():
     def load_images_info(self):
         # load images meta info
         result = False
+        project_dir = self.dir_node.getString('project')
         images_file = os.path.join(project_dir, "images.json")
         images_node = getNode("/images", True)
         if os.path.isfile(images_file):
@@ -276,7 +273,7 @@ class ProjectMgr():
         else:
             print("Notice: images info file doesn't exist:", images_file)
 
-        images_node.pretty_print()
+        # images_node.pretty_print()
         
         # wipe image list (so we don't double load)
         self.image_list = []
@@ -417,14 +414,17 @@ class ProjectMgr():
         # requires images to have their location computed/loaded
         lon_sum = 0.0
         lat_sum = 0.0
-        for image in self.image_list:
-            lla, ypr, quat = image.get_aircraft_pose()
-            lon_sum += lla[1]
-            lat_sum += lla[0]
-        self.ned_reference_lla = [ lat_sum / len(self.image_list),
-                                   lon_sum / len(self.image_list),
-                                   0.0 ]
-        self.render.setRefCoord(self.ned_reference_lla)
+        images_node = getNode("/images", True)
+        for name in images_node.getChildren():
+            image_node = images_node.getChild(name, True)
+            pose_node = image_node.getChild('aircraft_pose', True)
+            lon_sum += pose_node.getFloat('lon_deg')
+            lat_sum += pose_node.getFloat('lat_deg')
+        count = len(images_node.getChildren())
+        ned_node = getNode('/config/ned_reference', True)
+        ned_node.setFloat('lat_deg', lat_sum / count)
+        ned_node.setFloat('lon_deg', lon_sum / count)
+        ned_node.setFloat('alt_m', 0.0)
 
     def undistort_uvlist(self, image, uv_orig):
         if len(uv_orig) == 0:

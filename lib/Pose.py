@@ -7,6 +7,7 @@ import math
 import re
 
 import navpy
+from props import getNode
 
 import transformations
 
@@ -27,7 +28,7 @@ d2r = math.pi / 180.0
 
 
 # define the image aircraft poses from Sentera meta data file
-def setAircraftPoses(proj, metafile="", order='ypr', force=True, weight=True):
+def setAircraftPoses(proj, metafile="", order='ypr'):
     f = fileinput.input(metafile)
     for line in f:
         line.strip()
@@ -39,28 +40,39 @@ def setAircraftPoses(proj, metafile="", order='ypr', force=True, weight=True):
             continue
         field = line.split(',')
         name = field[0]
-        lat = float(field[1])
-        lon = float(field[2])
-        alt = float(field[3])
+        lat_deg = float(field[1])
+        lon_deg = float(field[2])
+        alt_m = float(field[3])
         if order == 'ypr':
-            yaw = float(field[4])
-            pitch = float(field[5])
-            roll = float(field[6])
+            ya_deg = float(field[4])
+            pitch_deg = float(field[5])
+            roll_deg = float(field[6])
         elif order == 'rpy':
-            roll = float(field[4])
-            pitch = float(field[5])
-            yaw = float(field[6])
+            roll_deg = float(field[4])
+            pitch_deg = float(field[5])
+            yaw_deg = float(field[6])
+        quat = transformations.quaternion_from_euler(yaw_deg * d2r,
+                                                     pitch_deg * d2r,
+                                                     roll_deg * d2r,
+                                                     'rzyx')
+        images_node = getNode("/images", True)
+        image_node = images_node.getChild(name, True)
+        pose_node = image_node.getChild('aircraft_pose', True)
+        pose_node.setFloat('lat_deg', lat_deg)
+        pose_node.setFloat('lon_deg', lon_deg)
+        pose_node.setFloat('alt_m', alt_m)
+        pose_node.setFloat('yaw_deg', yaw_deg)
+        pose_node.setFloat('pitch_deg', pitch_deg)
+        pose_node.setFloat('roll_deg', roll_deg)
+        pose_node.setLen('quat', 4)
+        for i in range(4):
+            pose_node.setFloatEnum('quat', i, quat[i])
+        print(name, 'yaw=%.1f pitch=%.1f roll=%.1f' % (yaw_deg, pitch_deg, roll_deg))
 
-        image = proj.findImageByName(name)
-        if image != None:
-            if force or (math.fabs(image.aircraft_lon) < 0.01 and math.fabs(image.aircraft_lat) < 0.01):
-                image.set_aircraft_pose( [lat, lon,alt], [yaw, pitch, roll] )
-                image.weight = 1.0
-                image.save_meta()
-                print("%s yaw=%.1f pitch=%.1f roll=%.1f" % (image.name, yaw, pitch, roll))
-        else:
-            print("Error: image-metadata.txt references an image not in our data set =", name)
-
+    #getNode("/images").pretty_print()
+    
+    # save the changes
+    proj.save_images_info()
                 
 # compute the camera pose in NED space, assuming the aircraft
 # body pose has already been computed in lla space and the orientation

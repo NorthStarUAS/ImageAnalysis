@@ -28,8 +28,11 @@ class Camera():
         self.camera_node.setFloat('height_px', 0)
 
         # camera mount parameters: these are offsets from the aircraft body
-        self.camera_node.setLen('mount_ypr', 3, init_val=0.0)
-
+        mount_node = self.camera_node.getChild('mount', create=True)
+        mount_node.setFloat('yaw_deg', 0.0)
+        mount_node.setFloat('pitch_deg', 0.0)
+        mount_node.setFloat('roll_deg', 0.0)
+        
     def set_lens_params(self, horiz_mm, vert_mm, focal_len_mm):
         self.camera_node.setFloat('horiz_mm', horiz_mm)
         self.camera_node.setFloat('vert_mm', vert_mm)
@@ -106,15 +109,16 @@ class Camera():
                  self.camera_node.getFloat('height_px') )
 
     def set_mount_params(self, yaw_deg, pitch_deg, roll_deg):
-        self.camera_node.setLen('mount_ypr', 3)
-        self.camera_node.setFloatEnum('mount_ypr', 0, yaw_deg)
-        self.camera_node.setFloatEnum('mount_ypr', 1, pitch_deg)
-        self.camera_node.setFloatEnum('mount_ypr', 2, roll_deg)
+        mount_node = self.camera_node.getChild('mount', True)
+        mount_node.setFloat('yaw_deg', yaw_deg)
+        mount_node.setFloat('pitch_deg', pitch_deg)
+        mount_node.setFloat('roll_deg', roll_deg)
        
     def get_mount_params(self):
-        return [ self.camera_node.getFloatEnum('mount_ypr', 0),
-                 self.camera_node.getFloatEnum('mount_ypr', 1),
-                 self.camera_node.getFloatEnum('mount_ypr', 2) ]
+        mount_node = self.camera_node.getChild('mount', True)
+        return [ mount_node.getFloat('yaw_deg'),
+                 mount_node.getFloat('pitch_deg'),
+                 mount_node.getFloat('roll_deg') ]
 
     def derive_other_params(self):
         K = self.get_K()

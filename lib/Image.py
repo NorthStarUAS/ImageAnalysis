@@ -459,13 +459,6 @@ class Image():
         maxlla = navpy.ned2lla([ymax, xmax, 0.0], ref[0], ref[1], ref[2])
         return(minlla[1], minlla[0], maxlla[1], maxlla[0])
         
-    def set_aircraft_pose(self, lla=[0.0, 0.0, 0.0], ypr=[0.0, 0.0, 0.0]):
-        quat = transformations.quaternion_from_euler(ypr[0] * d2r,
-                                                     ypr[1] * d2r,
-                                                     ypr[2] * d2r,
-                                                     'rzyx')
-        self.aircraft_pose = { 'lla': lla, 'ypr': ypr, 'quat': quat.tolist() }
-
     def get_aircraft_pose(self):
         p = self.aircraft_pose
         if p and 'lla' in p and 'ypr' in p:

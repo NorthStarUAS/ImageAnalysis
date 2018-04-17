@@ -1,14 +1,10 @@
-#!/usr/bin/python
-
-import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
+#!/usr/bin/python3
 
 import argparse
-import commands
-import cv2
-import fnmatch
-import os.path
 
+from props import getNode
+
+import sys
 sys.path.append('../lib')
 import Pose
 import ProjectMgr
@@ -24,8 +20,8 @@ parser.add_argument('--pix4d', help='use the specified pix4d csv file (lat,lon,a
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-print "Loading image info..."
-proj.load_image_info()
+print("Loading image info...")
+proj.load_images_info()
 
 pose_set = False
 if args.sentera != None:
@@ -36,14 +32,17 @@ elif args.pix4d != None:
     pose_set = True
 
 if not pose_set:
-    print "Error: no flight data specified or problem with flight data"
-    print "No poses computed"
-    exit
+    print("Error: no flight data specified or problem with flight data")
+    print("No poses computed")
+    quit()
 
 # compute the project's NED reference location (based on average of
 # aircraft poses)
 proj.compute_ned_reference_lla()
-print "NED reference location:", proj.ned_reference_lla
+ned_node = getNode('/config/ned_reference', True)
+print("NED reference location:")
+ned_node.pretty_print("  ")
 
+# save change to ned reference
 proj.save()
     
