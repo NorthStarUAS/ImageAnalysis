@@ -30,45 +30,6 @@ import Placer
 import Render
 import transformations
 
-class Fraction(fractions.Fraction):
-    """Only create Fractions from floats.
-
-    >>> Fraction(0.3)
-    Fraction(3, 10)
-    >>> Fraction(1.1)
-    Fraction(11, 10)
-    """
-
-    def __new__(cls, value, ignore=None):
-        """Should be compatible with Python 2.6, though untested."""
-        return fractions.Fraction.from_float(value).limit_denominator(99999)
-
-def dms_to_decimal(degrees, minutes, seconds, sign=' '):
-    """Convert degrees, minutes, seconds into decimal degrees.
-
-    >>> dms_to_decimal(10, 10, 10)
-    10.169444444444444
-    >>> dms_to_decimal(8, 9, 10, 'S')
-    -8.152777777777779
-    """
-    return (-1 if sign[0] in 'SWsw' else 1) * (
-        float(degrees)        +
-        float(minutes) / 60   +
-        float(seconds) / 3600
-    )
-
-
-def decimal_to_dms(decimal):
-    """Convert decimal degrees into degrees, minutes, seconds.
-
-    >>> decimal_to_dms(50.445891)
-    [Fraction(50, 1), Fraction(26, 1), Fraction(113019, 2500)]
-    >>> decimal_to_dms(-125.976893)
-    [Fraction(125, 1), Fraction(58, 1), Fraction(92037, 2500)]
-    """
-    remainder, degrees = math.modf(abs(decimal))
-    remainder, minutes = math.modf(remainder * 60)
-    return [Fraction(n) for n in (degrees, minutes, remainder * 60)]
 
 class ProjectMgr():
     def __init__(self, project_dir, create=False):
