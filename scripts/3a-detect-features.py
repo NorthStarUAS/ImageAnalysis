@@ -56,6 +56,9 @@ args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 
+# load existing images info which could include things like camera pose
+proj.load_images_info()
+
 # setup project detector params
 detector_node = getNode('/config/detector', True)
 detector_node.setString('detector', args.detector)
