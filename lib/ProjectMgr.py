@@ -456,7 +456,7 @@ class ProjectMgr():
             image.uv_list = []
             for i, uv in enumerate(uv_new):
                 image.uv_list.append(uv_new[i][0])
-                print("  orig = %s  undistort = %s" % (uv_raw[i][0], uv_new[i][0]))
+                # print("  orig = %s  undistort = %s" % (uv_raw[i][0], uv_new[i][0]))
             bar.next()
         bar.finish()
                 
