@@ -52,22 +52,9 @@ def setAircraftPoses(proj, metafile="", order='ypr'):
             roll_deg = float(field[4])
             pitch_deg = float(field[5])
             yaw_deg = float(field[6])
-        quat = transformations.quaternion_from_euler(yaw_deg * d2r,
-                                                     pitch_deg * d2r,
-                                                     roll_deg * d2r,
-                                                     'rzyx')
-        images_node = getNode("/images", True)
-        image_node = images_node.getChild(name, True)
-        ac_pose_node = image_node.getChild('aircraft_pose', True)
-        ac_pose_node.setFloat('lat_deg', lat_deg)
-        ac_pose_node.setFloat('lon_deg', lon_deg)
-        ac_pose_node.setFloat('alt_m', alt_m)
-        ac_pose_node.setFloat('yaw_deg', yaw_deg)
-        ac_pose_node.setFloat('pitch_deg', pitch_deg)
-        ac_pose_node.setFloat('roll_deg', roll_deg)
-        ac_pose_node.setLen('quat', 4)
-        for i in range(4):
-            ac_pose_node.setFloatEnum('quat', i, quat[i])
+        image = proj.findImageByName(name)
+        image.set_aircraft_pose(lat_deg, lon_deg, alt_m,
+                                yaw_deg, pitch_deg, roll_deg)
         print(name, 'yaw=%.1f pitch=%.1f roll=%.1f' % (yaw_deg, pitch_deg, roll_deg))
 
     #getNode("/images").pretty_print()
@@ -77,7 +64,7 @@ def setAircraftPoses(proj, metafile="", order='ypr'):
 
 # for each image, compute the estimated camera pose in NED space from
 # the aircraft body pose and the relative camera orientation
-def compute_camera_poses():
+def compute_camera_poses(proj):
     mount_node = getNode('/config/camera/mount', True)
     ref_node = getNode('/config/ned_reference', True)
     images_node = getNode('/images', True)
@@ -93,10 +80,10 @@ def compute_camera_poses():
     ref_lat = ref_node.getFloat('lat_deg')
     ref_lon = ref_node.getFloat('lon_deg')
     ref_alt = ref_node.getFloat('alt_m')
-    
-    for name in images_node.getChildren():
-        ac_pose_node = images_node.getChild(name + "/aircraft_pose", True)
-        cam_pose_node = images_node.getChild(name + "/camera_pose", True)
+
+    for image in proj.image_list:
+        ac_pose_node = image.node.getChild("aircraft_pose", True)
+        #cam_pose_node = images_node.getChild(name + "/camera_pose", True)
         
         aircraft_lat = ac_pose_node.getFloat('lat_deg')
         aircraft_lon = ac_pose_node.getFloat('lon_deg')
@@ -109,16 +96,7 @@ def compute_camera_poses():
         (yaw_rad, pitch_rad, roll_rad) = transformations.euler_from_quaternion(ned2cam, 'rzyx')
         ned = navpy.lla2ned( aircraft_lat, aircraft_lon, aircraft_alt,
                              ref_lat, ref_lon, ref_alt )
-        
-        for i in range(3):
-            cam_pose_node.setFloatEnum('ned', i, ned[i])
-        cam_pose_node.setFloat('yaw_deg', yaw_rad * r2d)
-        cam_pose_node.setFloat('pitch_deg', pitch_rad * r2d)
-        cam_pose_node.setFloat('roll_deg', roll_rad * r2d)
-        cam_pose_node.setLen('quat', 4)
-        for i in range(4):
-            cam_pose_node.setFloatEnum('quat', i, ned2cam[i])
 
-        print('camera pose:', name)
-        cam_pose_node.pretty_print("  ")
+        image.set_camera_pose(ned, yaw_rad*r2d, pitch_rad*r2d, roll_rad*r2d)
+        print('camera pose:', image.name)
 

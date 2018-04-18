@@ -18,7 +18,7 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
 
-Pose.compute_camera_poses()
+Pose.compute_camera_poses(proj)
 
 proj.save_images_info()
     

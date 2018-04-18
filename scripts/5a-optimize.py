@@ -7,16 +7,13 @@
 
 # todo, run sba and automatically parse output ...
 
-import sys
-#sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
-
 import argparse
 import pickle
 import cv2
 import math
 import numpy as np
 import os
-import random
+import sys
 
 sys.path.append('../lib')
 import Groups
@@ -70,7 +67,7 @@ def transform_points( A, pts_list ):
     return result
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_image_info()
+proj.load_images_info()
 proj.load_features()
 #proj.undistort_keypoints()
 # proj.load_match_pairs()
@@ -93,18 +90,14 @@ print('Match features:', len(matches))
 groups = Groups.load(args.project)
 print('Main group size:', len(groups[0]))
 
-image_width = proj.image_list[0].width
-camw, camh = proj.cam.get_image_params()
-scale = float(image_width) / float(camw)
-print('scale: {}'.format(scale))
-K = proj.cam.get_K(scale)
+K = proj.cam.get_K()
 distCoeffs = np.array(proj.cam.get_dist_coeffs())
 
 opt = Optimizer.Optimizer(args.project)
 opt.setup( proj.image_list, groups[0], matches, K, distCoeffs )
 cameras, features, cam_index_map, feat_index_map, fx_opt, fy_opt, cu_opt, cv_opt, distCoeffs_opt = opt.run()
 
-# wipe the sba pose for all images
+# wipe the optimized pose for all images
 for image in proj.image_list:
     image.camera_pose_sba = None
     image.placed = False

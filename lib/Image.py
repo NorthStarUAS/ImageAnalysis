@@ -460,17 +460,47 @@ class Image():
         minlla = navpy.ned2lla([ymin, xmin, 0.0], ref[0], ref[1], ref[2])
         maxlla = navpy.ned2lla([ymax, xmax, 0.0], ref[0], ref[1], ref[2])
         return(minlla[1], minlla[0], maxlla[1], maxlla[0])
+
+    def ypr_to_quat(self, yaw_deg, pitch_deg, roll_deg):
+        quat = transformations.quaternion_from_euler(yaw_deg * d2r,
+                                                     pitch_deg * d2r,
+                                                     roll_deg * d2r,
+                                                     'rzyx')
+        return quat
+
+    def set_aircraft_pose(self,
+                          lat_deg, lon_deg, alt_m,
+                          yaw_deg, pitch_deg, roll_deg):
+        # computed from euler angles
+        quat = self.ypr_to_quat(yaw_deg, pitch_deg, roll_deg)
+        ac_pose_node = self.node.getChild('aircraft_pose', True)
+        ac_pose_node.setFloat('lat_deg', lat_deg)
+        ac_pose_node.setFloat('lon_deg', lon_deg)
+        ac_pose_node.setFloat('alt_m', alt_m)
+        ac_pose_node.setFloat('yaw_deg', yaw_deg)
+        ac_pose_node.setFloat('pitch_deg', pitch_deg)
+        ac_pose_node.setFloat('roll_deg', roll_deg)
+        ac_pose_node.setLen('quat', 4)
+        for i in range(4):
+            ac_pose_node.setFloatEnum('quat', i, quat[i])
         
     # ned = [n_m, e_m, d_m] relative to the project ned reference point
     # ypr = [yaw_deg, pitch_deg, roll_deg] in the ned coordinate frame
     # note that the matrix derived from 'quat' is inv(R) is transpose(R)
-    def set_camera_pose(self, ned=[0.0, 0.0, 0.0], ypr=[0.0, 0.0, 0.0]):
-        quat = transformations.quaternion_from_euler(ypr[0] * d2r,
-                                                     ypr[1] * d2r,
-                                                     ypr[2] * d2r,
-                                                     'rzyx')
-        self.camera_pose = { 'ned': ned, 'ypr': ypr, 'quat': quat.tolist() }
-
+    def set_camera_pose(self, ned, yaw_deg, pitch_deg, roll_deg):
+        # computed from euler angles
+        quat = self.ypr_to_quat(yaw_deg, pitch_deg, roll_deg)
+        cam_pose_node = self.node.getChild('camera_pose', True)
+        for i in range(3):
+            cam_pose_node.setFloatEnum('ned', i, ned[i])
+        cam_pose_node.setFloat('yaw_deg', yaw_deg)
+        cam_pose_node.setFloat('pitch_deg', pitch_deg)
+        cam_pose_node.setFloat('roll_deg', roll_deg)
+        cam_pose_node.setLen('quat', 4)
+        for i in range(4):
+            cam_pose_node.setFloatEnum('quat', i, quat[i])
+        cam_pose_node.pretty_print('  ')
+        
     # set the camera pose using rvec, tvec (rodrigues) which is the
     # output of certain cv2 functions like solvePnP()
     def rvec_to_body2ned(self, rvec):
@@ -523,9 +553,7 @@ class Image():
 
     # ned2body (R) rotation matrix
     def get_ned2body(self):
-        p = self.camera_pose
-        body2ned = transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
-        return np.matrix(body2ned).T
+        return np.matrix(self.get_body2ned()).T
     
     # ned2body (R) rotation matrix (of SBA pose)
     def get_ned2body_sba(self):
@@ -550,7 +578,7 @@ class Image():
         ned2body = self.get_ned2body()
         R = body2cam.dot( ned2body )
         rvec, jac = cv2.Rodrigues(R)
-        ned = self.camera_pose['ned']
+        ned, ypr, quat = self.get_camera_pose()
         tvec = -np.matrix(R) * np.matrix(ned).T
         return rvec, tvec
     
