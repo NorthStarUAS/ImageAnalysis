@@ -103,23 +103,24 @@ def update_match_location(match):
         match[0] = ned.tolist()
     return match
 
-print("Constructing unified match structure...")
-print("This probably will fail because we didn't do the ground intersection at the start...")
-matches_direct = []
-for i, image in enumerate(proj.image_list):
-    # print image.name
-    for j, matches in enumerate(image.match_list):
-        # print proj.image_list[j].name
-        if j > i:
-            for pair in matches:
-                match = []
-                # ned place holder
-                match.append([0.0, 0.0, 0.0])
-                match.append([i, pair[0]])
-                match.append([j, pair[1]])
-                update_match_location(match)
-                matches_direct.append(match)
-                # print pair, match
-                
-print("Writing match file ...")
-pickle.dump(matches_direct, open(args.project + "/matches_direct", "wb"))
+if False:
+    print("Constructing unified match structure...")
+    print("This probably will fail because we didn't do the ground intersection at the start...")
+    matches_direct = []
+    for i, image in enumerate(proj.image_list):
+        # print image.name
+        for j, matches in enumerate(image.match_list):
+            # print proj.image_list[j].name
+            if j > i:
+                for pair in matches:
+                    match = []
+                    # ned place holder
+                    match.append([0.0, 0.0, 0.0])
+                    match.append([i, pair[0]])
+                    match.append([j, pair[1]])
+                    update_match_location(match)
+                    matches_direct.append(match)
+                    # print pair, match
+
+    print("Writing match file ...")
+    pickle.dump(matches_direct, open(args.project + "/matches_direct", "wb"))

@@ -254,13 +254,14 @@ class ProjectMgr():
             bar.next()
         bar.finish()
 
-    def load_match_pairs(self):
-        print("")
-        print("ProjectMgr.load_match_pairs():")
-        print("Notice: this routine is depricated for most purposes, unless")
-        print("resetting the match state of the system back to the original")
-        print("set of found matches.")
-        time.sleep(2)
+    def load_match_pairs(self, extra_verbose=True):
+        if extra_verbose:
+            print("")
+            print("ProjectMgr.load_match_pairs():")
+            print("Notice: this routine is depricated for most purposes, unless")
+            print("resetting the match state of the system back to the original")
+            print("set of found matches.")
+            time.sleep(2)
         bar = Bar('Loading keypoint (pair) matches:',
                   max = len(self.image_list))
         for image in self.image_list:
@@ -389,13 +390,10 @@ class ProjectMgr():
         if len(uv_orig) == 0:
             return []
         # camera parameters
-        camw, camh = self.cam.get_image_params()
         dist_coeffs = np.array(self.cam.get_dist_coeffs())
-        # scaled calibration matrix
-        scale = float(image.width) / float(camw)
-        K = self.cam.get_K(scale)
+        K = self.cam.get_K()
         # assemble the points in the proper format
-        uv_raw = np.zeros((len(uv_orig),12,), dtype=np.float32)
+        uv_raw = np.zeros((len(uv_orig),1,2), dtype=np.float32)
         for i, kp in enumerate(uv_orig):
             uv_raw[i][0] = (kp[0], kp[1])
         # do the actual undistort
@@ -564,19 +562,18 @@ class ProjectMgr():
     # 5. use linearndinterpolator ... g = scipy.interpolate.LinearNDInterpolator([[0,0],[1,0],[0,1],[1,1]], [[0,4,8],[1,3,2],[2,2,-4],[4,1,0]])
     #    with origin uv vs. 3d location to build a table
     # 6. interpolate original uv coordinates to 3d locations
-    def fastProjectKeypointsTo3d(self, sss, cam_dict=None):
+    def fastProjectKeypointsTo3d(self, sss):
         bar = Bar('Projecting keypoints to 3d:',
                   max = len(self.image_list))
         for image in self.image_list:
-            camw, camh = self.cam.get_image_params()
-            scale = float(image.width) / float(camw)
-            K = self.cam.get_K(scale)
+            K = self.cam.get_K()
             IK = np.linalg.inv(K)
             
             # build a regular grid of uv coordinates
-            size = 32
-            u_grid = np.linspace(0, image.width-1, size+1)
-            v_grid = np.linspace(0, image.height-1, size+1)
+            w, h = image.get_size()
+            steps = 32
+            u_grid = np.linspace(0, w-1, steps+1)
+            v_grid = np.linspace(0, h-1, steps+1)
             uv_raw = []
             for u in u_grid:
                 for v in v_grid:
@@ -586,23 +583,20 @@ class ProjectMgr():
             uv_grid = self.undistort_uvlist(image, uv_raw)
 
             # filter crazy values when can happen out at the very fringes
-            half_width = image.width * 0.5
-            half_height = image.height * 0.5
+            half_width = w * 0.5
+            half_height = h * 0.5
             uv_filt = []
             for p in uv_grid:
-                if p[0] < -half_width or p[0] > image.width + half_width:
+                if p[0] < -half_width or p[0] > w + half_width:
                     print("rejecting width outlier:", p)
                     continue
-                if p[1] < -half_height or p[1] > image.height + half_height:
+                if p[1] < -half_height or p[1] > h + half_height:
                     print("rejecting height outlier:", p)
                     continue
                 uv_filt.append(p)
             
             # project the grid out into vectors
-            if cam_dict == None:
-                body2ned = image.get_body2ned() # IR
-            else:
-                body2ned = image.rvec_to_body2ned(cam_dict[image.name]['rvec'])
+            body2ned = image.get_body2ned() # IR
                 
             # M is a transform to map the lens coordinate system (at
             # zero roll/pitch/yaw to the ned coordinate system at zero
@@ -614,10 +608,7 @@ class ProjectMgr():
             vec_list = self.projectVectors(IK, body2ned, cam2body, uv_filt)
 
             # intersect the vectors with the surface to find the 3d points
-            if cam_dict == None:
-                ned = image.camera_pose['ned']
-            else:
-                ned = cam_dict[image.name]['ned']
+            ned, ypr, quat = image.get_camera_pose()
             coord_list = sss.interpolate_vectors(ned, vec_list)
 
             # filter the coordinate list for bad interpolation
@@ -667,7 +658,7 @@ class ProjectMgr():
         for image in self.image_list:
             camw, camh = self.cam.get_image_params()
             scale = float(image.width) / float(camw)
-            K = self.cam.get_K(scale)
+            K = self.cam.get_K()
             IK = np.linalg.inv(K)
             
             # project the grid out into vectors

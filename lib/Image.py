@@ -535,8 +535,8 @@ class Image():
     
    # body2ned (IR) rotation matrix
     def get_body2ned(self):
-        p = self.camera_pose
-        return transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
+        ned, ypr, quat = self.get_camera_pose()
+        return transformations.quaternion_matrix(np.array(quat))[:3,:3]
 
    # body2ned (IR) rotation matrix
     def get_body2ned_sba(self):

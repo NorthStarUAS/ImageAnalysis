@@ -1,15 +1,13 @@
 #!/usr/bin/python3
 
-import sys
-#sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
-
 import argparse
 import pickle
-import cv2
-import math
 import numpy as np
 import os.path
 from progress.bar import Bar
+import sys
+
+from props import getNode
 
 sys.path.append('../lib')
 import Matcher
@@ -39,10 +37,10 @@ args = parser.parse_args()
 m = Matcher.Matcher()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_image_info()
+proj.load_images_info()
 proj.load_features()
 proj.undistort_keypoints()
-proj.load_match_pairs()
+proj.load_match_pairs(extra_verbose=False)
 
 # compute keypoint usage map
 proj.compute_kp_usage()
@@ -50,8 +48,13 @@ proj.compute_kp_usage()
 if args.ground:
     proj.fastProjectKeypointsToGround(args.ground)
 else:
+    # lookup ned reference
+    ref_node = getNode("/config/ned_reference", True)
+    ref = [ ref_node.getFloat('lat_deg'),
+            ref_node.getFloat('lon_deg'),
+            ref_node.getFloat('alt_m') ]
+    
     # setup SRTM ground interpolator
-    ref = proj.ned_reference_lla
     sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
 
     # fast way:
@@ -346,7 +349,8 @@ for match in matches_direct:
     match[0] = ned.tolist()
 
 print("Writing match file ...")
-pickle.dump(matches_direct, open(args.project + "/matches_direct", "wb"))
+direct_file = os.path.join(args.project, "matches_direct")
+pickle.dump(matches_direct, open(direct_file, "wb"))
 
 #print "temp: writing ascii version..."
 #for match in matches_direct:
