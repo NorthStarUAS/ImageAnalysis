@@ -28,8 +28,8 @@ class Image():
             self.name = None
         #self.img = None
         #self.img_rgb = None
-        self.height = 0
-        self.width = 0
+        #self.height = 0
+        #self.width = 0
         self.kp_list = []       # opencv keypoint list
         self.kp_usage = []
         self.des_list = []      # opencv descriptor list
@@ -37,7 +37,6 @@ class Image():
 
         self.uv_list = []       # the 'undistorted' uv coordinates of all kp's
         
-        self.aircraft_pose = None
         self.camera_pose = None
         self.camera_pose_sba = None
 
@@ -158,9 +157,9 @@ class Image():
         #print "Loading " + self.image_file
         try:
             img_rgb = cv2.imread(self.image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
-            self.height, self.width = img_rgb.shape[:2]
-            self.node.setInt('height', self.height)
-            self.node.setInt('width', self.width)
+            h, w = img_rgb.shape[:2]
+            self.node.setInt('height', h)
+            self.node.setInt('width', w)
             return img_rgb
 
         except:
@@ -182,6 +181,9 @@ class Image():
             print(self.image_file + ":\n" + "  gray load error: " \
                 + str(sys.exc_info()[1]))
 
+    def get_size(self):
+        return self.node.getInt('width'), self.node.getInt('height')
+    
     def load_features(self):
         if len(self.kp_list) == 0 and os.path.exists(self.features_file):
             #print "Loading " + self.features_file
@@ -459,13 +461,6 @@ class Image():
         maxlla = navpy.ned2lla([ymax, xmax, 0.0], ref[0], ref[1], ref[2])
         return(minlla[1], minlla[0], maxlla[1], maxlla[0])
         
-    def get_aircraft_pose(self):
-        p = self.aircraft_pose
-        if p and 'lla' in p and 'ypr' in p:
-            return p['lla'], p['ypr'], np.array(p['quat'])
-        else:
-            return [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], np.zeros(4)
-
     # ned = [n_m, e_m, d_m] relative to the project ned reference point
     # ypr = [yaw_deg, pitch_deg, roll_deg] in the ned coordinate frame
     # note that the matrix derived from 'quat' is inv(R) is transpose(R)
@@ -491,11 +486,18 @@ class Image():
         return Rbody2ned
 
     def get_camera_pose(self):
-        p = self.camera_pose
-        if p and 'ned' in p and 'ypr' in p:
-            return p['ned'], p['ypr'], np.array(p['quat'])
-        else:
-            return [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], np.zeros(4)
+        pose_node = self.node.getChild('camera_pose', True)
+        ned = []
+        for i in range(3):
+            ned.append( pose_node.getFloatEnum('ned', i) )
+        ypr = []
+        ypr.append( pose_node.getFloat('yaw_deg') )
+        ypr.append( pose_node.getFloat('pitch_deg') )
+        ypr.append( pose_node.getFloat('roll_deg') )
+        quat = []
+        for i in range(4):
+            quat.append( pose_node.getFloatEnum('quat', i) )
+        return ned, ypr, quat
 
     def set_camera_pose_sba(self, ned=[0.0, 0.0, 0.0], ypr=[0.0, 0.0, 0.0]):
         quat = transformations.quaternion_from_euler(ypr[0] * d2r,
