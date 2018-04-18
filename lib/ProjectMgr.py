@@ -224,6 +224,7 @@ class ProjectMgr():
         # load images meta info
         result = False
         project_dir = self.dir_node.getString('project')
+        images_dir = self.dir_node.getString('images_source')
         meta_dir = os.path.join(project_dir, 'Images')
         images_file = os.path.join(project_dir, "images.json")
         images_node = getNode("/images", True)
@@ -234,11 +235,11 @@ class ProjectMgr():
                 print("Notice: unable to load: ", images_file)
         else:
             print("Notice: images info file doesn't exist:", images_file)
-
+        
         # wipe image list (so we don't double load)
         self.image_list = []
         for name in images_node.getChildren():
-            image = Image.Image(self.image_dir, meta_dir, name)
+            image = Image.Image(images_dir, meta_dir, name)
             self.image_list.append( image )
 
         # make sure our matcher gets a copy of the image list

@@ -163,14 +163,14 @@ class Image():
             return img_rgb
 
         except:
-            print(self.image_name + ":\n" + "  rgb load error: " \
+            print(self.image_file + ":\n" + "  rgb load error: " \
                 + str(sys.exc_info()[1]))
             return None
 
     def load_gray(self):
         #print "Loading " + self.image_file
         try:
-            rgb = load_rgb()
+            rgb = self.load_rgb()
             gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
             # adaptive histogram equilization (block by block)
             clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
