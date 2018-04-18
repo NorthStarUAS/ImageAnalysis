@@ -11,6 +11,8 @@ import numpy as np
 import os.path
 from progress.bar import Bar
 
+from props import getNode
+
 sys.path.append('../lib')
 import Matcher
 import Pose
@@ -33,12 +35,15 @@ parser.add_argument('--sba', action='store_true', help='show matches_sba')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_image_info()
+proj.load_images_info()
 proj.load_features()
-proj.load_match_pairs()
+proj.load_match_pairs(extra_verbose=False)
 
-# setup SRTM ground interpolator
-ref = proj.ned_reference_lla
+# lookup ned reference
+ref_node = getNode("/config/ned_reference", True)
+ref = [ ref_node.getFloat('lat_deg'),
+        ref_node.getFloat('lon_deg'),
+        ref_node.getFloat('alt_m') ]
 
 m = Matcher.Matcher()
 
