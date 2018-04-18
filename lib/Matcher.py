@@ -11,6 +11,8 @@ import math
 from matplotlib import pyplot as plt
 import numpy as np
 
+from props import getNode
+
 from find_obj import filter_matches,explore_match
 import ImageList
 import transformations
@@ -20,50 +22,50 @@ import gms_matcher
 
 class Matcher():
     def __init__(self):
+        self.detector_node = getNode('/config/detector', True)
+        self.matcher_node = getNode('/config/matcher', True)
         self.image_list = []
         self.matcher = None
-        self.match_ratio = 0.75
-        self.min_pairs = 2      # minimum number of pairs to consider a match
-        #self.bf = cv2.BFMatcher(cv2.NORM_HAMMING) #, crossCheck=True)
-        #self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+        self.match_ratio = 0.8
+        self.min_pairs = 25
 
-    def configure(self, dparams={}, mparams={}):
-        if 'detector' in dparams:
-            if dparams['detector'] == 'SIFT':
-                norm = cv2.NORM_L2
-                self.max_distance = 270.0
-            elif dparams['detector'] == 'SURF':
-                norm = cv2.NORM_L2
-                self.max_distance = 270.0
-            elif dparams['detector'] == 'ORB':
-                norm = cv2.NORM_HAMMING
-                self.max_distance = 64
-            elif dparams['detector'] == 'Star':
-                norm = cv2.NORM_HAMMING
-                self.max_distance = 64
+    def configure(self):
+        detector_str = self.detector_node.getString('detector')
+        if detector_str == 'SIFT':
+            norm = cv2.NORM_L2
+            self.max_distance = 270.0
+        elif detector_str == 'SURF':
+            norm = cv2.NORM_L2
+            self.max_distance = 270.0
+        elif detector_str == 'ORB':
+            norm = cv2.NORM_HAMMING
+            self.max_distance = 64
+        elif detector_str == 'Star':
+            norm = cv2.NORM_HAMMING
+            self.max_distance = 64
 
         FLANN_INDEX_KDTREE = 1  # bug: flann enums are missing
         FLANN_INDEX_LSH    = 6
-        if 'matcher' in mparams:
-            if mparams['matcher'] == 'FLANN':
-                if norm == cv2.NORM_L2:
-                    flann_params = { 'algorithm': FLANN_INDEX_KDTREE,
-                                     'trees': 5 }
-                else:
-                    flann_params = { 'algorithm': FLANN_INDEX_LSH,
-                                     'table_number': 6,     # 12
-                                     'key_size': 12,        # 20
-                                     'multi_probe_level': 1 #2
-                                     }
-                self.matcher = cv2.FlannBasedMatcher(flann_params, {}) # bug : need to pass empty dict (#1329)
-            elif mparams['matcher'] == 'BF':
-                print("brute force norm = %d" % norm)
-                self.matcher = cv2.BFMatcher(norm)
-        if 'match-ratio' in mparams:
-            self.match_ratio = mparams['match-ratio']
-
-    def setImageList(self, image_list):
-        self.image_list = image_list
+        matcher_str = self.matcher_node.getString('matcher')
+        if matcher_str == 'FLANN':
+            if norm == cv2.NORM_L2:
+                flann_params = {
+                    'algorithm': FLANN_INDEX_KDTREE,
+                    'trees': 5
+                }
+            else:
+                flann_params = {
+                    'algorithm': FLANN_INDEX_LSH,
+                    'table_number': 6,     # 12
+                    'key_size': 12,        # 20
+                    'multi_probe_level': 1 #2
+                }
+            self.matcher = cv2.FlannBasedMatcher(flann_params, {}) # bug : need to pass empty dict (#1329)
+        elif matcher_str == 'BF':
+            print("brute force norm = %d" % norm)
+            self.matcher = cv2.BFMatcher(norm)
+        self.match_ratio = self.matcher_node.getFloat('match_ratio')
+        self.min_pairs = self.matcher_node.getFloat('min_pairs')
 
     def filter_by_feature(self, i1, i2, matches):
         kp1 = i1.kp_list
@@ -306,6 +308,7 @@ class Matcher():
                 if line[0] < 190.0:
                     matches_thresh.append(line[1])
             print('  quality matches:', len(matches_thresh))
+            # fixme, make this a command line option or parameter?
             mymax = 500
             if len(matches_thresh) > mymax:
                 # clip list to n best rated matches
@@ -315,9 +318,11 @@ class Matcher():
         if len(matches_thresh) < self.min_pairs:
             # just quit now
             return []
-            
-        size1 = gms_matcher.Size(i1.width, i1.height)
-        size2 = gms_matcher.Size(i2.width, i2.height)
+
+        dim1 = i1.get_size()
+        dim2 = i2.get_size()
+        size1 = gms_matcher.Size(dim1[0], dim1[1])
+        size2 = gms_matcher.Size(dim2[0], dim2[1])
         gms = gms_matcher.GmsMatcher(i1.kp_list, size1, i2.kp_list, size2, matches_thresh)
         vbInliers, num_inliers = gms.GetInlierMask(with_scale=False, with_rotation=True)
         print('gms inliers:', num_inliers)
@@ -632,13 +637,13 @@ class Matcher():
             error = []
             for i, p in enumerate(src):
                 p_est = affine.dot( np.hstack((p, 1.0)) )[:2]
-                print('p est:', p_est, 'act:', dst[i])
+                # print('p est:', p_est, 'act:', dst[i])
                 #np1 = np.array(i1.coord_list[pair[0]])
                 #np2 = np.array(i2.coord_list[pair[1]])
                 d = np.linalg.norm(p_est - dst[i])
-                print('dist:', d)
+                # print('dist:', d)
                 error.append(d)
-            print('errors:', error)
+            # print('errors:', error)
             error = np.array(error)
             avg = np.mean(error)
             std = np.std(error)
