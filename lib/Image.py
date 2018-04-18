@@ -487,10 +487,14 @@ class Image():
     # ned = [n_m, e_m, d_m] relative to the project ned reference point
     # ypr = [yaw_deg, pitch_deg, roll_deg] in the ned coordinate frame
     # note that the matrix derived from 'quat' is inv(R) is transpose(R)
-    def set_camera_pose(self, ned, yaw_deg, pitch_deg, roll_deg):
+    def set_camera_pose(self, ned, yaw_deg, pitch_deg, roll_deg, opt=False):
         # computed from euler angles
         quat = self.ypr_to_quat(yaw_deg, pitch_deg, roll_deg)
-        cam_pose_node = self.node.getChild('camera_pose', True)
+        if opt:
+            cam_pose_node = self.node.getChild('camera_pose_opt', True)
+            cam_pose_node.setBool('valid', True)
+        else:
+            cam_pose_node = self.node.getChild('camera_pose', True)
         for i in range(3):
             cam_pose_node.setFloatEnum('ned', i, ned[i])
         cam_pose_node.setFloat('yaw_deg', yaw_deg)
@@ -499,7 +503,7 @@ class Image():
         cam_pose_node.setLen('quat', 4)
         for i in range(4):
             cam_pose_node.setFloatEnum('quat', i, quat[i])
-        cam_pose_node.pretty_print('  ')
+        #cam_pose_node.pretty_print('  ')
         
     # set the camera pose using rvec, tvec (rodrigues) which is the
     # output of certain cv2 functions like solvePnP()
@@ -515,8 +519,11 @@ class Image():
         Rbody2ned = np.matrix(Rned2body).T
         return Rbody2ned
 
-    def get_camera_pose(self):
-        pose_node = self.node.getChild('camera_pose', True)
+    def get_camera_pose(self, opt=False):
+        if opt:
+            pose_node = self.node.getChild('camera_pose_opt', True)
+        else:
+            pose_node = self.node.getChild('camera_pose', True)
         ned = []
         for i in range(3):
             ned.append( pose_node.getFloatEnum('ned', i) )
@@ -528,20 +535,6 @@ class Image():
         for i in range(4):
             quat.append( pose_node.getFloatEnum('quat', i) )
         return ned, ypr, quat
-
-    def set_camera_pose_sba(self, ned=[0.0, 0.0, 0.0], ypr=[0.0, 0.0, 0.0]):
-        quat = transformations.quaternion_from_euler(ypr[0] * d2r,
-                                                     ypr[1] * d2r,
-                                                     ypr[2] * d2r,
-                                                     'rzyx')
-        self.camera_pose_sba = { 'ned': ned, 'ypr': ypr, 'quat': quat.tolist() }
-
-    def get_camera_pose_sba(self):
-        p = self.camera_pose_sba
-        if p and 'ned' in p and 'ypr' in p:
-            return p['ned'], p['ypr'], np.array(p['quat'])
-        else:
-            return [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], np.zeros(4)
 
     # cam2body rotation matrix (M)
     def get_cam2body(self):
@@ -555,7 +548,7 @@ class Image():
     def get_ned2body(self):
         return np.matrix(self.get_body2ned()).T
     
-    # ned2body (R) rotation matrix (of SBA pose)
+    # ned2body (R) rotation matrix (of optimized pose)
     def get_ned2body_sba(self):
         p = self.camera_pose_sba
         body2ned = transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]

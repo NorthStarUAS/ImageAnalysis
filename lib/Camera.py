@@ -94,7 +94,7 @@ class Camera():
         if optimized:
             self.camera_node.setLen('dist_coeffs_opt', 5)
             for i in range(5):
-                self.camera_node.setFloatEnum('dist_coeffs_opt', dist_coeffs[i])
+                self.camera_node.setFloatEnum('dist_coeffs_opt', i, dist_coeffs[i])
         else:
             self.camera_node.setLen('dist_coeffs', 5)
             for i in range(5):
