@@ -375,13 +375,15 @@ class ProjectMgr():
         # requires images to have their location computed/loaded
         lon_sum = 0.0
         lat_sum = 0.0
+        count = 0
         images_node = getNode("/images", True)
         for name in images_node.getChildren():
             image_node = images_node.getChild(name, True)
             pose_node = image_node.getChild('aircraft_pose', True)
-            lon_sum += pose_node.getFloat('lon_deg')
-            lat_sum += pose_node.getFloat('lat_deg')
-        count = len(images_node.getChildren())
+            if pose_node.hasChild('lon_deg') and pose_node.hasChild('lat_deg'):
+                lon_sum += pose_node.getFloat('lon_deg')
+                lat_sum += pose_node.getFloat('lat_deg')
+                count += 1
         ned_node = getNode('/config/ned_reference', True)
         ned_node.setFloat('lat_deg', lat_sum / count)
         ned_node.setFloat('lon_deg', lon_sum / count)
