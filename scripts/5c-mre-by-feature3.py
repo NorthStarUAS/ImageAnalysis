@@ -5,7 +5,6 @@
 
 import argparse
 import pickle
-import cv2
 import math
 import numpy as np
 import os
@@ -27,32 +26,28 @@ parser.add_argument('--interactive', action='store_true', help='interactively re
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_image_info()
+proj.load_images_info()
 proj.load_features()
 proj.undistort_keypoints(optimized=True)
 
 source = 'matches_grouped'
 print("Loading matches:", source)
 matches_orig = pickle.load( open( os.path.join(args.project, source), "rb" ) )
-print("Loading optimized matches: matches_sba")
-matches_sba = pickle.load( open( os.path.join(args.project, "matches_sba"), "rb" ) )
-print('Number of sba features:', len(matches_sba))
+print('Number of original features:', len(matches_orig))
+print("Loading optimized matches: matches_opt")
+matches_opt = pickle.load( open( os.path.join(args.project, "matches_opt"), "rb" ) )
+print('Number of optimized features:', len(matches_opt))
 
 # load the group connections within the image set
 groups = Groups.load(args.project)
 print('Main group size:', len(groups[0]))
 
-image_width = proj.image_list[0].width
-camw, camh = proj.cam.get_image_params()
-scale = float(image_width) / float(camw)
-print('scale: %.2f' % scale)
-
-K = proj.cam.get_K(scale, optimized=True)
+K = proj.cam.get_K( optimized=True)
 print('K:\n', K)
 distCoeffs = np.array(proj.cam.get_dist_coeffs(optimized=True))
 
 opt = Optimizer.Optimizer(args.project)
-opt.setup( proj.image_list, groups[0], matches_sba, K, distCoeffs, optimized=True )
+opt.setup( proj.image_list, groups[0], matches_opt, K, distCoeffs, optimized=True )
 
 x0 = np.hstack((opt.camera_params.ravel(), opt.points_3d.ravel(),
                 opt.K[0,0], opt.K[1,1], opt.K[0,2], opt.K[1,2],
@@ -72,7 +67,7 @@ for i, cam in enumerate(opt.camera_params.reshape((opt.n_cameras, opt.ncp))):
     orig_cam_index = opt.camera_map_fwd[i]
     # print(count, opt.by_camera_point_indices[i])
     for j in opt.by_camera_point_indices[i]:
-        match = matches_sba[opt.feat_map_rev[j]]
+        match = matches_opt[opt.feat_map_rev[j]]
         match_index = 0
         #print(orig_cam_index, match)
         for k, p in enumerate(match[1:]):
@@ -116,7 +111,8 @@ def mark_outliers(error_list, trim_stddev):
     for line in error_list:
         # print "line:", line
         if line[0] > mre + stddev * trim_stddev:
-            cull.mark_outlier(matches_sba, line[1], line[2], line[0])
+            cull.mark_outlier(matches_orig, line[1], line[2], line[0])
+            cull.mark_outlier(matches_opt, line[1], line[2], line[0])
             mark_count += 1
             
     return mark_count
@@ -141,11 +137,11 @@ def delete_marked_matches(matches):
 
 if args.interactive:
     # interactively pick outliers
-    mark_list = cull.show_outliers(error_list, matches_sba, proj.image_list)
+    mark_list = cull.show_outliers(error_list, matches_opt, proj.image_list)
 
     # mark selection
     cull.mark_using_list(mark_list, matches_orig)
-    cull.mark_using_list(mark_list, matches_sba)
+    cull.mark_using_list(mark_list, matches_opt)
     mark_sum = len(mark_list)
 else:
     # trim outliers by some # of standard deviations high
@@ -155,7 +151,7 @@ else:
 # show up in each image
 for i in proj.image_list:
     i.feature_count = 0
-for i, match in enumerate(matches_sba):
+for i, match in enumerate(matches_opt):
     for j, p in enumerate(match[1:]):
         if p[1] != [-1, -1]:
             image = proj.image_list[ p[0] ]
@@ -178,7 +174,7 @@ if purge_weak_images:
             if p[0] in weak_dict:
                  match[j+1] = [-1, -1]
                  mark_sum += 1
-    for i, match in enumerate(matches_sba):
+    for i, match in enumerate(matches_opt):
         #print 'before:', match
         for j, p in enumerate(match[1:]):
             if p[0] in weak_dict:
@@ -191,10 +187,10 @@ if mark_sum > 0:
     result=input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
         delete_marked_matches(matches_orig)
-        delete_marked_matches(matches_sba)
+        delete_marked_matches(matches_opt)
         # write out the updated match dictionaries
         print("Writing direct matches...")
         pickle.dump(matches_orig, open(os.path.join(args.project, source), "wb"))
         print("Writing optimized matches...")
-        pickle.dump(matches_sba, open(os.path.join(args.project, "matches_sba"), "wb"))
+        pickle.dump(matches_opt, open(os.path.join(args.project, "matches_opt"), "wb"))
 
