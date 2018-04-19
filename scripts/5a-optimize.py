@@ -159,7 +159,7 @@ if refit_group_orientations:
     camera_list = []
     # load current sba poses
     for image in proj.image_list:
-        ned, ypr, quat = image.get_camera_pose_sba()
+        ned, ypr, quat = image.get_camera_pose(opt=True)
         camera_list.append( ned )
     # refit
     new_cams = transform_points(A, camera_list)
