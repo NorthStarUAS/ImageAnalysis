@@ -37,9 +37,6 @@ class Image():
 
         self.uv_list = []       # the 'undistorted' uv coordinates of all kp's
         
-        self.camera_pose = None
-        self.camera_pose_sba = None
-
         # cam2body/body2cam are transforms to map between the standard
         # lens coordinate system (at zero roll/pitch/yaw and the
         # standard ned coordinate system at zero roll/pitch/yaw).
@@ -545,43 +542,21 @@ class Image():
         return self.body2cam
 
     # ned2body (R) rotation matrix
-    def get_ned2body(self):
-        return np.matrix(self.get_body2ned()).T
-    
-    # ned2body (R) rotation matrix (of optimized pose)
-    def get_ned2body_sba(self):
-        p = self.camera_pose_sba
-        body2ned = transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
-        return np.matrix(body2ned).T
+    def get_ned2body(self, opt=False):
+        return np.matrix(self.get_body2ned(opt)).T
     
    # body2ned (IR) rotation matrix
-    def get_body2ned(self):
-        ned, ypr, quat = self.get_camera_pose()
+    def get_body2ned(self, opt=False):
+        ned, ypr, quat = self.get_camera_pose(opt)
         return transformations.quaternion_matrix(np.array(quat))[:3,:3]
 
-   # body2ned (IR) rotation matrix
-    def get_body2ned_sba(self):
-        p = self.camera_pose_sba
-        return transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
-
     # compute rvec and tvec (used to build the camera projection
     # matrix for things like cv2.triangulatePoints) from camera pose
-    def get_proj(self):
+    def get_proj(self, opt=False):
         body2cam = self.get_body2cam()
-        ned2body = self.get_ned2body()
+        ned2body = self.get_ned2body(opt)
         R = body2cam.dot( ned2body )
         rvec, jac = cv2.Rodrigues(R)
-        ned, ypr, quat = self.get_camera_pose()
-        tvec = -np.matrix(R) * np.matrix(ned).T
-        return rvec, tvec
-    
-    # compute rvec and tvec (used to build the camera projection
-    # matrix for things like cv2.triangulatePoints) from camera pose
-    def get_proj_sba(self):
-        body2cam = self.get_body2cam()
-        ned2body = self.get_ned2body_sba()
-        R = body2cam.dot( ned2body )
-        rvec, jac = cv2.Rodrigues(R)
-        ned = self.camera_pose_sba['ned']
+        ned, ypr, quat = self.get_camera_pose(opt)
         tvec = -np.matrix(R) * np.matrix(ned).T
         return rvec, tvec

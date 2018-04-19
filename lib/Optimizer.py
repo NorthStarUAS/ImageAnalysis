@@ -252,7 +252,7 @@ class Optimizer():
             if not optimized:
                 rvec, tvec = image.get_proj()
             else:
-                rvec, tvec = image.get_proj_sba()
+                rvec, tvec = image.get_proj(opt=True)
             if self.optimize_calib == 'individual':
                 tmp = np.append(rvec, tvec)
                 tmp = np.append(tmp, [self.K[0,0], distCoeffs[0], distCoeffs[1]])
