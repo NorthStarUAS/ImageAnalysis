@@ -305,7 +305,7 @@ class Matcher():
             by_metric = sorted(by_metric, key=lambda fields: fields[0])
             matches_thresh = []
             for line in by_metric:
-                if line[0] < 210.0:
+                if line[0] < 220.0:
                     matches_thresh.append(line[1])
             print('  quality matches:', len(matches_thresh))
             # fixme, make this a command line option or parameter?
