@@ -305,11 +305,11 @@ class Matcher():
             by_metric = sorted(by_metric, key=lambda fields: fields[0])
             matches_thresh = []
             for line in by_metric:
-                if line[0] < 190.0:
+                if line[0] < 210.0:
                     matches_thresh.append(line[1])
             print('  quality matches:', len(matches_thresh))
             # fixme, make this a command line option or parameter?
-            mymax = 500
+            mymax = 750
             if len(matches_thresh) > mymax:
                 # clip list to n best rated matches
                 matches_thresh = matches_thresh[:100]

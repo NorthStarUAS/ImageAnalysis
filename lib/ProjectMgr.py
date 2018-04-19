@@ -26,7 +26,6 @@ import Image
 
 import ImageList
 import Matcher
-import Placer
 import Render
 import transformations
 
@@ -56,7 +55,6 @@ class ProjectMgr():
         self.k1 = 0.0
         self.k2 = 0.0
         #self.m = Matcher.Matcher()
-        self.placer = Placer.Placer()
         self.render = Render.Render()
         
         self.dir_node = getNode('/config/directories', True)
