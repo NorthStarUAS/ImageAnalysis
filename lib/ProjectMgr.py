@@ -241,7 +241,6 @@ class ProjectMgr():
             self.image_list.append( image )
 
         # make sure our matcher gets a copy of the image list
-        self.placer.setImageList(self.image_list)
         self.render.setImageList(self.image_list)
 
     def load_features(self):
