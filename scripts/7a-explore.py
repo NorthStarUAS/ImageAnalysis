@@ -7,6 +7,8 @@ from progress.bar import Bar
 import sys
 import time
 
+from props import getNode
+
 import math
 import numpy as np
 
@@ -22,9 +24,13 @@ parser.add_argument('--project', required=True, help='project directory')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_image_info()
+proj.load_images_info()
 
-ref = proj.ned_reference_lla
+# lookup ned reference
+ref_node = getNode("/config/ned_reference", True)
+ref = [ ref_node.getFloat('lat_deg'),
+        ref_node.getFloat('lon_deg'),
+        ref_node.getFloat('alt_m') ]
 
 tcache = {}
 
@@ -142,6 +148,9 @@ class MyApp(ShowBase):
             #    m.setColor(0.7, 0.7, 0.7, 1.0)
 
     def updateTexture(self, main):
+        dir_node = getNode('/config/directories', True)
+        images_src = dir_node.getString('images_source')
+        
         # reset base textures
         for i, m in enumerate(self.models):
             if m != main:
@@ -153,7 +162,7 @@ class MyApp(ShowBase):
             else:
                 print(m.getName())
                 base, ext = os.path.splitext(m.getName())
-                fullpath = os.path.join(args.project, "Images", base + '.JPG')
+                fullpath = os.path.join(images_src, base + '.JPG')
                 print(fullpath)
                 fulltex = self.loader.loadTexture(fullpath)
                 fulltex.setWrapU(Texture.WM_clamp)
