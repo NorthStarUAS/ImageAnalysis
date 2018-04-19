@@ -11,13 +11,13 @@
 # this script can also project onto the SRTM surface, or a flat ground
 # elevation plane.
 
-import sys
-
 import argparse
 import pickle
-import cv2
 import numpy as np
 import os.path
+import sys
+
+from props import getNode
 
 sys.path.append('../lib')
 import AC3D
@@ -34,6 +34,7 @@ ac3d_steps = 8
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--bins', type=int, default=64, help='surface bins for stats')
 parser.add_argument('--texture-resolution', type=int, default=512, help='texture resolution (should be 2**n, so numbers like 256, 512, 1024, etc.')
 parser.add_argument('--srtm', action='store_true', help='use srtm elevation')
 parser.add_argument('--ground', type=float, help='force ground elevation in meters')
@@ -42,17 +43,21 @@ parser.add_argument('--direct', action='store_true', help='use direct pose')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_image_info()
+proj.load_images_info()
 proj.load_features()
 proj.undistort_keypoints(optimized=True)
 
-ref = proj.ned_reference_lla
-
+# lookup ned reference
+ref_node = getNode("/config/ned_reference", True)
+ref = [ ref_node.getFloat('lat_deg'),
+        ref_node.getFloat('lon_deg'),
+        ref_node.getFloat('alt_m') ]
+  
 # setup SRTM ground interpolator
 sss = SRTM.NEDGround( ref, 6000, 6000, 30 )
 
-print("Loading match points (sba)...")
-matches_sba = pickle.load( open( os.path.join(args.project, "matches_sba"), "rb" ) )
+print("Loading optimized match points ...")
+matches_opt = pickle.load( open( os.path.join(args.project, "matches_opt"), "rb" ) )
 
 # load the group connections within the image set
 groups = Groups.load(args.project)
@@ -121,7 +126,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 # first determine surface elevation stats so we can discard outliers
 z = []
-for match in matches_sba:
+for match in matches_opt:
     used = False
     for p in match[1:]:
         if p[0] in groups[0]:
@@ -137,7 +142,7 @@ print('elevation stats:', zavg, zstd)
 xfit = []
 yfit = []
 zfit = []
-for match in matches_sba:
+for match in matches_opt:
     used = False
     for p in match[1:]:
         if p[0] in groups[0]:
@@ -177,7 +182,7 @@ plt.title("Approximation function.")
 
 import binned_surface
 bin2d = binned_surface.binned_surface()
-bin2d.make(xfit, yfit, zfit, bins=48)
+bin2d.make(xfit, yfit, zfit, bins=args.bins)
 bin2d.fill()
 
 if False:
@@ -193,7 +198,7 @@ plt.figure()
 #plt.colorbar()
 #print(mean)
 #plt.pcolormesh(xedges[1:], yedges[1:], stats)
-plt.imshow(bin2d.mean, origin='lower', cmap=cm.jet)
+plt.imshow(-bin2d.mean, origin='lower', cmap=cm.jet)
 plt.colorbar()
 plt.title("Binned data.")
 
@@ -224,7 +229,7 @@ plt.show()
 for image in proj.image_list:
     image.z_list = []
     image.grid_list = []
-for i, match in enumerate(matches_sba):
+for i, match in enumerate(matches_opt):
     print(match)
     ned = match[0]
     print(ned)
@@ -245,7 +250,7 @@ for image in proj.image_list:
 
 # for fun rerun through the matches and find elevation outliers
 outliers = []
-for i, match in enumerate(matches_sba):
+for i, match in enumerate(matches_opt):
     ned = match[0]
     error_sum = 0
     for p in match[1:]:
@@ -259,11 +264,10 @@ for i, match in enumerate(matches_sba):
 result = sorted(outliers, key=lambda fields: fields[0], reverse=True)
 for line in result:
     #print('index:', line[1], 'error:', line[0])
-    #cull.draw_match(line[1], 1, matches_sba, proj.image_list)
+    #cull.draw_match(line[1], 1, matches_opt, proj.image_list)
     pass
     
 depth = 0.0
-camw, camh = proj.cam.get_image_params()
 #for group in groups:
 if True:
     group = groups[0]
@@ -272,14 +276,14 @@ if True:
     for g in group:
         image = proj.image_list[g]
         print(image.name, image.z_avg)
+        width, height = image.get_size()
         # scale the K matrix if we have scaled the images
-        scale = float(image.width) / float(camw)
-        K = proj.cam.get_K(scale, optimized=True)
+        K = proj.cam.get_K(optimized=True)
         IK = np.linalg.inv(K)
 
         grid_list = []
-        u_list = np.linspace(0, image.width, ac3d_steps + 1)
-        v_list = np.linspace(0, image.height, ac3d_steps + 1)
+        u_list = np.linspace(0, width, ac3d_steps + 1)
+        v_list = np.linspace(0, height, ac3d_steps + 1)
         #print "u_list:", u_list
         #print "v_list:", v_list
         for v in v_list:
@@ -291,16 +295,16 @@ if True:
             proj_list = proj.projectVectors( IK, image.get_body2ned(),
                                              image.get_cam2body(), grid_list )
         else:
-            #print(image.get_body2ned_sba())
-            proj_list = proj.projectVectors( IK, image.get_body2ned_sba(),
+            #print(image.get_body2ned(opt=True))
+            proj_list = proj.projectVectors( IK, image.get_body2ned(opt=True),
                                              image.get_cam2body(), grid_list )
         #print 'proj_list:', proj_list
 
         if args.direct:
-            ned = image.camera_pose['ned']
+            ned, ypr, quat = image.get_camera_pose()
         else:
-            ned = image.camera_pose_sba['ned']
-        print('cam orig:', image.camera_pose['ned'], 'optimized:', ned)
+            ned, ypr, quat = image.get_camera_pose(opt=True)
+        #print('cam orig:', image.camera_pose['ned'], 'optimized:', ned)
         if args.ground:
             pts_ned = proj.intersectVectorsWithGroundPlane(ned,
                                                            args.ground, proj_list)
@@ -331,13 +335,14 @@ if True:
         depth -= 0.01                # favor last pictures above earlier ones
 
 # generate the panda3d egg models
-img_src_dir = os.path.join(args.project, "Images")
+dir_node = getNode('/config/directories', True)
+img_src_dir = dir_node.getString('images_source')
 Panda3d.generate(proj.image_list, groups[0], src_dir=img_src_dir,
-              project_dir=args.project, base_name='direct',
-              version=1.0, trans=0.1, resolution=args.texture_resolution)
+                 project_dir=args.project, base_name='direct',
+                 version=1.0, trans=0.1, resolution=args.texture_resolution)
 
 # call the ac3d generator
-AC3D.generate(proj.image_list, groups[0], src_dir=proj.source_dir,
+AC3D.generate(proj.image_list, groups[0], src_dir=img_src_dir,
               project_dir=args.project, base_name='direct',
               version=1.0, trans=0.1, resolution=args.texture_resolution)
 
