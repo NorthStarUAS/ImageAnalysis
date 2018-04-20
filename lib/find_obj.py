@@ -12,10 +12,6 @@ USAGE
   Press left mouse button on a feature point to see its matching point.
 '''
 
-# find our custom built opencv first
-import sys
-sys.path.insert(0, "/home/curt/Projects/ComputerVision/lib/python2.7/site-packages/")
-
 import numpy as np
 import cv2
 from common import anorm, getsize

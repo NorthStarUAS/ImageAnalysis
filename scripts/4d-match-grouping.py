@@ -1,15 +1,11 @@
 #!/usr/bin/python3
 
-import sys
-#sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
-
 import argparse
 import pickle
-import cv2
-import math
 import numpy as np
 import os.path
 from progress.bar import Bar
+import sys
 
 sys.path.append('../lib')
 import ProjectMgr
@@ -27,7 +23,7 @@ args = parser.parse_args()
 #m = Matcher.Matcher()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_image_info()
+proj.load_images_info()
 proj.load_features()
 proj.undistort_keypoints()
 

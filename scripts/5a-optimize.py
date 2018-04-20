@@ -1,14 +1,8 @@
 #!/usr/bin/python3
 
-# write out the data in a form useful to pass to the sba (demo) program
-
-# it appears camera poses are basically given as [ R | t ] where R is
-# the same R we use throughout and t is the 'tvec'
-
-# todo, run sba and automatically parse output ...
-
-import sys
-#sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
+# Run the optimization step to place all the features and camera poses
+# in a way that minimizes the mean reprojection error for the
+# collective data set.
 
 import argparse
 import pickle
@@ -16,7 +10,7 @@ import cv2
 import math
 import numpy as np
 import os
-import random
+import sys
 
 sys.path.append('../lib')
 import Groups
@@ -24,7 +18,8 @@ import Optimizer
 import ProjectMgr
 import transformations
 
-d2r = math.pi / 180.0       # a helpful constant
+d2r = math.pi / 180.0
+r2d = 180.0 / math.pi
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
@@ -70,7 +65,7 @@ def transform_points( A, pts_list ):
     return result
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_image_info()
+proj.load_images_info()
 proj.load_features()
 #proj.undistort_keypoints()
 # proj.load_match_pairs()
@@ -93,28 +88,23 @@ print('Match features:', len(matches))
 groups = Groups.load(args.project)
 print('Main group size:', len(groups[0]))
 
-image_width = proj.image_list[0].width
-camw, camh = proj.cam.get_image_params()
-scale = float(image_width) / float(camw)
-print('scale: {}'.format(scale))
-K = proj.cam.get_K(scale)
+K = proj.cam.get_K()
 distCoeffs = np.array(proj.cam.get_dist_coeffs())
 
 opt = Optimizer.Optimizer(args.project)
 opt.setup( proj.image_list, groups[0], matches, K, distCoeffs )
 cameras, features, cam_index_map, feat_index_map, fx_opt, fy_opt, cu_opt, cv_opt, distCoeffs_opt = opt.run()
 
-# wipe the sba pose for all images
+# mark all the optimized poses as invalid
 for image in proj.image_list:
-    image.camera_pose_sba = None
-    image.placed = False
-proj.save_images_meta()
+    opt_cam_node = image.node.getChild('camera_pose_opt', True)
+    opt_cam_node.setBool('valid', False)
 
 for i, cam in enumerate(cameras):
     image_index = cam_index_map[i]
     image = proj.image_list[image_index]
-    orig = image.camera_pose
-    print('sba cam: {}'.format(cam))
+    ned_orig, ypr_orig, quat_orig = image.get_camera_pose()
+    print('optimized cam:', cam)
     rvec = cam[0:3]
     tvec = cam[3:6]
     Rned2cam, jac = cv2.Rodrigues(rvec)
@@ -126,18 +116,18 @@ for i, cam in enumerate(cameras):
     #print "new ypr =", [yaw/d2r, pitch/d2r, roll/d2r]
     pos = -np.matrix(Rned2cam).T * np.matrix(tvec).T
     newned = pos.T[0].tolist()[0]
-    print(image.name, image.camera_pose['ned'], '->', newned, 'dist:', np.linalg.norm(np.array(image.camera_pose['ned']) - np.array(newned)))
-    image.set_camera_pose_sba( ned=newned, ypr=[yaw/d2r, pitch/d2r, roll/d2r] )
+    print(image.name, ned_orig, '->', newned, 'dist:', np.linalg.norm(np.array(ned_orig) - np.array(newned)))
+    image.set_camera_pose( newned, yaw*r2d, pitch*r2d, roll*r2d, opt=True )
     image.placed = True
-proj.save_images_meta()
-print('Updated the sba poses for all the cameras')
+proj.save_images_info()
+print('Updated the optimized poses for all the cameras')
 
-# save the optimized camera calibration
-proj.cam.set_K(fx_opt/scale, fy_opt/scale, cu_opt/scale, cv_opt/scale, optimized=True)
+# update and save the optimized camera calibration
+proj.cam.set_K(fx_opt, fy_opt, cu_opt, cv_opt, optimized=True)
 proj.cam.set_dist_coeffs(distCoeffs_opt.tolist(), optimized=True)
-proj.cam.save(args.project)
+proj.save()
 
-# compare original camera locations with sba camera locations and
+# compare original camera locations with optimized camera locations and
 # derive a transform matrix to 'best fit' the new camera locations
 # over the original ... trusting the original group gps solution as
 # our best absolute truth for positioning the system in world
@@ -169,7 +159,7 @@ if refit_group_orientations:
     camera_list = []
     # load current sba poses
     for image in proj.image_list:
-        ned, ypr, quat = image.get_camera_pose_sba()
+        ned, ypr, quat = image.get_camera_pose(opt=True)
         camera_list.append( ned )
     # refit
     new_cams = transform_points(A, camera_list)
@@ -227,30 +217,30 @@ if refit_group_orientations:
         match[0] = feat
         matches_sba.append( match )
 else:
-    # not refitting group orientations create a matches_sba
-    matches_sba = list(matches) # shallow copy
+    # not refitting group orientations create a matches_opt
+    matches_opt = list(matches) # shallow copy
     for i, feat in enumerate(features):
         match_index = feat_index_map[i]
-        match = matches_sba[match_index]
+        match = matches_opt[match_index]
         match[0] = feat
 
 # write out the updated match_dict
-print("Writing match_sba file ... {} features".format(len(matches_sba)))
-pickle.dump(matches_sba, open(os.path.join(args.project, 'matches_sba'), 'wb'))
+print('Writing matches_opt file:', len(matches_opt), 'features')
+pickle.dump(matches_opt, open(os.path.join(args.project, 'matches_opt'), 'wb'))
 
 # temp write out just the points so we can plot them with gnuplot
-f = open(os.path.join(args.project, 'sba-plot.txt'), 'w')
-for m in matches_sba:
+f = open(os.path.join(args.project, 'opt-plot.txt'), 'w')
+for m in matches_opt:
     f.write('%.2f %.2f %.2f\n' % (m[0][0], m[0][1], m[0][2]))
 f.close()
 
-# temp write out direct and sba camera positions
+# temp write out direct and optimized camera positions
 f1 = open(os.path.join(args.project, 'cams-direct.txt'), 'w')
-f2 = open(os.path.join(args.project, 'cams-sba.txt'), 'w')
+f2 = open(os.path.join(args.project, 'cams-opt.txt'), 'w')
 for i in groups[0]:
     image = proj.image_list[i]
     ned1, ypr1, quat1 = image.get_camera_pose()
-    ned2, ypr2, quat2 = image.get_camera_pose_sba()
+    ned2, ypr2, quat2 = image.get_camera_pose(opt=True)
     f1.write('%.2f %.2f %.2f\n' % (ned1[0], ned1[1], ned1[2]))
     f2.write('%.2f %.2f %.2f\n' % (ned2[0], ned2[1], ned2[2]))
 f1.close()

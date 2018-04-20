@@ -1,15 +1,13 @@
 #!/usr/bin/python3
 
-import sys
-#sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
-
 import argparse
 import pickle
-import cv2
-import math
 import numpy as np
 import os.path
 from progress.bar import Bar
+import sys
+
+from props import getNode
 
 sys.path.append('../lib')
 import Matcher
@@ -26,12 +24,12 @@ import SRTM
 # is a bug somewhere in linking or joinging or referencing that leads
 # to wrong associations and then messes up the downstream solver.  So
 # someday would like to come back to this and figure out what is going
-# wrong because ultimately if we squeeze out redundancy, the sba
+# wrong because ultimately if we squeeze out redundancy, the optimized
 # solution should be better.
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--full-grouping', action='store_true', help='maximal feature grouping (caution: can blow up the sba process for a not-yet-known reason)')
+parser.add_argument('--full-grouping', action='store_true', help='maximal feature grouping (caution: can blow up the sba process for a not-yet-known reason)') # fixme: full grouping is probably safe again, but we have a separate script now that does this.
 parser.add_argument('--ground', type=float, help='ground elevation in meters')
 
 args = parser.parse_args()
@@ -39,10 +37,10 @@ args = parser.parse_args()
 m = Matcher.Matcher()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_image_info()
+proj.load_images_info()
 proj.load_features()
 proj.undistort_keypoints()
-proj.load_match_pairs()
+proj.load_match_pairs(extra_verbose=False)
 
 # compute keypoint usage map
 proj.compute_kp_usage()
@@ -50,8 +48,13 @@ proj.compute_kp_usage()
 if args.ground:
     proj.fastProjectKeypointsToGround(args.ground)
 else:
+    # lookup ned reference
+    ref_node = getNode("/config/ned_reference", True)
+    ref = [ ref_node.getFloat('lat_deg'),
+            ref_node.getFloat('lon_deg'),
+            ref_node.getFloat('alt_m') ]
+    
     # setup SRTM ground interpolator
-    ref = proj.ned_reference_lla
     sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
 
     # fast way:
@@ -346,7 +349,8 @@ for match in matches_direct:
     match[0] = ned.tolist()
 
 print("Writing match file ...")
-pickle.dump(matches_direct, open(args.project + "/matches_direct", "wb"))
+direct_file = os.path.join(args.project, "matches_direct")
+pickle.dump(matches_direct, open(direct_file, "wb"))
 
 #print "temp: writing ascii version..."
 #for match in matches_direct:

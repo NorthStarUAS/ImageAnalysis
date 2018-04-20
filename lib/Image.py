@@ -12,18 +12,24 @@ import numpy as np
 import os.path
 import sys
 
+from props import getNode
+
 import transformations
 
 
 d2r = math.pi / 180.0           # a helpful constant
     
 class Image():
-    def __init__(self, image_dir=None, image_file=None):
-        self.name = None
+    def __init__(self, source_dir=None, meta_dir=None, image_file=None):
+        if image_file != None:
+            self.name = image_file
+            self.node = getNode("/images/" + self.name, True)
+        else:
+            self.name = None
         #self.img = None
         #self.img_rgb = None
-        self.height = 0
-        self.width = 0
+        #self.height = 0
+        #self.width = 0
         self.kp_list = []       # opencv keypoint list
         self.kp_usage = []
         self.des_list = []      # opencv descriptor list
@@ -31,10 +37,6 @@ class Image():
 
         self.uv_list = []       # the 'undistorted' uv coordinates of all kp's
         
-        self.aircraft_pose = None
-        self.camera_pose = None
-        self.camera_pose_sba = None
-
         # cam2body/body2cam are transforms to map between the standard
         # lens coordinate system (at zero roll/pitch/yaw and the
         # standard ned coordinate system at zero roll/pitch/yaw).
@@ -75,120 +77,110 @@ class Image():
         self.radius = 0.0
         
         if image_file:
-            self.name = image_file
             root, ext = os.path.splitext(image_file)
-            file_root = image_dir + "/" + root
-            self.image_file = image_dir + "/" + image_file
+            file_root = os.path.join(meta_dir, root)
+            self.image_file = os.path.join(source_dir, image_file)
             self.features_file = file_root + ".feat"
             self.des_file = file_root + ".desc"
             self.match_file = file_root + ".match"
-            self.info_file = file_root + ".info"
+            #self.info_file = file_root + ".info"
             # only load meta data when instance is created, other
             # items will be loaded 'just in time' depending on the
             # task to be performed later on
-            self.load_meta()
+            #self.load_meta()
             
-    def load_meta(self):
-        if not os.path.exists(self.info_file):
-            # no info file, create a new file
-            self.save_meta()
-            return
+    # def load_meta(self):
+    #     if not os.path.exists(self.info_file):
+    #         # no info file, create a new file
+    #         self.save_meta()
+    #         return
         
-        try:
-            f = open(self.info_file, 'r')
-            image_dict = json.load(f)
-            f.close()
-            self.num_matches = image_dict['num-matches']
-            if 'aircraft-pose' in image_dict:
-                self.aircraft_pose = image_dict['aircraft-pose']
-            if 'camera-pose' in image_dict:
-                self.camera_pose = image_dict['camera-pose']
-            if 'camera-pose-sba' in image_dict:
-                self.camera_pose_sba = image_dict['camera-pose-sba']
-            if 'height' in image_dict:
-                self.height = image_dict['height']
-            if 'width' in image_dict:
-                self.width = image_dict['width']
+    #     try:
+    #         f = open(self.info_file, 'r')
+    #         image_dict = json.load(f)
+    #         f.close()
+    #         self.num_matches = image_dict['num-matches']
+    #         if 'aircraft-pose' in image_dict:
+    #             self.aircraft_pose = image_dict['aircraft-pose']
+    #         if 'camera-pose' in image_dict:
+    #             self.camera_pose = image_dict['camera-pose']
+    #         if 'camera-pose-sba' in image_dict:
+    #             self.camera_pose_sba = image_dict['camera-pose-sba']
+    #         if 'height' in image_dict:
+    #             self.height = image_dict['height']
+    #         if 'width' in image_dict:
+    #             self.width = image_dict['width']
             
-            self.alt_bias = image_dict['altitude-bias']
-            self.roll_bias = image_dict['roll-bias']
-            self.pitch_bias = image_dict['pitch-bias']
-            self.yaw_bias = image_dict['yaw-bias']
-            self.x_bias = image_dict['x-bias']
-            self.y_bias = image_dict['y-bias']
-            self.weight = image_dict['weight']
-            self.connections = image_dict['connections']
-            if 'connection-order' in image_dict:
-                self.connection_order = image_dict['connection-order']
-            else:
-                self.connection_order = -1
-            if 'cycle-depth' in image_dict:
-                self.cycle_depth = image_dict['cycle-depth']
-            elif 'cycle-distance' in image_dict:
-                self.cycle_depth = image_dict['cycle-distance']
-            self.error = image_dict['error']
-            self.stddev = image_dict['stddev']
-            if 'bounding-center' in image_dict:
-                self.center = np.array(image_dict['bounding-center'])
-            if 'bounding-radius' in image_dict:
-                self.radius = image_dict['bounding-radius']
-        except:
-            print(self.info_file + ":\n" + "  json/meta load error: " \
-                + str(sys.exc_info()[1]))
+    #         self.alt_bias = image_dict['altitude-bias']
+    #         self.roll_bias = image_dict['roll-bias']
+    #         self.pitch_bias = image_dict['pitch-bias']
+    #         self.yaw_bias = image_dict['yaw-bias']
+    #         self.x_bias = image_dict['x-bias']
+    #         self.y_bias = image_dict['y-bias']
+    #         self.weight = image_dict['weight']
+    #         self.connections = image_dict['connections']
+    #         if 'connection-order' in image_dict:
+    #             self.connection_order = image_dict['connection-order']
+    #         else:
+    #             self.connection_order = -1
+    #         if 'cycle-depth' in image_dict:
+    #             self.cycle_depth = image_dict['cycle-depth']
+    #         elif 'cycle-distance' in image_dict:
+    #             self.cycle_depth = image_dict['cycle-distance']
+    #         self.error = image_dict['error']
+    #         self.stddev = image_dict['stddev']
+    #         if 'bounding-center' in image_dict:
+    #             self.center = np.array(image_dict['bounding-center'])
+    #         if 'bounding-radius' in image_dict:
+    #             self.radius = image_dict['bounding-radius']
+    #     except:
+    #         print(self.info_file + ":\n" + "  json/meta load error: " \
+    #             + str(sys.exc_info()[1]))
 
-    def load_rgb(self, force_resize=False):
-        # print "Loading:", self.image_file, force_resize
+    # original, also set's image shape values....
+    # def load_rgb(self, force_resize=False):
+    #     # print "Loading:", self.image_file, force_resize
+    #     try:
+    #         img_rgb = cv2.imread(self.image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
+    #         if force_resize or self.height == 0 or self.width == 0:
+    #             print(img_rgb.shape)
+    #             self.height, self.width = img_rgb.shape[:2]
+    #         return img_rgb
+    #     except:
+    #         print(self.image_file + ":\n" + "  rgb load error: " \
+    #             + str(sys.exc_info()[1]))
+
+    def load_rgb(self):
+        #print "Loading " + self.image_file
         try:
             img_rgb = cv2.imread(self.image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
-            if force_resize or self.height == 0 or self.width == 0:
-                print(img_rgb.shape)
-                self.height, self.width = img_rgb.shape[:2]
+            h, w = img_rgb.shape[:2]
+            self.node.setInt('height', h)
+            self.node.setInt('width', w)
             return img_rgb
+
         except:
             print(self.image_file + ":\n" + "  rgb load error: " \
-                + str(sys.exc_info()[1]))
-
-    def load_source_rgb(self, source_dir):
-        #print "Loading " + self.image_file
-        source_name = source_dir + "/" + self.name
-        try:
-            source_image = cv2.imread(source_name, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
-            return source_image
-
-        except:
-            print(source_image + ":\n" + "  source rgb load error: " \
                 + str(sys.exc_info()[1]))
             return None
 
     def load_gray(self):
         #print "Loading " + self.image_file
         try:
-            rgb = cv2.imread(self.image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
-            if self.height == 0 or self.width == 0:
-                self.height, self.width, self.fulld = img_rgb.shape
+            rgb = self.load_rgb()
             gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
-
-            #cv2.imshow('rgb', rgb)
-            #cv2.imshow('grayscale', gray)
-
-            # histogram equalization
-            #eq = cv2.equalizeHist(gray)
-            #cv2.imshow('history equalization', eq)
-
             # adaptive histogram equilization (block by block)
             clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
             aeq = clahe.apply(gray)
             #cv2.imshow('adaptive history equalization', aeq)
-
-            #print 'waiting for keyboard input...'
-            #key = cv2.waitKey() & 0xff
-
             return aeq
-
         except:
             print(self.image_file + ":\n" + "  gray load error: " \
                 + str(sys.exc_info()[1]))
 
+    def get_size(self):
+        return self.node.getInt('width'), self.node.getInt('height')
+    
     def load_features(self):
         if len(self.kp_list) == 0 and os.path.exists(self.features_file):
             #print "Loading " + self.features_file
@@ -285,68 +277,69 @@ class Image():
             #json.dump(self.match_list, f, sort_keys=True)
             #f.close()
         except IOError as e:
-            print(self.info_file + ": error saving file: " \
+            print(self.match_file + ": error saving file: " \
                 + str(sys.exc_info()[1]))
             return
         except:
             raise
 
-    def save_meta(self):
-        image_dict = {}
-        image_dict['num-matches'] = self.num_matches
-        image_dict['aircraft-pose'] = self.aircraft_pose
-        image_dict['camera-pose'] = self.camera_pose
-        image_dict['camera-pose-sba'] = self.camera_pose_sba
-        image_dict['height'] = self.height
-        image_dict['width'] = self.width
-        image_dict['altitude-bias'] = self.alt_bias
-        image_dict['roll-bias'] = self.roll_bias
-        image_dict['pitch-bias'] = self.pitch_bias
-        image_dict['yaw-bias'] = self.yaw_bias
-        image_dict['x-bias'] = self.x_bias
-        image_dict['y-bias'] = self.y_bias
-        image_dict['weight'] = self.weight
-        image_dict['connections'] = self.connections
-        image_dict['connection-order'] = self.connection_order
-        image_dict['cycle-depth'] = self.cycle_depth
-        image_dict['error'] = self.error
-        image_dict['stddev'] = self.stddev
-        image_dict['bounding-center'] = list(self.center)
-        image_dict['bounding-radius'] = self.radius
+    # def save_meta(self):
+    #     image_dict = {}
+    #     image_dict['num-matches'] = self.num_matches
+    #     image_dict['aircraft-pose'] = self.aircraft_pose
+    #     image_dict['camera-pose'] = self.camera_pose
+    #     image_dict['camera-pose-sba'] = self.camera_pose_sba
+    #     image_dict['height'] = self.height
+    #     image_dict['width'] = self.width
+    #     image_dict['altitude-bias'] = self.alt_bias
+    #     image_dict['roll-bias'] = self.roll_bias
+    #     image_dict['pitch-bias'] = self.pitch_bias
+    #     image_dict['yaw-bias'] = self.yaw_bias
+    #     image_dict['x-bias'] = self.x_bias
+    #     image_dict['y-bias'] = self.y_bias
+    #     image_dict['weight'] = self.weight
+    #     image_dict['connections'] = self.connections
+    #     image_dict['connection-order'] = self.connection_order
+    #     image_dict['cycle-depth'] = self.cycle_depth
+    #     image_dict['error'] = self.error
+    #     image_dict['stddev'] = self.stddev
+    #     image_dict['bounding-center'] = list(self.center)
+    #     image_dict['bounding-radius'] = self.radius
 
-        try:
-            f = open(self.info_file, 'w')
-            json.dump(image_dict, f, indent=4, sort_keys=True)
-            f.close()
-        except IOError as e:
-            print(self.info_file + ": error saving file: " \
-                + str(sys.exc_info()[1]))
-            return
-        except:
-            raise
+    #     try:
+    #         f = open(self.info_file, 'w')
+    #         json.dump(image_dict, f, indent=4, sort_keys=True)
+    #         f.close()
+    #     except IOError as e:
+    #         print(self.info_file + ": error saving file: " \
+    #             + str(sys.exc_info()[1]))
+    #         return
+    #     except:
+    #         raise
 
-    def make_detector(self, dparams):
+    def make_detector(self):
+        detector_node = getNode('/config/detector', True)
         detector = None
-        if dparams['detector'] == 'SIFT':
-            max_features = int(dparams['sift-max-features'])
+        if detector_node.getString('detector') == 'SIFT':
+            max_features = detector_node.getInt('sift_max_features')
             detector = cv2.xfeatures2d.SIFT_create(nfeatures=max_features)
-        elif dparams['detector'] == 'SURF':
-            threshold = float(dparams['surf-hessian-threshold'])
-            nOctaves = int(dparams['surf-noctaves'])
-            detector = cv2.SURF(hessianThreshold=threshold, nOctaves=nOctaves)
-        elif dparams['detector'] == 'ORB':
-            max_features = int(dparams['orb-max-features'])
-            grid_size = int(dparams['grid-detect'])
+        elif detector_node.getString('detector') == 'SURF':
+            threshold = detector_node.getFloat('surf_hessian_threshold')
+            nOctaves = detector_node.getInt('surf_noctaves')
+            detector = cv2.xfeatures2d.SURF_create(hessianThreshold=threshold, nOctaves=nOctaves)
+        elif detector_node.getString('detector') == 'ORB':
+            max_features = detector_node.getInt('orb_max_features')
+            grid_size = detector_node.getInt('grid_detect')
             cells = grid_size * grid_size
             max_cell_features = int(max_features / cells)
             detector = cv2.ORB_create(max_cell_features)
-        elif dparams['detector'] == 'Star':
-            maxSize = int(dparams['star-max-size'])
-            responseThreshold = int(dparams['star-response-threshold'])
-            lineThresholdProjected = int(dparams['star-line-threshold-projected'])
-            lineThresholdBinarized = int(dparams['star-line-threshold-binarized'])
-            suppressNonmaxSize = int(dparams['star-suppress-nonmax-size'])
-            detector = cv2.StarDetector(maxSize, responseThreshold,
+        elif detector_node.getString('detector') == 'Star':
+            maxSize = detector_node.getInt('star_max_size')
+            responseThreshold = detector_node.getInt('star_response_threshold')
+            lineThresholdProjected = detector_node.getInt('star_line_threshold_projected')
+            lineThresholdBinarized = detector_node.getInt('star_line_threshold_binarized')
+            suppressNonmaxSize = detector_node.getInt('star_suppress_nonmax_size')
+            detector = cv2.xfeatures2d.StarDetector_create(maxSize, responseThreshold,
                                         lineThresholdProjected,
                                         lineThresholdBinarized,
                                         suppressNonmaxSize)
@@ -372,13 +365,22 @@ class Image():
             x += dx
         return kp_list
 
-    def detect_features(self, dparams, gray):
-        detector = self.make_detector(dparams)
-        grid_size = int(dparams['grid-detect'])
-        if dparams['detector'] == 'ORB' and grid_size > 1:
-            kp_list = self.orb_grid_detect(detector, gray, grid_size)
+    def detect_features(self, img, scale):
+        # scale image for feature detection.  Note that with feature
+        # detection, often less is more ... scaling to a smaller image
+        # can allow the feature detector to see bigger scale features.
+        # With outdoor natural images at full detail, oftenthe
+        # detector/matcher gets lots in the microscopic details and
+        # sees more noise than valid features.
+        scaled = cv2.resize(img, (0,0), fx=scale, fy=scale)
+        
+        detector_node = getNode('/config/detector', True)
+        detector = self.make_detector()
+        grid_size = detector_node.getInt('grid_detect')
+        if detector_node.getString('detector') == 'ORB' and grid_size > 1:
+            kp_list = self.orb_grid_detect(detector, scaled, grid_size)
         else:
-            kp_list = detector.detect(gray)
+            kp_list = detector.detect(scaled)
 
         # compute the descriptors for the found features (Note: Star
         # is a special case that uses the brief extractor
@@ -386,12 +388,18 @@ class Image():
         # compute() could potential add/remove keypoints so we want to
         # save the returned keypoint list, not our original detected
         # keypoint list
-        if dparams['detector'] == 'Star':
+        if detector_node.getString('detector') == 'Star':
             extractor = cv2.DescriptorExtractor_create('ORB')
         else:
             extractor = detector
-        self.kp_list, self.des_list = extractor.compute(gray, kp_list)
-        
+        self.kp_list, self.des_list = extractor.compute(scaled, kp_list)
+
+        # scale the keypoint coordinates back to the original image size
+        for kp in self.kp_list:
+            #print('scaled:', kp.pt, ' ', end='')
+            kp.pt = (kp.pt[0]/scale, kp.pt[1]/scale)
+            #print('full:', kp.pt)
+            
         # wipe matches because we've touched the keypoints
         self.match_list = []
 
@@ -449,31 +457,51 @@ class Image():
         minlla = navpy.ned2lla([ymin, xmin, 0.0], ref[0], ref[1], ref[2])
         maxlla = navpy.ned2lla([ymax, xmax, 0.0], ref[0], ref[1], ref[2])
         return(minlla[1], minlla[0], maxlla[1], maxlla[0])
-        
-    def set_aircraft_pose(self, lla=[0.0, 0.0, 0.0], ypr=[0.0, 0.0, 0.0]):
-        quat = transformations.quaternion_from_euler(ypr[0] * d2r,
-                                                     ypr[1] * d2r,
-                                                     ypr[2] * d2r,
+
+    def ypr_to_quat(self, yaw_deg, pitch_deg, roll_deg):
+        quat = transformations.quaternion_from_euler(yaw_deg * d2r,
+                                                     pitch_deg * d2r,
+                                                     roll_deg * d2r,
                                                      'rzyx')
-        self.aircraft_pose = { 'lla': lla, 'ypr': ypr, 'quat': quat.tolist() }
+        return quat
 
-    def get_aircraft_pose(self):
-        p = self.aircraft_pose
-        if p and 'lla' in p and 'ypr' in p:
-            return p['lla'], p['ypr'], np.array(p['quat'])
-        else:
-            return [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], np.zeros(4)
-
+    def set_aircraft_pose(self,
+                          lat_deg, lon_deg, alt_m,
+                          yaw_deg, pitch_deg, roll_deg):
+        # computed from euler angles
+        quat = self.ypr_to_quat(yaw_deg, pitch_deg, roll_deg)
+        ac_pose_node = self.node.getChild('aircraft_pose', True)
+        ac_pose_node.setFloat('lat_deg', lat_deg)
+        ac_pose_node.setFloat('lon_deg', lon_deg)
+        ac_pose_node.setFloat('alt_m', alt_m)
+        ac_pose_node.setFloat('yaw_deg', yaw_deg)
+        ac_pose_node.setFloat('pitch_deg', pitch_deg)
+        ac_pose_node.setFloat('roll_deg', roll_deg)
+        ac_pose_node.setLen('quat', 4)
+        for i in range(4):
+            ac_pose_node.setFloatEnum('quat', i, quat[i])
+        
     # ned = [n_m, e_m, d_m] relative to the project ned reference point
     # ypr = [yaw_deg, pitch_deg, roll_deg] in the ned coordinate frame
     # note that the matrix derived from 'quat' is inv(R) is transpose(R)
-    def set_camera_pose(self, ned=[0.0, 0.0, 0.0], ypr=[0.0, 0.0, 0.0]):
-        quat = transformations.quaternion_from_euler(ypr[0] * d2r,
-                                                     ypr[1] * d2r,
-                                                     ypr[2] * d2r,
-                                                     'rzyx')
-        self.camera_pose = { 'ned': ned, 'ypr': ypr, 'quat': quat.tolist() }
-
+    def set_camera_pose(self, ned, yaw_deg, pitch_deg, roll_deg, opt=False):
+        # computed from euler angles
+        quat = self.ypr_to_quat(yaw_deg, pitch_deg, roll_deg)
+        if opt:
+            cam_pose_node = self.node.getChild('camera_pose_opt', True)
+            cam_pose_node.setBool('valid', True)
+        else:
+            cam_pose_node = self.node.getChild('camera_pose', True)
+        for i in range(3):
+            cam_pose_node.setFloatEnum('ned', i, ned[i])
+        cam_pose_node.setFloat('yaw_deg', yaw_deg)
+        cam_pose_node.setFloat('pitch_deg', pitch_deg)
+        cam_pose_node.setFloat('roll_deg', roll_deg)
+        cam_pose_node.setLen('quat', 4)
+        for i in range(4):
+            cam_pose_node.setFloatEnum('quat', i, quat[i])
+        #cam_pose_node.pretty_print('  ')
+        
     # set the camera pose using rvec, tvec (rodrigues) which is the
     # output of certain cv2 functions like solvePnP()
     def rvec_to_body2ned(self, rvec):
@@ -488,26 +516,22 @@ class Image():
         Rbody2ned = np.matrix(Rned2body).T
         return Rbody2ned
 
-    def get_camera_pose(self):
-        p = self.camera_pose
-        if p and 'ned' in p and 'ypr' in p:
-            return p['ned'], p['ypr'], np.array(p['quat'])
+    def get_camera_pose(self, opt=False):
+        if opt:
+            pose_node = self.node.getChild('camera_pose_opt', True)
         else:
-            return [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], np.zeros(4)
-
-    def set_camera_pose_sba(self, ned=[0.0, 0.0, 0.0], ypr=[0.0, 0.0, 0.0]):
-        quat = transformations.quaternion_from_euler(ypr[0] * d2r,
-                                                     ypr[1] * d2r,
-                                                     ypr[2] * d2r,
-                                                     'rzyx')
-        self.camera_pose_sba = { 'ned': ned, 'ypr': ypr, 'quat': quat.tolist() }
-
-    def get_camera_pose_sba(self):
-        p = self.camera_pose_sba
-        if p and 'ned' in p and 'ypr' in p:
-            return p['ned'], p['ypr'], np.array(p['quat'])
-        else:
-            return [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], np.zeros(4)
+            pose_node = self.node.getChild('camera_pose', True)
+        ned = []
+        for i in range(3):
+            ned.append( pose_node.getFloatEnum('ned', i) )
+        ypr = []
+        ypr.append( pose_node.getFloat('yaw_deg') )
+        ypr.append( pose_node.getFloat('pitch_deg') )
+        ypr.append( pose_node.getFloat('roll_deg') )
+        quat = []
+        for i in range(4):
+            quat.append( pose_node.getFloatEnum('quat', i) )
+        return ned, ypr, quat
 
     # cam2body rotation matrix (M)
     def get_cam2body(self):
@@ -518,45 +542,21 @@ class Image():
         return self.body2cam
 
     # ned2body (R) rotation matrix
-    def get_ned2body(self):
-        p = self.camera_pose
-        body2ned = transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
-        return np.matrix(body2ned).T
-    
-    # ned2body (R) rotation matrix (of SBA pose)
-    def get_ned2body_sba(self):
-        p = self.camera_pose_sba
-        body2ned = transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
-        return np.matrix(body2ned).T
+    def get_ned2body(self, opt=False):
+        return np.matrix(self.get_body2ned(opt)).T
     
    # body2ned (IR) rotation matrix
-    def get_body2ned(self):
-        p = self.camera_pose
-        return transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
-
-   # body2ned (IR) rotation matrix
-    def get_body2ned_sba(self):
-        p = self.camera_pose_sba
-        return transformations.quaternion_matrix(np.array(p['quat']))[:3,:3]
+    def get_body2ned(self, opt=False):
+        ned, ypr, quat = self.get_camera_pose(opt)
+        return transformations.quaternion_matrix(np.array(quat))[:3,:3]
 
     # compute rvec and tvec (used to build the camera projection
     # matrix for things like cv2.triangulatePoints) from camera pose
-    def get_proj(self):
+    def get_proj(self, opt=False):
         body2cam = self.get_body2cam()
-        ned2body = self.get_ned2body()
+        ned2body = self.get_ned2body(opt)
         R = body2cam.dot( ned2body )
         rvec, jac = cv2.Rodrigues(R)
-        ned = self.camera_pose['ned']
-        tvec = -np.matrix(R) * np.matrix(ned).T
-        return rvec, tvec
-    
-    # compute rvec and tvec (used to build the camera projection
-    # matrix for things like cv2.triangulatePoints) from camera pose
-    def get_proj_sba(self):
-        body2cam = self.get_body2cam()
-        ned2body = self.get_ned2body_sba()
-        R = body2cam.dot( ned2body )
-        rvec, jac = cv2.Rodrigues(R)
-        ned = self.camera_pose_sba['ned']
+        ned, ypr, quat = self.get_camera_pose(opt)
         tvec = -np.matrix(R) * np.matrix(ned).T
         return rvec, tvec

@@ -3,13 +3,10 @@
 # determine the connected groups of images.  Images without
 # connections to each other cannot be correctly placed.
 
-import sys
-#sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
-
 import argparse
 import pickle
-import cv2
-import os
+import os.path
+import sys
 
 sys.path.append('../lib')
 import Groups
@@ -20,7 +17,7 @@ parser.add_argument('--project', required=True, help='project directory')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_image_info()
+proj.load_images_info()
 proj.load_features()
 proj.undistort_keypoints()
 

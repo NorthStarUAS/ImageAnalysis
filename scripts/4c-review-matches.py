@@ -10,14 +10,12 @@
 # over.  Also perhaps show all the outliers in decending order by
 # worst image, then features within that image.
 
-import sys
-#sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
-
 import argparse
 import pickle
 import cv2
 import numpy as np
 import os.path
+import sys
 
 sys.path.append('../lib')
 import Groups
@@ -32,7 +30,7 @@ parser.add_argument('--project', required=True, help='project directory')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_image_info()
+proj.load_images_info()
 proj.load_features()
 proj.undistort_keypoints()
 
@@ -100,6 +98,9 @@ for i in range(len(proj.image_list)):
             # undistorted uv points
             src.append( i1.uv_list[pair[0]] )
             dst.append( i2.uv_list[pair[1]] )
+            # original points
+            #src.append( i1.kp_list[pair[0]].pt )
+            #dst.append( i2.kp_list[pair[1]].pt )
         src = np.float32(src)
         dst = np.float32(dst)
         error = []
@@ -143,6 +144,7 @@ for i in range(len(proj.image_list)):
                     y = (M[1][0]*p[0] + M[1][1]*p[1] + M[1][2]) / tmp
                     p_est = np.array([x, y])
                 else:
+                    print('what?')
                     p_est = np.array([0.0, 0.0])
                 # print('p est:', p_est, 'act:', dst[k])
                 d = np.linalg.norm(p_est - dst[k])
@@ -181,7 +183,7 @@ for i in range(len(proj.image_list)):
         if True:
             # flag any outliers by std deviation
             for k in range(len(pairs[i][j])):
-                if error[k] > avg + 5*std:
+                if error[k] > avg + 4*std:
                     status[k] = False
         else:
             if filter == 'homography' or filter == 'affine':
@@ -194,8 +196,10 @@ for i in range(len(proj.image_list)):
                         status[k] = False
             
         status_flags[i][j] = status
+        error_metric = max       # pure max error
+        error_metric = max / std # max error relative to std 
         print('pair:', i, j, 'max:', max, 'avg:', avg, 'std:', std)
-        bypair.append( [max, avg, std, i, j] )
+        bypair.append( [error_metric, avg, std, i, j] )
 
 sort_by = 'worst'
 if sort_by == 'best':

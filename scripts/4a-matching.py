@@ -1,17 +1,12 @@
 #!/usr/bin/python3
 
-import sys
-#sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
-
 import argparse
 import pickle
-import cv2
-import fnmatch
-import json
-import math
 import numpy as np
-import os.path
 from progress.bar import Bar
+import sys
+
+from props import getNode
 
 sys.path.append('../lib')
 import Matcher
@@ -25,7 +20,7 @@ parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--matcher', default='FLANN',
                     choices=['FLANN', 'BF'])
-parser.add_argument('--match-ratio', default=0.75, type=float,
+parser.add_argument('--match-ratio', default=0.8, type=float,
                     help='match ratio')
 parser.add_argument('--min-pairs', default=25, type=int,
                     help='minimum matches between image pairs to keep')
@@ -36,70 +31,26 @@ parser.add_argument('--filter', default='essential',
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_image_info()
+proj.load_images_info()
 proj.load_features()
 proj.undistort_keypoints()
 
-# if args.ground:
-#     proj.fastProjectKeypointsToGround(args.ground)
-# else:
-#     # setup SRTM ground interpolator
-#     ref = proj.ned_reference_lla
-#     sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
+matcher_node = getNode('/config/matcher', True)
+matcher_node.setString('matcher', args.matcher)
+matcher_node.setString('match_ratio', args.match_ratio)
+matcher_node.setString('filter', args.filter)
+matcher_node.setString('min_pairs', args.min_pairs)
 
-    # slow_way = False
-    # if slow_way:
-    #     camw, camh = proj.cam.get_image_params()
-    #     bar = Bar('Projecting keypoints to vectors:',
-    #               max = len(proj.image_list))
-    #     for image in proj.image_list:
-    #         scale = float(image.width) / float(camw)
-    #         K = proj.cam.get_K(scale)
-    #         IK = np.linalg.inv(K)
-    #         image.vec_list = proj.projectVectors(IK, image, image.uv_list)
-    #         bar.next()
-    #     bar.finish()
-
-    #     # intersect keypoint vectors with srtm terrain
-    #     bar = Bar('Vector/terrain intersecting:',
-    #               max = len(proj.image_list))
-    #     for image in proj.image_list:
-    #         image.coord_list = sss.interpolate_vectors(image.camera_pose,
-    #                                                    image.vec_list)
-    #         bar.next()
-    #     bar.finish()
-    # else:
-    #     # compute keypoint usage map
-    #     proj.compute_kp_usage(all=True)
-
-    #     # fast way:
-    #     # 1. make a grid (i.e. 8x8) of uv coordinates covering the whole image
-    #     # 2. undistort these uv coordinates
-    #     # 3. project them into vectors
-    #     # 4. intersect them with the srtm terrain to get ned coordinates
-    #     # 5. use linearndinterpolator ... g = scipy.interpolate.LinearNDInterpolator([[0,0],[1,0],[0,1],[1,1]], [[0,4,8],[1,3,2],[2,2,-4],[4,1,0]])
-    #     #    with origin uv vs. 3d location to build a table
-    #     # 6. interpolate original uv coordinates to 3d locations
-    #     proj.fastProjectKeypointsTo3d(sss)
-
-proj.matcher_params = { 'matcher': args.matcher,
-                        'match-ratio': args.match_ratio,
-                        'filter': args.filter }
+# save any config changes
 proj.save()
 
-# determine scale value so we can get correct K matrix
-image_width = proj.image_list[0].width
-camw, camh = proj.cam.get_image_params()
-scale = float(image_width) / float(camw)
-print('scale:', scale)
 # camera calibration
-K = proj.cam.get_K(scale)
+K = proj.cam.get_K()
 print("K:", K)
 
 # fire up the matcher
 m = Matcher.Matcher()
-m.min_pairs = args.min_pairs
-m.configure(proj.detector_params, proj.matcher_params)
+m.configure()
 m.robustGroupMatches(proj.image_list, K, filter=args.filter, review=False)
 
 # The following code is deprecated ...
@@ -152,23 +103,24 @@ def update_match_location(match):
         match[0] = ned.tolist()
     return match
 
-print("Constructing unified match structure...")
-print("This probably will fail because we didn't do the ground intersection at the start...")
-matches_direct = []
-for i, image in enumerate(proj.image_list):
-    # print image.name
-    for j, matches in enumerate(image.match_list):
-        # print proj.image_list[j].name
-        if j > i:
-            for pair in matches:
-                match = []
-                # ned place holder
-                match.append([0.0, 0.0, 0.0])
-                match.append([i, pair[0]])
-                match.append([j, pair[1]])
-                update_match_location(match)
-                matches_direct.append(match)
-                # print pair, match
-                
-print("Writing match file ...")
-pickle.dump(matches_direct, open(args.project + "/matches_direct", "wb"))
+if False:
+    print("Constructing unified match structure...")
+    print("This probably will fail because we didn't do the ground intersection at the start...")
+    matches_direct = []
+    for i, image in enumerate(proj.image_list):
+        # print image.name
+        for j, matches in enumerate(image.match_list):
+            # print proj.image_list[j].name
+            if j > i:
+                for pair in matches:
+                    match = []
+                    # ned place holder
+                    match.append([0.0, 0.0, 0.0])
+                    match.append([i, pair[0]])
+                    match.append([j, pair[1]])
+                    update_match_location(match)
+                    matches_direct.append(match)
+                    # print pair, match
+
+    print("Writing match file ...")
+    pickle.dump(matches_direct, open(args.project + "/matches_direct", "wb"))

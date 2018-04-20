@@ -13,6 +13,14 @@ Define camera calibration and lens distortion parameters.
 Import images into project work space (may optionally scale the images for
 faster processing and less memory/disk space usage.)
 
+Important note: sometimes less is more!  Processing the images at
+scaled resoltuions can often be beneficial.  Feature detectors work
+(roughly) in pixel space so using a 6000x4000 image means most of your
+features will be itty bitty.  Using a 600x400 image means most of your
+features will be larger items and perhaps more import and real.
+Feature matching can get lost in the noise if you are matching outdoor
+natural environments at extreme full resolution.
+
 ## 1d-load-images.py
 
 Tests loading of image info, then ends.
@@ -30,16 +38,16 @@ Show all the imported images.
 
   SIFT seems like the best quality detector (and feature descriptor)
   over all.  It seems to produce the most consistent overall results.
-  Recommend 5000-10000 sift features per image.  More is better if
-  your computer resources can support it.
+  Recommend 5000-10000 sift features per image.  More is better here
+  if your computer resources can support it.
 
   ## ORB
 
   ORB is fast, but the feature descriptor contains less information
-  and seems less robust (as compared to SIFT.)  It doesn't seem to
-  find as many valid matches between image pairs.  It is part of the
-  core cv2 library so guaranteed to be available in all version of
-  opencv.  Recommend 10000-20000 max features.
+  and seems less robust (as compared to SIFT.)  It uses a shorter
+  feature descriptor so it is more subject to noise and false matches.
+  It is part of the core cv2 library so guaranteed to be available in
+  all version of opencv.  Recommend 10000-20000 max features.
 
   ## Star (CenSuRE)
 
@@ -78,7 +86,25 @@ Show all the imported images.
   ## 4a-matching.py
 
   Run this script to find all the matching feature pairs in the image set.
-  
+
+    ### GMS filter ###
+
+    This seems really useful: http://jwbian.net/gms
+
+    It uses gridded motion statistics to find the valid match set and
+    seems to much more robust to noise and perform much better than
+    the traditional homography filter.  Often homography rejects many
+    good matches because of the amount of noise/outliers in the
+    potential match set.
+
+    Currently this is my favorite approach, it oftens seems to find
+    too many valid matches if that is possible.
+
+    Paired with the traditional sift distance ratio test <plus> a
+    first pass to discard matches with > average match distance <plus>
+    discarding any matches that don't exist in the reciprocal set ==
+    very few false matches, but still enough good matches.
+    
     ### Homography filter
 
     Enforces a planer relationship between features matched in a pair
@@ -122,16 +148,19 @@ Show all the imported images.
 
   Start with the original pair-wise match set and regenerate a
   matches_direct version of this with no extra checking or validation.
+  You shouldn't ever need/want to run this script under normal
+  circumstances.
 
   ## 4c-review-matches.py
 
   This should be done on the original match pairs before full chain
   grouping to hopefully avoid incorrectly linking chains due to a bad
   match pair.
-  
-  Interactive script that presents the worst outliers (based on some
-  relationship fit of the match pairs) and allows the user to review
-  and accept or delete potential outliers.
+
+  This is an interactive script that compares pair-wise matches and
+  presents the worst outliers (based on the homography or affine
+  relationship of the matches pairs) and allows the user to review and
+  accept or delete potential outliers.
 
   Make sure to re-run 4d-match-grouping.py after 4c-review-matches.py
   if you return and review more matches later.
@@ -175,7 +204,7 @@ Show all the imported images.
   points to impossible places.)
 
 
-  ## 5c-mre-by-feature2.py
+  ## 5c-mre-by-feature3.py
 
   Compute the mre of the assembled scene (optionally delete worst
   outliers)

@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 
 import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 
 import argparse
 import cv2
@@ -10,6 +9,14 @@ import os.path
 
 sys.path.append('../lib')
 import ProjectMgr
+
+# This script is deprecated and will soon be relegated to the archive
+# folder.  The detector script will read directly from the image
+# source directory and scale the images on the fly, then remap the
+# feature coordinates back to the original dimensions.
+
+print("This script is deprecated, please see script comments for details.")
+quit()
 
 # for all the images in source_dir, scale them and write the scaled
 # version to dest_dir.
