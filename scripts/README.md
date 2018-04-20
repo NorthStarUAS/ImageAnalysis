@@ -2,24 +2,13 @@
 
 ## 1a-create-project.py
 
-Create a project directory and stub config files
+Create a project directory, setup config files, define source path of
+image set.
 
 ## 1b-set-camera-config.py
 
-Define camera calibration and lens distortion parameters.
-
-## 1c-import-images.py
-
-Import images into project work space (may optionally scale the images for
-faster processing and less memory/disk space usage.)
-
-Important note: sometimes less is more!  Processing the images at
-scaled resoltuions can often be beneficial.  Feature detectors work
-(roughly) in pixel space so using a 6000x4000 image means most of your
-features will be itty bitty.  Using a 600x400 image means most of your
-features will be larger items and perhaps more import and real.
-Feature matching can get lost in the noise if you are matching outdoor
-natural environments at extreme full resolution.
+Define camera calibration, lens distortion parameters, aircraft
+mounting offset.
 
 ## 1d-load-images.py
 
@@ -27,10 +16,19 @@ Tests loading of image info, then ends.
 
 ## 1e-show-images.py
 
-Show all the imported images.
-
+Show all the images.
 
 # 2. Set Initial Camera Poses
+
+## 2a-set-aircraft-poses.py
+
+Specify a pix4d.csv (or sentera images-meta.txt) file to define the
+aircraft location and attitude at the time each picture is taken.
+
+## 2b-set-camera-poses.py
+
+Apply the camera mounting offset to estimate the actual camera pose
+for each image.
 
 # 3. Feature Detection
 
@@ -38,8 +36,11 @@ Show all the imported images.
 
   SIFT seems like the best quality detector (and feature descriptor)
   over all.  It seems to produce the most consistent overall results.
-  Recommend 5000-10000 sift features per image.  More is better here
-  if your computer resources can support it.
+  Recommend 10000-20000 sift features per image.  Generally more is
+  better here if your computer resources can support it.
+
+  If you aren't getting as many features as you ask for, consider a
+  larger scale factor.
 
   ## ORB
 
@@ -80,6 +81,21 @@ Show all the imported images.
   video when the camera hasn't moved much from one frame to the next.)
   Star may be worth trying for outdoor natural environments when
   processing one frame to the next.
+
+  Important note: sometimes less is more!  Processing the images at
+  scaled resoltuions can often be beneficial.  Feature detectors work
+  (roughly) in pixel space so using a 6000x4000 image means most of
+  your features will be itty bitty.  Using a 600x400 image means most
+  of your features will be larger items and perhaps more import and
+  real.  Feature matching can get lost in the noise if you are
+  matching outdoor natural environments at extreme full resolution.
+
+  Ultimately there needs to be a balance ... too high of a
+  resolution/scaling can introduce too many small indistinguishable
+  features (think clumps of grass, tree leaves, corn leaves, etc.)
+  But scaling the images down too much leads to not enough good
+  features.  The exact amount of scaling probably depends on the
+  camera, lens, altitude, and subject matter.
 
 # 4. Feature Matching
 
@@ -240,3 +256,19 @@ Show all the imported images.
   ## 6b-delaunay5.py
 
   Output a non-textured delaunay triangulation of the fitted surface
+
+
+# 7. Explore
+
+  ## 7a-explore.py
+
+  Renders the image set with all the images correctly positions.
+  Allows zooming and panning.  Manages texture resolution to keep the
+  current view at a high resolution while using lower resolution
+  textures for surrounding areas.
+
+  The plan: add support for marking / labeling / saving features or
+  areas of interest.  I would like to be able to import/export shape
+  files.  I would like to be able to run various pre-filtering
+  algorithms on the images to help highlight points of interest (use
+  case dependent.)
