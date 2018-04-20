@@ -309,10 +309,10 @@ class Matcher():
                     matches_thresh.append(line[1])
             print('  quality matches:', len(matches_thresh))
             # fixme, make this a command line option or parameter?
-            mymax = 750
+            mymax = 500
             if len(matches_thresh) > mymax:
                 # clip list to n best rated matches
-                matches_thresh = matches_thresh[:100]
+                matches_thresh = matches_thresh[:mymax]
                 print('  clipping to:', mymax)
             
         if len(matches_thresh) < self.min_pairs:
