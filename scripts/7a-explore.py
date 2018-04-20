@@ -163,6 +163,9 @@ class MyApp(ShowBase):
                 print(m.getName())
                 base, ext = os.path.splitext(m.getName())
                 fullpath = os.path.join(images_src, base + '.JPG')
+                if not os.path.isfile(fullpath):
+                    # try with lower case .jpg
+                    fullpath = os.path.join(images_src, base + '.jpg')
                 print(fullpath)
                 fulltex = self.loader.loadTexture(fullpath)
                 fulltex.setWrapU(Texture.WM_clamp)
