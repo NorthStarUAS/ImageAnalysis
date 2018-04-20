@@ -10,6 +10,7 @@ import cv2
 import math
 from matplotlib import pyplot as plt
 import numpy as np
+import time
 
 from props import getNode
 
@@ -427,6 +428,7 @@ class Matcher():
         n = len(image_list) - 1
         n_work = float(n*(n+1)/2)
         n_count = float(0)
+        t_start = time.time()
 
         # camera separation vs. matches stats
         dist_stats = []
@@ -450,8 +452,12 @@ class Matcher():
                 dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
                 if dist > 75:
                     continue
-                
-                print("Matching %s vs %s - %.1f%% done" % (i1.name, i2.name, (n_count / n_work) * 100.0))
+
+                percent = n_count / float(n_work)
+                t_elapsed = time.time() - t_start
+                t_end = t_elapsed / percent
+                t_remain = t_end - t_elapsed
+                print("Matching %s vs %s - %.1f%% done (%.1f mins remain)" % (i1.name, i2.name, percent * 100.0, t_remain / 60.0))
                 print("  separation = %.1f (m)" % dist)
                 
                 if len(i2.match_list) == 0:
