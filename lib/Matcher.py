@@ -434,14 +434,15 @@ class Matcher():
                            review=False):
         n = len(image_list) - 1
         n_work = float(n*(n+1)/2)
-        n_count = float(0)
         t_start = time.time()
 
         # camera separation vs. matches stats
         dist_stats = []
-        
-        # find basic matches and filter by match ratio and ned
-        # location
+
+        # pass 1, make a list of all the match pairs with their
+        # physical camera separation, then sort by distance and matche
+        # closest first
+        work_list = []
         for i, i1 in enumerate(image_list):
             if len(i1.match_list) == 0:
                 i1.match_list = [[]] * len(image_list)
@@ -450,65 +451,72 @@ class Matcher():
                 if j <= i:
                     continue
                 
-                # increment this even if there is no work to do
-                n_count += 1
-                
                 # camera pose distance check
                 ned1, ypr1, q1 = i1.get_camera_pose()
                 ned2, ypr2, q2 = i2.get_camera_pose()
                 dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
-                if dist > 75:
-                    continue
-
-                percent = n_count / float(n_work)
-                t_elapsed = time.time() - t_start
-                t_total = t_elapsed / percent
-                t_remain = t_total - t_elapsed
-                print('Matching %s vs %s - ' % (i1.name, i2.name), end='')
-                print('done: %.1f%% ' % percent * 100.0, end='')
-                if t_remain < 3600:
-                    print('min: %.1f', t_remain / 60.0)
-                else:
-                    print('hr: %.1f', t_remain / 3600.0)
-                print("  separation = %.1f (m)" % dist)
+                if dist <= 75:
+                    work_list.append( [dist, i, j] )
+        work_list = sorted(work_list, key=lambda fields: fields[0])
+        
+        # proces the work list form closest to furthest
+        n_count = 0
+        for line in work_list:
+            dist = line[0]
+            i = line[1]
+            j = line[2]
+            i1 = image_list[i]
+            i2 = image_list[j]
                 
-                if len(i2.match_list) == 0:
-                    # create if needed
-                    i2.match_list = [[]] * len(image_list)
-                i1.match_list[j], i2.match_list[i] \
-                    = self.bidirectional_matches(image_list, i, j, review)
+            percent = n_count / float(len(work_list))
+            t_elapsed = time.time() - t_start
+            if percent > 0:
+                t_end = t_elapsed / percent
+            else:
+                t_end = t_start
+            t_remain = t_end - t_elapsed
+            print('Matching %s vs %s - ' % (i1.name, i2.name), end='')
+            print('%.1f%% done: ' % (percent * 100.0), end='')
+            if t_remain < 3600:
+                print('%.1f (min)' % (t_remain / 60.0))
+            else:
+                print('%.1f (hr)' % (t_remain / 3600.0))
+            print("  separation = %.1f (m)" % dist)
 
-                scheme = 'none'
-                # scheme = 'one_step'
-                # scheme = 'iterative'
+            if len(i2.match_list) == 0:
+                # create if needed
+                i2.match_list = [[]] * len(image_list)
+            i1.match_list[j], i2.match_list[i] \
+                = self.bidirectional_matches(image_list, i, j, review)
 
-                if scheme == 'iterative':
-                    done = False
-                    while not done:
-                        done = True
-                        if not self.filter_non_reciprocal_pair(image_list, i, j):
-                            done = False
-                        if not self.filter_non_reciprocal_pair(image_list, j, i):
-                            done = False
-                        if not self.filter_by_homography(K, i1, i2, j, filter):
-                            done = False
-                        if not self.filter_by_homography(K, i2, i1, i, filter):
-                            done = False
-                elif scheme == 'one_step':
-                    # quickly dump non-reciprocals from initial results
-                    self.filter_non_reciprocal_pair(image_list, i, j)
-                    self.filter_non_reciprocal_pair(image_list, j, i)
-                    # filter the remaining features by 'filter' relationship
-                    self.filter_by_homography(K, i1, i2, j, filter)
-                    self.filter_by_homography(K, i2, i1, i, filter)
-                    # cull any new non-reciprocals
-                    self.filter_non_reciprocal_pair(image_list, i, j)
-                    self.filter_non_reciprocal_pair(image_list, j, i)
-                dist_stats.append( [ dist, len(i1.match_list[j]) ] )
+            scheme = 'none'
+            # scheme = 'one_step'
+            # scheme = 'iterative'
 
-        # update 2017/12/29: I believe this cull step shouldn't be needed
-        # so nothing sneaks through
-        # self.cullShortMatches(image_list)
+            if scheme == 'iterative':
+                done = False
+                while not done:
+                    done = True
+                    if not self.filter_non_reciprocal_pair(image_list, i, j):
+                        done = False
+                    if not self.filter_non_reciprocal_pair(image_list, j, i):
+                        done = False
+                    if not self.filter_by_homography(K, i1, i2, j, filter):
+                        done = False
+                    if not self.filter_by_homography(K, i2, i1, i, filter):
+                        done = False
+            elif scheme == 'one_step':
+                # quickly dump non-reciprocals from initial results
+                self.filter_non_reciprocal_pair(image_list, i, j)
+                self.filter_non_reciprocal_pair(image_list, j, i)
+                # filter the remaining features by 'filter' relationship
+                self.filter_by_homography(K, i1, i2, j, filter)
+                self.filter_by_homography(K, i2, i1, i, filter)
+                # cull any new non-reciprocals
+                self.filter_non_reciprocal_pair(image_list, i, j)
+                self.filter_non_reciprocal_pair(image_list, j, i)
+            dist_stats.append( [ dist, len(i1.match_list[j]) ] )
+            n_count += 1
 
         # and save
         self.saveMatches(image_list)
