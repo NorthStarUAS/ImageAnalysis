@@ -462,9 +462,14 @@ class Matcher():
 
                 percent = n_count / float(n_work)
                 t_elapsed = time.time() - t_start
-                t_end = t_elapsed / percent
-                t_remain = t_end - t_elapsed
-                print("Matching %s vs %s - %.1f%% done (%.1f mins remain)" % (i1.name, i2.name, percent * 100.0, t_remain / 60.0))
+                t_total = t_elapsed / percent
+                t_remain = t_total - t_elapsed
+                print('Matching %s vs %s - ' % (i1.name, i2.name), end='')
+                print('done: %.1f%% ' % percent * 100.0, end='')
+                if t_remain < 3600:
+                    print('min: %.1f', t_remain / 60.0)
+                else:
+                    print('hr: %.1f', t_remain / 3600.0)
                 print("  separation = %.1f (m)" % dist)
                 
                 if len(i2.match_list) == 0:
