@@ -104,8 +104,8 @@ for i in range(len(proj.image_list)):
         src = np.float32(src)
         dst = np.float32(dst)
         error = []
-        filter = 'homography'
-        #filter = 'affine'
+        #filter = 'homography'
+        filter = 'affine'
         # filter = 'margin' (just a test, we probably want the margins for better distorting parameter fitting.)
         if filter == 'affine':
             fullAffine = False

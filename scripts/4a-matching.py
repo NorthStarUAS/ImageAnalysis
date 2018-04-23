@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--matcher', default='FLANN',
                     choices=['FLANN', 'BF'])
-parser.add_argument('--match-ratio', default=0.8, type=float,
+parser.add_argument('--match-ratio', default=0.75, type=float,
                     help='match ratio')
 parser.add_argument('--min-pairs', default=25, type=int,
                     help='minimum matches between image pairs to keep')
@@ -32,7 +32,7 @@ args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
-proj.load_features()
+proj.load_features(descriptors=True)
 proj.undistort_keypoints()
 
 matcher_node = getNode('/config/matcher', True)

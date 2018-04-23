@@ -27,7 +27,7 @@ class Matcher():
         self.matcher_node = getNode('/config/matcher', True)
         self.image_list = []
         self.matcher = None
-        self.match_ratio = 0.8
+        self.match_ratio = 0.75
         self.min_pairs = 25
 
     def configure(self):
@@ -313,7 +313,7 @@ class Matcher():
             by_metric = sorted(by_metric, key=lambda fields: fields[0])
             matches_thresh = []
             for line in by_metric:
-                if line[0] < 220.0:
+                if line[0] < 210.0:
                     matches_thresh.append(line[1])
             print('  quality matches:', len(matches_thresh))
             # fixme, make this a command line option or parameter?

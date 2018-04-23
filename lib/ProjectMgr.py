@@ -243,12 +243,13 @@ class ProjectMgr():
         # make sure our matcher gets a copy of the image list
         self.render.setImageList(self.image_list)
 
-    def load_features(self):
+    def load_features(self, descriptors=False):
         bar = Bar('Loading keypoints and descriptors:',
                   max = len(self.image_list))
         for image in self.image_list:
             image.load_features()
-            image.load_descriptors()
+            if descriptors:
+                image.load_descriptors()
             bar.next()
         bar.finish()
 
