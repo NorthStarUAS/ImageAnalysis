@@ -125,12 +125,6 @@ class ProjectMgr():
             print("Error: project doesn't exist:", project_dir)
             return
 
-        # fixme: remove me
-        # dirs = {}
-        # project_dict = {}
-        # project_dict['matcher'] = self.matcher_params
-        # project_dict['directories'] = dirs
-        
         project_file = os.path.join(project_dir, "config.json")
         config_node = getNode("/config", True)
         props_json.save(project_file, config_node)
@@ -304,10 +298,15 @@ class ProjectMgr():
             print("Error: project doesn't exist:", project_dir)
             return
 
+        meta_dir = os.path.join(project_dir, 'Images')
         meta_file = os.path.join(project_dir, "images.json")
         images_node = getNode("/images", True)
         props_json.save(meta_file, images_node)
-
+        for name in images_node.getChildren():
+            image_node = images_node.getChild(name, True)
+            image_path = os.path.join(meta_dir, name + '.json')
+            props_json.save(image_path, image_node)
+            
     def set_matcher_params(self, mparams):
         self.matcher_params = mparams
         

@@ -22,6 +22,11 @@ proj = ProjectMgr.ProjectMgr(args.project, create=True)
 proj.set_images_source(args.images)
 proj.save()
 
+# test if images.json exists
+if os.path.isfile( os.path.join(args.project, 'images.json') ):
+    print('Notice: found an existing images.json file, so pre-loading it.')
+    proj.load_images_info()
+                 
 # create the initial images list
 meta_dir = os.path.join(args.project, 'Images')
 proj.image_list = []
