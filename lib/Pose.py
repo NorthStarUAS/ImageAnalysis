@@ -66,8 +66,9 @@ def setAircraftPoses(proj, posefile="", order='ypr'):
             # rolled into a turn, skip
             print('skipping:', name, 'roll:', roll_deg)
             continue
-        
-        image = Image.Image(images_dir, meta_dir, name)
+
+        base, ext = os.path.splitext(name)
+        image = Image.Image(images_dir, meta_dir, base)
         image.set_aircraft_pose(lat_deg, lon_deg, alt_m,
                                 yaw_deg, pitch_deg, roll_deg)
         print(name, 'yaw=%.1f pitch=%.1f roll=%.1f' % (yaw_deg, pitch_deg, roll_deg))
@@ -83,6 +84,7 @@ def compute_camera_poses(proj):
     camera_yaw = mount_node.getFloat('yaw_deg')
     camera_pitch = mount_node.getFloat('pitch_deg')
     camera_roll = mount_node.getFloat('roll_deg')
+    print(camera_yaw, camera_pitch, camera_roll)
     body2cam = transformations.quaternion_from_euler(camera_yaw * d2r,
                                                      camera_pitch * d2r,
                                                      camera_roll * d2r,
