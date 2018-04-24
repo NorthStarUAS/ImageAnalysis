@@ -20,10 +20,9 @@ import transformations
 d2r = math.pi / 180.0           # a helpful constant
     
 class Image():
-    def __init__(self, source_dir=None, meta_dir=None, image_file=None):
-        if image_file != None:
-            base, ext = os.path.splitext(image_file)
-            self.name = base
+    def __init__(self, source_dir=None, meta_dir=None, image_base=None):
+        if image_base != None:
+            self.name = image_base
             self.node = getNode("/images/" + self.name, True)
         else:
             self.name = None
@@ -77,10 +76,17 @@ class Image():
         self.center = []
         self.radius = 0.0
         
-        if image_file:
-            root, ext = os.path.splitext(image_file)
-            file_root = os.path.join(meta_dir, root)
-            self.image_file = os.path.join(source_dir, image_file)
+        if image_base:
+            tmp1 = os.path.join(source_dir, image_base + '.JPG')
+            tmp2 = os.path.join(source_dir, image_base + '.jpg')
+            if os.path.isfile(tmp1):
+                self.image_file = tmp1
+            elif os.path.isfile(tmp2):
+                self.image_file = tmp2
+            else:
+                print('Warning: no image source file found:', tmp1)
+                self.image_file = None
+            file_root = os.path.join(meta_dir, image_base)
             self.features_file = file_root + ".feat"
             self.des_file = file_root + ".desc"
             self.match_file = file_root + ".match"
@@ -152,7 +158,7 @@ class Image():
     #             + str(sys.exc_info()[1]))
 
     def load_rgb(self):
-        #print "Loading " + self.image_file
+        # print("Loading:", self.image_file)
         try:
             img_rgb = cv2.imread(self.image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
             h, w = img_rgb.shape[:2]
