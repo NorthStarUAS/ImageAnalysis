@@ -243,23 +243,13 @@ class ProjectMgr():
         self.matcher_params = mparams
         
     def detect_features(self, scale, show=False):
-        # clear the image list if there is one
-        self.image_list = []
-        
         source_dir = self.dir_node.getString('images_source')
         meta_dir = os.path.join( self.project_dir, 'meta')
-        files = []
-        for file in os.listdir(source_dir):
-            if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
-                files.append(file)
-        files.sort()
         
         if not show:
-            bar = Bar('Detecting features:', max = len(files))
-        for file in files:
+            bar = Bar('Detecting features:', max = len(self.image_list))
+        for image in self.image_list:
             #print "detecting features and computing descriptors: " + image.name
-            image = Image.Image(source_dir, meta_dir, file)
-            self.image_list.append( image )
             rgb = image.load_rgb()
             image.detect_features(rgb, scale)
             image.save_features()
@@ -538,6 +528,7 @@ class ProjectMgr():
             cam2body = image.get_cam2body()
             
             vec_list = self.projectVectors(IK, body2ned, cam2body, uv_filt)
+            print(vec_list)
 
             # intersect the vectors with the surface to find the 3d points
             ned, ypr, quat = image.get_camera_pose()
