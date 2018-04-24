@@ -519,7 +519,7 @@ class ProjectMgr():
             
             # project the grid out into vectors
             body2ned = image.get_body2ned() # IR
-                
+
             # M is a transform to map the lens coordinate system (at
             # zero roll/pitch/yaw to the ned coordinate system at zero
             # roll/pitch/yaw).  It is essentially a +90 pitch followed
@@ -528,7 +528,6 @@ class ProjectMgr():
             cam2body = image.get_cam2body()
             
             vec_list = self.projectVectors(IK, body2ned, cam2body, uv_filt)
-            print(vec_list)
 
             # intersect the vectors with the surface to find the 3d points
             ned, ypr, quat = image.get_camera_pose()
@@ -579,8 +578,6 @@ class ProjectMgr():
         bar = Bar('Projecting keypoints to 3d:',
                   max = len(self.image_list))
         for image in self.image_list:
-            camw, camh = self.cam.get_image_params()
-            scale = float(image.width) / float(camw)
             K = self.cam.get_K()
             IK = np.linalg.inv(K)
             

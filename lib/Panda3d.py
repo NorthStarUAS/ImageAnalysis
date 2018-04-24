@@ -17,13 +17,14 @@ def make_textures(src_dir, project_dir, image_list, resolution=256):
             subprocess.run(['convert', '-resize', '%dx%d!' % (resolution, resolution), src, dst])
         
 def make_textures_opencv(src_dir, project_dir, image_list, resolution=256):
-    dst_dir = project_dir + '/Textures/'
+    dst_dir = os.path.join(project_dir, 'Textures')
     if not os.path.exists(dst_dir):
         print("Notice: creating texture directory =", dst_dir)
         os.makedirs(dst_dir)
     for image in image_list:
-        src = src_dir + "/" + image.name
-        dst = dst_dir + image.name
+        src = image.image_file
+        dst = os.path.join(dst_dir, image.name + '.JPG')
+        print(src, '->', dst)
         if not os.path.exists(dst):
             src = cv2.imread(src, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
             height, width = src.shape[:2]
@@ -69,7 +70,7 @@ def generate(image_list, group, ref_image=False, src_dir=".", project_dir=".", b
 
         f = open(name, "w")
         f.write("<CoordinateSystem> { Z-Up }\n\n")
-        f.write("<Texture> tex { \"" + image.name + "\" }\n\n")
+        f.write("<Texture> tex { \"" + image.name + ".JPG\" }\n\n")
         f.write("<VertexPool> surface {\n")
 
         # this is contructed in a weird way, but we generate the 2d

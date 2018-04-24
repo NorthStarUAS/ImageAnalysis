@@ -90,73 +90,7 @@ class Image():
             self.features_file = file_root + ".feat"
             self.des_file = file_root + ".desc"
             self.match_file = file_root + ".match"
-            #self.info_file = file_root + ".info"
-            # only load meta data when instance is created, other
-            # items will be loaded 'just in time' depending on the
-            # task to be performed later on
-            #self.load_meta()
             
-    # def load_meta(self):
-    #     if not os.path.exists(self.info_file):
-    #         # no info file, create a new file
-    #         self.save_meta()
-    #         return
-        
-    #     try:
-    #         f = open(self.info_file, 'r')
-    #         image_dict = json.load(f)
-    #         f.close()
-    #         self.num_matches = image_dict['num-matches']
-    #         if 'aircraft-pose' in image_dict:
-    #             self.aircraft_pose = image_dict['aircraft-pose']
-    #         if 'camera-pose' in image_dict:
-    #             self.camera_pose = image_dict['camera-pose']
-    #         if 'camera-pose-sba' in image_dict:
-    #             self.camera_pose_sba = image_dict['camera-pose-sba']
-    #         if 'height' in image_dict:
-    #             self.height = image_dict['height']
-    #         if 'width' in image_dict:
-    #             self.width = image_dict['width']
-            
-    #         self.alt_bias = image_dict['altitude-bias']
-    #         self.roll_bias = image_dict['roll-bias']
-    #         self.pitch_bias = image_dict['pitch-bias']
-    #         self.yaw_bias = image_dict['yaw-bias']
-    #         self.x_bias = image_dict['x-bias']
-    #         self.y_bias = image_dict['y-bias']
-    #         self.weight = image_dict['weight']
-    #         self.connections = image_dict['connections']
-    #         if 'connection-order' in image_dict:
-    #             self.connection_order = image_dict['connection-order']
-    #         else:
-    #             self.connection_order = -1
-    #         if 'cycle-depth' in image_dict:
-    #             self.cycle_depth = image_dict['cycle-depth']
-    #         elif 'cycle-distance' in image_dict:
-    #             self.cycle_depth = image_dict['cycle-distance']
-    #         self.error = image_dict['error']
-    #         self.stddev = image_dict['stddev']
-    #         if 'bounding-center' in image_dict:
-    #             self.center = np.array(image_dict['bounding-center'])
-    #         if 'bounding-radius' in image_dict:
-    #             self.radius = image_dict['bounding-radius']
-    #     except:
-    #         print(self.info_file + ":\n" + "  json/meta load error: " \
-    #             + str(sys.exc_info()[1]))
-
-    # original, also set's image shape values....
-    # def load_rgb(self, force_resize=False):
-    #     # print "Loading:", self.image_file, force_resize
-    #     try:
-    #         img_rgb = cv2.imread(self.image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
-    #         if force_resize or self.height == 0 or self.width == 0:
-    #             print(img_rgb.shape)
-    #             self.height, self.width = img_rgb.shape[:2]
-    #         return img_rgb
-    #     except:
-    #         print(self.image_file + ":\n" + "  rgb load error: " \
-    #             + str(sys.exc_info()[1]))
-
     def load_rgb(self):
         # print("Loading:", self.image_file)
         try:
