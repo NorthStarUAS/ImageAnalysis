@@ -36,6 +36,9 @@ if not pose_set:
     print("No poses computed")
     quit()
 
+# set the camera poses (fixed offset from aircraft pose)
+Pose.compute_camera_poses(proj)
+
 # compute the project's NED reference location (based on average of
 # aircraft poses)
 proj.compute_ned_reference_lla()
