@@ -36,18 +36,20 @@ if not pose_set:
     print("No poses computed")
     quit()
 
-# set the camera poses (fixed offset from aircraft pose)
-Pose.compute_camera_poses(proj)
-
-# save the poses
-proj.save_images_info()
-
 # compute the project's NED reference location (based on average of
 # aircraft poses)
 proj.compute_ned_reference_lla()
 ned_node = getNode('/config/ned_reference', True)
 print("NED reference location:")
 ned_node.pretty_print("  ")
+
+# set the camera poses (fixed offset from aircraft pose) Camera pose
+# location is specfied in ned, so do this after computing the ned
+# reference point for this project.
+Pose.compute_camera_poses(proj)
+
+# save the poses
+proj.save_images_info()
 
 # save change to ned reference
 proj.save()
