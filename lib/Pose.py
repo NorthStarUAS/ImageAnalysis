@@ -4,12 +4,14 @@
 
 import fileinput
 import math
+import os
 import re
 
 import navpy
 from props import getNode
 
 import transformations
+import Image
 
 # a helpful constant
 d2r = math.pi / 180.0
@@ -29,8 +31,12 @@ r2d = 180.0 / math.pi
 
 
 # define the image aircraft poses from Sentera meta data file
-def setAircraftPoses(proj, metafile="", order='ypr'):
-    f = fileinput.input(metafile)
+def setAircraftPoses(proj, posefile="", order='ypr'):
+    images_dir = proj.dir_node.getString('images_source')
+    meta_dir = os.path.join(proj.project_dir, 'meta')
+    proj.image_list = []
+    
+    f = fileinput.input(posefile)
     for line in f:
         line.strip()
         if re.match('^\s*#', line):
@@ -52,15 +58,20 @@ def setAircraftPoses(proj, metafile="", order='ypr'):
             roll_deg = float(field[4])
             pitch_deg = float(field[5])
             yaw_deg = float(field[6])
-        image = proj.findImageByName(name)
+            
+        if not os.path.isfile( os.path.join(images_dir, name) ):
+            # no associated full image file, skip
+            continue
+        if abs(roll_deg) > 20.0:
+            # rolled into a turn, skip
+            print('skipping:', name, 'roll:', roll_deg)
+            continue
+        
+        image = Image.Image(images_dir, meta_dir, name)
         image.set_aircraft_pose(lat_deg, lon_deg, alt_m,
                                 yaw_deg, pitch_deg, roll_deg)
         print(name, 'yaw=%.1f pitch=%.1f roll=%.1f' % (yaw_deg, pitch_deg, roll_deg))
-
-    #getNode("/images").pretty_print()
-    
-    # save the changes
-    proj.save_images_info()
+        proj.image_list.append(image)
 
 # for each image, compute the estimated camera pose in NED space from
 # the aircraft body pose and the relative camera orientation
@@ -98,5 +109,4 @@ def compute_camera_poses(proj):
                              ref_lat, ref_lon, ref_alt )
 
         image.set_camera_pose(ned, yaw_rad*r2d, pitch_rad*r2d, roll_rad*r2d)
-        print('camera pose:', image.name)
 

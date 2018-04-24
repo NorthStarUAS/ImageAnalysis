@@ -22,7 +22,8 @@ d2r = math.pi / 180.0           # a helpful constant
 class Image():
     def __init__(self, source_dir=None, meta_dir=None, image_file=None):
         if image_file != None:
-            self.name = image_file
+            base, ext = os.path.splitext(image_file)
+            self.name = base
             self.node = getNode("/images/" + self.name, True)
         else:
             self.name = None

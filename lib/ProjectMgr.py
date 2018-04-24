@@ -32,13 +32,9 @@ import transformations
 
 class ProjectMgr():
     def __init__(self, project_dir, create=False):
-        # directories
-        self.image_dir = None    # working set of images
-
+        self.project_dir = project_dir
         self.cam = Camera.Camera()
-        
         self.image_list = []
-
         self.matcher_params = { 'matcher': 'FLANN', # { FLANN or 'BF' }
                                 'match-ratio': 0.75,
                                 'filter': 'fundamental',
@@ -46,7 +42,6 @@ class ProjectMgr():
                                 'feature-fuzz': 20 }
 
         # the following member variables need to be reviewed/organized
-
         self.ac3d_steps = 8
         self.group_roll_bias = 0.0
         self.group_pitch_bias = 0.0
@@ -59,7 +54,7 @@ class ProjectMgr():
         
         self.dir_node = getNode('/config/directories', True)
 
-        self.load( project_dir, create )
+        self.load( create )
 
     def set_defaults(self):
         # camera defaults
@@ -80,25 +75,23 @@ class ProjectMgr():
         # detector_node.setInt('star_suppress_nonmax_size', 5)
 
     # project_dir is a new folder for all derived files
-    def set_project_dir(self, project_dir, create_if_needed=True):
-        self.dir_node.setString('project', project_dir)
-        
-        if not os.path.exists(project_dir):
+    def validate_project_dir(self, create_if_needed=True):
+        if not os.path.exists(self.project_dir):
             if create_if_needed:
-                print("Notice: creating project directory:", project_dir)
-                os.makedirs(project_dir)
+                print("Notice: creating project directory:", self.project_dir)
+                os.makedirs(self.project_dir)
             else:
-                print("Error: project dir doesn't exist: ", project_dir)
+                print("Error: project dir doesn't exist: ", self.project_dir)
                 return False
 
         # and make children directories
-        self.image_dir = os.path.join(project_dir, "Images")
-        if not os.path.exists(self.image_dir):
+        meta_dir = os.path.join(self.project_dir, 'meta')
+        if not os.path.exists(meta_dir):
             if create_if_needed:
-                print("Notice: creating image directory:", self.image_dir)
-                os.makedirs(self.image_dir)
+                print("Notice: creating meta directory:", meta_dir)
+                os.makedirs(meta_dir)
             else:
-                print("Error: image dir doesn't exist:", self.image_dir)
+                print("Error: image dir doesn't exist:", meta_dir)
                 return False
             
         # all is good
@@ -109,7 +102,7 @@ class ProjectMgr():
     # original images into our project folder leaving the original
     # image set completely untouched.
     def set_images_source(self, source_dir):
-        if source_dir == self.dir_node.getString('project'):
+        if source_dir == self.project_dir:
             print("Error: image source and project dirs must be different.")
             return
 
@@ -120,22 +113,21 @@ class ProjectMgr():
 
     def save(self):
         # create a project dictionary and write it out as json
-        project_dir = self.dir_node.getString('project')
-        if not os.path.exists(project_dir):
-            print("Error: project doesn't exist:", project_dir)
+        if not os.path.exists(self.project_dir):
+            print("Error: project doesn't exist:", self.project_dir)
             return
 
-        project_file = os.path.join(project_dir, "config.json")
+        project_file = os.path.join(self.project_dir, "config.json")
         config_node = getNode("/config", True)
         props_json.save(project_file, config_node)
 
-    def load(self, project_dir, create=True):
-        if not self.set_project_dir( project_dir ):
+    def load(self, create=True):
+        if not self.validate_project_dir():
             return
 
         # load project configuration
         result = False
-        project_file = os.path.join(project_dir, "config.json")
+        project_file = os.path.join(self.project_dir, "config.json")
         config_node = getNode("/config", True)
         if os.path.isfile(project_file):
             if props_json.load(project_file, config_node):
@@ -157,77 +149,20 @@ class ProjectMgr():
 
         #root.pretty_print()
 
-    # import an image set into the project directory, possibly scaling them
-    # to a lower resolution for faster processing.
-    # def import_images(self, scale=0.25, converter='imagemagick'):
-    #     source_dir = self.dir_node.getString('images_source')
-    #     if source_dir == '':
-    #         print("Error: images_source not defined.")
-    #         return
-
-    #     if self.image_dir == None:
-    #         print("Error: project's image_dir not defined.")
-    #         return
-        
-    #     if source_dir == self.image_dir:
-    #         print("Error: source and destination directories must be different.")
-    #         return
-
-    #     if not os.path.exists(source_dir):
-    #         print("Error: source directory not found:", source_dir)
-    #         return
-
-    #     if not os.path.exists(self.image_dir):
-    #         print("Error: destination directory not found:", self.image_dir)
-    #         return
-
-    #     files = []
-    #     for file in os.listdir(source_dir):
-    #         if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
-    #             files.append(file)
-    #     files.sort()
-
-    #     for file in files:
-    #         print('Import/scaling:', file)
-    #         name_in = os.path.join(source_dir, file)
-    #         name_out = os.path.join(self.image_dir, file)
-    #         if converter == 'imagemagick':
-    #             subprocess.run(['convert', '-resize', '%d%%' % int(scale*100.0), name_in, name_out])
-    #         elif converter == 'opencv':
-    #             src = cv2.imread(name_in, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION )
-    #             print(src.shape)
-    #             #method = cv2.INTER_AREA
-    #             method = cv2.INTER_LANCZOS4
-    #             dst = cv2.resize(src, (0,0), fx=scale, fy=scale,
-    #                              interpolation=method)
-    #             cv2.imwrite(name_out, dst)
-    #             # attempt to copy exif data to the resized image
-    #             src_exif = pyexiv2.ImageMetadata(name_in)
-    #             dst_exif = pyexiv2.ImageMetadata(name_out)
-    #             src_exif.read()
-    #             dst_exif.read()
-    #             src_exif.copy(dst_exif) # src copies to dst
-    #             dst_exif.write()
-    #             print("Scaling (%.1f%%) %s to %s" % ((scale*100.0), name_in, name_out))
-    #         else:
-    #             print("Error: unknown converter =", converter)
-
     def load_images_info(self):
-        # load images meta info
+        # load image meta info
         result = False
-        project_dir = self.dir_node.getString('project')
         images_dir = self.dir_node.getString('images_source')
-        meta_dir = os.path.join(project_dir, 'Images')
-        images_file = os.path.join(project_dir, "images.json")
+        meta_dir = os.path.join(self.project_dir, 'meta')
         images_node = getNode("/images", True)
-        if os.path.isfile(images_file):
-            if props_json.load(images_file, images_node):
-                result = True
-            else:
-                print("Notice: unable to load: ", images_file)
-        else:
-            print("Notice: images info file doesn't exist:", images_file)
-        
+
+        for file in os.listdir(meta_dir):
+            if fnmatch.fnmatch(file, '*.json'):
+                name, ext = os.path.splitext(file)
+                image_node = images_node.getChild(name, True)
+                props_json.load(os.path.join(meta_dir, file), image_node)
+        # images_node.pretty_print()
+                
         # wipe image list (so we don't double load)
         self.image_list = []
         for name in images_node.getChildren():
@@ -293,15 +228,12 @@ class ProjectMgr():
                 
     def save_images_info(self):
         # create a project dictionary and write it out as json
-        project_dir = self.dir_node.getString('project')
-        if not os.path.exists(project_dir):
-            print("Error: project doesn't exist:", project_dir)
+        if not os.path.exists(self.project_dir):
+            print("Error: project doesn't exist:", self.project_dir)
             return
 
-        meta_dir = os.path.join(project_dir, 'Images')
-        meta_file = os.path.join(project_dir, "images.json")
+        meta_dir = os.path.join(self.project_dir, 'meta')
         images_node = getNode("/images", True)
-        props_json.save(meta_file, images_node)
         for name in images_node.getChildren():
             image_node = images_node.getChild(name, True)
             image_path = os.path.join(meta_dir, name + '.json')
@@ -315,7 +247,7 @@ class ProjectMgr():
         self.image_list = []
         
         source_dir = self.dir_node.getString('images_source')
-        meta_dir = os.path.join( self.dir_node.getString('project'), 'Images')
+        meta_dir = os.path.join( self.project_dir, 'meta')
         files = []
         for file in os.listdir(source_dir):
             if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):

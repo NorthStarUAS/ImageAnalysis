@@ -23,14 +23,8 @@ proj.set_images_source(args.images)
 proj.save()
 
 # test if images.json exists
-if os.path.isfile( os.path.join(args.project, 'images.json') ):
-    print('Notice: found an existing images.json file, so pre-loading it.')
-    proj.load_images_info()
-                 
-# create the initial images list
-meta_dir = os.path.join(args.project, 'Images')
-proj.image_list = []
-for name in os.listdir(args.images):
-    if fnmatch.fnmatch(name, '*.jpg') or fnmatch.fnmatch(name, '*.JPG'):
-        image = Image.Image(args.images, meta_dir, name)
-proj.save_images_info()
+#if os.path.isfile( os.path.join(args.project, 'images.json') ):
+#    print('Notice: found an existing images.json file, so pre-loading it.')
+#    proj.load_images_info()
+
+proj.load_images_info()
