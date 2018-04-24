@@ -138,3 +138,9 @@ Wish list items:
 ## tests
 
    A random collection of scripts for testing different things.
+
+
+## installation
+
+  sudo pip3 install opencv-contrib-python
+  sudo pip3 install --pre --extra-index-url https://archive.panda3d.org/ panda3d
