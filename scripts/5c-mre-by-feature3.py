@@ -184,7 +184,7 @@ if purge_weak_images:
 
 if mark_sum > 0:
     print('Outliers removed from match lists:', mark_sum)
-    result=input('Save these changes? (y/n):')
+    result = input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
         delete_marked_matches(matches_orig)
         delete_marked_matches(matches_opt)
