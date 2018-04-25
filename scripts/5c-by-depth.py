@@ -17,6 +17,13 @@
 # shots tend to show up at the fringes of the data set due to turns
 # and often have poor connectivity and aren't as useful anyway.
 
+# at the moment my brain is not thinking too clearly, but this script
+# is essentially computing a # of standard deviations from the mean
+# error metric.  But then in non-interacative mode it is doing statics
+# on the metric and so we are culling 'n' standard deviations from the
+# mean of standard deviations which probably does something, but is
+# weird and I don't want to think about it right now!
+
 import argparse
 import pickle
 import cv2
@@ -157,8 +164,8 @@ else:
 
 # after marking the bad matches, now count how many remaining features
 # show up in each image
-for i in proj.image_list:
-    i.feature_count = 0
+for image in proj.image_list:
+    image.feature_count = 0
 for i, match in enumerate(matches_orig):
     for j, p in enumerate(match[1:]):
         if p[1] != [-1, -1]:
