@@ -526,6 +526,7 @@ class Matcher():
 
         # and save
         self.saveMatches(image_list)
+        print('Pair-wise matches successfully saved.')
 
         dist_stats = np.array(dist_stats)
         plt.plot(dist_stats[:,0], dist_stats[:,1], 'ro')
