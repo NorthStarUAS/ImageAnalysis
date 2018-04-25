@@ -32,8 +32,8 @@ class Optimizer():
         self.graph = None
         self.graph_counter = 0
         #self.optimize_calib = 'individual' # individual camera optimization
-        self.optimize_calib = 'global' # global camera optimization
-        #self.optimize_calib = 'none' # no camera calibration optimization
+        #self.optimize_calib = 'global' # global camera optimization
+        self.optimize_calib = 'none' # no camera calibration optimization
         self.with_bounds = True
 
     # plot range
