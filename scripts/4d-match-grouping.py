@@ -96,7 +96,7 @@ while not done:
             ned2 = np.array(existing[0])
             avg = (ned1 * size1 + ned2 * size2) / (size1 + size2)
             existing[0] = avg.tolist()
-            print(ned1, ned2, existing[0])
+            # print(ned1, ned2, existing[0])
             # print "new:", existing
             # print
     if len(matches_new) == len(matches_direct):
