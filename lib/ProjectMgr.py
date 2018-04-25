@@ -173,8 +173,11 @@ class ProjectMgr():
         self.render.setImageList(self.image_list)
 
     def load_features(self, descriptors=False):
-        bar = Bar('Loading keypoints and descriptors:',
-                  max = len(self.image_list))
+        if descriptors:
+            msg = 'Loading keypoints and descriptors:'
+        else:
+            msg = 'Loading keypoints:'
+        bar = Bar(msg, max = len(self.image_list))
         for image in self.image_list:
             image.load_features()
             if descriptors:
