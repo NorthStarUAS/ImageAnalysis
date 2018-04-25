@@ -44,6 +44,9 @@ class Matcher():
         elif detector_str == 'Star':
             norm = cv2.NORM_HAMMING
             self.max_distance = 64
+        else:
+            print('No detector defined???')
+            quit()
 
         FLANN_INDEX_KDTREE = 1  # bug: flann enums are missing
         FLANN_INDEX_LSH    = 6
@@ -432,6 +435,9 @@ class Matcher():
 
     def robustGroupMatches(self, image_list, K, filter="fundamental",
                            review=False):
+        max_dist = self.matcher_node.getFloat('max_dist')
+        print('max_dist:', max_dist)
+        
         n = len(image_list) - 1
         n_work = float(n*(n+1)/2)
         t_start = time.time()
@@ -455,7 +461,7 @@ class Matcher():
                 ned1, ypr1, q1 = i1.get_camera_pose()
                 ned2, ypr2, q2 = i2.get_camera_pose()
                 dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
-                if dist <= 75:
+                if dist <= max_dist:
                     work_list.append( [dist, i, j] )
         work_list = sorted(work_list, key=lambda fields: fields[0])
         
