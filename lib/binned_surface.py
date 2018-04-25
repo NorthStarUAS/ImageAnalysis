@@ -79,31 +79,31 @@ class binned_surface:
 
         eps = 0.01
         count = 0
-        print("start:", p)
-        print("vec:", v)
-        print("ned:", ned)
+        #print("start:", p)
+        #print("vec:", v)
+        #print("ned:", ned)
         surface = self.query(p[0], p[1])
         if surface == None:
             print(" initial surface interp returned none")
             surface = avg_ground
         error = abs(p[2] - surface)
-        print("  p=%s surface=%s error=%s" % (p, surface, error))
+        #print("  p=%s surface=%s error=%s" % (p, surface, error))
         while error > eps and count < 25 and surface <= 0:
             d_proj = -(ned[2] - surface)
             factor = d_proj / v[2]
             n_proj = v[0] * factor
             e_proj = v[1] * factor
-            print("proj = %s %s" % (n_proj, e_proj))
+            #print("proj = %s %s" % (n_proj, e_proj))
             p = [ ned[0] + n_proj, ned[1] + e_proj, ned[2] + d_proj ]
-            print("new p:", p)
+            #print("new p:", p)
             surface = self.query(p[0], p[1])
             if surface == None:
                 print("interpolation went out of bounds, not continuing")
                 break
             error = abs(p[2] - surface)
-            print("  p=%s surface=%.2f error = %.3f" % (p, surface, error))
+            #print("  p=%s surface=%.2f error = %.3f" % (p, surface, error))
             count += 1
-        print("surface:", p)
+        #print("surface:", p)
         if p[2] > -10000 and p[2] < 0:
             return p
         else:
