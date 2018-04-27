@@ -45,7 +45,7 @@ parser.add_argument('--star-response-threshold', default=30)
 parser.add_argument('--star-line-threshold-projected', default=10)
 parser.add_argument('--star-line-threshold-binarized', default=8)
 parser.add_argument('--star-suppress-nonmax-size', default=5)
-parser.add_argument('--reject-margin', default=5, help='reject features within this distance of the image margin')
+parser.add_argument('--reject-margin', default=0, help='reject features within this distance of the image margin')
 
 parser.add_argument('--show', action='store_true',
                     help='show features as we detect them')
@@ -84,7 +84,13 @@ proj.detect_features(scale=args.scale, show=args.show)
 
 # I don't know if I want to mess around with undistorting keypoints at
 # this stage.
-if False:
+
+# We want this next code block so later we don't pass out of range
+# (undistorted) coordinates to the gms filter and blow up that
+# algorithm's expectations of feature coordinates living inside the
+# image bounds.
+
+if True:
     # compute the undistorted mapping of the keypoints (features)
     proj.undistort_keypoints()
 
@@ -96,10 +102,11 @@ if False:
         # traverse the list in reverse so we can safely remove features if
         # needed
         dirty = False
+        width, height = image.get_size()
         for i in reversed(range(len(image.uv_list))):
             uv = image.uv_list[i]
-            if uv[0] < margin or uv[0] > image.width - margin \
-               or uv[1] < margin or uv[1] > image.height - margin:
+            if uv[0] < margin or uv[0] > width - margin \
+               or uv[1] < margin or uv[1] > height - margin:
                 dirty = True
                 #print ' ', i, uv
                 image.kp_list.pop(i)                             # python list
