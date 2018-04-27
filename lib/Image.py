@@ -28,8 +28,6 @@ class Image():
             self.name = None
         #self.img = None
         #self.img_rgb = None
-        #self.height = 0
-        #self.width = 0
         self.kp_list = []       # opencv keypoint list
         self.kp_usage = []
         self.des_list = []      # opencv descriptor list
