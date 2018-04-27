@@ -72,10 +72,10 @@ class Size:
         self.height = height
 
 class GmsMatcher:
-    def __init__(self, vkp1, size1, vkp2, size2, vDMatches):
+    def __init__(self, vuv1, size1, vuv2, size2, vDMatches):
         # Input initialize
-        self.mvP1 = self.NormalizePoints(vkp1, size1)
-        self.mvP2 = self.NormalizePoints(vkp2, size2)
+        self.mvP1 = self.NormalizePoints(vuv1, size1)
+        self.mvP2 = self.NormalizePoints(vuv2, size2)
         self.mNumberMatches = len(vDMatches)
         self.mvMatches = self.ConvertMatches(vDMatches)
         
@@ -90,11 +90,11 @@ class GmsMatcher:
         self.mGridSizeRight = copy.copy(self.mGridSizeLeft)
 
     # Normalize Key points to range (0-1)
-    def NormalizePoints(self, kp, size):
+    def NormalizePoints(self, uv_list, size):
         npts = []
-        for keypoint in kp:
-            npts.append((keypoint.pt[0] / size.width,
-                         keypoint.pt[1] / size.height))
+        for uv in uv_list:
+            npts.append((uv[0] / size.width,
+                         uv[1] / size.height))
         return npts
 
     # Convert OpenCV match to list of tuples

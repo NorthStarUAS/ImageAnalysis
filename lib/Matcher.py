@@ -316,7 +316,7 @@ class Matcher():
             by_metric = sorted(by_metric, key=lambda fields: fields[0])
             matches_thresh = []
             for line in by_metric:
-                if line[0] < 210.0:
+                if line[0] < self.max_distance * self.match_ratio:
                     matches_thresh.append(line[1])
             print('  quality matches:', len(matches_thresh))
             # fixme, make this a command line option or parameter?
@@ -334,7 +334,8 @@ class Matcher():
         dim2 = i2.get_size()
         size1 = gms_matcher.Size(dim1[0], dim1[1])
         size2 = gms_matcher.Size(dim2[0], dim2[1])
-        gms = gms_matcher.GmsMatcher(i1.kp_list, size1, i2.kp_list, size2, matches_thresh)
+        #gms = gms_matcher.GmsMatcher(i1.kp_list, size1, i2.kp_list, size2, matches_thresh)
+        gms = gms_matcher.GmsMatcher(i1.uv_list, size1, i2.uv_list, size2, matches_thresh)
         vbInliers, num_inliers = gms.GetInlierMask(with_scale=False, with_rotation=True)
         print('gms inliers:', num_inliers)
 
