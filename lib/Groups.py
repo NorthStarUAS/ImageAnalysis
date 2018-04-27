@@ -223,6 +223,99 @@ def groupByConnectedArea(image_list, matches):
     print(groups)
     return groups
 
+# return the number of connections into the placed set
+def numPlacedConnections(image, image_list):
+    count = 0
+    connects_to_group_starter = False
+    for i, pairs in enumerate(image.match_list):
+        if len(pairs):
+            i2 = image_list[i]
+            if i2.placed:
+                count += 1
+                if i2.group_starter:
+                    connects_to_group_starter = True
+
+    # disable this for the moment (this code attempts to break single
+    # image connections between larger groups, which might be hard for
+    # the optimizer to resolve efficiently (or small errors in the
+    # connecting features could lead to larger global errors)
+    if True and count == 1:
+        # don't allow single connection chains to form (except
+        # relative to first placed image in a group)
+        if connects_to_group_starter:
+            # ok
+            pass
+        elif image.total_connections > 1:
+            count = 0
+    return count
+
+def groupByImageConnections(image_list):
+    # reset the cycle distance for all images
+    for image in image_list:
+        image.placed = False
+        image.group_starter = False
+        
+    for image in image_list:
+        image.total_connections = 0
+        for match in image.match_list:
+            if len(match) >= 8:
+                image.total_connections += 1
+        if image.total_connections > 1:
+            print("{} connections: {}".format(image.name, image.total_connections))
+
+    group_list = []
+    group = []
+    done = False
+    while not done:
+        done = True
+        best_index = -1
+        # find the unplaced image with the most placed neighbors
+        best_connections = 0
+        for i, image in enumerate(image_list):
+            if not image.placed:
+                connections = numPlacedConnections(image, image_list)
+                if connections > best_connections:
+                    best_index = i
+                    best_connections = connections
+                    done = False
+        if best_index < 0:
+            print("Cannot find an unplaced image with a connected neighbor:",
+                  best_index)
+            if len(group):
+                # commit the previous group (if it exists)
+                group_list.append(group)
+                # and start a new group
+                group = []
+            # now find an unplaced image that has the most connections
+            # to other images (new cycle start)
+            max_connections = 0
+            for i, image in enumerate(image_list):
+                if not image.placed:
+                    if (image.total_connections > max_connections):
+                        max_connections = image.total_connections
+                        best_index = i
+                        done = False
+                        print(" found image {} connections = {}".format(i, max_connections))
+        if best_index >= 0:
+            image = image_list[best_index]
+            image.placed = True
+            print("Adding {} (placed connections = {}, total connections = {})".format(image.name, best_connections, image.total_connections), )
+            if len(group) == 0:
+                image.group_starter = True
+            group.append(best_index)
+
+    print("Group (cycles) report:")
+    for group in group_list:
+        #if len(group) < 2:
+        #    continue
+        print("group (size = {}):".format((len(group))))
+        for i in group:
+            image = image_list[i]
+            print("{} ({})".format(image.name, image.total_connections))
+        print("")
+
+    return group_list
+
 def save(path, groups):
     file = os.path.join(path, 'Groups.json')
     try:
@@ -267,7 +360,7 @@ def bestNeighbor(image, image_list):
                 best_index = i
     return best_index, best_cycle_depth
 
-def groupByImageConnections(image_list):
+def groupByImageCycleDepth(image_list):
     # reset the cycle distance for all images
     for image in image_list:
         image.cycle_depth = -1
@@ -287,7 +380,7 @@ def groupByImageConnections(image_list):
     while not done:
         done = True
         best_index = None
-        # find an unplaced image with a placed neighbor that is the
+        # find an unplaced image with a placd neighbor that is the
         # closest conection to the root of the placement tree.
         best_cycle_depth = len(image_list) + 1
         for i, image in enumerate(image_list):
