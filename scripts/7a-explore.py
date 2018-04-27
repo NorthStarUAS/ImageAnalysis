@@ -94,8 +94,11 @@ class MyApp(ShowBase):
             model.reparentTo(self.render)
             self.models.append(model)
             tex = model.findTexture('*')
-            tex.setWrapU(Texture.WM_clamp)
-            tex.setWrapV(Texture.WM_clamp)
+            if tex != None:
+                tex.setWrapU(Texture.WM_clamp)
+                tex.setWrapV(Texture.WM_clamp)
+            else:
+                print('Oops, no texture found for:', file)
             self.base_textures.append(tex)
             bar.next()
         bar.finish()
@@ -125,7 +128,7 @@ class MyApp(ShowBase):
         result_list = []
         for m in self.models:
             b = m.getBounds()
-            print(b.getCenter(), b.getRadius())
+            #print(b.getCenter(), b.getRadius())
             dx = b.getCenter()[0] - self.cam_pos[0]
             dy = b.getCenter()[1] - self.cam_pos[1]
             dist = math.sqrt(dx*dx + dy*dy)
@@ -158,7 +161,8 @@ class MyApp(ShowBase):
                     fulltex = tcache[m.getName()][1]
                     self.models[i].setTexture(fulltex, 1)
                 else:
-                    self.models[i].setTexture(self.base_textures[i], 1)
+                    if self.base_textures[i] != None:
+                        self.models[i].setTexture(self.base_textures[i], 1)
             else:
                 print(m.getName())
                 base, ext = os.path.splitext(m.getName())
@@ -170,7 +174,7 @@ class MyApp(ShowBase):
                 fulltex = self.loader.loadTexture(fullpath)
                 fulltex.setWrapU(Texture.WM_clamp)
                 fulltex.setWrapV(Texture.WM_clamp)
-                print('fulltex:', fulltex)
+                #print('fulltex:', fulltex)
                 m.setTexture(fulltex, 1)
                 tcache[m.getName()] = [m, fulltex, time.time()]
         cachesize = 5
