@@ -30,7 +30,7 @@ proj.load_images_info()
 proj.load_features()
 proj.undistort_keypoints(optimized=True)
 
-source = 'matches_grouped'
+source = 'matches_direct'
 print("Loading matches:", source)
 matches_orig = pickle.load( open( os.path.join(args.project, source), "rb" ) )
 print('Number of original features:', len(matches_orig))
