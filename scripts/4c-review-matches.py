@@ -26,6 +26,7 @@ import match_culling as cull
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--stddev', type=float, default=5, help='how many stddevs above the mean for auto discarding features')
 
 args = parser.parse_args()
 
@@ -185,6 +186,7 @@ for i in range(len(proj.image_list)):
         error = np.array(error)
         max_error = np.amax(error)    # maximum
         max_index = np.argmax(error)
+        print('max:', max_error, '@', max_index)
         avg = np.mean(error)    # average of the errors
         std = np.std(error)     # standard dev of the errors
         averages[i][j] = avg
@@ -192,20 +194,20 @@ for i in range(len(proj.image_list)):
         
         status = np.ones(len(pairs[i][j]), np.bool_)
 
-        if True:
-            # flag any outliers by std deviation
-            for k in range(len(pairs[i][j])):
-                if error[k] > avg + 3*std:
+        # flag any outliers by std deviation
+        for k in range(len(pairs[i][j])):
+            if error[k] > avg + args.stddev * std:
+                status[k] = False
+
+        # also make sure the max outlier is at least flagged
+        if filter == 'homography' or filter == 'affine':
+            # flag only the worst error
+            status[max_index] = False
+        elif filter == 'margin':
+            # flag any non-zero
+            for k in range(len(error)):
+                if error[k] > 0.5:
                     status[k] = False
-        else:
-            if filter == 'homography' or filter == 'affine':
-                # flag only the worst error
-                status[max_index] = False
-            elif filter == 'margin':
-                # flag any non-zero
-                for k in range(len(error)):
-                    if error[k] > 0.5:
-                        status[k] = False
             
         status_flags[i][j] = status
         error_metric = max_error       # pure max error
@@ -233,7 +235,7 @@ for line in bypair:
 
     debug = True
     if debug:
-        file = os.path.join(args.project, 'affine.gnuplot')
+        file = os.path.join(args.project, 'projection.gnuplot')
         f = open(file, 'w')
         for k in range(len(deltas[i][j])):
             dst = dsts[i][j][k]
