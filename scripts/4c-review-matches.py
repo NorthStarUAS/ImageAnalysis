@@ -47,6 +47,8 @@ homography = []
 averages = []
 stddevs = []
 status_flags = []
+dsts = []
+deltas = []
 for i in range(len(proj.image_list)):
     p = [ [] for j in range(len(proj.image_list)) ]
     pairs.append(p)
@@ -54,6 +56,8 @@ for i in range(len(proj.image_list)):
     averages.append( [0] * len(proj.image_list) )
     stddevs.append( [0] * len(proj.image_list) )
     status_flags.append( [None] * len(proj.image_list) )
+    dsts.append( [None] * len(proj.image_list) )
+    deltas.append( [None] * len(proj.image_list) )
     
 for match in matches:
     for p1 in match[1:]:
@@ -103,9 +107,11 @@ for i in range(len(proj.image_list)):
             #dst.append( i2.kp_list[pair[1]].pt )
         src = np.float32(src)
         dst = np.float32(dst)
+        dsts[i][j] = dst
+        delta = []
         error = []
-        #filter = 'homography'
-        filter = 'affine'
+        filter = 'homography'
+        #filter = 'affine'
         # filter = 'margin' (just a test, we probably want the margins for better distorting parameter fitting.)
         if filter == 'affine':
             fullAffine = False
@@ -122,9 +128,12 @@ for i in range(len(proj.image_list)):
                 #print('p est:', p_est, 'act:', dst[k])
                 #np1 = np.array(i1.coord_list[pair[0]])
                 #np2 = np.array(i2.coord_list[pair[1]])
-                d = np.linalg.norm(p_est - dst[k])
+                diff = dst[k] - p_est
+                dist = np.linalg.norm(diff)
                 #print('dist:', d)
-                error.append(d)
+                delta.append(diff)
+                error.append(dist)
+            deltas[i][j] = delta
         elif filter == 'homography':
             method = 0          # a regular method using all the points
             #method = cv2.RANSAC
@@ -147,9 +156,12 @@ for i in range(len(proj.image_list)):
                     print('what?')
                     p_est = np.array([0.0, 0.0])
                 # print('p est:', p_est, 'act:', dst[k])
-                d = np.linalg.norm(p_est - dst[k])
+                diff = dst[k] - p_est
+                dist = np.linalg.norm(diff)
                 #print 'dist:', d
-                error.append(d)
+                delta.append(diff)
+                error.append(dist)
+            deltas[i][j] = delta
         elif filter == 'margin':
             margin = 0.1
             hmargin = int(i1.width * margin)
@@ -171,7 +183,7 @@ for i in range(len(proj.image_list)):
                 else:
                     error.append(0)
         error = np.array(error)
-        max = np.amax(error)    # maximum
+        max_error = np.amax(error)    # maximum
         max_index = np.argmax(error)
         avg = np.mean(error)    # average of the errors
         std = np.std(error)     # standard dev of the errors
@@ -183,7 +195,7 @@ for i in range(len(proj.image_list)):
         if True:
             # flag any outliers by std deviation
             for k in range(len(pairs[i][j])):
-                if error[k] > avg + 4*std:
+                if error[k] > avg + 3*std:
                     status[k] = False
         else:
             if filter == 'homography' or filter == 'affine':
@@ -196,9 +208,9 @@ for i in range(len(proj.image_list)):
                         status[k] = False
             
         status_flags[i][j] = status
-        error_metric = max       # pure max error
-        error_metric = max / std # max error relative to std 
-        print('pair:', i, j, 'max:', max, 'avg:', avg, 'std:', std)
+        error_metric = max_error       # pure max error
+        #error_metric = max_error / std # max error relative to std 
+        print('pair:', i, j, 'max:', max_error, 'avg:', avg, 'std:', std)
         bypair.append( [error_metric, avg, std, i, j] )
 
 sort_by = 'worst'
@@ -218,6 +230,18 @@ for line in bypair:
     j = line[4]
     i1 = proj.image_list[i]
     i2 = proj.image_list[j]
+
+    debug = True
+    if debug:
+        file = os.path.join(args.project, 'affine.gnuplot')
+        f = open(file, 'w')
+        for k in range(len(deltas[i][j])):
+            dst = dsts[i][j][k]
+            delta = deltas[i][j][k]
+            f.write("%.2f %.2f %.2f %.2f\n" % (dst[0], dst[1],
+                                               delta[0], delta[1]))
+        f.close()
+        
     # pass in our own status array
     status, key = matcher.showMatchOrient(i1, i2, pairs[i][j],
                                           status=status_flags[i][j])
