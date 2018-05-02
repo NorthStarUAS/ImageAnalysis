@@ -45,7 +45,7 @@ def get_recenter_affine(src_list, dst_list):
         dst[3].append(1.0)
         print("{} <-- {}".format(dst_ned, src_ned))
     A = transformations.superimposition_matrix(src, dst, scale=True)
-    print("A:\n{}".formata(A))
+    print("A:\n", A)
     return A
 
 # transform a point list given an affine transform matrix
@@ -136,17 +136,17 @@ proj.save()
 # this can't be done globally, but can only be done for optimized
 # group within the set
 
-refit_group_orientations = False
+refit_group_orientations = True
 if refit_group_orientations:
     src_list = []
     dst_list = []
-    for image in proj.image_list:
-        if image.placed:
-            # only consider images that are in the fitted set
-            ned, ypr, quat = image.get_camera_pose_sba()
-            src_list.append(ned)
-            ned, ypr, quat = image.get_camera_pose()
-            dst_list.append(ned)
+    # only consider images that are in the main group
+    for i in groups[0]:
+        image = proj.image_list[i]
+        ned, ypr, quat = image.get_camera_pose(opt=True)
+        src_list.append(ned)
+        ned, ypr, quat = image.get_camera_pose()
+        dst_list.append(ned)
     A = get_recenter_affine(src_list, dst_list)
 
     # extract the rotation matrix (R) from the affine transform
@@ -155,67 +155,68 @@ if refit_group_orientations:
     R = transformations.euler_matrix(*angles)
     print("R:\n{}".format(R))
 
-    # update the sba camera locations based on best fit
-    camera_list = []
-    # load current sba poses
-    for image in proj.image_list:
-        ned, ypr, quat = image.get_camera_pose(opt=True)
-        camera_list.append( ned )
-    # refit
-    new_cams = transform_points(A, camera_list)
+    if False: # disable for now
+        # update the optimized camera locations based on best fit
+        camera_list = []
+        # load current sba poses
+        for i in groups[0]:
+            image = proj.image_list[i]
+            ned, ypr, quat = image.get_camera_pose(opt=True)
+            camera_list.append( ned )
+        # refit
+        new_cams = transform_points(A, camera_list)
 
-    # update sba poses. FIXME: do we need to update orientation here as
-    # well?  Somewhere we worked out the code, but it may not matter all
-    # that much ... except for later manually computing mean projection
-    # error.
-    dist_report = []
-    for i, image in enumerate(proj.image_list):
-        if not image.placed:
-            continue
-        ned_orig, ypr_orig, quat_orig = image.get_camera_pose()
-        ned, ypr, quat = image.get_camera_pose_sba()
-        Rbody2ned = image.get_body2ned_sba()
-        # update the orientation with the same transform to keep
-        # everything in proper consistent alignment
+        # update optimized poses. FIXME: do we need to update orientation
+        # here as well?  Somewhere we worked out the code, but it may not
+        # matter all that much ... except for later manually computing
+        # mean projection error.
+        dist_report = []
+        for i, image in enumerate(proj.image_list):
+            if not image.placed:
+                continue
+            ned_orig, ypr_orig, quat_orig = image.get_camera_pose()
+            ned, ypr, quat = image.get_camera_pose_sba()
+            Rbody2ned = image.get_body2ned_sba()
+            # update the orientation with the same transform to keep
+            # everything in proper consistent alignment
 
-        newRbody2ned = R[:3,:3].dot(Rbody2ned)
-        (yaw, pitch, roll) = transformations.euler_from_matrix(newRbody2ned, 'rzyx')
-        image.set_camera_pose_sba(ned=new_cams[i],
-                                  ypr=[yaw/d2r, pitch/d2r, roll/d2r])
-        dist = np.linalg.norm( np.array(ned_orig) - np.array(new_cams[i]))
-        print('image: {}'.format(image.name))
-        print('  orig pos: {}'.format(ned_orig))
-        print('  fit pos: {}'.format(new_cams[i]))
-        print('  dist moved: {}'.format(dist))
-        dist_report.append( (dist, image.name) )
+            newRbody2ned = R[:3,:3].dot(Rbody2ned)
+            (yaw, pitch, roll) = transformations.euler_from_matrix(newRbody2ned, 'rzyx')
+            image.set_camera_pose_sba(ned=new_cams[i],
+                                      ypr=[yaw/d2r, pitch/d2r, roll/d2r])
+            dist = np.linalg.norm( np.array(ned_orig) - np.array(new_cams[i]))
+            print('image: {}'.format(image.name))
+            print('  orig pos: {}'.format(ned_orig))
+            print('  fit pos: {}'.format(new_cams[i]))
+            print('  dist moved: {}'.format(dist))
+            dist_report.append( (dist, image.name) )
 
-        # fixme: are we doing the correct thing here with attitude, or
-        # should we transform the point set and then solvepnp() all the
-        # camera locations (for now comment out save_meta()
-        image.save_meta()
+            # fixme: are we doing the correct thing here with attitude, or
+            # should we transform the point set and then solvepnp() all the
+            # camera locations (for now comment out save_meta()
+            image.save_meta()
 
-    dist_report = sorted(dist_report,
-                         key=lambda fields: fields[0],
-                         reverse=False)
-    print('Image movement sorted lowest to highest:')
-    for report in dist_report:
-        print('{} dist: {}'.format(report[1], report[0]))
+        dist_report = sorted(dist_report,
+                             key=lambda fields: fields[0],
+                             reverse=False)
+        print('Image movement sorted lowest to highest:')
+        for report in dist_report:
+            print('{} dist: {}'.format(report[1], report[0]))
 
-    # update the sba point locations based on same best fit transform
-    # derived from the cameras (remember that 'features' is the point
-    # features structure spit out by the SBA process)
-    feature_list = []
-    for f in features:
-        feature_list.append( f.tolist() )
-    new_feats = transform_points(A, feature_list)
+        # update the sba point locations based on same best fit transform
+        # derived from the cameras (remember that 'features' is the point
+        # features structure spit out by the SBA process)
+        feature_list = []
+        for f in features:
+            feature_list.append( f.tolist() )
+        new_feats = transform_points(A, feature_list)
 
     # create the matches_sba list (copy) and update the ned coordinate
-    matches_sba = []
-    for i, feat in enumerate(new_feats):
+    matches_opt = list(matches) # shallow copy
+    for i, feat in enumerate(features):
         match_index = feat_index_map[i]
-        match = list(matches[match_index])
+        match = matches_opt[match_index]
         match[0] = feat
-        matches_sba.append( match )
 else:
     # not refitting group orientations create a matches_opt
     matches_opt = list(matches) # shallow copy
