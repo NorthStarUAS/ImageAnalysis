@@ -23,6 +23,7 @@ r2d = 180.0 / math.pi
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--refine', action='store_true', help='refine a previous optimization.')
 
 args = parser.parse_args()
 
@@ -72,9 +73,10 @@ proj.load_features()
 
 grouped_file = os.path.join(args.project, 'matches_grouped' )
 direct_file = os.path.join(args.project, 'matches_direct' )
-if os.path.isfile( grouped_file ):
-    print('Match file:', grouped_file)
-    matches = pickle.load( open(grouped_file, "rb") )
+opt_file = os.path.join(args.project, 'matches_opt')
+if args.refine and os.path.isfile( opt_file ):
+    print('Match file:', opt_file)
+    matches = pickle.load( open(opt_file, "rb") )
 elif os.path.isfile( direct_file ):
     print('Match file:', direct_file)
     matches = pickle.load( open(direct_file, "rb") )
@@ -88,11 +90,8 @@ print('Match features:', len(matches))
 groups = Groups.load(args.project)
 print('Main group size:', len(groups[0]))
 
-K = proj.cam.get_K()
-distCoeffs = np.array(proj.cam.get_dist_coeffs())
-
 opt = Optimizer.Optimizer(args.project)
-opt.setup( proj.image_list, groups[0], matches, K, distCoeffs )
+opt.setup( proj, groups[0], matches, optimized=args.refine )
 cameras, features, cam_index_map, feat_index_map, fx_opt, fy_opt, cu_opt, cv_opt, distCoeffs_opt = opt.run()
 
 # mark all the optimized poses as invalid

@@ -32,8 +32,8 @@ class Optimizer():
         self.graph = None
         self.graph_counter = 0
         #self.optimize_calib = 'individual' # individual camera optimization
-        #self.optimize_calib = 'global' # global camera optimization
-        self.optimize_calib = 'none' # no camera calibration optimization
+        self.optimize_calib = 'global' # global camera optimization
+        #self.optimize_calib = 'none' # no camera calibration optimization
         self.with_bounds = True
 
     # plot range
@@ -156,6 +156,8 @@ class Optimizer():
             else:
                 error = np.append(error, (by_camera_points_2d[i] - proj_points).ravel())
 
+        # print('points_3d:', points_3d.shape, 'error:', error.shape)
+        
         # provide some runtime feedback for the operator
         mre = np.mean(np.abs(error))
         if 1.0 - mre/self.last_mre > 0.001:
@@ -188,11 +190,11 @@ class Optimizer():
 
     # assemble the structures and remapping indices required for
     # optimizing a group of images/features
-    def setup(self, image_list, placed_images, matches_list, K, distCoeffs, optimized=False):
+    def setup(self, proj, placed_images, matches_list, optimized=False):
         if placed_images == None:
             placed_images = set()
             # if no placed images specified, mark them all as placed
-            for i in range(len(image_list)):
+            for i in range(len(proj.image_list)):
                 placed_images.add(i)
                 
         # construct the camera index remapping
@@ -208,8 +210,8 @@ class Optimizer():
         self.feat_map_fwd = {}
         self.feat_map_rev = {}
 
-        self.K = K
-        self.distCoeffs = distCoeffs
+        self.K = proj.cam.get_K(optimized)
+        self.distCoeffs = np.array(proj.cam.get_dist_coeffs(optimized))
         
         # iterate through the matches dictionary to produce a list of matches
         feat_used = 0
@@ -232,8 +234,8 @@ class Optimizer():
                 for p in match[1:]:
                     if p[0] in placed_images:
                         local_index = self.camera_map_rev[p[0]]
-                        kp = image_list[p[0]].kp_list[p[1]].pt # orig/distorted
-                        # kp = image_list[p[0]].uv_list[p[1]]      # undistorted
+                        kp = proj.image_list[p[0]].kp_list[p[1]].pt # orig/distorted
+                        # kp = proj.image_list[p[0]].uv_list[p[1]]      # undistorted
                         s = "%d %.2f %.2f " % (local_index, kp[0], kp[1])
                         f.write(s)
                 f.write('\n')
@@ -248,7 +250,7 @@ class Optimizer():
         self.camera_params = np.empty(self.n_cameras * self.ncp)
         cam_idx = 0
         for index in placed_images:
-            image = image_list[index]
+            image = proj.image_list[index]
             if not optimized:
                 rvec, tvec = image.get_proj()
             else:
@@ -305,8 +307,8 @@ class Optimizer():
                 if p[0] in placed_images:
                     cam_index = self.camera_map_rev[p[0]]
                     feat_index = self.feat_map_fwd[i]
-                    kp = image_list[p[0]].kp_list[p[1]].pt # orig/distorted
-                    #kp = image_list[p[0]].uv_list[p[1]] # undistorted
+                    kp = proj.image_list[p[0]].kp_list[p[1]].pt # orig/distorted
+                    #kp = proj.image_list[p[0]].uv_list[p[1]] # undistorted
                     self.by_camera_point_indices[cam_index].append(feat_index)
                     self.by_camera_points_2d[cam_index].append(kp)
                     #camera_indices[obs_idx] = cam_index
@@ -401,7 +403,8 @@ class Optimizer():
         t0 = time.time()
         res = least_squares(self.fun, x0, bounds=bounds,
                             jac_sparsity=A, verbose=2,
-                            x_scale='jac', ftol=1e-3, method='trf',
+                            x_scale='jac', method='trf',
+                            loss='linear', ftol=1e-3,
                             args=(self.n_cameras, self.n_points,
                                   self.by_camera_point_indices,
                                   self.by_camera_points_2d))
