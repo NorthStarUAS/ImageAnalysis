@@ -85,7 +85,7 @@ def show_outliers(result_list, matches, image_list):
         error = line[0]
         stddev_sum += (mre-error)*(mre-error)
     stddev = math.sqrt(stddev_sum / count)
-    print("mre = %.4f stddev = %.4f" % (mre, stddev))
+    print("avg error = %.4f stddev = %.4f" % (mre, stddev))
 
     mark_list = []
     for line in result_list:
