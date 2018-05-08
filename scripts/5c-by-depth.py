@@ -72,13 +72,23 @@ def compute_feature_depths(image_list, group, matches):
         image.z_list = []
         
     # make a list of distances for each feature of each image
+    max_dist = 0
     for match in matches:
         feat_ned = match[0]
+        count = 0
+        for p in match[1:]:
+            if p[0] in group:
+                count += 1
+        if count < 2:
+            continue
         for p in match[1:]:
             if p[0] in group:
                 image = image_list[p[0]]
                 cam_ned, ypr, quat = image.get_camera_pose(opt=True)
                 dist = np.linalg.norm(feat_ned - cam_ned)
+                if dist > max_dist:
+                    max_dist = dist
+                    print(max_dist, match)
                 image.z_list.append(dist)
 
     # compute stats
@@ -99,16 +109,21 @@ def compute_feature_depths(image_list, group, matches):
     for i, match in enumerate(matches):
         feat_ned = match[0]
         metric_sum = 0
+        count = 0
         for p in match[1:]:
             if p[0] in group:
                 image = image_list[p[0]]
+                count += 1
                 cam_ned, ypr, quat = image.get_camera_pose(opt=True)
                 dist = np.linalg.norm(feat_ned - cam_ned)
                 dist_error = abs(dist - image.z_avg)
                 dist_metric = dist_error / image.z_std
+                #dist_metric = dist_error
                 metric_sum += dist_metric
-        metric_avg = metric_sum / len(match[1:])
-        error_list.append( [metric_avg, i, 0] )
+        if count >= 2:
+            metric_avg = metric_sum / count
+            if i == 1747: print(match, metric_avg)
+            error_list.append( [metric_avg, i, 0] )
 
     # sort by error, worst is first
     error_list = sorted(error_list, key=lambda fields: fields[0],

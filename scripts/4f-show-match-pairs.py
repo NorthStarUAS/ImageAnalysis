@@ -91,7 +91,8 @@ elif args.direct or args.sba:
                 if p1 != None and p2 != None:
                     matches.append( [p1, p2] )
             if len(matches):
-                print("Showing (direct) %s vs %s" % (i1.name, i2.name))
+                print("Showing (direct) %s (%d) vs %s (%d)" % (i1.name, i
+                                                               i2.name, j))
                 status = m.showMatchOrient(i1, i2, matches,
                                            orient=args.orient)
 elif args.order == 'sequential':

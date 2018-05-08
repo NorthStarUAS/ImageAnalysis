@@ -92,8 +92,7 @@ def groupByFeatureConnections(image_list, matches):
                     new_index = i
                     max_connections = image_counter[i]
             if max_connections >= 25:
-                # print "New image with max connections:", image_list[new_index].name
-                # print "Number of connected features:", max_connections
+                print("New image with max connections:", image_list[new_index].name, "features:", max_connections)
                 placed_images.add(new_index)
                 group_images.add(new_index)
             else:
@@ -124,7 +123,7 @@ def estimateConnectionArea(image):
     pass
 
 
-# speculative ....
+# another idea ...
 def groupByConnectedArea(image_list, matches):
     countFeatureConnections(image_list, matches)
     print("Start of top level grouping algorithm...")
@@ -149,6 +148,7 @@ def groupByConnectedArea(image_list, matches):
         max_connections = 0
         max_index = -1
         for i, image in enumerate(image_list):
+            print(image.connection_count)
             if image.connection_order < 0 and image.connection_count > max_connections:
                 max_connections = image.connection_count
                 max_index = i

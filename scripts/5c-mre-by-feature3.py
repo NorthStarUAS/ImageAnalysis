@@ -42,13 +42,8 @@ print('Number of optimized features:', len(matches_opt))
 groups = Groups.load(args.project)
 print('Main group size:', len(groups[0]))
 
-K = proj.cam.get_K( optimized=True)
-print('K:\n', K)
-distCoeffs = np.array(proj.cam.get_dist_coeffs(optimized=True))
-
 opt = Optimizer.Optimizer(args.project)
-opt.setup( proj.image_list, groups[0], matches_opt, K, distCoeffs, optimized=True )
-
+opt.setup( proj, groups[0], matches_opt, optimized=True )
 x0 = np.hstack((opt.camera_params.ravel(), opt.points_3d.ravel(),
                 opt.K[0,0], opt.K[1,1], opt.K[0,2], opt.K[1,2],
                 opt.distCoeffs))
