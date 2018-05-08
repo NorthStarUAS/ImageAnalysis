@@ -1,23 +1,20 @@
-#!/usr/bin/python
-
-import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
+#!/usr/bin/python3
 
 import argparse
-import commands
-import cPickle as pickle
+import pickle
 import cv2
 import fnmatch
 import itertools
-#import json
 import math
 import matplotlib.pyplot as plt
 import numpy as np
 import os.path
 from progress.bar import Bar
 import scipy.spatial
+import sys
 
 sys.path.append('../lib')
+import Groups
 import Matcher
 import Pose
 import ProjectMgr
@@ -110,82 +107,87 @@ def gen_ac3d_surface(name, points_group, values_group, tris_group):
         f.write("kids 0\n")
                 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_image_info()
+proj.load_images_info()
 proj.load_features()
-#proj.load_match_pairs()
         
-print "Loading match points (sba)..."
-matches_sba = pickle.load( open( args.project + "/matches_sba", "rb" ) )
+print("Loading optimized points ...")
+matches_opt = pickle.load( open( os.path.join(args.project, "matches_opt"), "rb" ) )
 
-# collect/group match chains that refer to the same keypoint
-print "Grouping matches ..."
-matches_group = list(matches_sba) # shallow copy
-count = 0
-done = False
-while not done:
-    print "Iteration:", count
-    count += 1
-    matches_new = []
-    matches_lookup = {}
-    for i, match in enumerate(matches_group):
-        # scan if any of these match points have been previously seen
-        # and record the match index
-        index = -1
-        for p in match[1:]:
-            key = "%d-%d" % (p[0], p[1])
-            if key in matches_lookup:
-                index = matches_lookup[key]
-                break
-        if index < 0:
-            # not found, append to the new list
+# load the group connections within the image set
+groups = Groups.load(args.project)
+
+if False:
+    # collect/group match chains that refer to the same keypoint
+    print("Grouping matches ...")
+    matches_group = list(matches_opt) # shallow copy
+    count = 0
+    done = False
+    while not done:
+        print("Iteration:", count)
+        count += 1
+        matches_new = []
+        matches_lookup = {}
+        for i, match in enumerate(matches_group):
+            # scan if any of these match points have been previously seen
+            # and record the match index
+            index = -1
             for p in match[1:]:
                 key = "%d-%d" % (p[0], p[1])
-                matches_lookup[key] = len(matches_new)
-            matches_new.append(list(match)) # shallow copy
+                if key in matches_lookup:
+                    index = matches_lookup[key]
+                    break
+            if index < 0:
+                # not found, append to the new list
+                for p in match[1:]:
+                    key = "%d-%d" % (p[0], p[1])
+                    matches_lookup[key] = len(matches_new)
+                matches_new.append(list(match)) # shallow copy
+            else:
+                # found a previous reference, append these match items
+                existing = matches_new[index]
+                # only append items that don't already exist in the early
+                # match, and only one match per image (!)
+                for p in match[1:]:
+                    key = "%d-%d" % (p[0], p[1])
+                    found = False
+                    for e in existing[1:]:
+                        if p[0] == e[0]:
+                            found = True
+                            break
+                    if not found:
+                        # add
+                        existing.append(list(p)) # shallow copy
+                        matches_lookup[key] = index
+                # print "new:", existing
+                # print 
+        if len(matches_new) == len(matches_group):
+            done = True
         else:
-            # found a previous reference, append these match items
-            existing = matches_new[index]
-            # only append items that don't already exist in the early
-            # match, and only one match per image (!)
-            for p in match[1:]:
-                key = "%d-%d" % (p[0], p[1])
-                found = False
-                for e in existing[1:]:
-                    if p[0] == e[0]:
-                        found = True
-                        break
-                if not found:
-                    # add
-                    existing.append(list(p)) # shallow copy
-                    matches_lookup[key] = index
-            # print "new:", existing
-            # print 
-    if len(matches_new) == len(matches_group):
-        done = True
-    else:
-        matches_group = list(matches_new) # shallow copy
-print "unique features (after grouping):", len(matches_group)
+            matches_group = list(matches_new) # shallow copy
+    print("unique features (after grouping):", len(matches_group))
 
 points_group = []
 values_group = []
 tris_group = []
 
 for i, image in enumerate(proj.image_list):
-    if image.camera_pose_sba == None:
-        # unposed camera, skip
+    if not i in groups[0]:
+        print('Skipping image not in primary group:', image.name)
         continue
-
+    
     # iterate through the sba match dictionary and build a list of feature
     # points and heights (in x=east,y=north,z=up coordinates)
-    print "Building raw mesh:", image.name
+    print("Building raw mesh:", image.name)
     raw_points = []
     raw_values = []
     sum_values = 0.0
     sum_count = 0
-    for match in matches_group:
-        if len(match) <= 3:
-            # skip pairwise matches and only go for the 3+ image features
-            continue
+    max_z = -9999.0
+    min_z = 9999.0
+    for match in matches_opt:
+        # if len(match) <= 3:
+        #     # skip pairwise matches and only go for the 3+ image features
+        #     continue
         ned = match[0]
         if ned is None:
             # skip features that haven't been placed
@@ -196,18 +198,22 @@ for i, image in enumerate(proj.image_list):
                 found = True
         if found:
             raw_points.append( [ned[1], ned[0]] )
-            raw_values.append( -ned[2] )
-            sum_values += -ned[2]
+            z = -ned[2]
+            raw_values.append( z )
+            sum_values += z
             sum_count += 1
+            if z < min_z: min_z = z
+            if z > max_z: max_z = z
     if sum_count == 0:
         # no suitable features found for this image ... skip
         continue
     avg_height = sum_values / sum_count
-    print "  Average elevation = %.1f" % ( avg_height )
+    spread = max_z - min_z
+    print("  Average elevation = %.1f Spread = %.1f" % ( avg_height, spread ))
     try:
         tri_list = scipy.spatial.Delaunay(np.array(raw_points))
     except:
-        print 'problem with delaunay triangulation, skipping'
+        print('problem with delaunay triangulation, skipping')
         continue
 
     # compute min/max range of horizontal surface
@@ -221,11 +227,11 @@ for i, image in enumerate(proj.image_list):
         if p[0] > x_max: x_max = p[0]
         if p[1] < y_min: y_min = p[1]
         if p[1] > y_max: y_max = p[1]
-    print "  Area coverage = %.1f,%.1f to %.1f,%.1f (%.1f x %.1f meters)" % \
-        (x_min, y_min, x_max, y_max, x_max-x_min, y_max-y_min)
+    print("  Area coverage = %.1f,%.1f to %.1f,%.1f (%.1f x %.1f meters)" % \
+        (x_min, y_min, x_max, y_max, x_max-x_min, y_max-y_min))
 
-    print "  Points:", len(raw_points)
-    print "  Triangles:", len(tri_list.simplices)
+    print("  Points:", len(raw_points))
+    print("  Triangles:", len(tri_list.simplices))
 
     points_group.append(raw_points)
     values_group.append(raw_values)
