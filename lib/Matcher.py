@@ -325,7 +325,7 @@ class Matcher():
                 # clip list to n best rated matches
                 matches_thresh = matches_thresh[:mymax]
                 print('  clipping to:', mymax)
-            
+                
         if len(matches_thresh) < self.min_pairs:
             # just quit now
             return []
@@ -351,7 +351,40 @@ class Matcher():
 
         # check for duplicate matches (based on different scales or attributes)
         idx_pairs = self.filter_duplicates(i1, i2, idx_pairs)
-        
+
+        # look for common feature angle difference
+        if len(idx_pairs):
+            # do a quick test of relative feature angles
+            offsets = []
+            for pair in idx_pairs:
+                p1 = i1.kp_list[pair[0]]
+                p2 = i2.kp_list[pair[1]]
+                offset = p2.angle - p1.angle
+                if offset < -180: offset += 360
+                if offset > 180: offset -= 360
+                offsets.append(offset)
+                #print('angles:', p1.angle, p2.angle, offset)
+            offsets = np.array(offsets)
+            offset_avg = np.mean(offsets)
+            offset_std = np.std(offsets)
+            print('gms inlier offset.  avg: %.1f std: %.1f' % (offset_avg, offset_std))
+            # carry forward the aligned pairs
+            aligned_pairs = []
+            for pair in idx_pairs:
+                p1 = i1.kp_list[pair[0]]
+                p2 = i2.kp_list[pair[1]]
+                offset = p2.angle - p1.angle
+                if offset < -180: offset += 360
+                if offset > 180: offset -= 360
+                diff = offset - offset_avg
+                if diff < -180: diff += 360
+                if diff > 180: diff -= 360
+                if abs(diff) <= 10:
+                    aligned_pairs.append(pair)
+            if len(idx_pairs) > len(aligned_pairs):
+                print('  feature alignment:', len(idx_pairs), '->', len(aligned_pairs))
+                idx_pairs = aligned_pairs
+            
         print("  initial matches =", len(idx_pairs))
         if len(idx_pairs) < self.min_pairs:
             # sorry
