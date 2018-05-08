@@ -212,7 +212,7 @@ for i in range(len(proj.image_list)):
         status_flags[i][j] = status
         error_metric = max_error       # pure max error
         #error_metric = max_error / std # max error relative to std 
-        print('pair:', i, j, 'max:', max_error, 'avg:', avg, 'std:', std)
+        print('pair:', i1.name, i2.name, 'max:', max_error, 'avg:', avg, 'std:', std)
         bypair.append( [error_metric, avg, std, i, j] )
 
 sort_by = 'worst'
@@ -245,6 +245,7 @@ for line in bypair:
         f.close()
         
     # pass in our own status array
+    print(i1.name, 'vs', i2.name)
     status, key = matcher.showMatchOrient(i1, i2, pairs[i][j],
                                           status=status_flags[i][j])
     if key == ord('q'):
