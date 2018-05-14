@@ -27,18 +27,19 @@ matches = pickle.load( open( os.path.join(args.project, 'matches_direct'), 'rb' 
 
 #print("Loading grouped matches...")
 #matches = pickle.load( open( os.path.join(args.project, 'matches_grouped'), 'rb' ) )
+
 print("features:", len(matches))
 
 # compute the group connections within the image set (not used
 # currently in the bundle adjustment process, but here's how it's
 # done...)
 
-groups = Groups.groupByFeatureConnections(proj.image_list, matches)
+#groups = Groups.groupByFeatureConnections(proj.image_list, matches)
 
 #groups = Groups.groupByConnectedArea(proj.image_list, matches)
 
-#proj.load_match_pairs(extra_verbose=False)
-#groups = Groups.groupByImageConnections(proj.image_list)
+proj.load_match_pairs(extra_verbose=False)
+groups = Groups.groupByImageConnections(proj.image_list)
 
 Groups.save(args.project, groups)
 
