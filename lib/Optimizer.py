@@ -32,8 +32,8 @@ class Optimizer():
         self.graph = None
         self.graph_counter = 0
         #self.optimize_calib = 'individual' # individual camera optimization
-        self.optimize_calib = 'global' # global camera optimization
-        #self.optimize_calib = 'none' # no camera calibration optimization
+        #self.optimize_calib = 'global' # global camera optimization
+        self.optimize_calib = 'none' # no camera calibration optimization
         self.with_bounds = True
 
     # plot range
@@ -269,12 +269,12 @@ class Optimizer():
         n_observations = 0
         for i, match in enumerate(matches_list):
             # count the number of referenced observations
-            used = False
+            count = 0
             for p in match[1:]:
                 if p[0] in placed_images:
-                    n_observations += 1
-                    used = True
-            if used:
+                    count +=1
+            if count >= 2:
+                n_observations += count
                 self.n_points += 1
 
         # assemble 3d point estimates and build indexing maps
@@ -283,11 +283,11 @@ class Optimizer():
         feat_used = 0
         for i, match in enumerate(matches_list):
             ned = np.array(match[0])
-            used = False
+            count = 0
             for p in match[1:]:
                 if p[0] in placed_images:
-                    used = True
-            if used:
+                    count += 1
+            if count >= 2:
                 self.feat_map_fwd[i] = feat_used
                 self.feat_map_rev[feat_used] = i
                 feat_used += 1
@@ -303,17 +303,22 @@ class Optimizer():
         #points_2d = np.empty((n_observations, 2))
         #obs_idx = 0
         for i, match in enumerate(matches_list):
+            count = 0
             for p in match[1:]:
                 if p[0] in placed_images:
-                    cam_index = self.camera_map_rev[p[0]]
-                    feat_index = self.feat_map_fwd[i]
-                    kp = proj.image_list[p[0]].kp_list[p[1]].pt # orig/distorted
-                    #kp = proj.image_list[p[0]].uv_list[p[1]] # undistorted
-                    self.by_camera_point_indices[cam_index].append(feat_index)
-                    self.by_camera_points_2d[cam_index].append(kp)
-                    #camera_indices[obs_idx] = cam_index
-                    #point_indices[obs_idx] = feat_index
-                    #obs_idx += 1
+                    count += 1
+            if count >= 2:
+                for p in match[1:]:
+                    if p[0] in placed_images:
+                        cam_index = self.camera_map_rev[p[0]]
+                        feat_index = self.feat_map_fwd[i]
+                        kp = proj.image_list[p[0]].kp_list[p[1]].pt # orig/distorted
+                        #kp = proj.image_list[p[0]].uv_list[p[1]] # undistorted
+                        self.by_camera_point_indices[cam_index].append(feat_index)
+                        self.by_camera_points_2d[cam_index].append(kp)
+                        #camera_indices[obs_idx] = cam_index
+                        #point_indices[obs_idx] = feat_index
+                        #obs_idx += 1
         # convert to numpy native structures
         for i in range(self.n_cameras):
             size = len(self.by_camera_point_indices[i])
