@@ -127,11 +127,11 @@ from matplotlib import cm
 # first determine surface elevation stats so we can discard outliers
 z = []
 for match in matches_opt:
-    used = False
-    for p in match[1:]:
-        if p[0] in groups[0]:
-            used = True
-    if used:
+    count = 0
+    for m in match[1:]:
+        if m[0] in groups[0]:
+            count += 1
+    if count >= 2:
         ned = match[0]
         z.append(ned[2])
 zavg = np.mean(z)
@@ -143,11 +143,11 @@ xfit = []
 yfit = []
 zfit = []
 for match in matches_opt:
-    used = False
+    count = 0
     for p in match[1:]:
         if p[0] in groups[0]:
-            used = True
-    if used:
+            count += 1
+    if count >= 2:
         ned = match[0]
         d = abs(ned[2] - zavg)
         if True or d <= 2*zstd:
@@ -230,13 +230,19 @@ for image in proj.image_list:
     image.z_list = []
     image.grid_list = []
 for i, match in enumerate(matches_opt):
-    #print(match)
-    ned = match[0]
-    #print(ned)
+    count = 0
     for p in match[1:]:
-        index = p[0]
-        #print('index:', index)
-        proj.image_list[index].z_list.append(-ned[2])
+        if p[0] in groups[0]:
+            count += 1
+    if count >= 2:
+        # in the solution if a match connects to at least two images
+        # in the primary group
+        for m in match[1:]:
+            ned = match[0]
+            index = m[0]
+            #print('index:', index)
+            if index in groups[0]:
+                proj.image_list[index].z_list.append(-ned[2])
 for image in proj.image_list:
     if len(image.z_list):
         avg = np.mean(np.array(image.z_list))
@@ -253,10 +259,11 @@ outliers = []
 for i, match in enumerate(matches_opt):
     ned = match[0]
     error_sum = 0
-    for p in match[1:]:
-        image = proj.image_list[p[0]]
-        dist = abs(-ned[2] - image.z_avg)
-        error_sum += dist
+    for m in match[1:]:
+        if m[0] in groups[0]:
+            image = proj.image_list[m[0]]
+            dist = abs(-ned[2] - image.z_avg)
+            error_sum += dist
     if error_sum > 3 * (image.z_std * len(match[1:])):
         # print('possible outlier match index:', i, error_sum, 'z:', ned[2])
         outliers.append( [error_sum, i] )

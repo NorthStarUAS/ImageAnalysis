@@ -81,16 +81,24 @@ class MyApp(ShowBase):
         # Add the tasks to the task manager.
         self.taskMgr.add(self.updateCameraTask, "updateCameraTask")
 
+    def pretty_print(self, node, indent=''):
+        for child in node.getChildren():
+            print(indent, child)
+                
     def load(self, path):
         files = []
         for file in os.listdir(path):
             if fnmatch.fnmatch(file, '*.egg'):
-                print('load:', file)
+                # print('load:', file)
                 files.append(file)
-        bar = Bar('Loading textures:', max=len(files))
+        bar = Bar('Loading models:', max=len(files))
         for file in files:
             # load and reparent each egg file
+            print(file)
             model = self.loader.loadModel(os.path.join(path, file))
+
+            self.pretty_print(model, '  ')
+            
             model.reparentTo(self.render)
             self.models.append(model)
             tex = model.findTexture('*')
@@ -128,7 +136,7 @@ class MyApp(ShowBase):
         result_list = []
         for m in self.models:
             b = m.getBounds()
-            #print(b.getCenter(), b.getRadius())
+            print(b.getCenter(), b.getRadius())
             dx = b.getCenter()[0] - self.cam_pos[0]
             dy = b.getCenter()[1] - self.cam_pos[1]
             dist = math.sqrt(dx*dx + dy*dy)
