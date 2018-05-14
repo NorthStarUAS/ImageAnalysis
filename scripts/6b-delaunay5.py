@@ -175,7 +175,7 @@ for i, image in enumerate(proj.image_list):
         print('Skipping image not in primary group:', image.name)
         continue
     
-    # iterate through the sba match dictionary and build a list of feature
+    # iterate through the optimized match dictionary and build a list of feature
     # points and heights (in x=east,y=north,z=up coordinates)
     print("Building raw mesh:", image.name)
     raw_points = []
@@ -185,25 +185,26 @@ for i, image in enumerate(proj.image_list):
     max_z = -9999.0
     min_z = 9999.0
     for match in matches_opt:
-        # if len(match) <= 3:
-        #     # skip pairwise matches and only go for the 3+ image features
-        #     continue
-        ned = match[0]
-        if ned is None:
-            # skip features that haven't been placed
-            continue
+        count = 0
         found = False
         for m in match[1:]:
+            if m[0] in groups[0]:
+                count += 1
             if m[0] == i:
                 found = True
-        if found:
+        if found and count >= 2:
+            ned = match[0]
             raw_points.append( [ned[1], ned[0]] )
             z = -ned[2]
             raw_values.append( z )
             sum_values += z
             sum_count += 1
-            if z < min_z: min_z = z
-            if z > max_z: max_z = z
+            if z < min_z:
+                min_z = z
+                #print(min_z, match)
+            if z > max_z:
+                max_z = z
+                #print(max_z, match)
     if sum_count == 0:
         # no suitable features found for this image ... skip
         continue
