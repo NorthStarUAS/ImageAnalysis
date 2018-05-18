@@ -45,7 +45,7 @@ print('Main group size:', len(groups[0]))
 opt = Optimizer.Optimizer(args.project)
 opt.setup( proj, groups[0], matches_opt, optimized=True )
 x0 = np.hstack((opt.camera_params.ravel(), opt.points_3d.ravel(),
-                opt.K[0,0], opt.K[1,1], opt.K[0,2], opt.K[1,2],
+                opt.K[0,0], opt.K[0,2], opt.K[1,2],
                 opt.distCoeffs))
 error = opt.fun(x0, opt.n_cameras, opt.n_points, opt.by_camera_point_indices, opt.by_camera_points_2d)
 
