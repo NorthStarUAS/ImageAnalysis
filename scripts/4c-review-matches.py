@@ -40,6 +40,8 @@ matcher = Matcher.Matcher()
 print("Loading match points (direct)...")
 matches = pickle.load( open( os.path.join(args.project, "matches_direct"), "rb" ) )
 
+print('num images:', len(proj.image_list))
+
 # traverse the matches structure and create a pair-wise match
 # structure.  (Start with an empty n x n list of empty pair lists,
 # then fill in the structures.)
