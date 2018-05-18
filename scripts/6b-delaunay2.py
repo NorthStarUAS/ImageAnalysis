@@ -1,10 +1,6 @@
-#!/usr/bin/python
-
-import sys
-sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
+#!/usr/bin/python3
 
 import argparse
-import commands
 import cv2
 import fnmatch
 import json
@@ -14,6 +10,7 @@ import os.path
 from progress.bar import Bar
 import scipy.spatial
 
+import sys
 sys.path.append('../lib')
 import Matcher
 import Pose
@@ -83,8 +80,8 @@ def gen_ac3d_object(f, name, raw_tris):
             ned = [ v[0], v[1], v[2] ]
             index = unique_add( vertices, ned )
             tris.append( [ index, v[3], v[4] ] )
-    print "raw vertices =", len(raw_tris)*3
-    print "indexed vertices =", len(vertices)
+    print("raw vertices =", len(raw_tris)*3)
+    print("indexed vertices =", len(vertices))
     # sort the dictionary into an array so we can output it in the
     # correct order
     vertex_list = [None] * (len(vertices) - 1) # skip counter record
@@ -123,7 +120,7 @@ proj.load_image_info()
 proj.load_features()
 proj.load_match_pairs()
         
-print "Loading match points..."
+print("Loading match points...")
 f = open(args.project + "/Matches-sba.json", 'r')
 matches_sba = json.load(f)
 f.close()
@@ -152,11 +149,11 @@ for image in proj.image_list:
 for image in proj.image_list:
     image.tris = []
     
-print "Building triangulation..."
+print("Building triangulation...")
 tri = scipy.spatial.Delaunay(np.array(points))
 
-print "Points:", len(points)
-print "Triangles:", len(tri.simplices)
+print("Points:", len(points))
+print("Triangles:", len(tri.simplices))
 
 easy_tris = 0
 hard_tris = 0
@@ -242,9 +239,9 @@ for tri in tri.simplices:
         bar.next(update_steps)
 bar.finish()
 
-print "easy tris =", easy_tris
-print "hard tris =", hard_tris
-print "failed tris =", failed_tris
+print("easy tris =", easy_tris)
+print("hard tris =", hard_tris)
+print("failed tris =", failed_tris)
 
 # write out an ac3d file
 name = args.project + "/sba3d.ac"
@@ -256,5 +253,5 @@ f.write("OBJECT world\n")
 f.write("kids " + str(len(proj.image_list)) + "\n")
 
 for image in proj.image_list:
-    print image.name, len(image.tris)
+    print(image.name, len(image.tris))
     gen_ac3d_object(f, image.name, image.tris)

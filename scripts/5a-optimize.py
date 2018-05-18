@@ -71,7 +71,8 @@ proj.load_features()
 #proj.undistort_keypoints()
 # proj.load_match_pairs()
 
-grouped_file = os.path.join(args.project, 'matches_grouped' )
+#grouped_file = os.path.join(args.project, 'matches_grouped' )
+grouped_file = ''
 direct_file = os.path.join(args.project, 'matches_direct' )
 opt_file = os.path.join(args.project, 'matches_opt')
 if args.refine and os.path.isfile( opt_file ):
