@@ -14,12 +14,13 @@ import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--original-pairs', action='store_true', help='use original pair-rwise matches')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
-proj.load_features()
-proj.undistort_keypoints()
+#proj.load_features()
+#proj.undistort_keypoints()
 
 # no! (maybe?)
 print("Loading direct matches...")
@@ -30,16 +31,40 @@ matches = pickle.load( open( os.path.join(args.project, 'matches_direct'), 'rb' 
 
 print("features:", len(matches))
 
-# compute the group connections within the image set (not used
-# currently in the bundle adjustment process, but here's how it's
-# done...)
+if not args.original_pairs:
+    # recreate the pair-wise match structure
+    matches_list = pickle.load( open( os.path.join(args.project, "matches_direct"), "rb" ) )
+    for i1 in proj.image_list:
+        i1.match_list = []
+        for i2 in proj.image_list:
+            i1.match_list.append([])
+    for match in matches_list:
+        for p1 in match[1:]:
+            for p2 in match[1:]:
+                if p1 == p2:
+                    pass
+                else:
+                    i = p1[0]
+                    j = p2[0]
+                    image = proj.image_list[i]
+                    image.match_list[j].append( [p1[1], p2[1]] )
+    # for i in range(len(proj.image_list)):
+    #     print(len(proj.image_list[i].match_list))
+    #     print(proj.image_list[i].match_list)
+    #     for j in range(len(proj.image_list)):
+    #         print(i, j, len(proj.image_list[i].match_list[j]),
+    #               proj.image_list[i].match_list[j])
+else:
+    proj.load_match_pairs(extra_verbose=False)
+
+# compute the group connections within the image set.
 
 #groups = Groups.groupByFeatureConnections(proj.image_list, matches)
 
 #groups = Groups.groupByConnectedArea(proj.image_list, matches)
 
-proj.load_match_pairs(extra_verbose=False)
 groups = Groups.groupByImageConnections(proj.image_list)
+groups.sort(key=len, reverse=True)
 
 Groups.save(args.project, groups)
 
