@@ -38,7 +38,19 @@ pair_angles = []
 for i in range(len(proj.image_list)):
     p = [ [] for j in range(len(proj.image_list)) ]
     pair_angles.append(p)
+
+def compute_angle(ned1, ned2, ned3):
+    vec1 = np.array(ned3) - np.array(ned1)
+    vec2 = np.array(ned3) - np.array(ned2)
+    n1 = np.linalg.norm(vec1)
+    n2 = np.linalg.norm(vec2)
+    denom = n1*n2
+    if abs(denom - 0.000001) > 0:
+        return math.acos(np.dot(vec1, vec2) / denom)
+    else:
+        return 0
     
+print("Computing match pair angles...")
 for match in matches_opt:
     for m1 in match[1:]:
         for m2 in match[1:]:
@@ -49,13 +61,18 @@ for match in matches_opt:
                 i2 = proj.image_list[m2[0]]
                 ned1, ypr1, q1 = i1.get_camera_pose(opt=True)
                 ned2, ypr2, q2 = i2.get_camera_pose(opt=True)
-                # quick hack angle approximation
-                avg = (np.array(ned1) + np.array(ned2)) * 0.5
-                y = np.linalg.norm(np.array(ned2) - np.array(ned1))
-                x = np.linalg.norm(avg - np.array(match[0]))
-                angle_deg = math.atan2(y, x) * r2d
+                quick_approx = False
+                if quick_approx:
+                    # quick hack angle approximation
+                    avg = (np.array(ned1) + np.array(ned2)) * 0.5
+                    y = np.linalg.norm(np.array(ned2) - np.array(ned1))
+                    x = np.linalg.norm(avg - np.array(match[0]))
+                    angle_deg = math.atan2(y, x) * r2d
+                else:
+                    angle_deg = compute_angle(ned1, ned2, match[0]) * r2d
                 pair_angles[m1[0]][m2[0]].append(angle_deg)
 
+print("Computing per-image statistics...")
 by_pair = []
 for i in range(len(proj.image_list)):
     for j in range(len(proj.image_list)):
@@ -67,11 +84,13 @@ for i in range(len(proj.image_list)):
             #print(i, j, 'avg:', avg, 'std:', std, 'min:', min)
             by_pair.append( [i, j, avg, std, min] )
 
+print("Marking small angle image pairs for deletion...")
 mark_list = []
 by_pair = sorted(by_pair, key=lambda fields: fields[2]) # by avg
 for line in by_pair:
     print(line[0], line[1], 'avg:', line[2], 'std:', line[3], 'min:', line[4])
-    if line[2] < 5:   # cutoff angle (deg)
+    if line[2] < 4 or line[4] < 2:   # cutoff angle (deg)
+        print('  (remove)')
         for k, match in enumerate(matches_opt):
             size = len(match[1:])
             for i, m1 in enumerate(match[1:]):
