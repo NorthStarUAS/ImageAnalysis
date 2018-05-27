@@ -71,16 +71,15 @@ proj.load_features()
 #proj.undistort_keypoints()
 # proj.load_match_pairs()
 
-#grouped_file = os.path.join(args.project, 'matches_grouped' )
-grouped_file = ''
-direct_file = os.path.join(args.project, 'matches_direct' )
+source_file = os.path.join(args.project, 'matches_grouped' )
+#source_file = os.path.join(args.project, 'matches_direct' )
 opt_file = os.path.join(args.project, 'matches_opt')
 if args.refine and os.path.isfile( opt_file ):
     print('Match file:', opt_file)
     matches = pickle.load( open(opt_file, "rb") )
-elif os.path.isfile( direct_file ):
-    print('Match file:', direct_file)
-    matches = pickle.load( open(direct_file, "rb") )
+elif os.path.isfile( source_file ):
+    print('Match file:', source_file)
+    matches = pickle.load( open(source_file, "rb") )
 else:
     print("Cannot find a matches file to load... aborting")
     quit()

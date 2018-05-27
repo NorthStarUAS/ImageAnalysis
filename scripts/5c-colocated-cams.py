@@ -22,7 +22,8 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
 
-source = 'matches_direct'
+#source = 'matches_direct'
+source = 'matches_grouped'
 print("Loading matches:", source)
 matches_orig = pickle.load( open( os.path.join(args.project, source), "rb" ) )
 print('Number of original features:', len(matches_orig))
@@ -84,12 +85,26 @@ for i in range(len(proj.image_list)):
             #print(i, j, 'avg:', avg, 'std:', std, 'min:', min)
             by_pair.append( [i, j, avg, std, min] )
 
+# (Average angle) pairs with very small average angles between each feature
+# and camera location indicate closely located camera poses and these
+# cause problems because very small changes in camera pose lead to
+# very large changes in feature location.
+
+# (Standard Deviaion) I haven't wrapped my head around this but pairs
+# with a high standard deviation of feature to camera pose angles also
+# seem to be tied to optimizer/solution degeneracy.
+
+# (Minimum angle) Pairs with a few small minimum angles in the set suggest
+# one image is above the other and again run into the problem where
+# small pose changes can lead to large feature location changes (but
+# just for a few features, not all the features in the pairing.)
+
 print("Marking small angle image pairs for deletion...")
 mark_list = []
-by_pair = sorted(by_pair, key=lambda fields: fields[2]) # by avg
+by_pair = sorted(by_pair, key=lambda fields: fields[3], reverse=True) # by avg
 for line in by_pair:
     print(line[0], line[1], 'avg:', line[2], 'std:', line[3], 'min:', line[4])
-    if line[2] < 4 or line[4] < 2:   # cutoff angle (deg)
+    if line[2] < 4 or line[3] > 8 or line[4] < 1:   # cutoff angles (deg)
         print('  (remove)')
         for k, match in enumerate(matches_opt):
             size = len(match[1:])
@@ -103,6 +118,7 @@ for line in by_pair:
                     if m1[0] == line[1] and m2[0] == line[0]:
                         mark_list.append( [k, i] )
                         mark_list.append( [k, j] )
+result = input('Press enter to continue:')
 
 # mark selection
 cull.mark_using_list(mark_list, matches_orig)
@@ -126,7 +142,7 @@ def delete_marked_matches(matches):
 mark_sum = len(mark_list)
 if mark_sum > 0:
     print('Outliers to remove from match lists:', mark_sum)
-    result=input('Save these changes? (y/n):')
+    result = input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
         delete_marked_matches(matches_orig)
         delete_marked_matches(matches_opt)

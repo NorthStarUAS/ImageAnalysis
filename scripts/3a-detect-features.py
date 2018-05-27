@@ -60,6 +60,7 @@ proj.load_images_info()
 # setup project detector params
 detector_node = getNode('/config/detector', True)
 detector_node.setString('detector', args.detector)
+detector_node.setString('scale', args.scale)
 if args.detector == 'SIFT':
     detector_node.setInt('sift_max_features', args.sift_max_features)
 elif args.detector == 'SURF':

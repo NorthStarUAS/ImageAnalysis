@@ -170,6 +170,8 @@ points_group = []
 values_group = []
 tris_group = []
 
+min_chain_length = 3
+
 for i, image in enumerate(proj.image_list):
     if not i in groups[0]:
         print('Skipping image not in primary group:', image.name)
@@ -192,7 +194,7 @@ for i, image in enumerate(proj.image_list):
                 count += 1
             if m[0] == i:
                 found = True
-        if found and count >= 2:
+        if found and count >= min_chain_length:
             ned = match[0]
             raw_points.append( [ned[1], ned[0]] )
             z = -ned[2]

@@ -323,7 +323,8 @@ if True:
             pts_ned = proj.intersectVectorsWithGroundPlane(ned,
                                                            image.z_avg,
                                                            proj_list)
-        elif True:
+        elif False:
+            # broke/fixme?
             # intersect with our polygon surface approximation
             pts_ned = intersect_vectors(ned, proj_list, m)
         else:

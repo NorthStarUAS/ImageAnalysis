@@ -31,8 +31,9 @@ class Optimizer():
         self.last_mre = 1.0e+10 # a big number
         self.graph = None
         self.graph_counter = 0
-        #self.optimize_calib = 'global' # global camera optimization
-        self.optimize_calib = 'none' # no camera calibration optimization
+        self.optimize_calib = 'global' # global camera optimization
+        #self.optimize_calib = 'none' # no camera calibration optimization
+        self.min_chain_length = 3
         self.with_bounds = False
         self.ncp = 6
 
@@ -211,7 +212,7 @@ class Optimizer():
             for m in match[1:]:
                 if m[0] in placed_images:
                     count += 1
-            if count >= 2:
+            if count >= self.min_chain_length:
                 n_observations += count
                 self.n_points += 1
 
@@ -224,7 +225,7 @@ class Optimizer():
             for m in match[1:]:
                 if m[0] in placed_images:
                     count += 1
-            if count >= 2:
+            if count >= self.min_chain_length:
                 self.feat_map_fwd[i] = feat_used
                 self.feat_map_rev[feat_used] = i
                 feat_used += 1
@@ -245,7 +246,7 @@ class Optimizer():
             for m in match[1:]:
                 if m[0] in placed_images:
                     count += 1
-            if count >= 2:
+            if count >= self.min_chain_length:
                 for m in match[1:]:
                     if m[0] in placed_images:
                         cam_index = self.camera_map_rev[m[0]]

@@ -22,12 +22,10 @@ proj.load_images_info()
 #proj.load_features()
 #proj.undistort_keypoints()
 
-# no! (maybe?)
-print("Loading direct matches...")
-matches = pickle.load( open( os.path.join(args.project, 'matches_direct'), 'rb' ) )
-
-#print("Loading grouped matches...")
-#matches = pickle.load( open( os.path.join(args.project, 'matches_grouped'), 'rb' ) )
+#source = 'matches_direct'
+source = 'matches_grouped'
+print("Loading source matches:", source)
+matches = pickle.load( open( os.path.join(args.project, source), 'rb' ) )
 
 print("features:", len(matches))
 
@@ -59,11 +57,12 @@ else:
 
 # compute the group connections within the image set.
 
-#groups = Groups.groupByFeatureConnections(proj.image_list, matches)
+groups = Groups.groupByFeatureConnections(proj.image_list, matches)
 
 #groups = Groups.groupByConnectedArea(proj.image_list, matches)
 
-groups = Groups.groupByImageConnections(proj.image_list)
+#groups = Groups.groupByImageConnections(proj.image_list)
+
 groups.sort(key=len, reverse=True)
 
 Groups.save(args.project, groups)
