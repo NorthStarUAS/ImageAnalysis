@@ -67,9 +67,6 @@ def transform_points( A, pts_list ):
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
-proj.load_features()
-#proj.undistort_keypoints()
-# proj.load_match_pairs()
 
 source_file = os.path.join(args.project, 'matches_grouped' )
 #source_file = os.path.join(args.project, 'matches_direct' )

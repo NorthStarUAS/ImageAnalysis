@@ -97,7 +97,17 @@ while not done:
         done = True
     else:
         matches_direct = list(matches_new) # shallow copy
-        
+
+# replace the keypoint index in the matches file with the actual kp
+# values.  This will save time later and avoid needing to load the
+# full original feature files which are quite large.  This also will
+# reduce the in-memory footprint for many steps.
+for match in matches_direct:
+    for m in match[1:]:
+        kp = proj.image_list[m[0]].kp_list[m[1]].pt
+        m[1] = list(kp)
+    print(match)
+
 count = 0.0
 sum = 0.0
 max = 0

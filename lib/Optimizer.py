@@ -251,7 +251,7 @@ class Optimizer():
                     if m[0] in placed_images:
                         cam_index = self.camera_map_rev[m[0]]
                         feat_index = self.feat_map_fwd[i]
-                        kp = proj.image_list[m[0]].kp_list[m[1]].pt # orig/distorted
+                        kp = m[1] # orig/distorted
                         #kp = proj.image_list[m[0]].uv_list[m[1]] # undistorted
                         self.by_camera_point_indices[cam_index].append(feat_index)
                         self.by_camera_points_2d[cam_index].append(kp)
@@ -384,7 +384,7 @@ class Optimizer():
             print("Final camera calib:\n", camera_calib)
 
         # final plot
-        #plt.plot(res.fun)
+        # plt.plot(res.fun)
         plt.ioff()
         plt.show()
 
