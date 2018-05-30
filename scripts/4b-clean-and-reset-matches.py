@@ -29,7 +29,6 @@ import SRTM
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--full-grouping', action='store_true', help='maximal feature grouping (caution: can blow up the sba process for a not-yet-known reason)') # fixme: full grouping is probably safe again, but we have a separate script now that does this.
 parser.add_argument('--ground', type=float, help='ground elevation in meters')
 
 args = parser.parse_args()
@@ -85,16 +84,17 @@ for image in proj.image_list:
             if not key in image.kp_remap:
                 image.kp_remap[key] = i
             else:
+                #print("%d -> %d" % (i, image.kp_remap[key]))
+                #print(" ", image.coord_list[i], image.coord_list[image.kp_remap[key]])
                 pass
-                print("%d -> %d" % (i, image.kp_remap[key]))
-                print(" ", image.coord_list[i], image.coord_list[image.kp_remap[key]])
+
     print(" features used:", used)
     print(" unique by uv and used:", len(image.kp_remap))
 
 # after feature matching we don't care about other attributes, just
 # the uv coordinate.
 #
-# notes: we do a first pass duplicate removal during the actual
+# notes: we do a first pass duplicate removal during the original
 # matching process.  This removes 1->many relationships, or duplicate
 # matches at different scales within a match pair.  However, different
 # pairs could reference the same keypoint at different scales, so
@@ -222,16 +222,6 @@ for i, i1 in enumerate(proj.image_list):
         if count > 0:
             print('Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count)
 
-def update_match_location(match):
-    sum = np.array( [0.0, 0.0, 0.0] )
-    for p in match[1:]:
-        # print proj.image_list[ p[0] ].coord_list[ p[1] ]
-        sum += proj.image_list[ p[0] ].coord_list[ p[1] ]
-        ned = sum / len(match[1:])
-        # print "avg =", ned
-        match[0] = ned.tolist()
-    return match
-    
 print("Constructing unified match structure...")
 # create an initial pair-wise match list
 matches_direct = []
@@ -246,86 +236,9 @@ for i, img in enumerate(proj.image_list):
                 match.append([0.0, 0.0, 0.0])
                 match.append([i, pair[0]])
                 match.append([j, pair[1]])
-                update_match_location(match)
                 matches_direct.append(match)
                 # print pair, match
 
-# compute the 3d distance between two points
-def dist3d(p0, p1):
-    dist = np.linalg.norm(np.array(p0) - np.array(p1))
-    return dist
-
-# collect/group match chains that refer to the same keypoint
-
-# warning 1: if there are bad matches this can over-constrain the
-# problem or tie the pieces together too tightly/incorrectly and lead
-# to the optimizer exploding.)
-
-# warning 2: if there are bad matches, this can lead to linking chains
-# together that shouldn't be linked which really fouls things up.
-
-# warning 3: I'm not 100% sure this code is rock solid.  I've been
-# through it dozens of times, but something ... I don't know ... it's
-# worth another deep dive to validate the output of this section.
-
-# notes: with only pairwise matching, the optimizer should have a good
-# opportunity to generate a nice fit.  However, subsections within the
-# solution could wander away from each other leading to some weird
-# projection results at the intersection of these divergent groups.
-# Ultimately we need to have at least some 3+ way feature match chains
-# to sufficiently constrain the problem set.  This dragon here will
-# need to be slayed at some point soon.  It's just a few short lines
-# of code, but don't let that fool you!
-
-count = 0
-if args.full_grouping:
-    done = False
-else:
-    done = True
-while not done:
-    print("Iteration:", count)
-    count += 1
-    matches_new = []
-    matches_lookup = {}
-    for i, match in enumerate(matches_direct):
-        # scan if any of these match points have been previously seen
-        # and record the match index
-        index = -1
-        for p in match[1:]:
-            key = "%d-%d" % (p[0], p[1])
-            if key in matches_lookup:
-                index = matches_lookup[key]
-                break
-        if index < 0:
-            # not found, append to the new list
-            for p in match[1:]:
-                key = "%d-%d" % (p[0], p[1])
-                matches_lookup[key] = len(matches_new)
-            matches_new.append(list(match)) # shallow copy
-        else:
-            # found a previous reference, append these match items
-            existing = matches_new[index]
-            for p in match[1:]:
-                key = "%d-%d" % (p[0], p[1])
-                found = False
-                for e in existing[1:]:
-                    if p[0] == e[0]:
-                        found = True
-                        break
-                if not found:
-                    # add
-                    existing.append(list(p)) # shallow copy
-                    matches_lookup[key] = index
-            # print "new:", existing
-            # print 
-    if len(matches_new) == len(matches_direct):
-        done = True
-    else:
-        matches_direct = list(matches_new) # shallow copy
-
-#for m in matches_direct:
-#    print m
-    
 count = 0.0
 sum = 0.0
 for match in matches_direct:
@@ -333,8 +246,8 @@ for match in matches_direct:
     count += 1
         
 if count >= 1:
-    print("total unique features in image set = %d" % count)
-    print("keypoint average instances = %.4f" % (sum / count))
+    print("Total unique features in image set = %d" % count)
+    print("Keypoint average instances = %.1f (should be 2.0 here)" % (sum / count))
 
 # compute an initial guess at the 3d location of each unique feature
 # by averaging the locations of each projection

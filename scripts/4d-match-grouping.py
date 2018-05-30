@@ -32,25 +32,19 @@ matches_direct = pickle.load( open( os.path.join(args.project, "matches_direct")
 
 # collect/group match chains that refer to the same keypoint
 
-# warning 1: if there are bad matches this can over-constrain the
-# problem or tie the pieces together too tightly/incorrectly and lead
-# to the optimizer exploding.)
+# warning 1: bad matches will lead to errors in the optimized fit.
 
 # warning 2: if there are bad matches, this can lead to linking chains
-# together that shouldn't be linked which really fouls things up.
-
-# warning 3: I'm not 100% sure this code is rock solid.  I've been
-# through it dozens of times, but something ... I don't know ... it's
-# worth another deep dive to validate the output of this section.
+# together that shouldn't be linked. This is hard to undo (I don't
+# have tools to do this written.)  The alternative is nuking the
+# entire match.
 
 # notes: with only pairwise matching, the optimizer should have a good
 # opportunity to generate a nice fit.  However, subsections within the
 # solution could wander away from each other leading to some weird
 # projection results at the intersection of these divergent groups.
-# Ultimately we need to have at least some 3+ way feature match chains
-# to sufficiently constrain the problem set.  This dragon here will
-# need to be slayed at some point soon.  It's just a few short lines
-# of code, but don't let that fool you!
+# Ultimately we depend on a network of 3+ way feature match chains
+# to link all the images and features together.
 
 count = 0
 done = False
@@ -104,12 +98,6 @@ while not done:
     else:
         matches_direct = list(matches_new) # shallow copy
         
-    # force to one pass for now
-    # done = True
-
-#for m in matches_direct:
-#    print m
-    
 count = 0.0
 sum = 0.0
 max = 0
@@ -121,13 +109,13 @@ for i, match in enumerate(matches_direct):
         max = refs
         print('new max:', match)
         max_index = i
-        cull.draw_match(i, 0, matches_direct, proj.image_list)
+        # cull.draw_match(i, 0, matches_direct, proj.image_list)
     count += 1
         
 if count >= 1:
-    print("total unique features in image set = %d" % count)
-    print("keypoint average instances = %.4f" % (sum / count))
-    print("max chain length =", max, ' @ index =', max_index)
+    print("Total unique features in image set = %d" % count)
+    print("Keypoint average instances = %.2f" % (sum / count))
+    print("Max chain length =", max, ' @ index =', max_index)
 
 print("Writing full group chain match file ...")
 pickle.dump(matches_direct, open(os.path.join(args.project, "matches_grouped"), "wb"))
