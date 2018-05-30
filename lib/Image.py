@@ -207,49 +207,12 @@ class Image():
     def save_matches(self):
         try:
             pickle.dump(self.match_list, open(self.match_file, "wb"))
-            #f = open(self.match_file, 'w')
-            #json.dump(self.match_list, f, sort_keys=True)
-            #f.close()
         except IOError as e:
             print(self.match_file + ": error saving file: " \
                 + str(sys.exc_info()[1]))
             return
         except:
             raise
-
-    # def save_meta(self):
-    #     image_dict = {}
-    #     image_dict['num-matches'] = self.num_matches
-    #     image_dict['aircraft-pose'] = self.aircraft_pose
-    #     image_dict['camera-pose'] = self.camera_pose
-    #     image_dict['camera-pose-sba'] = self.camera_pose_sba
-    #     image_dict['height'] = self.height
-    #     image_dict['width'] = self.width
-    #     image_dict['altitude-bias'] = self.alt_bias
-    #     image_dict['roll-bias'] = self.roll_bias
-    #     image_dict['pitch-bias'] = self.pitch_bias
-    #     image_dict['yaw-bias'] = self.yaw_bias
-    #     image_dict['x-bias'] = self.x_bias
-    #     image_dict['y-bias'] = self.y_bias
-    #     image_dict['weight'] = self.weight
-    #     image_dict['connections'] = self.connections
-    #     image_dict['connection-order'] = self.connection_order
-    #     image_dict['cycle-depth'] = self.cycle_depth
-    #     image_dict['error'] = self.error
-    #     image_dict['stddev'] = self.stddev
-    #     image_dict['bounding-center'] = list(self.center)
-    #     image_dict['bounding-radius'] = self.radius
-
-    #     try:
-    #         f = open(self.info_file, 'w')
-    #         json.dump(image_dict, f, indent=4, sort_keys=True)
-    #         f.close()
-    #     except IOError as e:
-    #         print(self.info_file + ": error saving file: " \
-    #             + str(sys.exc_info()[1]))
-    #         return
-    #     except:
-    #         raise
 
     def make_detector(self):
         detector_node = getNode('/config/detector', True)
