@@ -235,18 +235,35 @@ for each image.
 
 # 6. Render Results
 
-  ## 6a-render-model.py
+  ## 6a-render-model1.py
 
-  Fits a 2d polygon surface through the optimized feature set.  Then
-  project the camera images onto this surface.
+  Bins the covered region into a grid.  Iterates through the fitted
+  features and sorts them into corresponding x,y bins.  Find the
+  average elevation per bin.  Then fill in the empty bins based on
+  average of neighbor bin elevations.
 
-  Optionally can project onto the SRTM surface, but surface
-  inaccuracies lead to edge mismatches.  This is where dense mesh
-  construction has an advantage, but the dense mesh may not be the
-  best tool for every application.
+  For each image, create an 8 by 8 grid model and project this grid
+  onto the binned surface.
+  
+  Optionally can project onto a flat plane or the SRTM surface, but
+  surface inaccuracies lead to edge mismatches.  This is where dense
+  mesh construction has an advantage, but the dense mesh may not be
+  the best tool for every application.
 
   The quality of this result hinges on the accuracy of the surface
   approximation versus the true surface.
+
+  ## 6a-render-model2.py
+
+  Loosely follow the approach of 6b-delauney5.py.  Create a per image
+  Delaunay mesh of fitted features.  This mesh will be a convex hull
+  of features found/matched within each imaage.  Also include proper
+  textures and texture coordinates.  This should give accurate texture
+  placement and surface elevations for the points in the sparse mesh.
+
+  Outside of the convex hull, generate a secondary model to cover the
+  remaining area of the image ... project the corners/edges onto a
+  surface approximation and alpha blend away the extreme edges.
   
   
   ## 6b-delaunay3.py

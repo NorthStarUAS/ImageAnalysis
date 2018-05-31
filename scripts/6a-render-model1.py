@@ -131,7 +131,7 @@ for match in matches_opt:
     for m in match[1:]:
         if m[0] in groups[0]:
             count += 1
-    if count >= 2:
+    if count >= 3:
         ned = match[0]
         z.append(ned[2])
 zavg = np.mean(z)
@@ -147,7 +147,7 @@ for match in matches_opt:
     for p in match[1:]:
         if p[0] in groups[0]:
             count += 1
-    if count >= 2:
+    if count >= 3:
         ned = match[0]
         d = abs(ned[2] - zavg)
         if True or d <= 2*zstd:
