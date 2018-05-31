@@ -10,7 +10,7 @@ import sys
 sys.path.append('../lib')
 import ProjectMgr
 
-import match_culling as cull
+# import match_culling as cull
 
 # Maximally group all match chains.  If we squeeze out redundancy, the
 # sba solution should be better.
@@ -106,7 +106,7 @@ for match in matches_direct:
     for m in match[1:]:
         kp = proj.image_list[m[0]].kp_list[m[1]].pt
         m[1] = list(kp)
-    print(match)
+    # print(match)
 
 count = 0.0
 sum = 0.0
