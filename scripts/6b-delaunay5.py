@@ -108,7 +108,7 @@ def gen_ac3d_surface(name, points_group, values_group, tris_group):
                 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
-proj.load_features()
+#proj.load_features()
         
 print("Loading optimized points ...")
 matches_opt = pickle.load( open( os.path.join(args.project, "matches_opt"), "rb" ) )
@@ -116,116 +116,72 @@ matches_opt = pickle.load( open( os.path.join(args.project, "matches_opt"), "rb"
 # load the group connections within the image set
 groups = Groups.load(args.project)
 
-if False:
-    # collect/group match chains that refer to the same keypoint
-    print("Grouping matches ...")
-    matches_group = list(matches_opt) # shallow copy
-    count = 0
-    done = False
-    while not done:
-        print("Iteration:", count)
-        count += 1
-        matches_new = []
-        matches_lookup = {}
-        for i, match in enumerate(matches_group):
-            # scan if any of these match points have been previously seen
-            # and record the match index
-            index = -1
-            for p in match[1:]:
-                key = "%d-%d" % (p[0], p[1])
-                if key in matches_lookup:
-                    index = matches_lookup[key]
-                    break
-            if index < 0:
-                # not found, append to the new list
-                for p in match[1:]:
-                    key = "%d-%d" % (p[0], p[1])
-                    matches_lookup[key] = len(matches_new)
-                matches_new.append(list(match)) # shallow copy
-            else:
-                # found a previous reference, append these match items
-                existing = matches_new[index]
-                # only append items that don't already exist in the early
-                # match, and only one match per image (!)
-                for p in match[1:]:
-                    key = "%d-%d" % (p[0], p[1])
-                    found = False
-                    for e in existing[1:]:
-                        if p[0] == e[0]:
-                            found = True
-                            break
-                    if not found:
-                        # add
-                        existing.append(list(p)) # shallow copy
-                        matches_lookup[key] = index
-                # print "new:", existing
-                # print 
-        if len(matches_new) == len(matches_group):
-            done = True
-        else:
-            matches_group = list(matches_new) # shallow copy
-    print("unique features (after grouping):", len(matches_group))
-
 points_group = []
 values_group = []
 tris_group = []
 
 min_chain_length = 3
 
-for i, image in enumerate(proj.image_list):
-    if not i in groups[0]:
-        print('Skipping image not in primary group:', image.name)
-        continue
-    
-    # iterate through the optimized match dictionary and build a list of feature
-    # points and heights (in x=east,y=north,z=up coordinates)
-    print("Building raw mesh:", image.name)
-    raw_points = []
-    raw_values = []
-    sum_values = 0.0
-    sum_count = 0
-    max_z = -9999.0
-    min_z = 9999.0
-    for match in matches_opt:
-        count = 0
-        found = False
+# initialize temporary structures
+for image in proj.image_list:
+    image.raw_points = []
+    image.raw_values = []
+    image.sum_values = 0.0
+    image.sum_count = 0.0
+    image.max_z = -9999.0
+    image.min_z = 9999.0
+
+# sort through points
+print('Initial sort through optimized match points ...')
+for match in matches_opt:
+    count = 0
+    found = False
+    for m in match[1:]:
+        if m[0] in groups[0]:
+            count += 1
+    if count >= min_chain_length:
+        ned = match[0]
         for m in match[1:]:
             if m[0] in groups[0]:
-                count += 1
-            if m[0] == i:
-                found = True
-        if found and count >= min_chain_length:
-            ned = match[0]
-            raw_points.append( [ned[1], ned[0]] )
-            z = -ned[2]
-            raw_values.append( z )
-            sum_values += z
-            sum_count += 1
-            if z < min_z:
-                min_z = z
-                #print(min_z, match)
-            if z > max_z:
-                max_z = z
-                #print(max_z, match)
-    if sum_count == 0:
+                image = proj.image_list[ m[0] ]
+                image.raw_points.append( [ned[1], ned[0]] )
+                z = -ned[2]
+                image.raw_values.append( z )
+                image.sum_values += z
+                image.sum_count += 1
+                if z < image.min_z:
+                    image.min_z = z
+                    #print(min_z, match)
+                if z > image.max_z:
+                    image.max_z = z
+                    #print(max_z, match)
+
+print('Generating Delaunay meshes ...')
+for i, image in enumerate(proj.image_list):
+    # iterate through the optimized match dictionary and build a list of feature
+    # points and heights (in x=east,y=north,z=up coordinates)
+ 
+    if image.sum_count == 0:
         # no suitable features found for this image ... skip
         continue
-    avg_height = sum_values / sum_count
-    spread = max_z - min_z
+    
+    print(image.name)
+    avg_height = image.sum_values / image.sum_count
+    spread = image.max_z - image.min_z
     print("  Average elevation = %.1f Spread = %.1f" % ( avg_height, spread ))
     try:
-        tri_list = scipy.spatial.Delaunay(np.array(raw_points))
+        tri_list = scipy.spatial.Delaunay(np.array(image.raw_points))
     except:
         print('problem with delaunay triangulation, skipping')
         continue
 
     # compute min/max range of horizontal surface
-    p0 = raw_points[0]
+    p0 = image.raw_points[0]
     x_min = p0[0]
     x_max = p0[0]
     y_min = p0[1]
     y_max = p0[1]
-    for p in raw_points:
+    for p in image.raw_points:
         if p[0] < x_min: x_min = p[0]
         if p[0] > x_max: x_max = p[0]
         if p[1] < y_min: y_min = p[1]
@@ -233,12 +189,13 @@ for i, image in enumerate(proj.image_list):
     print("  Area coverage = %.1f,%.1f to %.1f,%.1f (%.1f x %.1f meters)" % \
         (x_min, y_min, x_max, y_max, x_max-x_min, y_max-y_min))
 
-    print("  Points:", len(raw_points))
+    print("  Points:", len(image.raw_points))
     print("  Triangles:", len(tri_list.simplices))
 
-    points_group.append(raw_points)
-    values_group.append(raw_values)
+    points_group.append(image.raw_points)
+    values_group.append(image.raw_values)
     tris_group.append(tri_list)
-    
+
+print('Generating ac3d surface model ...')
 name = args.project + "/surface.ac"
 gen_ac3d_surface(name, points_group, values_group, tris_group)
