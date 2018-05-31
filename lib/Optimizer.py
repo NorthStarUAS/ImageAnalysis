@@ -173,6 +173,7 @@ class Optimizer():
     # assemble the structures and remapping indices required for
     # optimizing a group of images/features
     def setup(self, proj, placed_images, matches_list, optimized=False):
+        print('Setting up optimizer data structures...')
         if placed_images == None:
             placed_images = set()
             # if no placed images specified, mark them all as placed
