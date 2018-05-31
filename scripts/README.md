@@ -265,7 +265,6 @@ for each image.
   remaining area of the image ... project the corners/edges onto a
   surface approximation and alpha blend away the extreme edges.
   
-  
   ## 6b-delaunay3.py
 
   Insert description
