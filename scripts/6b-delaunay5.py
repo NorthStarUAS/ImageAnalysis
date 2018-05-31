@@ -133,6 +133,8 @@ for image in proj.image_list:
 
 # sort through points
 print('Initial sort through optimized match points ...')
+global_raw_points = []
+global_raw_values = []
 for match in matches_opt:
     count = 0
     found = False
@@ -141,6 +143,8 @@ for match in matches_opt:
             count += 1
     if count >= min_chain_length:
         ned = match[0]
+        global_raw_points.append( [ned[1], ned[0]] )
+        global_raw_values.append( -ned[2] )
         for m in match[1:]:
             if m[0] in groups[0]:
                 image = proj.image_list[ m[0] ]
@@ -157,6 +161,7 @@ for match in matches_opt:
                     #print(max_z, match)
 
 print('Generating Delaunay meshes ...')
+global_tri_list = scipy.spatial.Delaunay(np.array(global_raw_points))
 for i, image in enumerate(proj.image_list):
     # iterate through the optimized match dictionary and build a list of feature
     # points and heights (in x=east,y=north,z=up coordinates)
@@ -197,5 +202,7 @@ for i, image in enumerate(proj.image_list):
     tris_group.append(tri_list)
 
 print('Generating ac3d surface model ...')
+name = args.project + "/surface-global.ac"
+gen_ac3d_surface(name, [global_raw_points], [global_raw_values], [global_tri_list])
 name = args.project + "/surface.ac"
 gen_ac3d_surface(name, points_group, values_group, tris_group)
