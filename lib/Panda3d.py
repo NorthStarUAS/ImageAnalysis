@@ -51,14 +51,6 @@ def generate(image_list, group, ref_image=False, src_dir=".", project_dir=".", b
     # make the textures if needed
     make_textures_opencv(src_dir, project_dir, image_list, resolution)
     
-    max_roll = 30.0
-    max_pitch = 30.0
-    min_agl = 50.0
-    min_time = 0.0 # the further into the flight hopefully the better the filter convergence
-
-    ref_lon = None
-    ref_lat = None
-
     for g in group:
         image = image_list[g]
         if len(image.grid_list) == 0:
