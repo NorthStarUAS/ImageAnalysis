@@ -165,7 +165,7 @@ if False:
 # be able to find any dups.  These should all get caught in the
 # original pair matching step.  But some dupes seem to survive?
 # Hmmm...
-print("Eliminating pair duplicates...")
+print("Checking for pair duplicates...")
 for i, i1 in enumerate(proj.image_list):
     for j, matches in enumerate(i1.match_list):
         i2 = proj.image_list[j]
