@@ -184,7 +184,7 @@ if mark_sum > 0:
         delete_marked_matches(matches_orig)
         delete_marked_matches(matches_opt)
         # write out the updated match dictionaries
-        print("Writing direct matches...")
+        print("Writing:", source)
         pickle.dump(matches_orig, open(os.path.join(args.project, source), "wb"))
         print("Writing optimized matches...")
         pickle.dump(matches_opt, open(os.path.join(args.project, "matches_opt"), "wb"))
