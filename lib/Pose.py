@@ -32,7 +32,6 @@ r2d = 180.0 / math.pi
 
 # define the image aircraft poses from Sentera meta data file
 def setAircraftPoses(proj, posefile="", order='ypr'):
-    images_dir = proj.dir_node.getString('images_source')
     meta_dir = os.path.join(proj.project_dir, 'meta')
     proj.image_list = []
     
@@ -58,17 +57,22 @@ def setAircraftPoses(proj, posefile="", order='ypr'):
             roll_deg = float(field[4])
             pitch_deg = float(field[5])
             yaw_deg = float(field[6])
-            
-        if not os.path.isfile( os.path.join(images_dir, name) ):
-            # no associated full image file, skip
+
+        found_dir = ''
+        for i in range( proj.dir_node.getLen('image_sources') ):
+            dir = proj.dir_node.getStringEnum('image_sources', i)
+            if os.path.isfile( os.path.join(dir, name) ):
+                found_dir = dir
+        if not len(found_dir):
+            print('No image file:', image_file, 'skipping ...')
             continue
-        if abs(roll_deg) > 25.0:
+        if abs(roll_deg) > 30.0:
             # rolled into a turn, skip
             print('skipping:', name, 'roll:', roll_deg)
             continue
 
         base, ext = os.path.splitext(name)
-        image = Image.Image(images_dir, meta_dir, base)
+        image = Image.Image(found_dir, meta_dir, base)
         image.set_aircraft_pose(lat_deg, lon_deg, alt_m,
                                 yaw_deg, pitch_deg, roll_deg)
         print(name, 'yaw=%.1f pitch=%.1f roll=%.1f' % (yaw_deg, pitch_deg, roll_deg))

@@ -101,15 +101,14 @@ class ProjectMgr():
     # The expected work flow is that we will import/scale all the
     # original images into our project folder leaving the original
     # image set completely untouched.
-    def set_images_source(self, source_dir):
-        if source_dir == self.project_dir:
-            print("Error: image source and project dirs must be different.")
-            return
-
-        if not os.path.exists(source_dir):
-            print("Error: image source path does not exist:", source_dir)
-
-        self.dir_node.setString('images_source', source_dir)
+    def set_image_sources(self, image_dirs):
+        for i, dir in enumerate(image_dirs):
+            if dir == self.project_dir:
+                print("Error: image source and project dirs must be different.")
+                return
+            if not os.path.exists(dir):
+                print("Error: image source path does not exist:", dir)
+            self.dir_node.setStringEnum('image_sources', i, dir)
 
     def save(self):
         # create a project dictionary and write it out as json
@@ -152,7 +151,6 @@ class ProjectMgr():
     def load_images_info(self):
         # load image meta info
         result = False
-        images_dir = self.dir_node.getString('images_source')
         meta_dir = os.path.join(self.project_dir, 'meta')
         images_node = getNode("/images", True)
 
@@ -166,7 +164,7 @@ class ProjectMgr():
         # wipe image list (so we don't double load)
         self.image_list = []
         for name in images_node.getChildren():
-            image = Image.Image(images_dir, meta_dir, name)
+            image = Image.Image(meta_dir, name)
             self.image_list.append( image )
 
         # make sure our matcher gets a copy of the image list
@@ -246,9 +244,6 @@ class ProjectMgr():
         self.matcher_params = mparams
         
     def detect_features(self, scale, show=False):
-        source_dir = self.dir_node.getString('images_source')
-        meta_dir = os.path.join( self.project_dir, 'meta')
-        
         if not show:
             bar = Bar('Detecting features:', max = len(self.image_list))
         for image in self.image_list:

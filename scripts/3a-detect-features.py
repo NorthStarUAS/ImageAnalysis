@@ -29,7 +29,7 @@ parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--scale', type=float, default=0.2, help='scale images before detecting features')
 parser.add_argument('--detector', default='SIFT',
                     choices=['SIFT', 'SURF', 'ORB', 'Star'])
-parser.add_argument('--sift-max-features', default=5000,
+parser.add_argument('--sift-max-features', default=30000,
                     help='maximum SIFT features')
 parser.add_argument('--surf-hessian-threshold', default=600,
                     help='hessian threshold for surf method')

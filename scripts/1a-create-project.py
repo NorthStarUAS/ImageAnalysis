@@ -13,13 +13,14 @@ import Image
 
 parser = argparse.ArgumentParser(description='Create an empty project.')
 parser.add_argument('--project', required=True, help='project work directory')
-parser.add_argument('--images', required=True, help='image source directory')
+parser.add_argument('--image-dirs', required=True, nargs='+', help='image source directory')
 
 args = parser.parse_args()
+print(args)
 
 # create an empty project
 proj = ProjectMgr.ProjectMgr(args.project, create=True)
-proj.set_images_source(args.images)
+proj.set_image_sources(args.image_dirs)
 proj.save()
 
 # test if images.json exists

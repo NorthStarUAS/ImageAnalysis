@@ -20,7 +20,7 @@ import transformations
 d2r = math.pi / 180.0           # a helpful constant
     
 class Image():
-    def __init__(self, source_dir=None, meta_dir=None, image_base=None):
+    def __init__(self, meta_dir=None, image_base=None):
         if image_base != None:
             self.name = image_base
             self.node = getNode("/images/" + self.name, True)
@@ -73,15 +73,19 @@ class Image():
 
         self.center = []
         self.radius = 0.0
-        
+
         if image_base:
-            tmp1 = os.path.join(source_dir, image_base + '.JPG')
-            tmp2 = os.path.join(source_dir, image_base + '.jpg')
-            if os.path.isfile(tmp1):
-                self.image_file = tmp1
-            elif os.path.isfile(tmp2):
-                self.image_file = tmp2
-            else:
+            dir_node = getNode('/config/directories', True)
+            self.image_file = None
+            for i in range( dir_node.getLen('image_sources') ):
+                dir = dir_node.getStringEnum('image_sources', i)
+                tmp1 = os.path.join(dir, image_base + '.JPG')
+                tmp2 = os.path.join(dir, image_base + '.jpg')
+                if os.path.isfile(tmp1):
+                    self.image_file = tmp1
+                elif os.path.isfile(tmp2):
+                    self.image_file = tmp2
+            if not self.image_file:
                 print('Warning: no image source file found:', tmp1)
                 self.image_file = None
             file_root = os.path.join(meta_dir, image_base)
