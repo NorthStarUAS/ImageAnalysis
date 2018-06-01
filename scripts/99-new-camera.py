@@ -24,7 +24,10 @@ exif.read()
 
 make = exif['Exif.Image.Make'].value
 model = exif['Exif.Image.Model'].value
-lens_model = exif['Exif.Photo.LensModel'].value
+if 'Exif.Photo.LensModel' in exif:
+    lens_model = exif['Exif.Photo.LensModel'].value
+else:
+    lens_model = 'unknown'
 focal_len_mm = exif['Exif.Photo.FocalLength'].value
 width = exif['Exif.Photo.PixelXDimension'].value
 height = exif['Exif.Photo.PixelYDimension'].value
