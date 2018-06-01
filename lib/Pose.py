@@ -62,7 +62,7 @@ def setAircraftPoses(proj, posefile="", order='ypr'):
         if not os.path.isfile( os.path.join(images_dir, name) ):
             # no associated full image file, skip
             continue
-        if abs(roll_deg) > 20.0:
+        if abs(roll_deg) > 25.0:
             # rolled into a turn, skip
             print('skipping:', name, 'roll:', roll_deg)
             continue
