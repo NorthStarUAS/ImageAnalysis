@@ -25,7 +25,7 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
 proj.load_features()
-proj.undistort_keypoints()
+#proj.undistort_keypoints()
 
 print("Loading match points (direct)...")
 matches_direct = pickle.load( open( os.path.join(args.project, "matches_direct"), "rb" ) )
