@@ -11,7 +11,7 @@ sys.path.append('../lib')
 import ProjectMgr
 
 # from the aura-props package
-from props import root, getNode, PropertyNode
+from props import getNode, PropertyNode
 import props_json
 
 # set all the various camera configuration parameters
@@ -20,11 +20,11 @@ parser = argparse.ArgumentParser(description='Set camera configuration.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--camera', required=True, help='camera config file')
 
-parser.add_argument('--yaw-deg', type=float,
+parser.add_argument('--yaw-deg', required=True, type=float,
                     help='camera yaw mounting offset from aircraft')
-parser.add_argument('--pitch-deg', type=float,
+parser.add_argument('--pitch-deg', required=True, type=float,
                     help='camera pitch mounting offset from aircraft')
-parser.add_argument('--roll-deg', type=float,
+parser.add_argument('--roll-deg', required=True, type=float,
                     help='camera roll mounting offset from aircraft')
 
 args = parser.parse_args()
@@ -53,11 +53,7 @@ for child in tmp_node.getChildren(expand=False):
         else:
             print('Unknown child type:', child, child_type)
 
-if args.yaw_deg != None or args.pitch_deg != None or args.roll_deg != None:
-    if args.yaw_deg != None and args.pitch_deg != None and args.roll_deg != None:
-        proj.cam.set_mount_params(args.yaw_deg, args.pitch_deg, args.roll_deg)
-    else:
-         print("Must set yaw-deg, pitch-deg, and roll-deg together")
+proj.cam.set_mount_params(args.yaw_deg, args.pitch_deg, args.roll_deg)
 
 # note: dist_coeffs = array[5] = k1, k2, p1, p2, k3
 
