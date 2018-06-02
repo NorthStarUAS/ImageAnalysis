@@ -174,12 +174,19 @@ class MyApp(ShowBase):
             else:
                 print(m.getName())
                 base, ext = os.path.splitext(m.getName())
-                fullpath = os.path.join(images_src, base + '.JPG')
-                if not os.path.isfile(fullpath):
-                    # try with lower case .jpg
-                    fullpath = os.path.join(images_src, base + '.jpg')
-                print(fullpath)
-                fulltex = self.loader.loadTexture(fullpath)
+                image_file = None
+                for i in range( dir_node.getLen('image_sources') ):
+                    dir = dir_node.getStringEnum('image_sources', i)
+                    tmp1 = os.path.join(dir, base + '.JPG')
+                    tmp2 = os.path.join(dir, base + '.jpg')
+                    if os.path.isfile(tmp1):
+                        image_file = tmp1
+                    elif os.path.isfile(tmp2):
+                        image_file = tmp2
+                if not image_file:
+                    print('Warning: no image source file found:', base)
+                print(image_file)
+                fulltex = self.loader.loadTexture(image_file)
                 fulltex.setWrapU(Texture.WM_clamp)
                 fulltex.setWrapV(Texture.WM_clamp)
                 #print('fulltex:', fulltex)
