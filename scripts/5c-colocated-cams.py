@@ -47,7 +47,14 @@ def compute_angle(ned1, ned2, ned3):
     n2 = np.linalg.norm(vec2)
     denom = n1*n2
     if abs(denom - 0.000001) > 0:
-        return math.acos(np.dot(vec1, vec2) / denom)
+        try:
+            tmp = np.dot(vec1, vec2) / denom
+            if tmp > 1.0: tmp = 1.0
+            return math.acos(tmp)
+        except:
+            print('vec1:', vec1, 'vec2', vec2, 'dot:', np.dot(vec1, vec2))
+            print('denom:', denom)
+            return 0
     else:
         return 0
     
@@ -99,12 +106,15 @@ for i in range(len(proj.image_list)):
 # small pose changes can lead to large feature location changes (but
 # just for a few features, not all the features in the pairing.)
 
+avg_cutoff_deg = 2
+min_cutoff_deg = 0.5
+std_cutoff_deg = 10
 print("Marking small angle image pairs for deletion...")
 mark_list = []
-by_pair = sorted(by_pair, key=lambda fields: fields[3], reverse=True) # by avg
+by_pair = sorted(by_pair, key=lambda fields: fields[4], reverse=False) # by min
 for line in by_pair:
-    print(line[0], line[1], 'avg:', line[2], 'std:', line[3], 'min:', line[4])
-    if line[2] < 4 or line[3] > 8 or line[4] < 1:   # cutoff angles (deg)
+    print(line[0], line[1], 'avg: %.2f' % line[2], 'std: %.2f' % line[3], 'min: %.2f' % line[4])
+    if line[2] < avg_cutoff_deg or line[3] > std_cutoff_deg or line[4] < min_cutoff_deg:   # cutoff angles (deg)
         print('  (remove)')
         for k, match in enumerate(matches_opt):
             size = len(match[1:])
