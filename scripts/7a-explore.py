@@ -94,10 +94,10 @@ class MyApp(ShowBase):
         bar = Bar('Loading models:', max=len(files))
         for file in files:
             # load and reparent each egg file
-            print(file)
             model = self.loader.loadModel(os.path.join(path, file))
 
-            self.pretty_print(model, '  ')
+            # print(file)
+            # self.pretty_print(model, '  ')
             
             model.reparentTo(self.render)
             self.models.append(model)
