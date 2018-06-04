@@ -44,7 +44,7 @@ def get_recenter_affine(src_list, dst_list):
         dst[1].append(dst_ned[1])
         dst[2].append(dst_ned[2])
         dst[3].append(1.0)
-        print("{} <-- {}".format(dst_ned, src_ned))
+        # print("{} <-- {}".format(dst_ned, src_ned))
     A = transformations.superimposition_matrix(src, dst, scale=True)
     print("A:\n", A)
     return A
@@ -116,7 +116,7 @@ for i, cam in enumerate(cameras):
     image.set_camera_pose( newned, yaw*r2d, pitch*r2d, roll*r2d, opt=True )
     image.placed = True
 proj.save_images_info()
-print('Updated the optimized poses for all the cameras')
+print('Updated the optimized camera poses.')
 
 # update and save the optimized camera calibration
 proj.cam.set_K(fx_opt, fy_opt, cu_opt, cv_opt, optimized=True)
@@ -129,10 +129,9 @@ proj.save()
 # our best absolute truth for positioning the system in world
 # coordinates.
 #
-# this can't be done globally, but can only be done for optimized
-# group within the set
+# each optimized group needs a separate/unique fit
 
-refit_group_orientations = True
+refit_group_orientations = False
 if refit_group_orientations:
     src_list = []
     dst_list = []
@@ -147,50 +146,63 @@ if refit_group_orientations:
 
     # extract the rotation matrix (R) from the affine transform
     scale, shear, angles, trans, persp = transformations.decompose_matrix(A)
-    print(transformations.decompose_matrix(A))
+    print('  scale:', scale)
+    print('  shear:', shear)
+    print('  angles:', angles)
+    print('  translate:', trans)
+    print('  perspective:', persp)
     R = transformations.euler_matrix(*angles)
     print("R:\n{}".format(R))
 
-    if False: # disable for now
-        # update the optimized camera locations based on best fit
-        camera_list = []
-        # load current sba poses
-        for i in groups[0]:
-            image = proj.image_list[i]
+    # update the optimized camera locations based on best fit
+    camera_list = []
+    # load optimized poses
+    for i, image in enumerate(proj.image_list):
+        if i in groups[0]:
             ned, ypr, quat = image.get_camera_pose(opt=True)
-            camera_list.append( ned )
-        # refit
-        new_cams = transform_points(A, camera_list)
+        else:
+            # this is just fodder to match size/index of the lists
+            ned, ypr, quat = image.get_camera_pose()
+        camera_list.append( ned )
 
+    # refit
+    new_cams = transform_points(A, camera_list)
+
+    # update position
+    for i, image in enumerate(proj.image_list):
+        if not i in groups[0]:
+            continue
+        ned, [y, p, r], quat = image.get_camera_pose(opt=True)
+        image.set_camera_pose(new_cams[i], y, p, r, opt=True)
+    proj.save_images_info()
+        
+    if False:
         # update optimized poses. FIXME: do we need to update orientation
         # here as well?  Somewhere we worked out the code, but it may not
         # matter all that much ... except for later manually computing
         # mean projection error.
         dist_report = []
         for i, image in enumerate(proj.image_list):
-            if not image.placed:
+            if not i in groups[0]:
                 continue
             ned_orig, ypr_orig, quat_orig = image.get_camera_pose()
-            ned, ypr, quat = image.get_camera_pose_sba()
-            Rbody2ned = image.get_body2ned_sba()
+            ned, ypr, quat = image.get_camera_pose(opt=True)
+            Rbody2ned = image.get_body2ned(opt=True)
             # update the orientation with the same transform to keep
             # everything in proper consistent alignment
 
             newRbody2ned = R[:3,:3].dot(Rbody2ned)
             (yaw, pitch, roll) = transformations.euler_from_matrix(newRbody2ned, 'rzyx')
-            image.set_camera_pose_sba(ned=new_cams[i],
-                                      ypr=[yaw/d2r, pitch/d2r, roll/d2r])
+            image.set_camera_pose(new_cams[i], yaw*r2d, pitch*r2d, roll*r2d,
+                                  opt=True)
             dist = np.linalg.norm( np.array(ned_orig) - np.array(new_cams[i]))
             print('image: {}'.format(image.name))
             print('  orig pos: {}'.format(ned_orig))
             print('  fit pos: {}'.format(new_cams[i]))
             print('  dist moved: {}'.format(dist))
             dist_report.append( (dist, image.name) )
+        proj.save_images_info()
 
-            # fixme: are we doing the correct thing here with attitude, or
-            # should we transform the point set and then solvepnp() all the
-            # camera locations (for now comment out save_meta()
-            image.save_meta()
 
         dist_report = sorted(dist_report,
                              key=lambda fields: fields[0],
@@ -199,20 +211,17 @@ if refit_group_orientations:
         for report in dist_report:
             print('{} dist: {}'.format(report[1], report[0]))
 
-        # update the sba point locations based on same best fit transform
-        # derived from the cameras (remember that 'features' is the point
-        # features structure spit out by the SBA process)
-        feature_list = []
-        for f in features:
-            feature_list.append( f.tolist() )
-        new_feats = transform_points(A, feature_list)
-
-    # create the matches_sba list (copy) and update the ned coordinate
+    # tranform the optimized point locations using the same best
+    # fit transform for the camera locations.
+    new_feats = transform_points(A, features)
+    # update
     matches_opt = list(matches) # shallow copy
     for i, feat in enumerate(features):
         match_index = feat_index_map[i]
         match = matches_opt[match_index]
+        #print(' before:', match)
         match[0] = feat
+        #print(' after:', match)
 else:
     # not refitting group orientations create a matches_opt
     matches_opt = list(matches) # shallow copy
@@ -224,6 +233,9 @@ else:
 # write out the updated match_dict
 print('Writing matches_opt file:', len(matches_opt), 'features')
 pickle.dump(matches_opt, open(os.path.join(args.project, 'matches_opt'), 'wb'))
+
+#proj.cam.set_K(fx_opt/scale[0], fy_opt/scale[0], cu_opt/scale[0], cv_opt/scale[0], optimized=True)
+#proj.save()
 
 # temp write out just the points so we can plot them with gnuplot
 f = open(os.path.join(args.project, 'opt-plot.txt'), 'w')
