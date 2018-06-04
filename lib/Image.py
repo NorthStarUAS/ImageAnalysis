@@ -86,7 +86,7 @@ class Image():
                 elif os.path.isfile(tmp2):
                     self.image_file = tmp2
             if not self.image_file:
-                print('Warning: no image source file found:', tmp1)
+                print('Warning: no image source file found:', image_base)
                 self.image_file = None
             file_root = os.path.join(meta_dir, image_base)
             self.features_file = file_root + ".feat"
@@ -425,10 +425,9 @@ class Image():
         ned = []
         for i in range(3):
             ned.append( pose_node.getFloatEnum('ned', i) )
-        ypr = []
-        ypr.append( pose_node.getFloat('yaw_deg') )
-        ypr.append( pose_node.getFloat('pitch_deg') )
-        ypr.append( pose_node.getFloat('roll_deg') )
+        ypr = [ pose_node.getFloat('yaw_deg'),
+                pose_node.getFloat('pitch_deg'),
+                pose_node.getFloat('roll_deg') ]
         quat = []
         for i in range(4):
             quat.append( pose_node.getFloatEnum('quat', i) )
