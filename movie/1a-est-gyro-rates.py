@@ -1,14 +1,12 @@
-#!/usr/bin/python
-
-# find our custom built opencv first
-import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
+#!/usr/bin/python3
 
 import argparse
+import csv
 import cv2
 import math
 import numpy as np
 import os
+import sys
 
 from props import PropertyNode
 import props_json
@@ -17,8 +15,6 @@ sys.path.append('../lib')
 import Render
 import transformations
 r = Render.Render()
-
-import cam_calib
 
 d2r = math.pi / 180.0
 r2d = 180.0 / math.pi
@@ -32,7 +28,7 @@ tol = 2.0
 
 parser = argparse.ArgumentParser(description='Estimate gyro biases from movie.')
 parser.add_argument('--movie', required=True, help='movie file')
-parser.add_argument('--select-cam', type=int, help='select camera calibration')
+parser.add_argument('--camera', help='select camera calibration file')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
 parser.add_argument('--skip-frames', type=int, default=0, help='skip n initial frames')
 parser.add_argument('--equalize', action='store_true', help='equalize value')
@@ -51,60 +47,54 @@ filename, ext = os.path.splitext(abspath)
 dirname = os.path.dirname(args.movie)
 output_csv = filename + ".csv"
 output_avi = filename + "_smooth.avi"
-camera_config = os.path.join(dirname, "camera.json")
+local_config = os.path.join(dirname, "camera.json")
 
-# load config file if it exists
 config = PropertyNode()
-props_json.load(camera_config, config)
+
+if args.camera:
+    # seed the camera calibration and distortion coefficients from a
+    # known camera config
+    print('Setting camera config from:', args.camera)
+    props_json.load(args.camera, config)
+    config.setString('name', args.camera)
+    props_json.save(local_config, config)
+elif os.path.exists(local_config):
+    # load local config file if it exists
+    props_json.load(local_config, config)
+    
 cam_yaw = config.getFloatEnum('mount_ypr', 0)
 cam_pitch = config.getFloatEnum('mount_ypr', 1)
 cam_roll = config.getFloatEnum('mount_ypr', 2)
+name = config.getString('name')
+size = config.getLen("dist_coeffs")
+K_list = []
+for i in range(9):
+    K_list.append( config.getFloatEnum('K', i) )
+K = np.copy(np.array(K_list)).reshape(3,3)
+dist = []
+for i in range(size):
+    dist.append( config.getFloatEnum("dist_coeffs", i) )
 
-# setup camera calibration and distortion coefficients
-print 'cam = ', args.select_cam
-if args.select_cam != None:
-    print 'user specifies camera...'
-    # set the camera calibration from known preconfigured setups
-    name, K, dist = cam_calib.set_camera_calibration(args.select_cam)
-    config.setString('name', name)
-    config.setFloat("fx", K[0][0])
-    config.setFloat("fy", K[1][1])
-    config.setFloat("cu", K[0][2])
-    config.setFloat("cv", K[1][2])
-    for i, d in enumerate(dist):
-        config.setFloatEnum("dist_coeffs", i, d)
-    props_json.save(camera_config, config)
-else:
-    # load the camera calibration from the config file
-    name = config.getString('name')
-    size = config.getLen("dist_coeffs")
-    dist = []
-    for i in range(size):
-        dist.append( config.getFloatEnum("dist_coeffs", i) )
-    K = np.zeros( (3,3) )
-    K[0][0] = config.getFloat("fx")
-    K[1][1] = config.getFloat("fy")
-    K[0][2] = config.getFloat("cu")
-    K[1][2] = config.getFloat("cv")
-    K[2][2] = 1.0
-    print 'Camera:', name
-    
+print('Camera:', name)
+print('K:\n', K)
+print('dist:', dist)
+
 K = K * args.scale
 K[2,2] = 1.0
 
-print "Opening ", args.movie
+print("Opening ", args.movie)
 try:
     capture = cv2.VideoCapture(args.movie)
     #capture = cv2.VideoCapture() # webcam
 except:
-    print "error opening video"
+    print("error opening video")
 
-print "ok opening video"
+print("ok opening video")
 capture.read()
-print "ok reading first frame"
+print("ok reading first frame")
 
 fps = capture.get(cv2.CAP_PROP_FPS)
-print "fps = %.2f" % fps
+print("fps = %.2f" % fps)
 fourcc = int(capture.get(cv2.CAP_PROP_FOURCC))
 w = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) * scale )
 h = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) * scale )
@@ -467,11 +457,16 @@ abs_rot = 0.0
 abs_x = 0.0
 abs_y = 0.0
 
-result = []
 stop_count = 0
 
 if args.equalize:
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+
+csvfile = open(output_csv, 'w')
+fieldnames=['frame', 'time', 'rotation (deg)',
+            'translation x (px)', 'translation y (px)']
+writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+writer.writeheader()
 
 while True:
     counter += 1
@@ -482,7 +477,7 @@ while True:
     if not ret:
         # no frame
         stop_count += 1
-        print "no more frames:", stop_count
+        print("no more frames:", stop_count)
         if stop_count > args.stop_count:
             break
     else:
@@ -490,13 +485,13 @@ while True:
 
     if counter < skip_frames:
         if counter % 1000 == 0:
-            print "Skipping %d frames..." % counter
+            print("Skipping %d frames..." % counter)
         continue
 
     # print "Frame %d" % counter
 
     if frame is None:
-        print "Skipping bad frame ..."
+        print("Skipping bad frame ...")
         continue
 
     method = cv2.INTER_AREA
@@ -545,7 +540,7 @@ while True:
     filter_method = 'homography'
 
     if not (des_list_last is None) and len(des_list_last) > 1 and len(des_list) > 1:
-        print len(des_list_last), len(des_list)
+        print(len(des_list_last), len(des_list))
         matches = matcher.knnMatch(des_list, trainDescriptors=des_list_last, k=2)
         p1, p2, kp_pairs, idx_pairs, mkp1 = filterMatches(kp_list, kp_list_last, matches)
 
@@ -579,7 +574,7 @@ while True:
     abs_y += ty
     abs_y *= 0.95
     
-    print "motion: %d %.2f %.1f %.1f %.2f %.1f %.1f" % (counter, rot, tx, ty, abs_rot, abs_x, abs_y)
+    print("motion: %d %.2f %.1f %.1f %.2f %.1f %.1f" % (counter, rot, tx, ty, abs_rot, abs_x, abs_y))
 
     translate_only = False
     rotate_translate_only = True
@@ -598,10 +593,16 @@ while True:
     ty_avg = keep * ty_avg + smooth * ty
     sx_avg = keep * sx_avg + smooth * sx
     sy_avg = keep * sy_avg + smooth * sy
-    print "%.2f %.2f %.2f %.4f %.4f" % (rot_avg, tx_avg, ty_avg, sx_avg, sy_avg)
-    datapt = [ counter / fps, counter, -rot*fps*d2r, ty, tx ]
-    result.append(datapt)
-    
+    print("%.2f %.2f %.2f %.4f %.4f" % (rot_avg, tx_avg, ty_avg, sx_avg, sy_avg))
+    # divide tx, ty by args.scale to get a translation value
+    # relative to the original movie size.
+    row = {'frame': counter,
+           'time': "%.4f" % (counter / fps),
+           'rotation (deg)': "%.2f" % (-rot*fps*d2r),
+           'translation x (px)': "%.1f" % (tx / args.scale),
+           'translation y (px)': "%.1f" % (ty / args.scale)}
+    writer.writerow(row)
+
     # try to catch bad cases
     #if math.fabs(rot) > 5.0 * math.fabs(rot_avg) and \
     #   math.fabs(tx) > 5.0 * math.fabs(tx_avg) and \
@@ -714,9 +715,3 @@ while True:
 
 cv2.destroyAllWindows()
 
-with open(output_csv, 'wb') as myfile:
-    for line in result:
-        myfile.write(str(line[0]))
-        for field in line[1:]:
-            myfile.write(',' + str(field))
-        myfile.write('\n')
