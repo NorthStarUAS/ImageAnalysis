@@ -1,5 +1,5 @@
 import datetime
-import ephem
+import ephem                    # dnf install python3-pyephem
 import math
 import navpy
 import numpy as np

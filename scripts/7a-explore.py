@@ -184,14 +184,15 @@ class MyApp(ShowBase):
                     elif os.path.isfile(tmp2):
                         image_file = tmp2
                 if not image_file:
-                    print('Warning: no image source file found:', base)
-                print(image_file)
-                fulltex = self.loader.loadTexture(image_file)
-                fulltex.setWrapU(Texture.WM_clamp)
-                fulltex.setWrapV(Texture.WM_clamp)
-                #print('fulltex:', fulltex)
-                m.setTexture(fulltex, 1)
-                tcache[m.getName()] = [m, fulltex, time.time()]
+                    print('Warning: no full resolution image source file found:', base)
+                else:
+                    print(image_file)
+                    fulltex = self.loader.loadTexture(image_file)
+                    fulltex.setWrapU(Texture.WM_clamp)
+                    fulltex.setWrapV(Texture.WM_clamp)
+                    #print('fulltex:', fulltex)
+                    m.setTexture(fulltex, 1)
+                    tcache[m.getName()] = [m, fulltex, time.time()]
         cachesize = 5
         while len(tcache) > cachesize:
             oldest_time = time.time()

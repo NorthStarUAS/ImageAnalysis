@@ -148,7 +148,9 @@ class Optimizer():
             self.last_mre = mre
             print('mre: %.3f std: %.3f max: %.2f' % (mre, np.std(error), np.amax(np.abs(error))) )
             print("K:\n", K)
-            print("distCoeffs:", distCoeffs)
+            print("distCoeffs: %.3f %.3f %.3f %.3f %.3f" %
+                  (distCoeffs[0], distCoeffs[1], distCoeffs[2], distCoeffs[3],
+                   distCoeffs[4]))
             if not self.graph is None:
                 points = points_3d
                 #points = cams_3d
@@ -186,8 +188,8 @@ class Optimizer():
         for i, index in enumerate(placed_images):
             self.camera_map_fwd[i] = index
             self.camera_map_rev[index] = i
-        print(self.camera_map_fwd)
-        print(self.camera_map_rev)
+        #print(self.camera_map_fwd)
+        #print(self.camera_map_rev)
         
         # initialize the feature index remapping
         self.feat_map_fwd = {}

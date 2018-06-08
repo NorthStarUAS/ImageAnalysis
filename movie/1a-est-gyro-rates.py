@@ -62,17 +62,16 @@ elif os.path.exists(local_config):
     # load local config file if it exists
     props_json.load(local_config, config)
     
+name = config.getString('name')
 cam_yaw = config.getFloatEnum('mount_ypr', 0)
 cam_pitch = config.getFloatEnum('mount_ypr', 1)
 cam_roll = config.getFloatEnum('mount_ypr', 2)
-name = config.getString('name')
-size = config.getLen("dist_coeffs")
 K_list = []
 for i in range(9):
     K_list.append( config.getFloatEnum('K', i) )
 K = np.copy(np.array(K_list)).reshape(3,3)
 dist = []
-for i in range(size):
+for i in range(5):
     dist.append( config.getFloatEnum("dist_coeffs", i) )
 
 print('Camera:', name)

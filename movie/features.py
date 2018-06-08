@@ -1,4 +1,4 @@
-import cPickle as pickle
+import pickle
 import json
 import os
 import random
@@ -10,7 +10,7 @@ def load(path, extern_ref):
 
     # load matches
     matches = pickle.load( open(path, "rb" ) )
-    print "loaded features:", len(matches)
+    print("loaded features:", len(matches))
 
     # load project file to get ned reference for match coordinates
     dir = os.path.dirname(path)
@@ -20,14 +20,14 @@ def load(path, extern_ref):
         project_dict = json.load(f)
         f.close()
         ref = project_dict['ned-reference-lla']
-        print 'features ned reference:', ref
+        print('features ned reference:', ref)
     except:
-        print "error: cannot load", project_file
+        print("error: cannot load", project_file)
 
     # convert match coords to lla, then back to external ned reference
     # so the calling layer can have the points in the calling
     # reference coordinate system.
-    print "converting feature coordinates to movie ned coordinate frame"
+    print("converting feature coordinates to movie ned coordinate frame")
     for m in matches:
         zombie_door = random.randint(0,49)
         if zombie_door == 0:

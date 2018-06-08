@@ -43,36 +43,12 @@ class ProjectMgr():
 
         # the following member variables need to be reviewed/organized
         self.ac3d_steps = 8
-        self.group_roll_bias = 0.0
-        self.group_pitch_bias = 0.0
-        self.group_yaw_bias = 0.0
-        #self.group_alt_bias = 0.0
-        self.k1 = 0.0
-        self.k2 = 0.0
-        #self.m = Matcher.Matcher()
         self.render = Render.Render()
-        
         self.dir_node = getNode('/config/directories', True)
-
         self.load( create )
 
     def set_defaults(self):
-        # camera defaults
-        self.cam.set_defaults()
-         
-        # detector defaults
-        detector_node = getNode('/config/detector', True)
-        # detector_node.setString('detector', 'SIFT') # { SIFT, SURF, ORB, Star }
-        # detector_node.setInt('grid_detect', 1)
-        # detector_node.setInt('sift_max_features', 2000)
-        # detector_node.setInt('surf_hessian_threshold', 600)
-        # detector_node.setInt('surf_noctaves', 4)
-        # detector_node.setInt('orb_max_features', 2000)
-        # detector_node.setInt('star_max_size', 16)
-        # detector_node.setInt('star_response_threshold', 30)
-        # detector_node.setInt('star_line_threshold_projected', 10)
-        # detector_node.setInt('star_line_threshold_binarized', 8)
-        # detector_node.setInt('star_suppress_nonmax_size', 5)
+        self.cam.set_defaults() # camera defaults
 
     # project_dir is a new folder for all derived files
     def validate_project_dir(self, create_if_needed=True):

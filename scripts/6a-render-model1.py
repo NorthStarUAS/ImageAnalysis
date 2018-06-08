@@ -34,7 +34,7 @@ ac3d_steps = 8
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--bins', type=int, default=64, help='surface bins for stats')
+parser.add_argument('--bins', type=int, default=128, help='surface bins for stats')
 parser.add_argument('--texture-resolution', type=int, default=512, help='texture resolution (should be 2**n, so numbers like 256, 512, 1024, etc.')
 parser.add_argument('--srtm', action='store_true', help='use srtm elevation')
 parser.add_argument('--ground', type=float, help='force ground elevation in meters')

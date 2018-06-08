@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # find our custom built opencv first
 import sys
@@ -23,7 +23,6 @@ from aurauas.flightdata import flight_loader, flight_interp
 sys.path.append('../lib')
 import transformations
 
-import cam_calib
 import hud
 import features
 
@@ -38,7 +37,7 @@ render_h = 1080
 parser = argparse.ArgumentParser(description='correlate movie data to flight data.')
 parser.add_argument('--flight', help='load specified aura flight log')
 parser.add_argument('--movie', required=True, help='original movie')
-parser.add_argument('--select-cam', type=int, help='select camera calibration')
+parser.add_argument('--camera', help='select camera calibration file')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
 parser.add_argument('--alpha', type=float, default=0.7, help='hud alpha blend')
 parser.add_argument('--resample-hz', type=float, default=30.0, help='resample rate (hz)')
@@ -64,7 +63,7 @@ abspath = os.path.abspath(args.movie)
 filename, ext = os.path.splitext(abspath)
 dirname = os.path.dirname(args.movie)
 movie_log = filename + ".csv"
-camera_config = dirname + "/camera.json"
+local_config = dirname + "/camera.json"
 # combinations that seem to work on linux
 # ext = avi, fourcc = MJPG
 # ext = avi, fourcc = XVID
@@ -73,56 +72,56 @@ camera_config = dirname + "/camera.json"
 tmp_movie = filename + "_tmp.mov"
 output_movie = filename + "_hud.mov"
 
-# load config file if it exists
 config = PropertyNode()
-props_json.load(camera_config, config)
+
+if args.camera:
+    # seed the camera calibration and distortion coefficients from a
+    # known camera config
+    print('Setting camera config from:', args.camera)
+    props_json.load(args.camera, config)
+    config.setString('name', args.camera)
+    props_json.save(local_config, config)
+elif os.path.exists(local_config):
+    # load local config file if it exists
+    props_json.load(local_config, config)
+    
+name = config.getString('name')
 cam_yaw = config.getFloatEnum('mount_ypr', 0)
 cam_pitch = config.getFloatEnum('mount_ypr', 1)
 cam_roll = config.getFloatEnum('mount_ypr', 2)
 
-# setup camera calibration and distortion coefficients
-if args.select_cam:
-    # set the camera calibration from known preconfigured setups
-    name, K, dist = cam_calib.set_camera_calibration(args.select_cam)
-    config.setString('name', name)
-    config.setFloat("fx", K[0][0])
-    config.setFloat("fy", K[1][1])
-    config.setFloat("cu", K[0][2])
-    config.setFloat("cv", K[1][2])
-    for i, d in enumerate(dist):
-        config.setFloatEnum("dist_coeffs", i, d)
-    props_json.save(camera_config, config)
-else:
-    # load the camera calibration from the config file
-    name = config.getString('name')
-    size = config.getLen("dist_coeffs")
-    dist = []
-    for i in range(size):
-        dist.append( config.getFloatEnum("dist_coeffs", i) )
-    K = np.zeros( (3,3) )
-    K[0][0] = config.getFloat("fx")
-    K[1][1] = config.getFloat("fy")
-    K[0][2] = config.getFloat("cu")
-    K[1][2] = config.getFloat("cv")
-    K[2][2] = 1.0
-    print 'Camera:', name
+K_list = []
+for i in range(9):
+    K_list.append( config.getFloatEnum('K', i) )
+K = np.copy(np.array(K_list)).reshape(3,3)
+dist = []
+for i in range(5):
+    dist.append( config.getFloatEnum("dist_coeffs", i) )
+
+print('Camera:', name)
+print('K:\n', K)
+print('dist:', dist)
+
+# adjust K for output scale.
+K = K * args.scale
+K[2,2] = 1.0
 
 if 'recalibrate' in args:
     recal_file = args.recalibrate
 else:
     recal_file = None
 data, flight_format = flight_loader.load(args.flight, recal_file)
-print "imu records:", len(data['imu'])
-print "gps records:", len(data['gps'])
+print("imu records:", len(data['imu']))
+print("gps records:", len(data['gps']))
 if 'air' in data:
-    print "airdata records:", len(data['air'])
-print "filter records:", len(data['filter'])
+    print("airdata records:", len(data['air']))
+print("filter records:", len(data['filter']))
 if 'pilot' in data:
-    print "pilot records:", len(data['pilot'])
+    print("pilot records:", len(data['pilot']))
 if 'act' in data:
-    print "act records:", len(data['act'])
+    print("act records:", len(data['act']))
 if len(data['imu']) == 0 and len(data['gps']) == 0:
-    print "not enough data loaded to continue."
+    print("not enough data loaded to continue.")
     quit()
 
 interp = flight_interp.FlightInterpolate()
@@ -131,7 +130,7 @@ interp.build(data)
 x = interp.imu_time
 flight_min = x.min()
 flight_max = x.max()
-print "flight range = %.3f - %.3f (%.3f)" % (flight_min, flight_max, flight_max-flight_min)
+print("flight range = %.3f - %.3f (%.3f)" % (flight_min, flight_max, flight_max-flight_min))
 
 if args.time_shift:
     time_shift = args.time_shift
@@ -154,7 +153,7 @@ else:
     movie_spl_yaw = interpolate.interp1d(x, movie[:,4], bounds_error=False, fill_value=0.0)
     xmin = x.min()
     xmax = x.max()
-    print "movie range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin)
+    print("movie range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin))
     movie_len = xmax - xmin
     for x in np.linspace(xmin, xmax, movie_len*args.resample_hz):
         if cam_facing == 'front' or cam_facing == 'down':
@@ -162,7 +161,7 @@ else:
             movie_interp.append( [x, -movie_spl_yaw(x)] ) # test, fixme
         else:
             movie_interp.append( [x, -movie_spl_roll(x)] )
-            print "movie len:", len(movie_interp)
+            print("movie len:", len(movie_interp))
 
     # resample flight data
     flight_interp = []
@@ -184,7 +183,7 @@ else:
 
     # display some stats/info
     max_index = np.argmax(ycorr)
-    print "max index:", max_index
+    print("max index:", max_index)
 
     # shift = np.argmax(ycorr) - len(flight_interp)
     # print "shift (pos):", shift
@@ -196,10 +195,10 @@ else:
     # need to subtract movie_len off peak point time because of how
     # correlate works and shifts against every possible overlap
     shift_sec = np.argmax(ycorr) / args.resample_hz - movie_len
-    print "shift (sec):", shift_sec
-    print flight_interp[0][0], movie_interp[0][0]
+    print("shift (sec):", shift_sec)
+    print(flight_interp[0][0], movie_interp[0][0])
     start_diff = flight_interp[0][0] - movie_interp[0][0]
-    print "start time diff:", start_diff
+    print("start time diff:", start_diff)
     time_shift = start_diff + shift_sec
     
     # estimate  tx, ty vs. r, q multiplier
@@ -207,7 +206,7 @@ else:
                     np.amin(flight_interp[:,0]) ] )
     tmax = np.amin( [np.amax(movie_interp[:,0]) + time_shift,
                     np.amax(flight_interp[:,0]) ] )
-    print "overlap range (flight sec):", tmin, " - ", tmax
+    print("overlap range (flight sec):", tmin, " - ", tmax)
 
     mqsum = 0.0
     fqsum = 0.0
@@ -224,10 +223,10 @@ else:
         qratio = mqsum / fqsum
     if mrsum > 0.001:
         rratio = -mrsum / frsum
-    print "pitch ratio:", qratio
-    print "yaw ratio:", rratio
+    print("pitch ratio:", qratio)
+    print("yaw ratio:", rratio)
 
-print "movie time shift:", time_shift
+print("movie time shift:", time_shift)
 
 # quick estimate ground elevation
 sum = 0.0
@@ -240,7 +239,7 @@ if count > 0:
     ground_m = sum / float(count)
 else:
     ground_m = data['filter'][0].alt
-print "ground est:", ground_m
+print("ground est:", ground_m)
 
 if args.plot:
     # reformat the data
@@ -279,10 +278,6 @@ if args.plot:
 
     plt.show()
 
-# adjust K for output scale.
-K = K * args.scale
-K[2,2] = 1.0
-
 # overlay hud(s)
 hud1 = hud.HUD(K)
 hud2 = copy.deepcopy(hud1)
@@ -297,7 +292,7 @@ ned2proj = np.linalg.inv(proj2ned)
 ref = [ data['gps'][0].lat, data['gps'][0].lon, 0.0 ]
 hud1.set_ned_ref(data['gps'][0].lat, data['gps'][0].lon)
 hud2.set_ned_ref(data['gps'][0].lat, data['gps'][0].lon)
-print 'ned ref:', ref
+print('ned ref:', ref)
 
 hud1.set_ground_m(ground_m)
 hud2.set_ground_m(ground_m)
@@ -308,18 +303,18 @@ if args.features:
 else:
     feats = []
 
-print "Opening ", args.movie
+print("Opening ", args.movie)
 try:
     capture = cv2.VideoCapture(args.movie)
 except:
-    print "error opening video"
+    print("error opening video")
 
 capture.read()
 counter += 1
-print "ok reading first frame"
+print("ok reading first frame")
 
 fps = capture.get(cv2.CAP_PROP_FPS)
-print "fps = %.2f" % fps
+print("fps = %.2f" % fps)
 fourcc = int(capture.get(cv2.CAP_PROP_FOURCC))
 w = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) * args.scale )
 h = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) * args.scale )
@@ -331,7 +326,7 @@ hud2.set_render_size(w, h)
 #outfourcc = cv2.cv.CV_FOURCC('X', '2', '6', '4')
 #outfourcc = cv2.cv.CV_FOURCC('X', 'V', 'I', 'D')
 outfourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-print outfourcc, fps, w, h
+print(outfourcc, fps, w, h)
 output = cv2.VideoWriter(tmp_movie, outfourcc, fps, (w, h), isColor=True)
 
 last_time = 0.0
@@ -354,7 +349,7 @@ if time_shift > 0:
     # catch up the flight path history (in case the movie starts
     # mid-flight.)  Note: flight_min is the starting time of the filter data
     # set.
-    print 'seeding flight track ...'
+    print('seeding flight track ...')
     for time in np.arange(flight_min, time_shift, 1.0 / float(fps)):
         lat_deg = float(interp.filter_lat(time))*r2d
         lon_deg = float(interp.filter_lon(time))*r2d
@@ -370,17 +365,17 @@ while True:
     if not ret:
         # no frame
         stop_count += 1
-        print "no more frames:", stop_count
+        print("no more frames:", stop_count)
         if stop_count > args.stop_count:
             break
     else:
         stop_count = 0
 
     if frame is None:
-        print "Skipping bad frame ..."
+        print("Skipping bad frame ...")
         continue
     time = float(counter) / fps + time_shift
-    print "frame: ", counter, "%.3f" % time, 'time shift:', time_shift
+    print("frame: ", counter, "%.3f" % time, 'time shift:', time_shift)
     
     counter += 1
     if args.start_time and time < args.start_time:
@@ -533,27 +528,27 @@ while True:
     elif key == ord('y'):
         cam_yaw += 0.5
         config.setFloatEnum('mount_ypr', 0, cam_yaw)
-        props_json.save(camera_config, config)
+        props_json.save(local_config, config)
     elif key == ord('Y'):
         cam_yaw -= 0.5
         config.setFloatEnum('mount_ypr', 0, cam_yaw)
-        props_json.save(camera_config, config)
+        props_json.save(local_config, config)
     elif key == ord('p'):
         cam_pitch += 0.5
         config.setFloatEnum('mount_ypr', 1, cam_pitch)
-        props_json.save(camera_config, config)
+        props_json.save(local_config, config)
     elif key == ord('P'):
         cam_pitch -= 0.5
         config.setFloatEnum('mount_ypr', 1, cam_pitch)
-        props_json.save(camera_config, config)
+        props_json.save(local_config, config)
     elif key == ord('r'):
         cam_roll -= 0.5
         config.setFloatEnum('mount_ypr', 2, cam_roll)
-        props_json.save(camera_config, config)
+        props_json.save(local_config, config)
     elif key == ord('R'):
         cam_roll += 0.5
         config.setFloatEnum('mount_ypr', 2, cam_roll)
-        props_json.save(camera_config, config)
+        props_json.save(local_config, config)
     elif key == ord('-'):
         time_shift -= 1.0;
     elif key == ord('+'):
@@ -565,7 +560,7 @@ while True:
         # right arrow
         time_shift += 1.0/60.0
     else:
-        print 'unknown key:', key
+        print('unknown key:', key)
 
 output.release()
 cv2.destroyAllWindows()
@@ -577,9 +572,9 @@ cv2.destroyAllWindows()
 
 from subprocess import call
 result = call(["ffmpeg", "-i", tmp_movie, "-i", args.movie, "-c", "copy", "-map", "0:v", "-map", "1:a", output_movie])
-print "ffmpeg result code:", result
+print("ffmpeg result code:", result)
 if result == 0:
-    print "removing temp movie:", tmp_movie
+    print("removing temp movie:", tmp_movie)
     os.remove(tmp_movie)
-    print "output movie:", output_movie
+    print("output movie:", output_movie)
 

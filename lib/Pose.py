@@ -72,7 +72,7 @@ def setAircraftPoses(proj, posefile="", order='ypr'):
             continue
 
         base, ext = os.path.splitext(name)
-        image = Image.Image(found_dir, meta_dir, base)
+        image = Image.Image(meta_dir, base)
         image.set_aircraft_pose(lat_deg, lon_deg, alt_m,
                                 yaw_deg, pitch_deg, roll_deg)
         print(name, 'yaw=%.1f pitch=%.1f roll=%.1f' % (yaw_deg, pitch_deg, roll_deg))

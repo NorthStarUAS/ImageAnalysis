@@ -30,7 +30,7 @@ class Image():
         #self.img_rgb = None
         self.kp_list = []       # opencv keypoint list
         self.kp_usage = []
-        self.des_list = []      # opencv descriptor list
+        self.des_list = None      # opencv descriptor list
         self.match_list = []
 
         self.uv_list = []       # the 'undistorted' uv coordinates of all kp's
@@ -46,13 +46,6 @@ class Image():
         self.cam2body = np.array( [[0, 0, 1], [1, 0, 0], [0, 1, 0]],
                                   dtype=float )
         self.body2cam = np.linalg.inv(self.cam2body)
-
-        self.yaw_bias = 0.0
-        self.roll_bias = 0.0
-        self.pitch_bias = 0.0
-        self.alt_bias = 0.0
-        self.x_bias = 0.0
-        self.y_bias = 0.0
 
         # fixme: num_matches and connections appear to be the same
         # idea computed and used in different places.  We should be
@@ -160,7 +153,7 @@ class Image():
 
     def load_descriptors(self):
         filename = self.des_file + ".npy"
-        if len(self.des_list) == 0 and os.path.exists(filename):
+        if self.des_list == None and os.path.exists(filename):
             #print "Loading " + filename
             try:
                 self.des_list = np.load(filename)
