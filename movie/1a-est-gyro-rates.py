@@ -538,8 +538,8 @@ while True:
     # possible values are 'homography', 'fundamental', 'essential', 'none'
     filter_method = 'homography'
 
-    if not (des_list_last is None) and len(des_list_last) > 1 and len(des_list) > 1:
-        print(len(des_list_last), len(des_list))
+    if not (des_list_last is None) and not (des_list is None) and len(des_list_last) and len(des_list):
+        print len(des_list_last), len(des_list)
         matches = matcher.knnMatch(des_list, trainDescriptors=des_list_last, k=2)
         p1, p2, kp_pairs, idx_pairs, mkp1 = filterMatches(kp_list, kp_list_last, matches)
 

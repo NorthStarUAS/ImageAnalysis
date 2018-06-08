@@ -1,12 +1,8 @@
 #!/usr/bin/python3
 
-# find our custom built opencv first
-import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
-import cv2
-
 import argparse
 import copy
+import cv2
 import math
 from matplotlib import pyplot as plt 
 import navpy
@@ -14,6 +10,7 @@ import numpy as np
 import os
 import re
 from scipy import interpolate # strait up linear interpolation, nothing fancy
+import sys
 
 from props import PropertyNode
 import props_json
@@ -359,7 +356,8 @@ if time_shift > 0:
                              ref[0], ref[1], ref[2] )
         hud1.update_time(time, interp.gps_unixtime(time))
         hud1.update_ned(ned, args.flight_track_seconds)
-    
+
+shift_mod_hack = False
 while True:
     ret, frame = capture.read()
     if not ret:
@@ -440,8 +438,9 @@ while True:
     else:
         flight_mode = 'auto'            
 
-    excite_mode = float(interp.excite_mode(time))
-    test_index = float(interp.test_index(time))        
+    if interp.excite_mode:
+        excite_mode = float(interp.excite_mode(time))
+        test_index = float(interp.test_index(time))        
 
     body2cam = transformations.quaternion_from_euler( cam_yaw * d2r,
                                                       cam_pitch * d2r,
@@ -487,7 +486,8 @@ while True:
     hud1_frame = frame_undist.copy()
 
     hud1.update_time(time, interp.gps_unixtime(time))
-    hud1.update_test_index(excite_mode, test_index)
+    if interp.excite_mode:
+        hud1.update_test_index(excite_mode, test_index)
     hud1.update_proj(PROJ)
     hud1.update_cam_att(cam_yaw, cam_pitch, cam_roll)
     hud1.update_ned(ned, args.flight_track_seconds)
@@ -519,49 +519,56 @@ while True:
     cv2.imshow('hud', hud1_frame)
     output.write(hud1_frame)
 
-    key = cv2.waitKey(5) & 0xFF
-    if key == 255:
+    key = cv2.waitKeyEx(5)
+    if key == -1:
         # no key press
-        pass
-    elif key == 27:
+        continue
+
+    print('key:', key)
+    
+    if key == 27:
         break
     elif key == ord('y'):
-        cam_yaw += 0.5
+        if shift_mod_hack:
+            cam_yaw -= 0.5
+        else:
+            cam_yaw += 0.5
         config.setFloatEnum('mount_ypr', 0, cam_yaw)
-        props_json.save(local_config, config)
-    elif key == ord('Y'):
-        cam_yaw -= 0.5
-        config.setFloatEnum('mount_ypr', 0, cam_yaw)
-        props_json.save(local_config, config)
+        props_json.save(camera_config, config)
+        shift_mod_hack = False
     elif key == ord('p'):
-        cam_pitch += 0.5
+        if shift_mod_hack:
+            cam_pitch -= 0.5
+        else:
+            cam_pitch += 0.5
         config.setFloatEnum('mount_ypr', 1, cam_pitch)
-        props_json.save(local_config, config)
-    elif key == ord('P'):
-        cam_pitch -= 0.5
-        config.setFloatEnum('mount_ypr', 1, cam_pitch)
-        props_json.save(local_config, config)
+        props_json.save(camera_config, config)
+        shift_mod_hack = False
     elif key == ord('r'):
-        cam_roll -= 0.5
+        if shift_mod_hack:
+            cam_roll += 0.5
+        else:
+            cam_roll -= 0.5
         config.setFloatEnum('mount_ypr', 2, cam_roll)
-        props_json.save(local_config, config)
-    elif key == ord('R'):
-        cam_roll += 0.5
-        config.setFloatEnum('mount_ypr', 2, cam_roll)
-        props_json.save(local_config, config)
+        props_json.save(camera_config, config)
+        shift_mod_hack = False
     elif key == ord('-'):
         time_shift -= 1.0;
+        shift_mod_hack = False
     elif key == ord('+'):
         time_shift += 1.0;
-    elif key == 81:
+        shift_mod_hack = False
+    elif key == 65361:
         # left arrow
         time_shift -= 1.0/60.0
-    elif key == 83:
+        shift_mod_hack = False
+    elif key == 65363:
         # right arrow
         time_shift += 1.0/60.0
-    else:
-        print('unknown key:', key)
-
+        shift_mod_hack = False
+    elif key == 65505 or key == 65506:
+        shift_mod_hack = True
+        
 output.release()
 cv2.destroyAllWindows()
 
