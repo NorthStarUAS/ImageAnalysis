@@ -513,7 +513,7 @@ class HUD:
                 v = uv[1] + size[0][1]
             elif vert == 'center':
                 v = uv[1] + (size[0][1] / 2)
-            uv = (u, v)
+            uv = (int(u), int(v))
             cv2.putText(self.frame, label, uv, self.font, font_scale,
                         self.color, thickness, cv2.LINE_AA)
 
@@ -664,13 +664,13 @@ class HUD:
         lsize = cv2.getTextSize(label, self.font, self.font_size, self.line_width)
         xsize = lsize[0][0] + pad
         ysize = lsize[0][1] + pad
-        uv = ( int(cx + ysize*0.7), cy + lsize[0][1] / 2)
+        uv = ( int(cx + ysize*0.7), int(cy + lsize[0][1] / 2))
         cv2.putText(self.frame, label, uv, self.font, self.font_size, color, self.line_width, cv2.LINE_AA)
         uv1 = (cx, cy)
-        uv2 = (cx + int(ysize*0.7),         cy - ysize / 2 )
-        uv3 = (cx + int(ysize*0.7) + xsize, cy - ysize / 2 )
-        uv4 = (cx + int(ysize*0.7) + xsize, cy + ysize / 2 + 1 )
-        uv5 = (cx + int(ysize*0.7),         cy + ysize / 2 + 1)
+        uv2 = (cx + int(ysize*0.7),         int(cy - ysize / 2) )
+        uv3 = (cx + int(ysize*0.7) + xsize, int(cy - ysize / 2) )
+        uv4 = (cx + int(ysize*0.7) + xsize, int(cy + ysize / 2 + 1) )
+        uv5 = (cx + int(ysize*0.7),         int(cy + ysize / 2 + 1) )
         cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.LINE_AA)
         cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.LINE_AA)
         cv2.line(self.frame, uv3, uv4, color, self.line_width, cv2.LINE_AA)

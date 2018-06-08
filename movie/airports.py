@@ -8,7 +8,7 @@ import navpy
 # return a list of airports within range of specified location
 def load(file, ned_ref, range_m):
     result = []
-    with open(file, 'rb') as f:
+    with open(file, 'r') as f:
         reader = csv.DictReader(f)
         for row in reader:
             lat = float(row['Lat'])

@@ -2,6 +2,7 @@
 
 import argparse
 import copy
+import csv
 import cv2
 import math
 from matplotlib import pyplot as plt 
@@ -134,9 +135,14 @@ if args.time_shift:
 else:
     # load movie log
     movie = []
-    with open(movie_log, 'rb') as f:
-        for line in f:
-            movie.append( re.split('[,\s]+', line.rstrip()) )
+    with open(movie_log, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            record = [ float(row['frame']), float(row['time']),
+                       float(row['rotation (deg)']),
+                       float(row['translation x (px)']),
+                       float(row['translation y (px)']) ]
+            movie.append( record )
 
     # set approximate camera orienation (front, down, and rear supported)
     cam_facing = 'front'
@@ -144,7 +150,7 @@ else:
     # resample movie data
     movie = np.array(movie, dtype=float)
     movie_interp = []
-    x = movie[:,0]
+    x = movie[:,1]
     movie_spl_roll = interpolate.interp1d(x, movie[:,2], bounds_error=False, fill_value=0.0)
     movie_spl_pitch = interpolate.interp1d(x, movie[:,3], bounds_error=False, fill_value=0.0)
     movie_spl_yaw = interpolate.interp1d(x, movie[:,4], bounds_error=False, fill_value=0.0)
@@ -249,7 +255,7 @@ if args.plot:
     plt.figure(1)
     plt.ylabel('roll rate (deg per sec)')
     plt.xlabel('flight time (sec)')
-    plt.plot(movie[:,0] + time_shift, movie[:,2]*r2d, label='estimate from flight movie')
+    plt.plot(movie[:,1] + time_shift, movie[:,2]*r2d, label='estimate from flight movie')
     # down facing:
     # plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
     # front facing:
@@ -262,14 +268,14 @@ if args.plot:
     plt.figure(3)
     plt.ylabel('pitch rate (deg per sec)')
     plt.xlabel('flight time (sec)')
-    plt.plot(movie[:,0] + time_shift, (movie[:,3]/qratio)*r2d, label='estimate from flight movie')
+    plt.plot(movie[:,1] + time_shift, (movie[:,3]/qratio)*r2d, label='estimate from flight movie')
     plt.plot(flight_imu[:,0], flight_imu[:,2]*r2d, label='flight data log')
     plt.legend()
 
     plt.figure(4)
     plt.ylabel('yaw rate (deg per sec)')
     plt.xlabel('flight time (sec)')
-    plt.plot(movie[:,0] + time_shift, (movie[:,4]/rratio)*r2d, label='estimate from flight movie')
+    plt.plot(movie[:,1] + time_shift, (movie[:,4]/rratio)*r2d, label='estimate from flight movie')
     plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
     plt.legend()
 
