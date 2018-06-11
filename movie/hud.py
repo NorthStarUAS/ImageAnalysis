@@ -702,7 +702,7 @@ class HUD:
             if cy - offset >= miny and cy - offset <= maxy:
                 label = "%d" % i
                 lsize = cv2.getTextSize(label, self.font, self.font_size, self.line_width)
-                uv3 = (cx - 8 - lsize[0][0], cy - offset + lsize[0][1] / 2)
+                uv3 = (cx - 8 - lsize[0][0], cy - offset + int(lsize[0][1] / 2))
                 cv2.putText(self.frame, label, uv3, self.font, self.font_size, color, self.line_width, cv2.LINE_AA)
 
         # units
@@ -714,12 +714,12 @@ class HUD:
         offset = int((ap_speed - airspeed) * spacing)
         if self.flight_mode == 'auto' and cy - offset >= miny and cy - offset <= maxy:
             uv1 = (cx,                  cy - offset)
-            uv2 = (cx + int(ysize*0.7), cy - offset - ysize / 2 )
+            uv2 = (cx + int(ysize*0.7), cy - offset - int(ysize / 2) )
             uv3 = (cx + int(ysize*0.7), cy - offset - ysize )
             uv4 = (cx,                  cy - offset - ysize )
             uv5 = (cx,                  cy - offset + ysize )
             uv6 = (cx + int(ysize*0.7), cy - offset + ysize )
-            uv7 = (cx + int(ysize*0.7), cy - offset + ysize / 2 )
+            uv7 = (cx + int(ysize*0.7), cy - offset + int(ysize / 2) )
             cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.LINE_AA)
             cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.LINE_AA)
             cv2.line(self.frame, uv3, uv4, color, self.line_width, cv2.LINE_AA)
@@ -770,13 +770,13 @@ class HUD:
             uv2 = (cx + int(ysize*2), cy - offset)
             cv2.line(self.frame, uv1, uv2, yellow, self.line_width*2, cv2.LINE_AA)
         # draw current altitude
-        uv = ( int(cx - ysize*0.7 - lsize[0][0]), cy + lsize[0][1] / 2)
+        uv = ( int(cx - ysize*0.7 - lsize[0][0]), cy + int(lsize[0][1] / 2))
         cv2.putText(self.frame, label, uv, self.font, self.font_size, color, self.line_width, cv2.LINE_AA)
         uv1 = (cx, cy)
-        uv2 = (cx - int(ysize*0.7),         cy - ysize / 2 )
-        uv3 = (cx - int(ysize*0.7) - xsize, cy - ysize / 2 )
-        uv4 = (cx - int(ysize*0.7) - xsize, cy + ysize / 2 + 1 )
-        uv5 = (cx - int(ysize*0.7),         cy + ysize / 2 + 1 )
+        uv2 = (cx - int(ysize*0.7),         cy - int(ysize / 2) )
+        uv3 = (cx - int(ysize*0.7) - xsize, cy - int(ysize / 2) )
+        uv4 = (cx - int(ysize*0.7) - xsize, cy + int(ysize / 2) + 1 )
+        uv5 = (cx - int(ysize*0.7),         cy + int(ysize / 2) + 1 )
         cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.LINE_AA)
         cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.LINE_AA)
         cv2.line(self.frame, uv3, uv4, color, self.line_width, cv2.LINE_AA)
@@ -807,7 +807,7 @@ class HUD:
             if cy - offset >= miny and cy - offset <= maxy:
                 label = "%d" % (i*10)
                 lsize = cv2.getTextSize(label, self.font, self.font_size, self.line_width)
-                uv3 = (cx + 8 , cy - offset + lsize[0][1] / 2)
+                uv3 = (cx + 8 , cy - offset + int(lsize[0][1] / 2))
                 cv2.putText(self.frame, label, uv3, self.font, self.font_size, color, self.line_width, cv2.LINE_AA)
 
         # units
@@ -819,12 +819,12 @@ class HUD:
         offset = int((ap_alt - altitude)/10.0 * spacing)
         if self.flight_mode == 'auto' and cy - offset >= miny and cy - offset <= maxy:
             uv1 = (cx,                  cy - offset)
-            uv2 = (cx - int(ysize*0.7), cy - offset - ysize / 2 )
+            uv2 = (cx - int(ysize*0.7), cy - offset - int(ysize / 2) )
             uv3 = (cx - int(ysize*0.7), cy - offset - ysize )
             uv4 = (cx,                  cy - offset - ysize )
             uv5 = (cx,                  cy - offset + ysize )
             uv6 = (cx - int(ysize*0.7), cy - offset + ysize )
-            uv7 = (cx - int(ysize*0.7), cy - offset + ysize / 2 )
+            uv7 = (cx - int(ysize*0.7), cy - offset + int(ysize / 2) )
             cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.LINE_AA)
             cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.LINE_AA)
             cv2.line(self.frame, uv3, uv4, color, self.line_width, cv2.LINE_AA)
@@ -866,12 +866,12 @@ class HUD:
                  cv2.LINE_AA)
         cv2.line(self.frame, (rx-r1,ry), (rx+r1,ry), self.color, 1,
                  cv2.LINE_AA)
-        lsx = lx - int(round(rudder * r1))
+        lsx = lx + int(round(rudder * r1))
         lsy = ly + r1 - int(round(2 * throttle * r1))
         cv2.circle(self.frame, (lsx,lsy), r2, self.color, self.line_width,
                    cv2.LINE_AA)
         rsx = rx + int(round(aileron * r1))
-        rsy = ry + int(round(elevator * r1))
+        rsy = ry - int(round(elevator * r1))
         cv2.circle(self.frame, (rsx,rsy), r2, self.color, self.line_width,
                    cv2.LINE_AA)
 
@@ -879,7 +879,7 @@ class HUD:
         h, w, d = self.frame.shape
         label = '%.1f' % self.time
         size = cv2.getTextSize(label, self.font, 0.7, self.line_width)
-        uv = (2, h - int(size[0][1]*0.5 + 2))
+        uv = (2, h - int(size[0][1]*0.5) + 2)
         cv2.putText(self.frame, label, uv, self.font, 0.7,
                     self.color, self.line_width, cv2.LINE_AA)
 
@@ -891,7 +891,7 @@ class HUD:
         h, w, d = self.frame.shape
         label = 'T%d' % self.test_index
         size = cv2.getTextSize(label, self.font, 0.7, self.line_width)
-        uv = (w - int(size[0][0]) - 2, h - int(size[0][1]*0.5 + 2))
+        uv = (w - int(size[0][0]) - 2, h - int(size[0][1]*0.5) + 2)
         cv2.putText(self.frame, label, uv, self.font, 0.7,
                     self.color, self.line_width, cv2.LINE_AA)
 
