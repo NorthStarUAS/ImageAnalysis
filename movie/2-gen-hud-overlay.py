@@ -84,6 +84,7 @@ elif os.path.exists(local_config):
     props_json.load(local_config, config)
     
 name = config.getString('name')
+config.setLen('mount_ypr', 3)
 cam_yaw = config.getFloatEnum('mount_ypr', 0)
 cam_pitch = config.getFloatEnum('mount_ypr', 1)
 cam_roll = config.getFloatEnum('mount_ypr', 2)
@@ -160,8 +161,8 @@ else:
     movie_len = xmax - xmin
     for x in np.linspace(xmin, xmax, movie_len*args.resample_hz):
         if cam_facing == 'front' or cam_facing == 'down':
-            #movie_interp.append( [x, movie_spl_roll(x)] )
-            movie_interp.append( [x, -movie_spl_yaw(x)] ) # test, fixme
+            movie_interp.append( [x, movie_spl_roll(x)] )
+            #movie_interp.append( [x, -movie_spl_yaw(x)] ) # test, fixme
         else:
             movie_interp.append( [x, -movie_spl_roll(x)] )
             print("movie len:", len(movie_interp))
@@ -169,8 +170,8 @@ else:
     # resample flight data
     flight_interp = []
     if cam_facing == 'front' or cam_facing == 'rear':
-        #y_spline = interp.imu_p     # front/rear facing camera
-        y_spline = interp.imu_r     # front/rear facing camera, test fixme
+        y_spline = interp.imu_p     # front/rear facing camera
+        #y_spline = interp.imu_r     # front/rear facing camera, test fixme
     else:
         y_spline = interp.imu_r     # down facing camera
 
@@ -540,7 +541,7 @@ while True:
         else:
             cam_yaw += 0.5
         config.setFloatEnum('mount_ypr', 0, cam_yaw)
-        props_json.save(camera_config, config)
+        props_json.save(local_config, config)
         shift_mod_hack = False
     elif key == ord('p'):
         if shift_mod_hack:
@@ -548,7 +549,7 @@ while True:
         else:
             cam_pitch += 0.5
         config.setFloatEnum('mount_ypr', 1, cam_pitch)
-        props_json.save(camera_config, config)
+        props_json.save(local_config, config)
         shift_mod_hack = False
     elif key == ord('r'):
         if shift_mod_hack:
@@ -556,20 +557,12 @@ while True:
         else:
             cam_roll -= 0.5
         config.setFloatEnum('mount_ypr', 2, cam_roll)
-        props_json.save(camera_config, config)
+        props_json.save(local_config, config)
         shift_mod_hack = False
     elif key == ord('-'):
-        time_shift -= 1.0;
-        shift_mod_hack = False
-    elif key == ord('+'):
-        time_shift += 1.0;
-        shift_mod_hack = False
-    elif key == 65361:
-        # left arrow
         time_shift -= 1.0/60.0
         shift_mod_hack = False
-    elif key == 65363:
-        # right arrow
+    elif key == ord('+'):
         time_shift += 1.0/60.0
         shift_mod_hack = False
     elif key == 65505 or key == 65506:
