@@ -23,10 +23,13 @@ ft2m = 0.3048
 m2ft = 1 / ft2m
 
 # color definitions
+black = (0, 0, 0)
 green2 = (0, 238, 0)
 red2 = (0, 0, 238)
 medium_orchid = (186, 85, 211)
+dark_orchid = (123, 56, 139)
 yellow = (50, 255, 255)
+dark_yellow = (33, 170, 170)
 white = (255, 255, 255)
 
 class HUD:
@@ -212,14 +215,63 @@ class HUD:
 
         return sun_ned, moon_ned
 
-    def project_point(self, ned):
+    # project from ned coordinates to image uv coordinates using
+    # camera K and PROJ matrices
+    def project_ned(self, ned):
         uvh = self.K.dot( self.PROJ.dot( [ned[0], ned[1], ned[2], 1.0] ).T )
         if uvh[2] > 0.2:
             uvh /= uvh[2]
-            uv = ( int(np.squeeze(uvh[0,0])), int(np.squeeze(uvh[1,0])) )
+            uv = ( int(round(np.squeeze(uvh[0,0]))),
+                   int(round(np.squeeze(uvh[1,0]))) )
             return uv
         else:
             return None
+
+    # project from camera 3d coordinates to image uv coordinates using
+    # camera K matrix
+    def project_xyz(self, v):
+        uvh = self.K.dot( [v[0], v[1], v[2]] )
+        print(uvh)
+        if uvh[2] > 0.2:
+            uvh /= uvh[2]
+            uv = ( int(round(uvh[0])),
+                   int(round(uvh[1])) )
+            print(uv)
+            return uv
+        else:
+            return None
+
+    # transform roll, pitch offset angles into world coordinates and
+    # the project back into image uv coordinates
+    def ar_helper(self, q0, a0, a1):
+        q1 = transformations.quaternion_from_euler(-a1*d2r, -a0*d2r, 0.0,
+                                                   'rzyx')
+        q = transformations.quaternion_multiply(q1, q0)
+        v = transformations.quaternion_transform(q, [1.0, 0.0, 0.0])
+        uv = self.project_ned( [self.ned[0] + v[0],
+                                self.ned[1] + v[1],
+                                self.ned[2] + v[2]] )
+        return uv
+
+    # transform roll, pitch offset angles into camera coordinates and
+    # the project back into image uv coordinates
+    def cam_helper(self, a0, a1):
+        cam2body = np.array( [[0, 0, 1],
+                              [1, 0, 0],
+                              [0, 1, 0]],
+                             dtype=float )
+        yaw = self.cam_yaw * d2r
+        pitch = self.cam_pitch * d2r
+        roll = self.cam_roll * d2r
+        body2cam = transformations.quaternion_from_euler( roll, yaw, pitch,
+                                                          'rzyx' )
+        print(a0, a1)
+        q1 = transformations.quaternion_from_euler( 0.0, -a1*d2r, -a0*d2r,
+                                                    'rzyx' )
+        q = transformations.quaternion_multiply(q1, body2cam)
+        v = transformations.quaternion_transform(q, [0.0, 0.0, 1.0])
+        uv = self.project_xyz( v )
+        return uv
 
     def draw_horizon(self):
         divs = 10
@@ -234,25 +286,15 @@ class HUD:
         for i in range(divs):
             p1 = pts[i]
             p2 = pts[i+1]
-            uv1 = self.project_point( [self.ned[0] + p1[0],
-                                       self.ned[1] + p1[1],
-                                       self.ned[2] + p1[2]] )
-            uv2 = self.project_point( [self.ned[0] + p2[0],
-                                       self.ned[1] + p2[1],
-                                       self.ned[2] + p2[2]] )
+            uv1 = self.project_ned( [self.ned[0] + p1[0],
+                                     self.ned[1] + p1[1],
+                                     self.ned[2] + p1[2]] )
+            uv2 = self.project_ned( [self.ned[0] + p2[0],
+                                     self.ned[1] + p2[1],
+                                     self.ned[2] + p2[2]] )
             if uv1 != None and uv2 != None:
                 cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.LINE_AA)
-
-    def ladder_helper(self, q0, a0, a1):
-        q1 = transformations.quaternion_from_euler(-a1*d2r, -a0*d2r, 0.0,
-                                                   'rzyx')
-        q = transformations.quaternion_multiply(q1, q0)
-        v = transformations.quaternion_transform(q, [1.0, 0.0, 0.0])
-        uv = self.project_point( [self.ned[0] + v[0],
-                                  self.ned[1] + v[1],
-                                  self.ned[2] + v[2]] )
-        return uv
 
     def draw_pitch_ladder(self, beta_rad=0.0):
         a1 = 2.0
@@ -264,8 +306,8 @@ class HUD:
             # above horizon
 
             # right horizontal
-            uv1 = self.ladder_helper(q0, a0, a1)
-            uv2 = self.ladder_helper(q0, a0, a2)
+            uv1 = self.ar_helper(q0, a0, a1)
+            uv2 = self.ar_helper(q0, a0, a2)
             if uv1 != None and uv2 != None:
                 cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.LINE_AA)
@@ -274,14 +316,14 @@ class HUD:
                 uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
                 self.draw_label("%d" % a0, uv, self.font_size, self.line_width)
             # right tick
-            uv1 = self.ladder_helper(q0, a0-0.5, a1)
-            uv2 = self.ladder_helper(q0, a0, a1)
+            uv1 = self.ar_helper(q0, a0-0.5, a1)
+            uv2 = self.ar_helper(q0, a0, a1)
             if uv1 != None and uv2 != None:
                 cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.LINE_AA)
             # left horizontal
-            uv1 = self.ladder_helper(q0, a0, -a1)
-            uv2 = self.ladder_helper(q0, a0, -a2)
+            uv1 = self.ar_helper(q0, a0, -a1)
+            uv2 = self.ar_helper(q0, a0, -a2)
             if uv1 != None and uv2 != None:
                 cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.LINE_AA)
@@ -290,8 +332,8 @@ class HUD:
                 uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
                 self.draw_label("%d" % a0, uv, self.font_size, self.line_width)
             # left tick
-            uv1 = self.ladder_helper(q0, a0-0.5, -a1)
-            uv2 = self.ladder_helper(q0, a0, -a1)
+            uv1 = self.ar_helper(q0, a0-0.5, -a1)
+            uv2 = self.ar_helper(q0, a0, -a1)
             if uv1 != None and uv2 != None:
                 cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.LINE_AA)
@@ -299,8 +341,8 @@ class HUD:
             # below horizon
 
             # right horizontal
-            uv1 = self.ladder_helper(q0, -a0, a1)
-            uv2 = self.ladder_helper(q0, -a0-0.5, a2)
+            uv1 = self.ar_helper(q0, -a0, a1)
+            uv2 = self.ar_helper(q0, -a0-0.5, a2)
             if uv1 != None and uv2 != None:
                 du = uv2[0] - uv1[0]
                 dv = uv2[1] - uv1[1]
@@ -313,14 +355,14 @@ class HUD:
                 self.draw_label("%d" % a0, uv, self.font_size, self.line_width)
 
             # right tick
-            uv1 = self.ladder_helper(q0, -a0+0.5, a1)
-            uv2 = self.ladder_helper(q0, -a0, a1)
+            uv1 = self.ar_helper(q0, -a0+0.5, a1)
+            uv2 = self.ar_helper(q0, -a0, a1)
             if uv1 != None and uv2 != None:
                 cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.LINE_AA)
             # left horizontal
-            uv1 = self.ladder_helper(q0, -a0, -a1)
-            uv2 = self.ladder_helper(q0, -a0-0.5, -a2)
+            uv1 = self.ar_helper(q0, -a0, -a1)
+            uv2 = self.ar_helper(q0, -a0-0.5, -a2)
             if uv1 != None and uv2 != None:
                 du = uv2[0] - uv1[0]
                 dv = uv2[1] - uv1[1]
@@ -332,8 +374,8 @@ class HUD:
                 uv = ( uv1[0] + int(1.25*du), uv1[1] + int(1.25*dv) )
                 self.draw_label("%d" % a0, uv, self.font_size, self.line_width)
             # left tick
-            uv1 = self.ladder_helper(q0, -a0+0.5, -a1)
-            uv2 = self.ladder_helper(q0, -a0, -a1)
+            uv1 = self.ar_helper(q0, -a0+0.5, -a1)
+            uv2 = self.ar_helper(q0, -a0, -a1)
             if uv1 != None and uv2 != None:
                 cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.LINE_AA)
@@ -344,10 +386,10 @@ class HUD:
 
         q0 = transformations.quaternion_about_axis(self.psi_rad, [0.0, 0.0, -1.0])
         a0 = self.the_rad * r2d
-        center = self.ladder_helper(q0, a0, 0.0)
+        center = self.ar_helper(q0, a0, 0.0)
         alpha = self.alpha_rad * r2d
         beta = self.beta_rad * r2d
-        tmp = self.ladder_helper(q0, a0-alpha, beta)
+        tmp = self.ar_helper(q0, a0-alpha, beta)
         if tmp != None:
             uv = self.rotate_pt(tmp, center, self.phi_rad)
             if uv != None:
@@ -369,62 +411,66 @@ class HUD:
                          cv2.LINE_AA)
 
     def rotate_pt(self, p, center, a):
-        #print p, center
-        x = math.cos(a) * (p[0]-center[0]) - math.sin(a) * (p[1]-center[1]) + center[0]
+        if type(p) is list:
+            result = []
+            for v in p:
+                if v != None:
+                    x = math.cos(a) * (v[0]-center[0]) - math.sin(a) * (v[1]-center[1]) + center[0]
 
-        y = math.sin(a) * (p[0]-center[0]) + math.cos(a) * (p[1]-center[1]) + center[1]
-        return (int(x), int(y))
+                    y = math.sin(a) * (v[0]-center[0]) + math.cos(a) * (v[1]-center[1]) + center[1]
+                    result.append( (int(round(x)), int(round(y))) )
+                else:
+                    return None
+            return result                
+        else:
+            if p != None:
+                x = math.cos(a) * (p[0]-center[0]) - math.sin(a) * (p[1]-center[1]) + center[0]
+
+                y = math.sin(a) * (p[0]-center[0]) + math.cos(a) * (p[1]-center[1]) + center[1]
+                return ( int(round(x)), int(round(y)) )
+            else:
+                return None
 
     def draw_vbars(self):
-        color = medium_orchid
-        size = self.line_width
-        a1 = 10.0
-        a2 = 1.5
-        a3 = 3.0
+        a1 = 14.0
+        a2 = 2.0
+        a3 = 5.0
         q0 = transformations.quaternion_about_axis(self.psi_rad,
                                                    [0.0, 0.0, -1.0])
         a0 = self.ap_pitch
 
         # rotation point (about nose)
-        rot = self.ladder_helper(q0, self.the_rad*r2d, 0.0)
+        rot = self.ar_helper(q0, self.the_rad*r2d, 0.0)
         if rot == None:
             return
         
         # center point
-        tmp1 = self.ladder_helper(q0, a0, 0.0)
-        if tmp1 == None:
-            return
-        
+        tmp1 = self.ar_helper(q0, a0, 0.0)
         center = self.rotate_pt(tmp1, rot, self.ap_roll*d2r)
+        if center == None:
+            return
 
         # right vbar
-        tmp1 = self.ladder_helper(q0, a0-a3, a1)
-        tmp2 = self.ladder_helper(q0, a0-a3, a1+a3)
-        tmp3 = self.ladder_helper(q0, a0-a2, a1+a3)
-        if tmp1 != None and tmp2 != None and tmp3 != None:
-            uv1 = self.rotate_pt(tmp1, rot, self.ap_roll*d2r)
-            uv2 = self.rotate_pt(tmp2, rot, self.ap_roll*d2r)
-            uv3 = self.rotate_pt(tmp3, rot, self.ap_roll*d2r)
-            if uv1 != None and uv2 != None and uv3 != None:
-                cv2.line(self.frame, center, uv1, color, self.line_width, cv2.LINE_AA)
-                cv2.line(self.frame, center, uv3, color, self.line_width, cv2.LINE_AA)
-                cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.LINE_AA)
-                cv2.line(self.frame, uv1, uv3, color, self.line_width, cv2.LINE_AA)
-                cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.LINE_AA)
+        tmp = [ self.ar_helper(q0, a0-a3, a1),
+                self.ar_helper(q0, a0-a3, a1+a2),
+                self.ar_helper(q0, a0-(a3-a2), a1+a2) ]
+        uv = self.rotate_pt(tmp, rot, self.ap_roll*d2r)
+        if uv != None:
+            pts1 = np.array([[center, uv[0], uv[1], uv[2]]])
+            cv2.fillPoly(self.frame, pts1, medium_orchid)
+            cv2.line(self.frame, uv[0], uv[2], dark_orchid, int(self.line_width*0.5), cv2.LINE_AA)
+            cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
+
         # left vbar
-        tmp1 = self.ladder_helper(q0, a0-a3, -a1)
-        tmp2 = self.ladder_helper(q0, a0-a3, -a1-a3)
-        tmp3 = self.ladder_helper(q0, a0-a2, -a1-a3)
-        if tmp1 != None and tmp2 != None and tmp3 != None:
-            uv1 = self.rotate_pt(tmp1, rot, self.ap_roll*d2r)
-            uv2 = self.rotate_pt(tmp2, rot, self.ap_roll*d2r)
-            uv3 = self.rotate_pt(tmp3, rot, self.ap_roll*d2r)
-            if uv1 != None and uv2 != None and uv3 != None:
-                cv2.line(self.frame, center, uv1, color, self.line_width, cv2.LINE_AA)
-                cv2.line(self.frame, center, uv3, color, self.line_width, cv2.LINE_AA)
-                cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.LINE_AA)
-                cv2.line(self.frame, uv1, uv3, color, self.line_width, cv2.LINE_AA)
-                cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.LINE_AA)
+        tmp = [ self.ar_helper(q0, a0-a3, -a1),
+                self.ar_helper(q0, a0-a3, -(a1+a2)),
+                self.ar_helper(q0, a0-(a3-a2), -(a1+a2)) ]
+        uv = self.rotate_pt(tmp, rot, self.ap_roll*d2r)
+        if uv != None:
+            pts1 = np.array([[center, uv[0], uv[1], uv[2]]])
+            cv2.fillPoly(self.frame, pts1, medium_orchid)
+            cv2.line(self.frame, uv[0], uv[2], dark_orchid, int(self.line_width*0.5), cv2.LINE_AA)
+            cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
 
     def draw_heading_bug(self):
         color = medium_orchid
@@ -432,15 +478,15 @@ class HUD:
         a = math.atan2(self.ve, self.vn)
         q0 = transformations.quaternion_about_axis(self.ap_hdg*d2r,
                                                    [0.0, 0.0, -1.0])
-        center = self.ladder_helper(q0, 0, 0)
+        center = self.ar_helper(q0, 0, 0)
         pts = []
-        pts.append( self.ladder_helper(q0, 0, 2.0) )
-        pts.append( self.ladder_helper(q0, 0.0, -2.0) )
-        pts.append( self.ladder_helper(q0, 1.5, -2.0) )
-        pts.append( self.ladder_helper(q0, 1.5, -1.0) )
+        pts.append( self.ar_helper(q0, 0, 2.0) )
+        pts.append( self.ar_helper(q0, 0.0, -2.0) )
+        pts.append( self.ar_helper(q0, 1.5, -2.0) )
+        pts.append( self.ar_helper(q0, 1.5, -1.0) )
         pts.append( center )
-        pts.append( self.ladder_helper(q0, 1.5, 1.0) )
-        pts.append( self.ladder_helper(q0, 1.5, 2.0) )
+        pts.append( self.ar_helper(q0, 1.5, 1.0) )
+        pts.append( self.ar_helper(q0, 1.5, 2.0) )
         for i, p in enumerate(pts):
             if p == None or center == None:
                 return
@@ -452,41 +498,191 @@ class HUD:
         cv2.line(self.frame, pts[5], pts[6], color, self.line_width, cv2.LINE_AA)
         cv2.line(self.frame, pts[6], pts[0], color, self.line_width, cv2.LINE_AA)
 
-    def draw_bird(self):
-        color = yellow
-        size = 2
-        a1 = 10.0
+    def draw_bird_orig(self):
+        a1 = 14.0
         a2 = 3.0
-        q0 = transformations.quaternion_about_axis(self.psi_rad, [0.0, 0.0, -1.0])
+        a3 = 5.0
+        a4 = 18.0
+        a5 = 0.5
+
+        q0 = transformations.quaternion_about_axis(self.psi_rad,
+                                                   [0.0, 0.0, -1.0])
         a0 = self.the_rad*r2d
         # print 'pitch:', a0, 'ap:', self.ap_pitch
         
         # center point
-        center = self.ladder_helper(q0, a0, 0.0)
+        center = self.ar_helper(q0, a0, 0.0)
         if center == None:
             return
 
-        # right vbar
-        tmp1 = self.ladder_helper(q0, a0-a2, a1)
-        tmp2 = self.ladder_helper(q0, a0-a2, a1-a2)
-        if tmp1 != None and tmp2 != None:
-            uv1 = self.rotate_pt(tmp1, center, self.phi_rad)
-            uv2 = self.rotate_pt(tmp2, center, self.phi_rad)
-            if uv1 != None and uv2 != None:
-                cv2.line(self.frame, center, uv1, color, self.line_width, cv2.LINE_AA)
-                cv2.line(self.frame, center, uv2, color, self.line_width, cv2.LINE_AA)
-                cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.LINE_AA)
-        # left vbar
-        tmp1 = self.ladder_helper(q0, a0-a2, -a1)
-        tmp2 = self.ladder_helper(q0, a0-a2, -a1+a2)
-        if tmp1 != None and tmp2 != None:
-            uv1 = self.rotate_pt(tmp1, center, self.phi_rad)
-            uv2 = self.rotate_pt(tmp2, center, self.phi_rad)
-            if uv1 != None and uv2 != None:
-                cv2.line(self.frame, center, uv1, color, self.line_width, cv2.LINE_AA)
-                cv2.line(self.frame, center, uv2, color, self.line_width, cv2.LINE_AA)
-                cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.LINE_AA)
+        # right bird
+        tmp = [ self.ar_helper(q0, a0-a3, a1),
+                self.ar_helper(q0, a0-a3, a1-a2),
+                self.ar_helper(q0, a0-a3, a1-a3) ]
+        uv = self.rotate_pt(tmp, center, self.phi_rad)
+        if uv != None:
+            pts1 = np.array([[center, uv[0], uv[2]]])
+            pts2 = np.array([[center, uv[1], uv[2]]])
+            cv2.fillPoly(self.frame, pts1, yellow)
+            cv2.fillPoly(self.frame, pts2, dark_yellow)
+            cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
+                
+        # left bird
+        tmp = [ self.ar_helper(q0, a0-a3, -a1),
+                self.ar_helper(q0, a0-a3, -a1+a2),
+                self.ar_helper(q0, a0-a3, -a1+a3) ]
+        uv = self.rotate_pt(tmp, center, self.phi_rad)
+        if uv != None:
+            pts1 = np.array([[center, uv[0], uv[2]]])
+            pts2 = np.array([[center, uv[1], uv[2]]])
+            cv2.fillPoly(self.frame, pts1, yellow)
+            cv2.fillPoly(self.frame, pts2, dark_yellow)
+            cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
+                
+        # right horizon marker
+        tmp = [ self.ar_helper(q0, a0, a4),
+                self.ar_helper(q0, a0-a5, a4+a5),
+                self.ar_helper(q0, a0-a5, a4+a3),
+                self.ar_helper(q0, a0+a5, a4+a3),
+                self.ar_helper(q0, a0+a5, a4+a5),
+                self.ar_helper(q0, a0, a4+a3) ]
+        uv = self.rotate_pt(tmp, center, self.phi_rad)
+        if uv != None:
+            pts1 = np.array([[uv[0], uv[1], uv[2], uv[3], uv[4]]])
+            pts2 = np.array([[uv[0], uv[1], uv[2], uv[5]]])
+            cv2.fillPoly(self.frame, pts1, yellow)
+            cv2.fillPoly(self.frame, pts2, dark_yellow)
+            cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
 
+        # left horizon marker
+        tmp = [ self.ar_helper(q0, a0, -a4),
+                self.ar_helper(q0, a0-a5, -(a4+a5)),
+                self.ar_helper(q0, a0-a5, -(a4+a3)),
+                self.ar_helper(q0, a0+a5, -(a4+a3)),
+                self.ar_helper(q0, a0+a5, -(a4+a5)),
+                self.ar_helper(q0, a0, -(a4+a3)) ]
+        uv = self.rotate_pt(tmp, center, self.phi_rad)
+        if uv != None:
+            pts1 = np.array([[uv[0], uv[1], uv[2], uv[3], uv[4]]])
+            pts2 = np.array([[uv[0], uv[1], uv[2], uv[5]]])
+            cv2.fillPoly(self.frame, pts1, yellow)
+            cv2.fillPoly(self.frame, pts2, dark_yellow)
+            cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
+
+    def draw_bird(self):
+        a1 = 14.0
+        a2 = 3.0
+        a3 = 5.0
+        a4 = 18.0
+        a5 = 0.5
+
+        # center point
+        center = self.cam_helper(0.0, 0.0)
+        if center == None:
+            print('center none')
+            return
+
+        # right bird
+        tmp = [ self.cam_helper(-a3, a1),
+                self.cam_helper(-a3, a1-a2),
+                self.cam_helper(-a3, a1-a3) ]
+        uv = self.rotate_pt(tmp, center, 0.0)
+        if uv != None:
+            pts1 = np.array([[center, uv[0], uv[2]]])
+            pts2 = np.array([[center, uv[1], uv[2]]])
+            print(pts1)
+            cv2.fillPoly(self.frame, pts1, yellow)
+            cv2.fillPoly(self.frame, pts2, dark_yellow)
+            cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
+                
+        # left bird
+        tmp = [ self.cam_helper(-a3, -a1),
+                self.cam_helper(-a3, -a1+a2),
+                self.cam_helper(-a3, -a1+a3) ]
+        uv = self.rotate_pt(tmp, center, 0.0)
+        if uv != None:
+            pts1 = np.array([[center, uv[0], uv[2]]])
+            pts2 = np.array([[center, uv[1], uv[2]]])
+            cv2.fillPoly(self.frame, pts1, yellow)
+            cv2.fillPoly(self.frame, pts2, dark_yellow)
+            cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
+                
+        # right horizon marker
+        tmp = [ self.cam_helper(0.0, a4),
+                self.cam_helper(-a5, a4+a5),
+                self.cam_helper(-a5, a4+a3),
+                self.cam_helper(a5, a4+a3),
+                self.cam_helper(a5, a4+a5),
+                self.cam_helper(0.0, a4+a3) ]
+        uv = self.rotate_pt(tmp, center, 0.0)
+        if uv != None:
+            pts1 = np.array([[uv[0], uv[1], uv[2], uv[3], uv[4]]])
+            pts2 = np.array([[uv[0], uv[5], uv[3], uv[4]]])
+            cv2.fillPoly(self.frame, pts1, dark_yellow)
+            cv2.fillPoly(self.frame, pts2, yellow)
+            cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
+
+        # left horizon marker
+        tmp = [ self.cam_helper(0.0, -a4),
+                self.cam_helper(-a5, -(a4+a5)),
+                self.cam_helper(-a5, -(a4+a3)),
+                self.cam_helper(a5, -(a4+a3)),
+                self.cam_helper(a5, -(a4+a5)),
+                self.cam_helper(0.0, -(a4+a3)) ]
+        uv = self.rotate_pt(tmp, center, 0.0)
+        if uv != None:
+            pts1 = np.array([[uv[0], uv[1], uv[2], uv[3], uv[4]]])
+            pts2 = np.array([[uv[0], uv[5], uv[3], uv[4]]])
+            cv2.fillPoly(self.frame, pts1, dark_yellow)
+            cv2.fillPoly(self.frame, pts2, yellow)
+            cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
+
+    def draw_roll_indicator_tic(self, center, q0, a0, a1, angle, length):
+        v1x = math.sin(angle*d2r) * a1
+        v1y = math.cos(angle*d2r) * a1
+        v2x = math.sin(angle*d2r) * (a1 + length)
+        v2y = math.cos(angle*d2r) * (a1 + length)
+        tmp = [ self.ar_helper(q0, a0+v1y, v1x),
+                self.ar_helper(q0, a0+v2y, v2x) ]
+        uv = self.rotate_pt(tmp, center, self.phi_rad)
+        if uv != None:
+            cv2.polylines(self.frame, np.array([uv]), False, white, self.line_width, cv2.LINE_AA)
+
+    def draw_roll_indicator(self):
+        a1 = 16.0
+
+        q0 = transformations.quaternion_about_axis(self.psi_rad,
+                                                   [0.0, 0.0, -1.0])
+        a0 = self.the_rad*r2d
+        # print 'pitch:', a0, 'ap:', self.ap_pitch
+        
+        # center point
+        center = self.ar_helper(q0, a0, 0.0)
+        if center == None:
+            return
+
+        # background arc
+        tmp = []
+        for a in range(-60, 60+1, 5):
+            vx = math.sin(a*d2r) * a1
+            vy = math.cos(a*d2r) * a1
+            tmp.append( self.ar_helper(q0, a0+vy, vx) )
+        uv = self.rotate_pt(tmp, center, self.phi_rad)
+        if uv != None:
+            cv2.polylines(self.frame, np.array([uv]), False, white, self.line_width, cv2.LINE_AA)
+
+        self.draw_roll_indicator_tic(center, q0, a0, a1, -60, 2)
+        self.draw_roll_indicator_tic(center, q0, a0, a1, -30, 2)
+        self.draw_roll_indicator_tic(center, q0, a0, a1, 30, 2)
+        self.draw_roll_indicator_tic(center, q0, a0, a1, 60, 2)
+        self.draw_roll_indicator_tic(center, q0, a0, a1, -45, 1)
+        self.draw_roll_indicator_tic(center, q0, a0, a1, 45, 1)
+        self.draw_roll_indicator_tic(center, q0, a0, a1, -20, 1)
+        self.draw_roll_indicator_tic(center, q0, a0, a1, 20, 1)
+        self.draw_roll_indicator_tic(center, q0, a0, a1, -10, 1)
+        self.draw_roll_indicator_tic(center, q0, a0, a1, 10, 1)
+
+            
     def draw_course(self):
         color = yellow
         size = 2
@@ -494,9 +690,9 @@ class HUD:
         self.filter_ve = (1.0 - self.tf_vel) * self.filter_ve + self.tf_vel * self.ve
         a = math.atan2(self.filter_ve, self.filter_vn)
         q0 = transformations.quaternion_about_axis(a, [0.0, 0.0, -1.0])
-        uv1 = self.ladder_helper(q0, 0, 0)
-        uv2 = self.ladder_helper(q0, 1.5, 1.0)
-        uv3 = self.ladder_helper(q0, 1.5, -1.0)
+        uv1 = self.ar_helper(q0, 0, 0)
+        uv2 = self.ar_helper(q0, 1.5, 1.0)
+        uv3 = self.ar_helper(q0, 1.5, -1.0)
         if uv1 != None and uv2 != None and uv3 != None :
             #uv2 = self.rotate_pt(tmp2, tmp1, -self.cam_roll*d2r)
             #uv3 = self.rotate_pt(tmp3, tmp1, -self.cam_roll*d2r)
@@ -521,15 +717,15 @@ class HUD:
                         self.color, thickness, cv2.LINE_AA)
 
     def draw_ned_point(self, ned, label=None, scale=1, vert='above'):
-        uv = self.project_point([ned[0], ned[1], ned[2]])
+        uv = self.project_ned([ned[0], ned[1], ned[2]])
         if uv != None:
             cv2.circle(self.frame, uv, 4+self.line_width, self.color,
                        self.line_width, cv2.LINE_AA)
         if label:
             if vert == 'above':
-                uv = self.project_point([ned[0], ned[1], ned[2] - 0.02])
+                uv = self.project_ned([ned[0], ned[1], ned[2] - 0.02])
             else:
-                uv = self.project_point([ned[0], ned[1], ned[2] + 0.02])
+                uv = self.project_ned([ned[0], ned[1], ned[2] + 0.02])
             if uv != None:
                 self.draw_label(label, uv, scale, self.line_width, vert=vert)
 
@@ -566,30 +762,30 @@ class HUD:
             a = (float(i) * 360/float(divs)) * d2r
             n = math.cos(a)
             e = math.sin(a)
-            uv1 = self.project_point([self.ned[0] + n,
-                                      self.ned[1] + e,
-                                      self.ned[2] - 0.0])
-            uv2 = self.project_point([self.ned[0] + n,
-                                      self.ned[1] + e,
-                                      self.ned[2] - 0.02])
+            uv1 = self.project_ned([self.ned[0] + n,
+                                    self.ned[1] + e,
+                                    self.ned[2] - 0.0])
+            uv2 = self.project_ned([self.ned[0] + n,
+                                    self.ned[1] + e,
+                                    self.ned[2] - 0.02])
             if uv1 != None and uv2 != None:
                 cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.LINE_AA)
 
         # North
-        uv = self.project_point([self.ned[0] + 1.0, self.ned[1] + 0.0, self.ned[2] - 0.03])
+        uv = self.project_ned([self.ned[0] + 1.0, self.ned[1] + 0.0, self.ned[2] - 0.03])
         if uv != None:
             self.draw_label('N', uv, 1, self.line_width, vert='above')
         # South
-        uv = self.project_point([self.ned[0] - 1.0, self.ned[1] + 0.0, self.ned[2] - 0.03])
+        uv = self.project_ned([self.ned[0] - 1.0, self.ned[1] + 0.0, self.ned[2] - 0.03])
         if uv != None:
             self.draw_label('S', uv, 1, self.line_width, vert='above')
         # East
-        uv = self.project_point([self.ned[0] + 0.0, self.ned[1] + 1.0, self.ned[2] - 0.03])
+        uv = self.project_ned([self.ned[0] + 0.0, self.ned[1] + 1.0, self.ned[2] - 0.03])
         if uv != None:
             self.draw_label('E', uv, 1, self.line_width, vert='above')
         # West
-        uv = self.project_point([self.ned[0] + 0.0, self.ned[1] - 1.0, self.ned[2] - 0.03])
+        uv = self.project_ned([self.ned[0] + 0.0, self.ned[1] - 1.0, self.ned[2] - 0.03])
         if uv != None:
             self.draw_label('W', uv, 1, self.line_width, vert='above')
 
@@ -629,9 +825,9 @@ class HUD:
                                                          'rzyx')
         body2ned = transformations.quaternion_inverse(ned2body)
         vec = transformations.quaternion_transform(body2ned, [1.0, 0.0, 0.0])
-        uv = self.project_point([self.ned[0] + vec[0],
-                                 self.ned[1] + vec[1],
-                                 self.ned[2]+ vec[2]])
+        uv = self.project_ned([self.ned[0] + vec[0],
+                               self.ned[1] + vec[1],
+                               self.ned[2] + vec[2]])
         r1 = int(round(self.render_h / 80))
         r2 = int(round(self.render_h / 40))
         if uv != None:
@@ -644,9 +840,9 @@ class HUD:
         for i in range(3):
             self.vel_filt[i] = (1.0 - tf) * self.vel_filt[i] + tf * vel[i]
 
-        uv = self.project_point([self.ned[0] + self.vel_filt[0],
-                                 self.ned[1] + self.vel_filt[1],
-                                 self.ned[2] + self.vel_filt[2]])
+        uv = self.project_ned([self.ned[0] + self.vel_filt[0],
+                               self.ned[1] + self.vel_filt[1],
+                               self.ned[2] + self.vel_filt[2]])
         if uv != None:
             cv2.circle(self.frame, uv, 4, self.color, 1, cv2.LINE_AA)
 
@@ -909,7 +1105,7 @@ class HUD:
             dist = math.sqrt(dn*dn + de*de + dd*dd)
             dist_list.append(dist)
             if dist > 5:
-                uv = self.project_point([ned[0], ned[1], ned[2]])
+                uv = self.project_ned([ned[0], ned[1], ned[2]])
             else:
                 uv = None
             uv_list.append(uv)
@@ -947,7 +1143,7 @@ class HUD:
     def draw_features(self):
         uv_list = []
         for ned in self.features:
-            uv = self.project_point([ned[0], ned[1], ned[2]])
+            uv = self.project_ned([ned[0], ned[1], ned[2]])
             if uv != None:
                 uv_list.append(uv)
         for uv in uv_list:
@@ -977,7 +1173,7 @@ class HUD:
             dd = self.ned[2] - ned[2]
             dist = math.sqrt(dn*dn + de*de + dd*dd)
             dist_list.append(dist)
-            uv = self.project_point( ned )
+            uv = self.project_ned( ned )
             uv_list.append(uv)
         for i in range(len(uv_list)):
             dist = dist_list[i]
@@ -999,7 +1195,7 @@ class HUD:
         self.draw_track()
         self.draw_features()
         # cockpit things
-        self.draw_pitch_ladder(beta_rad=0.0)
+        # currently disabled # self.draw_pitch_ladder(beta_rad=0.0)
         self.draw_alpha_beta_marker()
         self.draw_velocity_vector()
 
@@ -1034,6 +1230,7 @@ class HUD:
             self.draw_vbars()
             self.draw_heading_bug()
             self.draw_bird()
+            self.draw_roll_indicator()
             self.draw_course()
         
     def draw(self):

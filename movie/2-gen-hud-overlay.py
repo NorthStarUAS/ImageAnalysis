@@ -22,6 +22,7 @@ sys.path.append('../lib')
 import transformations
 
 import hud
+import hud_glass
 import features
 
 # helpful constants
@@ -84,7 +85,7 @@ elif os.path.exists(local_config):
     props_json.load(local_config, config)
     
 name = config.getString('name')
-config.setLen('mount_ypr', 3)
+config.setLen('mount_ypr', 3, 0.0)
 cam_yaw = config.getFloatEnum('mount_ypr', 0)
 cam_pitch = config.getFloatEnum('mount_ypr', 1)
 cam_roll = config.getFloatEnum('mount_ypr', 2)
@@ -283,8 +284,8 @@ if args.plot:
     plt.show()
 
 # overlay hud(s)
-hud1 = hud.HUD(K)
-hud2 = copy.deepcopy(hud1)
+hud1 = hud_glass.HUD(K)
+hud2 = hud.HUD(K)
 
 # these are fixed tranforms between ned and camera reference systems
 proj2ned = np.array( [[0, 0, 1], [1, 0, 0], [0, 1, 0]],
@@ -297,6 +298,9 @@ ref = [ data['gps'][0].lat, data['gps'][0].lon, 0.0 ]
 hud1.set_ned_ref(data['gps'][0].lat, data['gps'][0].lon)
 hud2.set_ned_ref(data['gps'][0].lat, data['gps'][0].lon)
 print('ned ref:', ref)
+
+print('temporarily disabling airport loading')
+# hud1.load_airports()
 
 hud1.set_ground_m(ground_m)
 hud2.set_ground_m(ground_m)
