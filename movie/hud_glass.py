@@ -31,6 +31,7 @@ dark_orchid = (123, 56, 139)
 yellow = (50, 255, 255)
 dark_yellow = (33, 170, 170)
 white = (255, 255, 255)
+gray50 = (128, 128, 128)
 
 class HUD:
     def __init__(self, K):
@@ -231,12 +232,12 @@ class HUD:
     # camera K matrix
     def project_xyz(self, v):
         uvh = self.K.dot( [v[0], v[1], v[2]] )
-        print(uvh)
+        # print(uvh)
         if uvh[2] > 0.2:
             uvh /= uvh[2]
             uv = ( int(round(uvh[0])),
                    int(round(uvh[1])) )
-            print(uv)
+            # print(uv)
             return uv
         else:
             return None
@@ -265,7 +266,7 @@ class HUD:
         roll = self.cam_roll * d2r
         body2cam = transformations.quaternion_from_euler( roll, yaw, pitch,
                                                           'rzyx' )
-        print(a0, a1)
+        #print(a0, a1)
         q1 = transformations.quaternion_from_euler( 0.0, -a1*d2r, -a0*d2r,
                                                     'rzyx' )
         q = transformations.quaternion_multiply(q1, body2cam)
@@ -523,7 +524,6 @@ class HUD:
         if uv != None:
             pts1 = np.array([[nose, uv[0], uv[2]]])
             pts2 = np.array([[nose, uv[1], uv[2]]])
-            print(pts1)
             cv2.fillPoly(self.frame, pts1, yellow)
             cv2.fillPoly(self.frame, pts2, dark_yellow)
             cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
@@ -609,6 +609,22 @@ class HUD:
         self.draw_roll_indicator_tic(nose, a1, 20, 1)
         self.draw_roll_indicator_tic(nose, a1, -10, 1)
         self.draw_roll_indicator_tic(nose, a1, 10, 1)
+
+        # center marker
+        tmp = [ self.cam_helper(a1, 0),
+                self.cam_helper(a1+1.5, 0.66),
+                self.cam_helper(a1+1.5, -0.65) ]
+        uv = self.rotate_pt(tmp, nose, 0.0)
+        if uv != None:
+            cv2.fillPoly(self.frame, np.array([tmp]), white)
+
+        # roll pointer
+        tmp = [ self.cam_helper(a1, 0),
+                self.cam_helper(a1-1.5, 0.66),
+                self.cam_helper(a1-1.5, -0.65) ]
+        uv = self.rotate_pt(tmp, nose, self.phi_rad)
+        if uv != None:
+            cv2.fillPoly(self.frame, np.array([uv]), white)
 
             
     def draw_course(self):
@@ -786,26 +802,27 @@ class HUD:
         miny = int(h * 0.2)
         maxy = int(h - miny)
 
-        # current airspeed
-        label = "%.0f" % airspeed
-        lsize = cv2.getTextSize(label, self.font, self.font_size, self.line_width)
-        xsize = lsize[0][0] + pad
-        ysize = lsize[0][1] + pad
-        uv = ( int(cx + ysize*0.7), int(cy + lsize[0][1] / 2))
-        cv2.putText(self.frame, label, uv, self.font, self.font_size, color, self.line_width, cv2.LINE_AA)
-        uv1 = (cx, cy)
-        uv2 = (cx + int(ysize*0.7),         int(cy - ysize / 2) )
-        uv3 = (cx + int(ysize*0.7) + xsize, int(cy - ysize / 2) )
-        uv4 = (cx + int(ysize*0.7) + xsize, int(cy + ysize / 2 + 1) )
-        uv5 = (cx + int(ysize*0.7),         int(cy + ysize / 2 + 1) )
-        cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.LINE_AA)
-        cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.LINE_AA)
-        cv2.line(self.frame, uv3, uv4, color, self.line_width, cv2.LINE_AA)
-        cv2.line(self.frame, uv4, uv5, color, self.line_width, cv2.LINE_AA)
-        cv2.line(self.frame, uv5, uv1, color, self.line_width, cv2.LINE_AA)
+        # use label/font size as a sizing reference
+        asi_label = "%.0f" % airspeed
+        asi_size = cv2.getTextSize(asi_label, self.font, self.font_size, self.line_width)
+        xsize = asi_size[0][0] + pad
+        ysize = asi_size[0][1] + pad
+        spacing = int(round(asi_size[0][1] * 0.5))
+
+        # speed bug
+        offset = int((ap_speed - airspeed) * spacing)
+        if self.flight_mode == 'auto' and cy - offset >= miny and cy - offset <= maxy:
+            uv1 = (cx,                  cy - offset)
+            uv2 = (cx - int(ysize*0.7), cy - offset - int(ysize / 2) )
+            uv3 = (cx - int(ysize*0.7), cy - offset - ysize )
+            uv4 = (cx,                  cy - offset - ysize )
+            uv5 = (cx,                  cy - offset + ysize )
+            uv6 = (cx - int(ysize*0.7), cy - offset + ysize )
+            uv7 = (cx - int(ysize*0.7), cy - offset + int(ysize / 2) )
+            pts = np.array([[uv1, uv2,  uv3, uv4, uv5, uv6, uv7]])
+            cv2.fillPoly(self.frame, pts, medium_orchid)
 
         # speed tics
-        spacing = lsize[0][1]
         y = cy - int((0 - airspeed) * spacing)
         if y < miny: y = miny
         if y > maxy: y = maxy
@@ -837,24 +854,20 @@ class HUD:
         uv = (cx - int(lsize[0][1]*0.5), maxy + lsize[0][1] + self.line_width*2)
         cv2.putText(self.frame, units_label, uv, self.font, self.font_size, color, self.line_width, cv2.LINE_AA)
 
-        # speed bug
-        offset = int((ap_speed - airspeed) * spacing)
-        if self.flight_mode == 'auto' and cy - offset >= miny and cy - offset <= maxy:
-            uv1 = (cx,                  cy - offset)
-            uv2 = (cx + int(ysize*0.7), cy - offset - int(ysize / 2) )
-            uv3 = (cx + int(ysize*0.7), cy - offset - ysize )
-            uv4 = (cx,                  cy - offset - ysize )
-            uv5 = (cx,                  cy - offset + ysize )
-            uv6 = (cx + int(ysize*0.7), cy - offset + ysize )
-            uv7 = (cx + int(ysize*0.7), cy - offset + int(ysize / 2) )
-            cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.LINE_AA)
-            cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.LINE_AA)
-            cv2.line(self.frame, uv3, uv4, color, self.line_width, cv2.LINE_AA)
-            cv2.line(self.frame, uv4, uv5, color, self.line_width, cv2.LINE_AA)
-            cv2.line(self.frame, uv5, uv6, color, self.line_width, cv2.LINE_AA)
-            cv2.line(self.frame, uv6, uv7, color, self.line_width, cv2.LINE_AA)
-            cv2.line(self.frame, uv7, uv1, color, self.line_width, cv2.LINE_AA)
+        # current airspeed
+        uv1 = (cx, cy)
+        uv2 = (cx - int(ysize*0.7),         int(cy - ysize / 2) )
+        uv3 = (cx - int(ysize*0.7) - xsize, int(cy - ysize / 2) )
+        uv4 = (cx - int(ysize*0.7) - xsize, int(cy + ysize / 2 + 1) )
+        uv5 = (cx - int(ysize*0.7),         int(cy + ysize / 2 + 1) )
+        pts = np.array([[uv1, uv2, uv3, uv4, uv5]])
+        cv2.fillPoly(self.frame, pts, black)
+        cv2.polylines(self.frame, pts, True, color, self.line_width, cv2.LINE_AA)
 
+        #uv = ( int(cx + ysize*0.7), int(cy + lsize[0][1] / 2))
+        uv = ( int(cx - ysize*0.7 - asi_size[0][0]), int(cy + asi_size[0][1] / 2))
+        cv2.putText(self.frame, asi_label, uv, self.font, self.font_size, color, self.line_width, cv2.LINE_AA)
+        
     def draw_altitude_tape(self, altitude, ap_alt, units_label):
         color = self.color
         size = 1
@@ -871,12 +884,25 @@ class HUD:
         maxrange = int(altitude/100)*10 + 30
 
         # current altitude (computed first so we can size all elements)
-        label = "%.0f" % (round(altitude/10.0) * 10)
-        lsize = cv2.getTextSize(label, self.font, self.font_size, self.line_width)
-        spacing = lsize[0][1]
-        xsize = lsize[0][0] + pad
-        ysize = lsize[0][1] + pad
+        alt_label = "%.0f" % (round(altitude/10.0) * 10)
+        alt_size = cv2.getTextSize(alt_label, self.font, self.font_size, self.line_width)
+        spacing = alt_size[0][1]
+        xsize = alt_size[0][0] + pad
+        ysize = alt_size[0][1] + pad
 
+        # altitude bug
+        offset = int((ap_alt - altitude)/10.0 * spacing)
+        if self.flight_mode == 'auto' and cy - offset >= miny and cy - offset <= maxy:
+            uv1 = (cx,                  cy - offset)
+            uv2 = (cx + int(ysize*0.7), cy - offset - int(ysize / 2) )
+            uv3 = (cx + int(ysize*0.7), cy - offset - ysize )
+            uv4 = (cx,                  cy - offset - ysize )
+            uv5 = (cx,                  cy - offset + ysize )
+            uv6 = (cx + int(ysize*0.7), cy - offset + ysize )
+            uv7 = (cx + int(ysize*0.7), cy - offset + int(ysize / 2) )
+            pts = np.array([[uv1, uv2,  uv3, uv4, uv5, uv6, uv7]])
+            cv2.fillPoly(self.frame, pts, medium_orchid)
+            
         # draw ground
         if self.altitude_units == 'm':
             offset = int((self.ground_m - altitude)/10.0 * spacing)
@@ -896,20 +922,6 @@ class HUD:
             uv1 = (cx,                cy - offset)
             uv2 = (cx + int(ysize*2), cy - offset)
             cv2.line(self.frame, uv1, uv2, yellow, self.line_width*2, cv2.LINE_AA)
-        # draw current altitude
-        uv = ( int(cx - ysize*0.7 - lsize[0][0]), cy + int(lsize[0][1] / 2))
-        cv2.putText(self.frame, label, uv, self.font, self.font_size, color, self.line_width, cv2.LINE_AA)
-        uv1 = (cx, cy)
-        uv2 = (cx - int(ysize*0.7),         cy - int(ysize / 2) )
-        uv3 = (cx - int(ysize*0.7) - xsize, cy - int(ysize / 2) )
-        uv4 = (cx - int(ysize*0.7) - xsize, cy + int(ysize / 2) + 1 )
-        uv5 = (cx - int(ysize*0.7),         cy + int(ysize / 2) + 1 )
-        cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.LINE_AA)
-        cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.LINE_AA)
-        cv2.line(self.frame, uv3, uv4, color, self.line_width, cv2.LINE_AA)
-        cv2.line(self.frame, uv4, uv5, color, self.line_width, cv2.LINE_AA)
-        cv2.line(self.frame, uv5, uv1, color, self.line_width, cv2.LINE_AA)
-
         # msl tics
         y = cy - int((minrange*10 - altitude)/10 * spacing)
         if y < miny: y = miny
@@ -942,23 +954,19 @@ class HUD:
         uv = (cx - int(lsize[0][1]*0.5), maxy + lsize[0][1] + self.line_width*2)
         cv2.putText(self.frame, units_label, uv, self.font, self.font_size, color, self.line_width, cv2.LINE_AA)
 
-        # altitude bug
-        offset = int((ap_alt - altitude)/10.0 * spacing)
-        if self.flight_mode == 'auto' and cy - offset >= miny and cy - offset <= maxy:
-            uv1 = (cx,                  cy - offset)
-            uv2 = (cx - int(ysize*0.7), cy - offset - int(ysize / 2) )
-            uv3 = (cx - int(ysize*0.7), cy - offset - ysize )
-            uv4 = (cx,                  cy - offset - ysize )
-            uv5 = (cx,                  cy - offset + ysize )
-            uv6 = (cx - int(ysize*0.7), cy - offset + ysize )
-            uv7 = (cx - int(ysize*0.7), cy - offset + int(ysize / 2) )
-            cv2.line(self.frame, uv1, uv2, color, self.line_width, cv2.LINE_AA)
-            cv2.line(self.frame, uv2, uv3, color, self.line_width, cv2.LINE_AA)
-            cv2.line(self.frame, uv3, uv4, color, self.line_width, cv2.LINE_AA)
-            cv2.line(self.frame, uv4, uv5, color, self.line_width, cv2.LINE_AA)
-            cv2.line(self.frame, uv5, uv6, color, self.line_width, cv2.LINE_AA)
-            cv2.line(self.frame, uv6, uv7, color, self.line_width, cv2.LINE_AA)
-            cv2.line(self.frame, uv7, uv1, color, self.line_width, cv2.LINE_AA)
+        # draw current altitude
+        uv1 = (cx, cy)
+        uv2 = (cx + int(ysize*0.7),         cy - int(ysize / 2) )
+        uv3 = (cx + int(ysize*0.7) + xsize, cy - int(ysize / 2) )
+        uv4 = (cx + int(ysize*0.7) + xsize, cy + int(ysize / 2) + 1 )
+        uv5 = (cx + int(ysize*0.7),         cy + int(ysize / 2) + 1 )
+        pts = np.array([[uv1, uv2, uv3, uv4, uv5]])
+        cv2.fillPoly(self.frame, pts, black)
+        cv2.polylines(self.frame, pts, True, color, self.line_width, cv2.LINE_AA)
+
+        uv = ( int(cx + ysize*0.7), cy + int(lsize[0][1] / 2))
+        cv2.putText(self.frame, alt_label, uv, self.font, self.font_size, color, self.line_width, cv2.LINE_AA)
+
 
     # draw stick positions (rc transmitter sticks)
     def draw_sticks(self):
