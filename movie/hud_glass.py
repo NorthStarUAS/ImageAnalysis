@@ -88,6 +88,8 @@ class HUD:
         self.act_rud = 0.0
         self.airports = []
         self.features = []
+        self.nose_uv = [0, 0]
+        self.dg_img = cv2.imread('hdg_hud.png', -1) # load with transparency
 
     def set_render_size(self, w, h):
         self.render_w = w
@@ -478,6 +480,46 @@ class HUD:
             cv2.line(self.frame, uv[0], uv[2], dark_orchid, int(self.line_width*0.5), cv2.LINE_AA)
             cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
 
+    # draw a texture based DG
+    def draw_dg(self):
+        # resize
+        hdg_size = int(round(self.frame.shape[1] * 0.25))
+        hdg = cv2.resize(self.dg_img, (hdg_size, hdg_size))
+        rows, cols = hdg.shape[:2]
+
+        # rotate for correct heading
+        M = cv2.getRotationMatrix2D((cols/2, rows/2), self.psi_rad*r2d, 1)
+        hdg = cv2.warpAffine(hdg, M, (cols, rows))
+
+        # crop top
+        hdg = hdg[0:int(rows*.7),:]
+        hdg_rows = hdg.shape[0]
+        hdg_cols = hdg.shape[1]
+        print(hdg.shape)
+        cv2.imshow('hdg', hdg)
+
+        overlay_img = hdg[:,:,:3]   # rgb
+        overlay_mask = hdg[:,:,3:]  # alpha
+
+        # inverse mask
+        bg_mask = 255 - overlay_mask
+
+        # convert mask to 3 channel for use as weights
+        overlay_mask = cv2.cvtColor(overlay_mask, cv2.COLOR_GRAY2BGR)
+        bg_mask = cv2.cvtColor(bg_mask, cv2.COLOR_GRAY2BGR)
+
+        # do the magic
+        row_start = self.frame.shape[0] - hdg_rows - 1
+        col_start = self.nose_uv[0] - int(round(hdg_cols * 0.5)) - 1
+        row_end = row_start + hdg_rows
+        col_end = col_start + hdg_cols
+        print(row_start, col_start, self.frame.shape)
+        face_part = (self.frame[row_start:row_end,col_start:col_end] * (1/255.0)) * (bg_mask * (1/255.0))
+        overlay_part = (overlay_img * (1/255.0)) * (overlay_mask * (1/255.0))
+
+        dst = np.uint8(cv2.addWeighted(face_part, 255.0, overlay_part, 255.0, 0.0))
+        self.frame[row_start:row_end,col_start:col_end] = dst
+ 
     def draw_heading_bug(self):
         color = medium_orchid
         size = 2
@@ -515,6 +557,7 @@ class HUD:
         nose = self.cam_helper(0.0, 0.0)
         if nose == None:
             return
+        self.nose_uv = nose
 
         # right bird
         tmp = [ self.cam_helper(-a3, a1),
@@ -1158,20 +1201,17 @@ class HUD:
     # draw autopilot symbology
     def draw_ap(self):
         if self.flight_mode == 'manual':
-            #self.draw_nose()
-            nose_uv = self.draw_bird()
-            self.draw_roll_indicator()
+            self.draw_nose()
         else:
             self.draw_vbars()
             self.draw_heading_bug()
-            nose_uv = self.draw_bird()
-            self.draw_roll_indicator()
             self.draw_course()
-        return nose_uv
+        self.draw_bird()
+        self.draw_roll_indicator()
+        self.draw_dg()
         
     def draw(self):
         self.draw_conformal()
         self.draw_fixed()
-        nose_uv = self.draw_ap()
-        return nose_uv
+        self.draw_ap()
         

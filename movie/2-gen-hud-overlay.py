@@ -524,49 +524,8 @@ while True:
     if time >= flight_min and time <= flight_max:
         # only draw hud for time range when we have actual flight data
         hud1.update_frame(hud1_frame)
-        nose_uv = hud1.draw()
+        hud1.draw()
 
-    # more experiments
-    hdg = cv2.imread('hdg_hud.png', -1) # load with transparency
-    # resize
-    hdg_size = int(round(hud1_frame.shape[1] * 0.3))
-    hdg = cv2.resize(hdg, (hdg_size, hdg_size))
-    rows, cols = hdg.shape[:2]
-
-    # rotate for correct heading
-    M = cv2.getRotationMatrix2D((cols/2, rows/2), yaw_rad*r2d, 1)
-    hdg = cv2.warpAffine(hdg, M, (cols, rows))
-
-    # crop top
-    hdg = hdg[0:int(rows*.7),:]
-    #hdg = cv2.resize(hdg, (hud1_frame.shape[1], hud1_frame.shape[0]))
-    hdg_rows = hdg.shape[0]
-    hdg_cols = hdg.shape[1]
-    print(hdg.shape)
-    cv2.imshow('hdg', hdg)
-
-    overlay_img = hdg[:,:,:3]   # rgb
-    overlay_mask = hdg[:,:,3:]  # alpha
-
-    # inverse mask
-    bg_mask = 255 - overlay_mask
-
-    # convert mask to 3 channel for use as weights
-    overlay_mask = cv2.cvtColor(overlay_mask, cv2.COLOR_GRAY2BGR)
-    bg_mask = cv2.cvtColor(bg_mask, cv2.COLOR_GRAY2BGR)
-
-    # do the magic
-    row_start = hud1_frame.shape[0] - hdg_rows - 1
-    col_start = nose_uv[0] - int(round(hdg_cols * 0.5)) - 1
-    row_end = row_start + hdg_rows
-    col_end = col_start + hdg_cols
-    print(row_start, col_start, hud1_frame.shape)
-    face_part = (hud1_frame[row_start:row_end,col_start:col_end] * (1/255.0)) * (bg_mask * (1/255.0))
-    overlay_part = (overlay_img * (1/255.0)) * (overlay_mask * (1/255.0))
-
-    dst = np.uint8(cv2.addWeighted(face_part, 255.0, overlay_part, 255.0, 0.0))
-    hud1_frame[row_start:row_end,col_start:col_end] = dst
-    
     if not experimental_overlay:
         # weighted add of the HUD frame with the original frame to
         # emulate alpha blending
