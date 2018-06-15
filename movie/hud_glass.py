@@ -495,7 +495,7 @@ class HUD:
         hdg = hdg[0:int(rows*.7),:]
         hdg_rows = hdg.shape[0]
         hdg_cols = hdg.shape[1]
-        print(hdg.shape)
+        #print(hdg.shape)
         cv2.imshow('hdg', hdg)
 
         overlay_img = hdg[:,:,:3]   # rgb
@@ -513,13 +513,44 @@ class HUD:
         col_start = self.nose_uv[0] - int(round(hdg_cols * 0.5)) - 1
         row_end = row_start + hdg_rows
         col_end = col_start + hdg_cols
-        print(row_start, col_start, self.frame.shape)
+        #print(row_start, col_start, self.frame.shape)
         face_part = (self.frame[row_start:row_end,col_start:col_end] * (1/255.0)) * (bg_mask * (1/255.0))
         overlay_part = (overlay_img * (1/255.0)) * (overlay_mask * (1/255.0))
 
         dst = np.uint8(cv2.addWeighted(face_part, 255.0, overlay_part, 255.0, 0.0))
         self.frame[row_start:row_end,col_start:col_end] = dst
- 
+
+        # center marker
+        # this is a crude hack to get sizing and placement
+        a1 = -10
+        tmp = [ self.cam_helper(a1, 0),
+                self.cam_helper(a1+1.5, 0.66),
+                self.cam_helper(a1+1.5, -0.65) ]
+        uv = self.rotate_pt(tmp, self.nose_uv, 0.0)
+        if uv != None:
+            offset = row_start - uv[0][1] + 1
+            print(row_start, uv[0][1], offset)
+            for i in range(len(uv)):
+                p = uv[i]
+                uv[i] = (p[0], p[1] + offset)
+            cv2.fillPoly(self.frame, np.array([uv]), white)
+
+        # ground course indicator
+        a = math.atan2(self.filter_ve, self.filter_vn)
+        gc_rot = self.phi_rad - a
+        size1 = int(round(hdg_rows*0.05))
+        size2 = int(round(hdg_rows*0.1))
+        center = (self.nose_uv[0], row_start + int(round(rows*0.5)))
+        end = (self.nose_uv[0], row_start + size1)
+        arrow1 = (self.nose_uv[0] - size1, end[1] + size2)
+        arrow2 = (self.nose_uv[0] + size1, end[1] + size2)
+        uv = self.rotate_pt([end, arrow1, arrow2], center, gc_rot)
+        if uv != None:
+            pts1 = np.array([[center, uv[0]]])
+            pts2 = np.array([uv])
+            cv2.polylines(self.frame, pts1, False, yellow, int(round(self.line_width*1.5)), cv2.LINE_AA)
+            cv2.fillPoly(self.frame, pts2, yellow)
+
     def draw_heading_bug(self):
         color = medium_orchid
         size = 2
