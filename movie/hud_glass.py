@@ -570,28 +570,23 @@ class HUD:
             cv2.fillPoly(self.frame, pts2, yellow)
             cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
 
-    def draw_roll_indicator_tic(self, center, q0, a0, a1, angle, length):
+    def draw_roll_indicator_tic(self, nose, a1, angle, length):
         v1x = math.sin(angle*d2r) * a1
         v1y = math.cos(angle*d2r) * a1
         v2x = math.sin(angle*d2r) * (a1 + length)
         v2y = math.cos(angle*d2r) * (a1 + length)
-        tmp = [ self.ar_helper(q0, a0+v1y, v1x),
-                self.ar_helper(q0, a0+v2y, v2x) ]
-        uv = self.rotate_pt(tmp, center, self.phi_rad)
+        tmp = [ self.cam_helper(v1y, v1x),
+                self.cam_helper(v2y, v2x) ]
+        uv = self.rotate_pt(tmp, nose, 0.0)
         if uv != None:
             cv2.polylines(self.frame, np.array([uv]), False, white, self.line_width, cv2.LINE_AA)
 
     def draw_roll_indicator(self):
         a1 = 16.0
 
-        q0 = transformations.quaternion_about_axis(self.psi_rad,
-                                                   [0.0, 0.0, -1.0])
-        a0 = self.the_rad*r2d
-        # print 'pitch:', a0, 'ap:', self.ap_pitch
-        
         # center point
-        center = self.ar_helper(q0, a0, 0.0)
-        if center == None:
+        nose = self.cam_helper(0.0, 0.0)
+        if nose == None:
             return
 
         # background arc
@@ -599,21 +594,21 @@ class HUD:
         for a in range(-60, 60+1, 5):
             vx = math.sin(a*d2r) * a1
             vy = math.cos(a*d2r) * a1
-            tmp.append( self.ar_helper(q0, a0+vy, vx) )
-        uv = self.rotate_pt(tmp, center, self.phi_rad)
+            tmp.append( self.cam_helper(vy, vx) )
+        uv = self.rotate_pt(tmp, nose, 0.0)
         if uv != None:
             cv2.polylines(self.frame, np.array([uv]), False, white, self.line_width, cv2.LINE_AA)
 
-        self.draw_roll_indicator_tic(center, q0, a0, a1, -60, 2)
-        self.draw_roll_indicator_tic(center, q0, a0, a1, -30, 2)
-        self.draw_roll_indicator_tic(center, q0, a0, a1, 30, 2)
-        self.draw_roll_indicator_tic(center, q0, a0, a1, 60, 2)
-        self.draw_roll_indicator_tic(center, q0, a0, a1, -45, 1)
-        self.draw_roll_indicator_tic(center, q0, a0, a1, 45, 1)
-        self.draw_roll_indicator_tic(center, q0, a0, a1, -20, 1)
-        self.draw_roll_indicator_tic(center, q0, a0, a1, 20, 1)
-        self.draw_roll_indicator_tic(center, q0, a0, a1, -10, 1)
-        self.draw_roll_indicator_tic(center, q0, a0, a1, 10, 1)
+        self.draw_roll_indicator_tic(nose, a1, -60, 2)
+        self.draw_roll_indicator_tic(nose, a1, -30, 2)
+        self.draw_roll_indicator_tic(nose, a1, 30, 2)
+        self.draw_roll_indicator_tic(nose, a1, 60, 2)
+        self.draw_roll_indicator_tic(nose, a1, -45, 1)
+        self.draw_roll_indicator_tic(nose, a1, 45, 1)
+        self.draw_roll_indicator_tic(nose, a1, -20, 1)
+        self.draw_roll_indicator_tic(nose, a1, 20, 1)
+        self.draw_roll_indicator_tic(nose, a1, -10, 1)
+        self.draw_roll_indicator_tic(nose, a1, 10, 1)
 
             
     def draw_course(self):
