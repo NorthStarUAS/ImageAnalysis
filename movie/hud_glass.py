@@ -26,6 +26,7 @@ m2ft = 1 / ft2m
 black = (0, 0, 0)
 green2 = (0, 238, 0)
 red2 = (0, 0, 238)
+royalblue = (225, 105, 65)
 medium_orchid = (186, 85, 211)
 dark_orchid = (123, 56, 139)
 yellow = (50, 255, 255)
@@ -535,21 +536,52 @@ class HUD:
                 uv[i] = (p[0], p[1] + offset)
             cv2.fillPoly(self.frame, np.array([uv]), white)
 
+        center = (self.nose_uv[0], row_start + int(round(rows*0.5)))
+
         # ground course indicator
         a = math.atan2(self.filter_ve, self.filter_vn)
-        gc_rot = self.phi_rad - a
+        gc_rot = a - self.psi_rad
+        if gc_rot < -math.pi:
+            gc_rot += 2*math.pi
+        if gc_rot > math.pi:
+            gc_rot -= 2*math.pi
         size1 = int(round(hdg_rows*0.05))
         size2 = int(round(hdg_rows*0.1))
-        center = (self.nose_uv[0], row_start + int(round(rows*0.5)))
-        end = (self.nose_uv[0], row_start + size1)
-        arrow1 = (self.nose_uv[0] - size1, end[1] + size2)
-        arrow2 = (self.nose_uv[0] + size1, end[1] + size2)
-        uv = self.rotate_pt([end, arrow1, arrow2], center, gc_rot)
+        nose = (self.nose_uv[0], row_start + size1)
+        #end = (self.nose_uv[0], center[1] + size2)
+        end = (self.nose_uv[0], center[1])
+        arrow1 = (self.nose_uv[0] - size1, nose[1] + size2)
+        arrow2 = (self.nose_uv[0] + size1, nose[1] + size2)
+        uv = self.rotate_pt([nose, arrow1, arrow2, end], center, gc_rot)
         if uv != None:
-            pts1 = np.array([[center, uv[0]]])
-            pts2 = np.array([uv])
+            pts1 = np.array([[uv[0], uv[3]]])
+            pts2 = np.array([[uv[0], uv[1], uv[2]]])
             cv2.polylines(self.frame, pts1, False, yellow, int(round(self.line_width*1.5)), cv2.LINE_AA)
             cv2.fillPoly(self.frame, pts2, yellow)
+
+        # wind indicator
+        wind_rad = 5.07
+        wind_kts = 0.0
+        max_wind = 20.0
+        gc_rot = wind_rad - self.psi_rad
+        if gc_rot < -math.pi:
+            gc_rot += 2*math.pi
+        if gc_rot > math.pi:
+            gc_rot -= 2*math.pi
+        size1 = int(round(hdg_rows*0.05))
+        size2 = int(round(hdg_rows*0.1))
+        if wind_kts > max_wind: wind_kts = max_wind
+        size3 = int(round((rows*0.5)*0.7 * (wind_kts/max_wind)))
+        nose = (self.nose_uv[0], center[1])
+        end = (self.nose_uv[0], center[1] - (size1 + size2 + size3))
+        arrow1 = (nose[0] - size1, nose[1] - size2)
+        arrow2 = (nose[0] + size1, nose[1] - size2)
+        uv = self.rotate_pt([nose, arrow1, arrow2, end], center, gc_rot)
+        if uv != None:
+            pts1 = np.array([[uv[0], uv[3]]])
+            pts2 = np.array([[uv[0], uv[1], uv[2]]])
+            cv2.polylines(self.frame, pts1, False, royalblue, int(round(self.line_width*1.5)), cv2.LINE_AA)
+            cv2.fillPoly(self.frame, pts2, royalblue)
 
     def draw_heading_bug(self):
         color = medium_orchid
