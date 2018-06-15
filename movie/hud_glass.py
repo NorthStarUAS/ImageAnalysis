@@ -435,26 +435,31 @@ class HUD:
         a1 = 14.0
         a2 = 2.0
         a3 = 5.0
-        q0 = transformations.quaternion_about_axis(self.psi_rad,
-                                                   [0.0, 0.0, -1.0])
-        a0 = self.ap_pitch
+
+        a0 = -self.the_rad*r2d + self.ap_pitch
+        #a0 = 5
+
+        # center point
+        nose = self.cam_helper(0.0, 0.0)
+        if nose == None:
+            return
 
         # rotation point (about nose)
-        rot = self.ar_helper(q0, self.the_rad*r2d, 0.0)
-        if rot == None:
-            return
+        # rot = self.ar_helper(self.the_rad*r2d, 0.0)
+        # if rot == None:
+        #     return
         
         # center point
-        tmp1 = self.ar_helper(q0, a0, 0.0)
-        center = self.rotate_pt(tmp1, rot, self.ap_roll*d2r)
+        tmp = self.cam_helper(a0, 0.0)
+        center = self.rotate_pt(tmp, nose, -self.phi_rad + self.ap_roll*d2r)
         if center == None:
             return
 
         # right vbar
-        tmp = [ self.ar_helper(q0, a0-a3, a1),
-                self.ar_helper(q0, a0-a3, a1+a2),
-                self.ar_helper(q0, a0-(a3-a2), a1+a2) ]
-        uv = self.rotate_pt(tmp, rot, self.ap_roll*d2r)
+        tmp = [ self.cam_helper(a0-a3, a1),
+                self.cam_helper(a0-a3, a1+a2),
+                self.cam_helper(a0-(a3-a2), a1+a2) ]
+        uv = self.rotate_pt(tmp, nose, -self.phi_rad + self.ap_roll*d2r)
         if uv != None:
             pts1 = np.array([[center, uv[0], uv[1], uv[2]]])
             cv2.fillPoly(self.frame, pts1, medium_orchid)
@@ -462,10 +467,10 @@ class HUD:
             cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
 
         # left vbar
-        tmp = [ self.ar_helper(q0, a0-a3, -a1),
-                self.ar_helper(q0, a0-a3, -(a1+a2)),
-                self.ar_helper(q0, a0-(a3-a2), -(a1+a2)) ]
-        uv = self.rotate_pt(tmp, rot, self.ap_roll*d2r)
+        tmp = [ self.cam_helper(a0-a3, -a1),
+                self.cam_helper(a0-a3, -(a1+a2)),
+                self.cam_helper(a0-(a3-a2), -(a1+a2)) ]
+        uv = self.rotate_pt(tmp, nose, -self.phi_rad + self.ap_roll*d2r)
         if uv != None:
             pts1 = np.array([[center, uv[0], uv[1], uv[2]]])
             cv2.fillPoly(self.frame, pts1, medium_orchid)
@@ -498,77 +503,6 @@ class HUD:
         cv2.line(self.frame, pts[5], pts[6], color, self.line_width, cv2.LINE_AA)
         cv2.line(self.frame, pts[6], pts[0], color, self.line_width, cv2.LINE_AA)
 
-    def draw_bird_orig(self):
-        a1 = 14.0
-        a2 = 3.0
-        a3 = 5.0
-        a4 = 18.0
-        a5 = 0.5
-
-        q0 = transformations.quaternion_about_axis(self.psi_rad,
-                                                   [0.0, 0.0, -1.0])
-        a0 = self.the_rad*r2d
-        # print 'pitch:', a0, 'ap:', self.ap_pitch
-        
-        # center point
-        center = self.ar_helper(q0, a0, 0.0)
-        if center == None:
-            return
-
-        # right bird
-        tmp = [ self.ar_helper(q0, a0-a3, a1),
-                self.ar_helper(q0, a0-a3, a1-a2),
-                self.ar_helper(q0, a0-a3, a1-a3) ]
-        uv = self.rotate_pt(tmp, center, self.phi_rad)
-        if uv != None:
-            pts1 = np.array([[center, uv[0], uv[2]]])
-            pts2 = np.array([[center, uv[1], uv[2]]])
-            cv2.fillPoly(self.frame, pts1, yellow)
-            cv2.fillPoly(self.frame, pts2, dark_yellow)
-            cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
-                
-        # left bird
-        tmp = [ self.ar_helper(q0, a0-a3, -a1),
-                self.ar_helper(q0, a0-a3, -a1+a2),
-                self.ar_helper(q0, a0-a3, -a1+a3) ]
-        uv = self.rotate_pt(tmp, center, self.phi_rad)
-        if uv != None:
-            pts1 = np.array([[center, uv[0], uv[2]]])
-            pts2 = np.array([[center, uv[1], uv[2]]])
-            cv2.fillPoly(self.frame, pts1, yellow)
-            cv2.fillPoly(self.frame, pts2, dark_yellow)
-            cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
-                
-        # right horizon marker
-        tmp = [ self.ar_helper(q0, a0, a4),
-                self.ar_helper(q0, a0-a5, a4+a5),
-                self.ar_helper(q0, a0-a5, a4+a3),
-                self.ar_helper(q0, a0+a5, a4+a3),
-                self.ar_helper(q0, a0+a5, a4+a5),
-                self.ar_helper(q0, a0, a4+a3) ]
-        uv = self.rotate_pt(tmp, center, self.phi_rad)
-        if uv != None:
-            pts1 = np.array([[uv[0], uv[1], uv[2], uv[3], uv[4]]])
-            pts2 = np.array([[uv[0], uv[1], uv[2], uv[5]]])
-            cv2.fillPoly(self.frame, pts1, yellow)
-            cv2.fillPoly(self.frame, pts2, dark_yellow)
-            cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
-
-        # left horizon marker
-        tmp = [ self.ar_helper(q0, a0, -a4),
-                self.ar_helper(q0, a0-a5, -(a4+a5)),
-                self.ar_helper(q0, a0-a5, -(a4+a3)),
-                self.ar_helper(q0, a0+a5, -(a4+a3)),
-                self.ar_helper(q0, a0+a5, -(a4+a5)),
-                self.ar_helper(q0, a0, -(a4+a3)) ]
-        uv = self.rotate_pt(tmp, center, self.phi_rad)
-        if uv != None:
-            pts1 = np.array([[uv[0], uv[1], uv[2], uv[3], uv[4]]])
-            pts2 = np.array([[uv[0], uv[1], uv[2], uv[5]]])
-            cv2.fillPoly(self.frame, pts1, yellow)
-            cv2.fillPoly(self.frame, pts2, dark_yellow)
-            cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
-
     def draw_bird(self):
         a1 = 14.0
         a2 = 3.0
@@ -577,19 +511,18 @@ class HUD:
         a5 = 0.5
 
         # center point
-        center = self.cam_helper(0.0, 0.0)
-        if center == None:
-            print('center none')
+        nose = self.cam_helper(0.0, 0.0)
+        if nose == None:
             return
 
         # right bird
         tmp = [ self.cam_helper(-a3, a1),
                 self.cam_helper(-a3, a1-a2),
                 self.cam_helper(-a3, a1-a3) ]
-        uv = self.rotate_pt(tmp, center, 0.0)
+        uv = self.rotate_pt(tmp, nose, 0.0)
         if uv != None:
-            pts1 = np.array([[center, uv[0], uv[2]]])
-            pts2 = np.array([[center, uv[1], uv[2]]])
+            pts1 = np.array([[nose, uv[0], uv[2]]])
+            pts2 = np.array([[nose, uv[1], uv[2]]])
             print(pts1)
             cv2.fillPoly(self.frame, pts1, yellow)
             cv2.fillPoly(self.frame, pts2, dark_yellow)
@@ -599,10 +532,10 @@ class HUD:
         tmp = [ self.cam_helper(-a3, -a1),
                 self.cam_helper(-a3, -a1+a2),
                 self.cam_helper(-a3, -a1+a3) ]
-        uv = self.rotate_pt(tmp, center, 0.0)
+        uv = self.rotate_pt(tmp, nose, 0.0)
         if uv != None:
-            pts1 = np.array([[center, uv[0], uv[2]]])
-            pts2 = np.array([[center, uv[1], uv[2]]])
+            pts1 = np.array([[nose, uv[0], uv[2]]])
+            pts2 = np.array([[nose, uv[1], uv[2]]])
             cv2.fillPoly(self.frame, pts1, yellow)
             cv2.fillPoly(self.frame, pts2, dark_yellow)
             cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
@@ -614,7 +547,7 @@ class HUD:
                 self.cam_helper(a5, a4+a3),
                 self.cam_helper(a5, a4+a5),
                 self.cam_helper(0.0, a4+a3) ]
-        uv = self.rotate_pt(tmp, center, 0.0)
+        uv = self.rotate_pt(tmp, nose, 0.0)
         if uv != None:
             pts1 = np.array([[uv[0], uv[1], uv[2], uv[3], uv[4]]])
             pts2 = np.array([[uv[0], uv[5], uv[3], uv[4]]])
@@ -629,7 +562,7 @@ class HUD:
                 self.cam_helper(a5, -(a4+a3)),
                 self.cam_helper(a5, -(a4+a5)),
                 self.cam_helper(0.0, -(a4+a3)) ]
-        uv = self.rotate_pt(tmp, center, 0.0)
+        uv = self.rotate_pt(tmp, nose, 0.0)
         if uv != None:
             pts1 = np.array([[uv[0], uv[1], uv[2], uv[3], uv[4]]])
             pts2 = np.array([[uv[0], uv[5], uv[3], uv[4]]])
