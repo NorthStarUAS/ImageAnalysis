@@ -494,7 +494,10 @@ while True:
     frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
 
     # Create hud draw space
-    hud1_frame = frame_undist.copy()
+    if True:
+        hud1_frame = frame_undist.copy()
+    else:
+        hud1_frame = np.zeros((frame_undist.shape), np.uint8)
 
     hud1.update_time(time, interp.gps_unixtime(time))
     if interp.excite_mode:
@@ -520,12 +523,26 @@ while True:
         hud1.update_frame(hud1_frame)
         hud1.draw()
 
-    # weighted add of the HUD frame with the original frame to
-    # emulate alpha blending
-    alpha = args.alpha
-    if alpha < 0: alpha = 0
-    if alpha > 1: alpha = 1
-    cv2.addWeighted(hud1_frame, alpha, frame_undist, 1 - alpha, 0, hud1_frame)
+    if True:
+        # weighted add of the HUD frame with the original frame to
+        # emulate alpha blending
+        alpha = args.alpha
+        if alpha < 0: alpha = 0
+        if alpha > 1: alpha = 1
+        cv2.addWeighted(hud1_frame, alpha, frame_undist, 1 - alpha, 0, hud1_frame)
+    else:
+        # this method loses any antialiasing effects. :-(
+        
+        # Now create a mask of hud and create its inverse mask also
+        tmp = cv2.cvtColor(hud1_frame, cv2.COLOR_BGR2GRAY)
+        ret, mask = cv2.threshold(tmp, 10, 255, cv2.THRESH_BINARY)
+        mask_inv = cv2.bitwise_not(mask)
+
+        # Now black-out the hud from the original image
+        tmp_bg = cv2.bitwise_and(frame_undist, frame_undist, mask=mask_inv)
+
+        # Put hud onto the main image
+        hud1_frame = cv2.add(tmp_bg, hud1_frame)
 
     cv2.imshow('hud', hud1_frame)
     output.write(hud1_frame)
