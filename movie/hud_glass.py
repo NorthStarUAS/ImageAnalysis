@@ -570,6 +570,8 @@ class HUD:
             cv2.fillPoly(self.frame, pts2, yellow)
             cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
 
+        return nose
+
     def draw_roll_indicator_tic(self, nose, a1, angle, length):
         v1x = math.sin(angle*d2r) * a1
         v1y = math.cos(angle*d2r) * a1
@@ -763,20 +765,15 @@ class HUD:
             self.draw_lla_point([ apt[1], apt[2], apt[3] ], apt[0])
 
     def draw_nose(self):
-        ned2body = transformations.quaternion_from_euler(self.psi_rad,
-                                                         self.the_rad,
-                                                         self.phi_rad,
-                                                         'rzyx')
-        body2ned = transformations.quaternion_inverse(ned2body)
-        vec = transformations.quaternion_transform(body2ned, [1.0, 0.0, 0.0])
-        uv = self.project_ned([self.ned[0] + vec[0],
-                               self.ned[1] + vec[1],
-                               self.ned[2] + vec[2]])
+        # center point
+        nose = self.cam_helper(0.0, 0.0)
+        if nose == None:
+            return
+
         r1 = int(round(self.render_h / 80))
         r2 = int(round(self.render_h / 40))
-        if uv != None:
-            cv2.circle(self.frame, uv, r1, self.color, self.line_width, cv2.LINE_AA)
-            cv2.circle(self.frame, uv, r2, self.color, self.line_width, cv2.LINE_AA)
+        cv2.circle(self.frame, nose, r1, self.color, self.line_width, cv2.LINE_AA)
+        cv2.circle(self.frame, nose, r2, self.color, self.line_width, cv2.LINE_AA)
 
     def draw_velocity_vector(self):
         tf = 0.2
@@ -1161,16 +1158,20 @@ class HUD:
     # draw autopilot symbology
     def draw_ap(self):
         if self.flight_mode == 'manual':
-            self.draw_nose()
+            #self.draw_nose()
+            nose_uv = self.draw_bird()
+            self.draw_roll_indicator()
         else:
             self.draw_vbars()
             self.draw_heading_bug()
-            self.draw_bird()
+            nose_uv = self.draw_bird()
             self.draw_roll_indicator()
             self.draw_course()
+        return nose_uv
         
     def draw(self):
         self.draw_conformal()
         self.draw_fixed()
-        self.draw_ap()
+        nose_uv = self.draw_ap()
+        return nose_uv
         
