@@ -68,6 +68,8 @@ class HUD:
         self.airspeed_kt = 0
         self.altitude_m = 0
         self.ground_m = 0
+        self.wind_deg = 0.0
+        self.wind_kt = 0.0
         self.flight_mode = 'none'
         self.ap_roll = 0
         self.ap_pitch = 0
@@ -171,9 +173,12 @@ class HUD:
         self.the_rad = the_rad
         self.psi_rad = psi_rad
 
-    def update_airdata(self, airspeed_kt, altitude_m, alpha_rad=0, beta_rad=0):
+    def update_airdata(self, airspeed_kt, altitude_m, wind_deg, wind_kt,
+                       alpha_rad=0, beta_rad=0):
         self.airspeed_kt = airspeed_kt
         self.altitude_m = altitude_m
+        self.wind_deg = wind_deg
+        self.wind_kt = wind_kt
         self.alpha_rad = alpha_rad
         self.beta_rad = beta_rad
 
@@ -560,9 +565,10 @@ class HUD:
             cv2.fillPoly(self.frame, pts2, yellow)
 
         # wind indicator
-        wind_rad = 5.07
-        wind_kts = 0.0
-        max_wind = 20.0
+        wind_rad = self.wind_deg * d2r
+        wind_kt = self.wind_kt
+        max_wind = self.ap_speed
+        if wind_kt > max_wind: wind_kt = max_wind
         gc_rot = wind_rad - self.psi_rad
         if gc_rot < -math.pi:
             gc_rot += 2*math.pi
@@ -570,8 +576,7 @@ class HUD:
             gc_rot -= 2*math.pi
         size1 = int(round(hdg_rows*0.05))
         size2 = int(round(hdg_rows*0.1))
-        if wind_kts > max_wind: wind_kts = max_wind
-        size3 = int(round((rows*0.5)*0.7 * (wind_kts/max_wind)))
+        size3 = int(round((rows*0.5)*0.7 * (wind_kt/max_wind)))
         nose = (self.nose_uv[0], center[1])
         end = (self.nose_uv[0], center[1] - (size1 + size2 + size3))
         arrow1 = (nose[0] - size1, nose[1] - size2)
@@ -738,8 +743,6 @@ class HUD:
     def draw_course(self):
         color = yellow
         size = 2
-        self.filter_vn = (1.0 - self.tf_vel) * self.filter_vn + self.tf_vel * self.vn
-        self.filter_ve = (1.0 - self.tf_vel) * self.filter_ve + self.tf_vel * self.ve
         a = math.atan2(self.filter_ve, self.filter_vn)
         q0 = transformations.quaternion_about_axis(a, [0.0, 0.0, -1.0])
         uv1 = self.ar_helper(q0, 0, 0)
@@ -1274,6 +1277,10 @@ class HUD:
         self.draw_dg()
         
     def draw(self):
+        # update the ground vel filter
+        self.filter_vn = (1.0 - self.tf_vel) * self.filter_vn + self.tf_vel * self.vn
+        self.filter_ve = (1.0 - self.tf_vel) * self.filter_ve + self.tf_vel * self.ve
+        # draw
         self.draw_conformal()
         self.draw_fixed()
         self.draw_ap()

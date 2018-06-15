@@ -413,6 +413,9 @@ while True:
         airspeed_kt = interp.air_speed(time)
     else:
         airspeed_kt = 0.0
+    if interp.air_wind_dir != None:
+        wind_deg = interp.air_wind_dir(time)
+        wind_kt = interp.air_wind_speed(time)
     if interp.air_alpha and interp.air_beta:
         alpha_rad = float(interp.air_alpha(time))*d2r
         beta_rad = float(interp.air_beta(time))*d2r
@@ -511,7 +514,7 @@ while True:
     hud1.update_lla([lat_deg, lon_deg, altitude_m])
     hud1.update_vel(vn, ve, vd)
     hud1.update_att_rad(roll_rad, pitch_rad, yaw_rad)
-    hud1.update_airdata(airspeed_kt, altitude_m, alpha_rad, beta_rad)
+    hud1.update_airdata(airspeed_kt, altitude_m, wind_deg, wind_kt, alpha_rad, beta_rad)
     if interp.ap_hdgx:
         hud1.update_ap(flight_mode, ap_roll, ap_pitch, ap_hdg,
                        ap_speed, ap_alt_ft)
