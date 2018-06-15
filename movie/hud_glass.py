@@ -577,7 +577,7 @@ class HUD:
         v2y = math.cos(angle*d2r) * (a1 + length)
         tmp = [ self.cam_helper(v1y, v1x),
                 self.cam_helper(v2y, v2x) ]
-        uv = self.rotate_pt(tmp, nose, 0.0)
+        uv = self.rotate_pt(tmp, nose, -self.phi_rad)
         if uv != None:
             cv2.polylines(self.frame, np.array([uv]), False, white, self.line_width, cv2.LINE_AA)
 
@@ -595,7 +595,7 @@ class HUD:
             vx = math.sin(a*d2r) * a1
             vy = math.cos(a*d2r) * a1
             tmp.append( self.cam_helper(vy, vx) )
-        uv = self.rotate_pt(tmp, nose, 0.0)
+        uv = self.rotate_pt(tmp, nose, -self.phi_rad)
         if uv != None:
             cv2.polylines(self.frame, np.array([uv]), False, white, self.line_width, cv2.LINE_AA)
 
@@ -614,15 +614,15 @@ class HUD:
         tmp = [ self.cam_helper(a1, 0),
                 self.cam_helper(a1+1.5, 0.66),
                 self.cam_helper(a1+1.5, -0.65) ]
-        uv = self.rotate_pt(tmp, nose, 0.0)
+        uv = self.rotate_pt(tmp, nose, -self.phi_rad)
         if uv != None:
-            cv2.fillPoly(self.frame, np.array([tmp]), white)
+            cv2.fillPoly(self.frame, np.array([uv]), white)
 
         # roll pointer
         tmp = [ self.cam_helper(a1, 0),
                 self.cam_helper(a1-1.5, 0.66),
                 self.cam_helper(a1-1.5, -0.65) ]
-        uv = self.rotate_pt(tmp, nose, self.phi_rad)
+        uv = self.rotate_pt(tmp, nose, 0.0)
         if uv != None:
             cv2.fillPoly(self.frame, np.array([uv]), white)
 
