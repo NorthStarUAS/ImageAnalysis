@@ -516,7 +516,7 @@ class HUD:
         # transparent dg face
         overlay = self.frame.copy()
         cv2.circle(overlay, center, int(round(hdg_cols * 0.5)), gray50, -1)
-        opacity = 0.4
+        opacity = 0.25
         cv2.addWeighted(overlay, opacity, self.frame, 1 - opacity, 0, self.frame)
         
         # heading bug
@@ -667,13 +667,14 @@ class HUD:
             cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
                 
         # right horizon marker
-        tmp = [ self.cam_helper(0.0, a4),
-                self.cam_helper(-a5, a4+a5),
-                self.cam_helper(-a5, a4+a3),
-                self.cam_helper(a5, a4+a3),
-                self.cam_helper(a5, a4+a5),
-                self.cam_helper(0.0, a4+a3) ]
-        uv = self.rotate_pt(tmp, nose, 0.0)
+        a6 = self.the_rad * r2d
+        tmp = [ self.cam_helper(-a6, a4),
+                self.cam_helper(-a6-a5, a4+a5),
+                self.cam_helper(-a6-a5, a4+a3),
+                self.cam_helper(-a6+a5, a4+a3),
+                self.cam_helper(-a6+a5, a4+a5),
+                self.cam_helper(-a6, a4+a3) ]
+        uv = self.rotate_pt(tmp, nose, -self.phi_rad)
         if uv != None:
             pts1 = np.array([[uv[0], uv[1], uv[2], uv[3], uv[4]]])
             pts2 = np.array([[uv[0], uv[5], uv[3], uv[4]]])
@@ -682,13 +683,13 @@ class HUD:
             cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
 
         # left horizon marker
-        tmp = [ self.cam_helper(0.0, -a4),
-                self.cam_helper(-a5, -(a4+a5)),
-                self.cam_helper(-a5, -(a4+a3)),
-                self.cam_helper(a5, -(a4+a3)),
-                self.cam_helper(a5, -(a4+a5)),
-                self.cam_helper(0.0, -(a4+a3)) ]
-        uv = self.rotate_pt(tmp, nose, 0.0)
+        tmp = [ self.cam_helper(-a6, -a4),
+                self.cam_helper(-a6-a5, -(a4+a5)),
+                self.cam_helper(-a6-a5, -(a4+a3)),
+                self.cam_helper(-a6+a5, -(a4+a3)),
+                self.cam_helper(-a6+a5, -(a4+a5)),
+                self.cam_helper(-a6, -(a4+a3)) ]
+        uv = self.rotate_pt(tmp, nose, -self.phi_rad)
         if uv != None:
             pts1 = np.array([[uv[0], uv[1], uv[2], uv[3], uv[4]]])
             pts2 = np.array([[uv[0], uv[5], uv[3], uv[4]]])
@@ -932,7 +933,7 @@ class HUD:
         # transparent background
         overlay = self.frame.copy()
         cv2.rectangle(overlay, (cx-ysize-xsize, miny-int(ysize*0.5)), (cx, maxy+ysize), gray50, -1)
-        opacity = 0.4
+        opacity = 0.25
         cv2.addWeighted(overlay, opacity, self.frame, 1 - opacity, 0, self.frame)
         
         # speed bug
@@ -1018,7 +1019,7 @@ class HUD:
         # transparent background
         overlay = self.frame.copy()
         cv2.rectangle(overlay, (cx+ysize+xsize, miny-int(ysize*0.5)), (cx, maxy+ysize), gray50, -1)
-        opacity = 0.4
+        opacity = 0.25
         cv2.addWeighted(overlay, opacity, self.frame, 1 - opacity, 0, self.frame)
         
         # altitude bug
