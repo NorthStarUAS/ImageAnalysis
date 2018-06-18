@@ -593,9 +593,11 @@ class HUD:
                 gc_rot -= 2*math.pi
             size1 = int(round(hdg_rows*0.05))
             size2 = int(round(hdg_rows*0.1))
-            size3 = int(round((rows*0.5)*0.7 * (wind_kt/max_wind)))
+            size3 = int(round((rows*0.5) * (wind_kt/max_wind)))
+            if size3 < size1 + size2:
+                size3 = size1 + size2
             nose = (self.nose_uv[0], center[1])
-            end = (self.nose_uv[0], center[1] - (size1 + size2 + size3))
+            end = (self.nose_uv[0], center[1] - size3)
             arrow1 = (nose[0] - size1, nose[1] - size2)
             arrow2 = (nose[0] + size1, nose[1] - size2)
             uv = self.rotate_pt([nose, arrow1, arrow2, end], center, gc_rot)
