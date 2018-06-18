@@ -515,8 +515,7 @@ class HUD:
         size2 = int(round(hdg_rows*0.09))
 
         # transparent dg face
-        if not 'dg-face' in self.shaded_areas:
-            self.shaded_areas['dg-face'] = ['circle', center, int(round(hdg_cols * 0.5)) ]
+        self.shaded_areas['dg-face'] = ['circle', center, int(round(hdg_cols * 0.5)) ]
         
         # heading bug
         if self.flight_mode != 'manual':
@@ -932,8 +931,7 @@ class HUD:
         spacing = int(round(asi_size[0][1] * 0.5))
 
         # transparent background
-        if not 'speed-tape' in self.shaded_areas:
-            self.shaded_areas['speed-tape'] = ['rectangle', (cx-ysize-xsize, miny-int(ysize*0.5)), (cx, maxy+ysize) ]
+        self.shaded_areas['speed-tape'] = ['rectangle', (cx-ysize-xsize, miny-int(ysize*0.5)), (cx, maxy+ysize) ]
 
         # speed bug
         offset = int((ap_speed - airspeed) * spacing)
@@ -1016,8 +1014,7 @@ class HUD:
         ysize = alt_size[0][1] + pad
 
         # transparent background
-        if not 'altitude-tape' in self.shaded_areas:
-            self.shaded_areas['altitude-tape'] = ['rectangle', (cx+ysize+xsize, miny-int(ysize*0.5)), (cx, maxy+ysize) ]
+        self.shaded_areas['altitude-tape'] = ['rectangle', (cx+ysize+xsize, miny-int(ysize*0.5)), (cx, maxy+ysize) ]
         
         # altitude bug
         offset = int((ap_alt - altitude)/10.0 * spacing)
