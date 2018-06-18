@@ -93,6 +93,7 @@ class HUD:
         self.features = []
         self.nose_uv = [0, 0]
         self.dg_img = cv2.imread('hdg_hud.png', -1) # load with transparency
+        self.shaded_areas = {}
 
     def set_render_size(self, w, h):
         self.render_w = w
@@ -514,10 +515,8 @@ class HUD:
         size2 = int(round(hdg_rows*0.09))
 
         # transparent dg face
-        overlay = self.frame.copy()
-        cv2.circle(overlay, center, int(round(hdg_cols * 0.5)), gray50, -1)
-        opacity = 0.25
-        cv2.addWeighted(overlay, opacity, self.frame, 1 - opacity, 0, self.frame)
+        if not 'dg-face' in self.shaded_areas:
+            self.shaded_areas['dg-face'] = ['circle', center, int(round(hdg_cols * 0.5)) ]
         
         # heading bug
         if self.flight_mode != 'manual':
@@ -931,11 +930,9 @@ class HUD:
         spacing = int(round(asi_size[0][1] * 0.5))
 
         # transparent background
-        overlay = self.frame.copy()
-        cv2.rectangle(overlay, (cx-ysize-xsize, miny-int(ysize*0.5)), (cx, maxy+ysize), gray50, -1)
-        opacity = 0.25
-        cv2.addWeighted(overlay, opacity, self.frame, 1 - opacity, 0, self.frame)
-        
+        if not 'speed-tape' in self.shaded_areas:
+            self.shaded_areas['speed-tape'] = ['rectangle', (cx-ysize-xsize, miny-int(ysize*0.5)), (cx, maxy+ysize) ]
+
         # speed bug
         offset = int((ap_speed - airspeed) * spacing)
         if self.flight_mode == 'auto' and cy - offset >= miny and cy - offset <= maxy:
@@ -1017,10 +1014,8 @@ class HUD:
         ysize = alt_size[0][1] + pad
 
         # transparent background
-        overlay = self.frame.copy()
-        cv2.rectangle(overlay, (cx+ysize+xsize, miny-int(ysize*0.5)), (cx, maxy+ysize), gray50, -1)
-        opacity = 0.25
-        cv2.addWeighted(overlay, opacity, self.frame, 1 - opacity, 0, self.frame)
+        if not 'altitude-tape' in self.shaded_areas:
+            self.shaded_areas['altitude-tape'] = ['rectangle', (cx+ysize+xsize, miny-int(ysize*0.5)), (cx, maxy+ysize) ]
         
         # altitude bug
         offset = int((ap_alt - altitude)/10.0 * spacing)
@@ -1119,33 +1114,33 @@ class HUD:
             throttle = self.pilot_thr
             rudder = self.pilot_rud
         h, w, d = self.frame.shape
-        lx = int(h * 0.1)
-        ly = int(h * 0.8)
-        rx = w - int(h * 0.1)
-        ry = int(h * 0.8)
+        lx = int(w * 0.29)
+        ly = int(h * 0.85)
+        rx = w - int(w * 0.29)
+        ry = int(h * 0.85)
         r1 = int(round(h * 0.09))
         if r1 < 10: r1 = 10
         r2 = int(round(h * 0.01))
         if r2 < 2: r2 = 2
-        cv2.circle(self.frame, (lx,ly), r1, self.color, self.line_width,
+        cv2.circle(self.frame, (lx,ly), r1, white, self.line_width,
                    cv2.LINE_AA)
-        cv2.line(self.frame, (lx,ly-r1), (lx,ly+r1), self.color, 1,
+        cv2.line(self.frame, (lx,ly-r1), (lx,ly+r1), white, 1,
                  cv2.LINE_AA)
-        cv2.line(self.frame, (lx-r1,ly), (lx+r1,ly), self.color, 1,
+        cv2.line(self.frame, (lx-r1,ly), (lx+r1,ly), white, 1,
                  cv2.LINE_AA)
-        cv2.circle(self.frame, (rx,ry), r1, self.color, self.line_width,
+        cv2.circle(self.frame, (rx,ry), r1, white, self.line_width,
                    cv2.LINE_AA)
-        cv2.line(self.frame, (rx,ry-r1), (rx,ry+r1), self.color, 1,
+        cv2.line(self.frame, (rx,ry-r1), (rx,ry+r1), white, 1,
                  cv2.LINE_AA)
-        cv2.line(self.frame, (rx-r1,ry), (rx+r1,ry), self.color, 1,
+        cv2.line(self.frame, (rx-r1,ry), (rx+r1,ry), white, 1,
                  cv2.LINE_AA)
         lsx = lx + int(round(rudder * r1))
         lsy = ly + r1 - int(round(2 * throttle * r1))
-        cv2.circle(self.frame, (lsx,lsy), r2, self.color, self.line_width,
+        cv2.circle(self.frame, (lsx,lsy), r2, white, self.line_width,
                    cv2.LINE_AA)
         rsx = rx + int(round(aileron * r1))
         rsy = ry - int(round(elevator * r1))
-        cv2.circle(self.frame, (rsx,rsy), r2, self.color, self.line_width,
+        cv2.circle(self.frame, (rsx,rsy), r2, white, self.line_width,
                    cv2.LINE_AA)
 
     def draw_time(self):
@@ -1297,6 +1292,18 @@ class HUD:
         self.draw_time()
         self.draw_test_index()
 
+    # draw semi-translucent shaded areas
+    def draw_shaded_areas(self):
+        color = gray50
+        opacity = 0.25
+        overlay = self.frame.copy()
+        for key in self.shaded_areas:
+            area = self.shaded_areas[key]
+            if area[0] == 'circle':
+                cv2.circle(overlay, area[1], area[2], color, -1)
+            elif area[0] == 'rectangle':
+                cv2.rectangle(overlay, area[1], area[2], color, -1)
+        cv2.addWeighted(overlay, opacity, self.frame, 1 - opacity, 0, self.frame)
     # draw autopilot symbology
     def draw_ap(self):
         if self.flight_mode == 'manual':
@@ -1318,6 +1325,7 @@ class HUD:
 
         # draw
         self.draw_conformal()
+        self.draw_shaded_areas()
         self.draw_fixed()
         self.draw_ap()
         

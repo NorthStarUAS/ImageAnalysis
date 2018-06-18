@@ -53,7 +53,7 @@ parser.add_argument('--altitude-units', choices=['ft', 'm'], default='ft', help=
 parser.add_argument('--aileron-scale', type=float, default=1.0, help='useful for reversing aileron in display')
 parser.add_argument('--elevator-scale', type=float, default=1.0, help='useful for reversing elevator in display')
 parser.add_argument('--rudder-scale', type=float, default=1.0, help='useful for reversing rudder in display')
-parser.add_argument('--flight-track-seconds', type=float, default=1200.0, help='how many seconds of flight track to draw')
+parser.add_argument('--flight-track-seconds', type=float, default=600.0, help='how many seconds of flight track to draw')
 parser.add_argument('--features', help='feature database')
 args = parser.parse_args()
 
