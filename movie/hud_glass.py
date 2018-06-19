@@ -568,13 +568,14 @@ class HUD:
         if gc_rot > math.pi:
             gc_rot -= 2*math.pi
         nose = (self.nose_uv[0], row_start + 1)
+        nose1 = (self.nose_uv[0], row_start + size1)
         #end = (self.nose_uv[0], center[1] + size2)
         end = (self.nose_uv[0], center[1])
         arrow1 = (self.nose_uv[0] - size1, nose[1] + size2)
         arrow2 = (self.nose_uv[0] + size1, nose[1] + size2)
-        uv = self.rotate_pt([nose, arrow1, arrow2, end], center, gc_rot)
+        uv = self.rotate_pt([nose, arrow1, arrow2, nose1, end], center, gc_rot)
         if uv != None:
-            pts1 = np.array([[uv[0], uv[3]]])
+            pts1 = np.array([[uv[3], uv[4]]])
             pts2 = np.array([[uv[0], uv[1], uv[2]]])
             cv2.polylines(self.frame, pts1, False, yellow, int(round(self.line_width*1.5)), cv2.LINE_AA)
             cv2.fillPoly(self.frame, pts2, yellow)
@@ -596,12 +597,13 @@ class HUD:
             if size3 < size1 + size2:
                 size3 = size1 + size2
             nose = (self.nose_uv[0], center[1])
+            nose1 = (self.nose_uv[0], center[1] - size1)
             end = (self.nose_uv[0], center[1] - size3)
             arrow1 = (nose[0] - size1, nose[1] - size2)
             arrow2 = (nose[0] + size1, nose[1] - size2)
-            uv = self.rotate_pt([nose, arrow1, arrow2, end], center, gc_rot)
+            uv = self.rotate_pt([nose, arrow1, arrow2, nose1, end], center, gc_rot)
             if uv != None:
-                pts1 = np.array([[uv[0], uv[3]]])
+                pts1 = np.array([[uv[3], uv[4]]])
                 pts2 = np.array([[uv[0], uv[1], uv[2]]])
                 cv2.polylines(self.frame, pts1, False, royalblue, int(round(self.line_width*1.5)), cv2.LINE_AA)
                 cv2.fillPoly(self.frame, pts2, royalblue)
