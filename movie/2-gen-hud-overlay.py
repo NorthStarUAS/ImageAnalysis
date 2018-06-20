@@ -41,6 +41,7 @@ parser.add_argument('--flight', help='load specified aura flight log')
 parser.add_argument('--movie', required=True, help='original movie')
 parser.add_argument('--camera', help='select camera calibration file')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
+parser.add_argument('--scale-preview', type=float, default=0.25, help='scale preview')
 parser.add_argument('--alpha', type=float, default=0.7, help='hud alpha blend')
 parser.add_argument('--resample-hz', type=float, default=30.0, help='resample rate (hz)')
 parser.add_argument('--start-time', type=float, help='fast forward to this flight log time before begining movie render.')
@@ -551,7 +552,8 @@ while True:
         # Put hud onto the main image
         hud1_frame = cv2.add(tmp_bg, hud1_frame)
 
-    cv2.imshow('hud', hud1_frame)
+    # cv2.imshow('hud', hud1_frame)
+    cv2.imshow('hud', cv2.resize(hud1_frame, None, fx=args.scale_preview, fy=args.scale_preview))
     output.write(hud1_frame)
 
     key = cv2.waitKeyEx(5)
