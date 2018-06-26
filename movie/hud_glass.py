@@ -3,6 +3,7 @@ import ephem                    # dnf install python3-pyephem
 import math
 import navpy
 import numpy as np
+import re
 
 # find our custom built opencv first
 import sys
@@ -94,6 +95,8 @@ class HUD:
         self.nose_uv = [0, 0]
         self.dg_img = cv2.imread('hdg_hud.png', -1) # load with transparency
         self.shaded_areas = {}
+        self.next_event_index = -1
+        self.active_events = []
 
     def set_render_size(self, w, h):
         self.render_w = w
@@ -203,7 +206,56 @@ class HUD:
         self.act_ele = elevator
         self.act_thr = throttle
         self.act_rud = rudder
-        
+
+    def update_events(self, events):
+        # expire active events
+        event_timer = 10
+        while len(self.active_events):
+            if self.active_events[0].time < self.time - event_timer:
+                del self.active_events[0]
+            else:
+                break
+        # find new events since the last update
+        if self.next_event_index < 0:
+            # find starting index
+            i = 0
+            while i < len(events) and events[i].time < self.time:
+                i += 1
+            print('events starting index:', i)
+            self.next_event_index = i
+        else:
+            i = self.next_event_index
+        while i < len(events) and events[i].time <= self.time:
+            # trim potential enclosing double quotes from message
+            if events[i].message[0] == '"':
+                events[i].message = events[i].message[1:]
+            if events[i].message[-1] == '"':
+                events[i].message = events[i].message[:-1]
+            
+            if re.match('camera:', events[i].message):
+                print('ignoring:', events[i].message)
+            elif re.match('remote command: executed: \(\d+\) ',
+                        events[i].message):
+                result = re.split('remote command: executed: \(\d+\) ',
+                                  events[i].message)
+                if len(result) > 1:
+                    if result[1] == 'hb':
+                        # ignore heartbeat events
+                        pass
+                    else:
+                        # the events system uses ',' as a delimeter
+                        events[i].message = re.sub(',', ' ', result[1])
+                        self.active_events.append(events[i])
+                else:
+                    print('problem interpreting event:', events[i].message)
+            else:           
+                self.active_events.append(events[i])
+            i += 1
+        self.next_event_index = i
+        print('active events:')
+        for e in self.active_events:
+            print(' ', e.time, e.message)        
+            
     def compute_sun_moon_ned(self, lon_deg, lat_deg, alt_m, timestamp):
         d = datetime.datetime.utcfromtimestamp(timestamp)
         #d = datetime.datetime.utcnow()
@@ -1152,6 +1204,22 @@ class HUD:
         cv2.putText(self.frame, label, uv, self.font, 0.7,
                     self.color, self.line_width, cv2.LINE_AA)
 
+    def draw_active_events(self):
+        h, w, d = self.frame.shape
+        ref = 2
+        maxw = 0
+        for e in self.active_events:
+            time = e.time
+            label = "%.1f %s" % (e.time, e.message)
+            size = cv2.getTextSize(label, self.font, 0.7, self.line_width)
+            if size[0][0] > maxw:
+                maxw = size[0][0]
+            uv = (2, ref + size[0][1])
+            ref += size[0][1] + int(size[0][1]*0.2)
+            cv2.putText(self.frame, label, uv, self.font, 0.7,
+                        white, self.line_width, cv2.LINE_AA)
+        self.shaded_areas['events'] = ['rectangle', (0, 0), (maxw+2, ref) ]
+
     def draw_test_index(self):
         if not hasattr(self, 'excite_mode'):
             return
@@ -1291,6 +1359,7 @@ class HUD:
         self.draw_dg()
         self.draw_sticks()
         self.draw_time()
+        self.draw_active_events()
         self.draw_test_index()
 
     # draw semi-translucent shaded areas
@@ -1311,8 +1380,8 @@ class HUD:
             self.draw_nose()
         else:
             self.draw_vbars()
-            self.draw_heading_bug()
-            self.draw_course()
+            # self.draw_heading_bug() # on horizon
+            # self.draw_course()      # on horizon
         self.draw_bird()
         self.draw_roll_indicator()
         
