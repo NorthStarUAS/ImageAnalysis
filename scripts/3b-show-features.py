@@ -22,7 +22,7 @@ args = parser.parse_args()
 #print args
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_image_info()
+proj.load_images_info()
 proj.load_features()
 
 if args.image:
