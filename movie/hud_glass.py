@@ -209,7 +209,7 @@ class HUD:
 
     def update_events(self, events):
         # expire active events
-        event_timer = 10
+        event_timer = 15
         while len(self.active_events):
             if self.active_events[0].time < self.time - event_timer:
                 del self.active_events[0]
@@ -1215,7 +1215,7 @@ class HUD:
             if size[0][0] > maxw:
                 maxw = size[0][0]
             uv = (2, ref + size[0][1])
-            ref += size[0][1] + int(size[0][1]*0.2)
+            ref += size[0][1] + int(size[0][1]*0.3)
             cv2.putText(self.frame, label, uv, self.font, 0.7,
                         white, self.line_width, cv2.LINE_AA)
         self.shaded_areas['events'] = ['rectangle', (0, 0), (maxw+2, ref) ]
