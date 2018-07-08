@@ -207,8 +207,12 @@ class HUD:
         sun = ephem.Sun(ownship)
         moon = ephem.Moon(ownship)
 
-        sun_ned = [ math.cos(sun.az), math.sin(sun.az), -math.sin(sun.alt) ]
-        moon_ned = [ math.cos(moon.az), math.sin(moon.az), -math.sin(moon.alt) ]
+        sun_ned = [ math.cos(sun.az) * math.cos(sun.alt),
+                    math.sin(sun.az) * math.cos(sun.alt),
+                    -math.sin(sun.alt) ]
+        moon_ned = [ math.cos(moon.az) * math.cos(moon.alt),
+                     math.sin(moon.az) * math.cos(moon.alt),
+                     -math.sin(moon.alt) ]
 
         return sun_ned, moon_ned
 
