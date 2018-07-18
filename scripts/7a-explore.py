@@ -131,11 +131,40 @@ class MyApp(ShowBase):
                               self.view_size)
         return Task.cont
 
-    def sortImages(self):
+    def sortImagesBS(self):
         # sort images by depth
         result_list = []
         for m in self.models:
             b = m.getBounds()
+            print('tight', m.getTightBounds())
+            print(b.getCenter(), b.getRadius())
+            dx = b.getCenter()[0] - self.cam_pos[0]
+            dy = b.getCenter()[1] - self.cam_pos[1]
+            dist = math.sqrt(dx*dx + dy*dy)
+            result_list.append( [dist, m] )
+        result_list = sorted(result_list, key=lambda fields: fields[0],
+                             reverse=True)
+        top = result_list[-1][1]
+        top.setColor(1.0, 1.0, 1.0, 1.0)
+        self.updateTexture(top)
+        for i, line in enumerate(result_list):
+            m = line[1]
+            if m.getName() in tcache:
+                # reward draw order for models with high res texture loaded
+                m.setBin("fixed", i + len(self.models))
+            else:
+                m.setBin("fixed", i)
+            m.setDepthTest(False)
+            m.setDepthWrite(False)
+            #if m != top:
+            #    m.setColor(0.7, 0.7, 0.7, 1.0)
+
+    def sortImages2(self):
+        # sort images by reprojection
+        result_list = []
+        for m in self.models:
+            b = m.getBounds()
+            print('tight', m.getTightBounds())
             print(b.getCenter(), b.getRadius())
             dx = b.getCenter()[0] - self.cam_pos[0]
             dy = b.getCenter()[1] - self.cam_pos[1]
@@ -186,13 +215,33 @@ class MyApp(ShowBase):
                 if not image_file:
                     print('Warning: no full resolution image source file found:', base)
                 else:
-                    print(image_file)
-                    fulltex = self.loader.loadTexture(image_file)
-                    fulltex.setWrapU(Texture.WM_clamp)
-                    fulltex.setWrapV(Texture.WM_clamp)
-                    #print('fulltex:', fulltex)
-                    m.setTexture(fulltex, 1)
-                    tcache[m.getName()] = [m, fulltex, time.time()]
+                    if False:
+                        # example of passing an opencv image as a
+                        # panda texture, except currently only works
+                        # for gray scale (need to find the proper
+                        # constant for rgb in setup2dTexture()
+                        print(base, image_file)
+                        image = proj.findImageByName(base)
+                        print(image)
+                        rgb = image.load_rgb()
+                        h, w = rgb.shape[:2]
+                        print(h, w)
+                        fulltex = Texture(base)
+                        fulltex.setCompression(Texture.CMOff)
+                        fulltex.setup2dTexture(w, h, Texture.TUnsignedByte, Texture.FLuminance)
+                        fulltex.setRamImage(rgb)
+                        fulltex.setWrapU(Texture.WM_clamp)
+                        fulltex.setWrapV(Texture.WM_clamp)
+                        m.setTexture(fulltex, 1)
+                        tcache[m.getName()] = [m, fulltex, time.time()]
+                    else:
+                        print(image_file)
+                        fulltex = self.loader.loadTexture(image_file)
+                        fulltex.setWrapU(Texture.WM_clamp)
+                        fulltex.setWrapV(Texture.WM_clamp)
+                        #print('fulltex:', fulltex)
+                        m.setTexture(fulltex, 1)
+                        tcache[m.getName()] = [m, fulltex, time.time()]
         cachesize = 5
         while len(tcache) > cachesize:
             oldest_time = time.time()
