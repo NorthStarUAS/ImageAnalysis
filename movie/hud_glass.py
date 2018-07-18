@@ -561,12 +561,17 @@ class HUD:
         # rest of this function
         hdg_rows = hdg.shape[0]
         hdg_cols = hdg.shape[1]
+        if not self.nose_uv:
+            center_col = int(round(self.frame.shape[1] * 0.5))
+        else:
+            center_col = self.nose_uv[0]
+        print('center_col:', center_col)
         row_start = self.frame.shape[0] - hdg_rows - 1
-        col_start = self.nose_uv[0] - int(round(hdg_cols * 0.5)) - 1
+        col_start = center_col - int(round(hdg_cols * 0.5)) - 1
         row_end = row_start + hdg_rows
         col_end = col_start + hdg_cols
-        center = (self.nose_uv[0], row_start + int(round(rows*0.5)))
-        top = (self.nose_uv[0], row_start)
+        center = (center_col, row_start + int(round(rows*0.5)))
+        top = (center_col, row_start)
         size1 = int(round(hdg_rows*0.04))
         size2 = int(round(hdg_rows*0.09))
 
@@ -580,8 +585,8 @@ class HUD:
                 bug_rot += 2*math.pi
             if bug_rot > math.pi:
                 bug_rot -= 2*math.pi
-            ref1 = (self.nose_uv[0], row_start)
-            ref2 = (self.nose_uv[0], row_start + size2)
+            ref1 = (center_col, row_start)
+            ref2 = (center_col, row_start + size2)
             uv0 = self.rotate_pt([ref1, ref2], center, bug_rot)
             uv1 = self.rotate_pt([ref1, ref2], center, bug_rot - 10*d2r)
             uv2 = self.rotate_pt([ref1, ref2], center, bug_rot - 5*d2r)
@@ -612,8 +617,8 @@ class HUD:
 
         # center marker (fix this and do similar to other arrow heads)
         # this is a crude hack to get sizing and placement
-        arrow1 = (self.nose_uv[0] - size1, top[1] - size2)
-        arrow2 = (self.nose_uv[0] + size1, top[1] - size2)
+        arrow1 = (center_col - size1, top[1] - size2)
+        arrow2 = (center_col + size1, top[1] - size2)
         cv2.fillPoly(self.frame, np.array([[top, arrow1, arrow2]]), white)
 
         # ground course indicator
@@ -623,12 +628,12 @@ class HUD:
             gc_rot += 2*math.pi
         if gc_rot > math.pi:
             gc_rot -= 2*math.pi
-        nose = (self.nose_uv[0], row_start + 1)
-        nose1 = (self.nose_uv[0], row_start + size1)
+        nose = (center_col, row_start + 1)
+        nose1 = (center_col, row_start + size1)
         #end = (self.nose_uv[0], center[1] + size2)
-        end = (self.nose_uv[0], center[1])
-        arrow1 = (self.nose_uv[0] - size1, nose[1] + size2)
-        arrow2 = (self.nose_uv[0] + size1, nose[1] + size2)
+        end = (center_col, center[1])
+        arrow1 = (center_col - size1, nose[1] + size2)
+        arrow2 = (center_col + size1, nose[1] + size2)
         uv = self.rotate_pt([nose, arrow1, arrow2, nose1, end], center, gc_rot)
         if uv != None:
             pts1 = np.array([[uv[3], uv[4]]])
@@ -652,9 +657,9 @@ class HUD:
             size3 = int(round((rows*0.5) * (wind_kt/max_wind)))
             if size3 < size1 + size2:
                 size3 = size1 + size2
-            nose = (self.nose_uv[0], center[1])
-            nose1 = (self.nose_uv[0], center[1] - size1)
-            end = (self.nose_uv[0], center[1] - size3)
+            nose = (center_col, center[1])
+            nose1 = (center_col, center[1] - size1)
+            end = (center_col, center[1] - size3)
             arrow1 = (nose[0] - size1, nose[1] - size2)
             arrow2 = (nose[0] + size1, nose[1] - size2)
             uv = self.rotate_pt([nose, arrow1, arrow2, nose1, end], center, gc_rot)
@@ -1380,6 +1385,9 @@ class HUD:
         cv2.addWeighted(overlay, opacity, self.frame, 1 - opacity, 0, self.frame)
     # draw autopilot symbology
     def draw_ap(self):
+        if not self.nose_uv:
+            return
+        
         if self.flight_mode == 'manual':
             self.draw_nose()
         else:
