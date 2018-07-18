@@ -6,7 +6,12 @@ from scipy import interpolate # strait up linear interpolation, nothing fancy
 
 r2d = 180.0 / math.pi
 
-def sync_clocks(data, interp, movie_log, hz=60, force_shift=None, plot=True):
+# hz: resampling hz prior to correlation
+# cam_mount: set approximate camera orienation (forward, down, and
+#   rear supported)
+
+def sync_clocks(data, interp, movie_log, hz=60, cam_mount='forward',
+                force_time_shift=None, plot=True):
     x = interp.imu_time
     flight_min = x.min()
     flight_max = x.max()
@@ -23,9 +28,6 @@ def sync_clocks(data, interp, movie_log, hz=60, force_shift=None, plot=True):
                        float(row['translation y (px)']) ]
             movie.append( record )
 
-    # set approximate camera orienation (front, down, and rear supported)
-    cam_facing = 'front'
-
     # resample movie data
     movie = np.array(movie, dtype=float)
     movie_interp = []
@@ -38,7 +40,7 @@ def sync_clocks(data, interp, movie_log, hz=60, force_shift=None, plot=True):
     print("movie range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin))
     movie_len = xmax - xmin
     for x in np.linspace(xmin, xmax, movie_len*hz):
-        if cam_facing == 'front' or cam_facing == 'down':
+        if cam_mount == 'forward' or cam_mount == 'down':
             movie_interp.append( [x, movie_spl_roll(x)] )
             #movie_interp.append( [x, -movie_spl_yaw(x)] ) # test, fixme
         else:
@@ -47,9 +49,8 @@ def sync_clocks(data, interp, movie_log, hz=60, force_shift=None, plot=True):
 
     # resample flight data
     flight_interp = []
-    if cam_facing == 'front' or cam_facing == 'rear':
-        y_spline = interp.imu_p     # front/rear facing camera
-        #y_spline = interp.imu_r     # front/rear facing camera, test fixme
+    if cam_mount == 'forward' or cam_mount == 'rear':
+        y_spline = interp.imu_p     # forward/rear facing camera
     else:
         y_spline = interp.imu_r     # down facing camera
 
@@ -119,8 +120,8 @@ def sync_clocks(data, interp, movie_log, hz=60, force_shift=None, plot=True):
     print("yaw ratio:", rratio)
 
     print("correlated time shift:", time_shift)
-    if force_shift:
-        time_shift = force_shift
+    if force_time_shift:
+        time_shift = force_time_shift
         print("time shift override (provided on command line):", time_shift)
 
     if plot:
@@ -141,7 +142,7 @@ def sync_clocks(data, interp, movie_log, hz=60, force_shift=None, plot=True):
             plt.plot(movie[:,1] + time_shift, movie[:,2]*r2d, label='estimate from flight movie')
             # down facing:
             # plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
-            # front facing:
+            # forward facing:
             plt.plot(flight_imu[:,0], flight_imu[:,1]*r2d, label='flight data log')
         plt.legend()
 
