@@ -43,7 +43,9 @@ class Image():
         # transform simply maps coordinate systems and has nothing to
         # do with camera mounting offset or pose or anything other
         # than converting from one system to another.
-        self.cam2body = np.array( [[0, 0, 1], [1, 0, 0], [0, 1, 0]],
+        self.cam2body = np.array( [[0, 0, 1],
+                                   [1, 0, 0],
+                                   [0, 1, 0]],
                                   dtype=float )
         self.body2cam = np.linalg.inv(self.cam2body)
 
@@ -303,7 +305,8 @@ class Image():
         # flags=0: draw only keypoints location
         # flags=4: draw rich keypoints
         rgb = self.load_rgb()
-        scale = 1000.0 / float(self.height)
+        w, h = self.get_size()
+        scale = 1000.0 / float(h)
         kp_list = []
         for kp in self.kp_list:
             angle = kp.angle
