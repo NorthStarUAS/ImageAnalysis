@@ -18,6 +18,10 @@ def draw_match(i, index, matches, image_list):
     match = matches[i]
     print('match:', match, 'index:', index)
     for j, m in enumerate(match[1:]):
+        if j > 20:
+            # try to be sane and not open 100's of windows
+            break
+        
         print(' ', m, image_list[m[0]])
         img = image_list[m[0]]
         #kp = img.kp_list[m[1]].pt # distorted
