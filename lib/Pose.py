@@ -50,7 +50,7 @@ def setAircraftPoses(proj, posefile="", order='ypr'):
         lon_deg = float(field[2])
         alt_m = float(field[3])
         if order == 'ypr':
-            ya_deg = float(field[4])
+            yaw_deg = float(field[4])
             pitch_deg = float(field[5])
             roll_deg = float(field[6])
         elif order == 'rpy':
