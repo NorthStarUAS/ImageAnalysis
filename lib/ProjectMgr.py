@@ -461,10 +461,9 @@ class ProjectMgr():
     def fastProjectKeypointsTo3d(self, sss):
         bar = Bar('Projecting keypoints to 3d:',
                   max = len(self.image_list))
+        K = self.cam.get_K()
+        IK = np.linalg.inv(K)
         for image in self.image_list:
-            K = self.cam.get_K()
-            IK = np.linalg.inv(K)
-            
             # build a regular grid of uv coordinates
             w, h = image.get_size()
             steps = 32
@@ -482,14 +481,15 @@ class ProjectMgr():
             half_width = w * 0.5
             half_height = h * 0.5
             uv_filt = []
-            for p in uv_grid:
+            for i, p in enumerate(uv_grid):
                 if p[0] < -half_width or p[0] > w + half_width:
-                    print("rejecting width outlier:", p)
+                    print("rejecting width outlier:", p, '(', uv_raw[i], ')')
                     continue
                 if p[1] < -half_height or p[1] > h + half_height:
-                    print("rejecting height outlier:", p)
+                    print("rejecting height outlier:", p, '(', uv_raw[i], ')')
                     continue
                 uv_filt.append(p)
+            print('raw pts:', len(uv_raw), 'undist pts:', len(uv_filt))
             
             # project the grid out into vectors
             body2ned = image.get_body2ned() # IR
