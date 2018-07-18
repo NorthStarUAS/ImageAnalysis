@@ -38,10 +38,16 @@ parser = argparse.ArgumentParser(description='correlate movie data to flight dat
 parser.add_argument('--flight', help='load specified aura flight log')
 parser.add_argument('--movie', required=True, help='original movie')
 parser.add_argument('--camera', help='select camera calibration file')
+parser.add_argument('--cam-mount', choices=['forward', 'down', 'rear'],
+                    default='forward',
+                    help='approximate camera mounting orientation')
+parser.add_argument('--rot180', action='store_true')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
-parser.add_argument('--scale-preview', type=float, default=0.25, help='scale preview')
+parser.add_argument('--scale-preview', type=float, default=0.25,
+                    help='scale preview')
 parser.add_argument('--alpha', type=float, default=0.7, help='hud alpha blend')
-parser.add_argument('--resample-hz', type=float, default=60.0, help='resample rate (hz)')
+parser.add_argument('--resample-hz', type=float, default=60.0,
+                    help='resample rate (hz)')
 parser.add_argument('--start-time', type=float, help='fast forward to this flight log time before begining movie render.')
 parser.add_argument('--time-shift', type=float, help='skip autocorrelation and use this offset time')
 parser.add_argument('--plot', action='store_true', help='Plot stuff at the end of the run')
@@ -127,7 +133,10 @@ if len(data['imu']) == 0 and len(data['gps']) == 0:
 interp = flight_interp.FlightInterpolate()
 interp.build(data)
 
-time_shift, flight_min, flight_max = correlate.sync_clocks(data, interp, movie_log, hz=args.resample_hz, force_shift=args.time_shift, plot=args.plot)
+time_shift, flight_min, flight_max = \
+    correlate.sync_clocks(data, interp, movie_log, hz=args.resample_hz,
+                          cam_mount=args.cam_mount,
+                          force_time_shift=args.time_shift, plot=args.plot)
 
 # quick estimate ground elevation
 sum = 0.0
@@ -238,6 +247,11 @@ while True:
     if frame is None:
         print("Skipping bad frame ...")
         continue
+    
+    if args.rot180:
+        frame = np.rot90(frame)
+        frame = np.rot90(frame)
+        
     time = float(counter) / fps + time_shift
     print("frame: ", counter, "%.3f" % time, 'time shift:', time_shift)
     
