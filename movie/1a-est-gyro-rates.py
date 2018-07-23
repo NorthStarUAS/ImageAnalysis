@@ -31,9 +31,10 @@ parser.add_argument('--movie', required=True, help='movie file')
 parser.add_argument('--camera', help='select camera calibration file')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
 parser.add_argument('--skip-frames', type=int, default=0, help='skip n initial frames')
-parser.add_argument('--equalize', action='store_true', help='equalize value')
+parser.add_argument('--no-equalize', action='store_true', help='disable image equalization')
 parser.add_argument('--draw-keypoints', action='store_true', help='draw keypoints on output')
 parser.add_argument('--draw-masks', action='store_true', help='draw stabilization masks')
+parser.add_argument('--write-smooth', action='store_true', help='write out the smoothed video')
 parser.add_argument('--stop-count', type=int, default=1, help='how many non-frames to absorb before we decide the movie is over')
 args = parser.parse_args()
 
@@ -98,12 +99,13 @@ fourcc = int(capture.get(cv2.CAP_PROP_FOURCC))
 w = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) * scale )
 h = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) * scale )
 
-#outfourcc = cv2.cv.CV_FOURCC('F', 'M', 'P', '4')
-outfourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
-#outfourcc = cv2.cv.CV_FOURCC('X', 'V', 'I', 'D')
-#outfourcc = cv2.cv.CV_FOURCC('X', '2', '6', '4')
-#outfourcc = cv2.VideoWriter_fourcc(*'XVID')
-output = cv2.VideoWriter(output_avi, outfourcc, fps, (w, h))
+if args.write_smooth:
+    #outfourcc = cv2.cv.CV_FOURCC('F', 'M', 'P', '4')
+    outfourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
+    #outfourcc = cv2.cv.CV_FOURCC('X', 'V', 'I', 'D')
+    #outfourcc = cv2.cv.CV_FOURCC('X', '2', '6', '4')
+    #outfourcc = cv2.VideoWriter_fourcc(*'XVID')
+    output = cv2.VideoWriter(output_avi, outfourcc, fps, (w, h))
 
 # find affine transform between matching keypoints in pixel
 # coordinate space.  fullAffine=True means unconstrained to
@@ -458,7 +460,7 @@ abs_y = 0.0
 
 stop_count = 0
 
-if args.equalize:
+if not args.no_equalize:
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
 
 csvfile = open(output_csv, 'w')
@@ -507,14 +509,14 @@ while True:
         frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
     else:
         frame_undist = frame_scale    
-    if args.equalize:
+    if not args.no_equalize:
         frame_undist = r.aeq_value(frame_undist)
 
     # test for building up an automatic mask
     # motion3(frame_undist, counter)
 
-    # average frame
-    motion6(frame_undist, counter)
+    # average frames (experiement)
+    # motion6(frame_undist, counter)
     
     process_hsv = False
     if process_hsv:
@@ -528,7 +530,7 @@ while True:
     else:
         gray = cv2.cvtColor(frame_undist, cv2.COLOR_BGR2GRAY)
         
-    if args.equalize:
+    if not args.no_equalize:
         gray = clahe.apply(gray)
 
     kp_list = detector.detect(gray)
@@ -708,7 +710,8 @@ while True:
     cv2.imshow('smooth', new_frame)
     cv2.imshow('final', final)
     #output.write(res1)
-    output.write(final)
+    if args.write_smooth:
+        output.write(final)
     if 0xFF & cv2.waitKey(5) == 27:
         break
 
