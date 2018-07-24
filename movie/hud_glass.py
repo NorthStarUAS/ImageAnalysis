@@ -973,7 +973,7 @@ class HUD:
                                self.ned[1] + self.vel_filt[1],
                                self.ned[2] + self.vel_filt[2]])
         if uv != None:
-            cv2.circle(self.frame, uv, 4, self.color, 1, cv2.LINE_AA)
+            cv2.circle(self.frame, uv, 5, self.color, self.line_width, cv2.LINE_AA)
 
     def draw_speed_tape(self, airspeed, ap_speed, units_label):
         size = 1
@@ -1344,7 +1344,6 @@ class HUD:
         # cockpit things
         # currently disabled # self.draw_pitch_ladder(beta_rad=0.0)
         self.draw_alpha_beta_marker()
-        self.draw_velocity_vector()
 
     # draw the fixed indications (that always stay in the same place
     # on the hud.)  note: also draw speed/alt bugs here
@@ -1396,7 +1395,8 @@ class HUD:
             # self.draw_course()      # on horizon
         self.draw_bird()
         self.draw_roll_indicator()
-        
+        self.draw_velocity_vector()
+
     def draw(self):
         # update the ground vel filter
         self.filter_vn = (1.0 - self.tf_vel) * self.filter_vn + self.tf_vel * self.vn
