@@ -485,7 +485,7 @@ class Matcher():
         work_list = []
         for i, i1 in enumerate(image_list):
             if len(i1.match_list) == 0:
-                i1.match_list = [[]] * len(image_list)
+                i1.match_list = [None] * len(image_list)
 
             for j, i2 in enumerate(image_list):
                 if j <= i:
@@ -501,6 +501,8 @@ class Matcher():
         
         # proces the work list form closest to furthest
         n_count = 0
+        save_time = time.time()
+        save_interval = 60      # seconds
         for line in work_list:
             dist = line[0]
             i = line[1]
@@ -515,6 +517,12 @@ class Matcher():
             else:
                 t_end = t_start
             t_remain = t_end - t_elapsed
+            
+            # skip if match has already been computed
+            if i1.match_list[j] != None and i2.match_list[i] != None:
+                print('Skipping: ', i1.name, 'vs', i2.name, 'already done.')
+                continue
+            
             print('Matching %s vs %s - ' % (i1.name, i2.name), end='')
             print('%.1f%% done: ' % (percent * 100.0), end='')
             if t_remain < 3600:
@@ -557,7 +565,11 @@ class Matcher():
                 self.filter_non_reciprocal_pair(image_list, j, i)
             dist_stats.append( [ dist, len(i1.match_list[j]) ] )
             n_count += 1
-
+            if time.time() >= save_time + save_interval:
+                print('saving matches ...')
+                self.saveMatches(image_list)
+                save_time = time.time()
+                
         # and save
         self.saveMatches(image_list)
         print('Pair-wise matches successfully saved.')
