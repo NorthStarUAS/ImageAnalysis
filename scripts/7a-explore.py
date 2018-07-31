@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import argparse
+import cv2
 import fnmatch
 import os.path
 from progress.bar import Bar
@@ -33,6 +34,9 @@ ref = [ ref_node.getFloat('lat_deg'),
         ref_node.getFloat('alt_m') ]
 
 tcache = {}
+
+# adaptive equalizer
+clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
 
 class MyApp(ShowBase):
  
@@ -110,12 +114,12 @@ class MyApp(ShowBase):
             self.base_textures.append(tex)
             bar.next()
         bar.finish()
-        self.sortImages()
+        self.sortImages2()
 
     def cam_move(self, x, y, z):
         self.cam_pos[0] += x * self.view_size / 10.0
         self.cam_pos[1] += y * self.view_size / 10.0
-        self.sortImages()
+        self.sortImages2()
         
     def cam_zoom(self, f):
         self.view_size /= f
@@ -202,6 +206,10 @@ class MyApp(ShowBase):
                         self.models[i].setTexture(self.base_textures[i], 1)
             else:
                 print(m.getName())
+                if m.getName() in tcache:
+                    fulltex = tcache[m.getName()][1]
+                    self.models[i].setTexture(fulltex, 1)
+                    continue
                 base, ext = os.path.splitext(m.getName())
                 image_file = None
                 for i in range( dir_node.getLen('image_sources') ):
@@ -215,7 +223,7 @@ class MyApp(ShowBase):
                 if not image_file:
                     print('Warning: no full resolution image source file found:', base)
                 else:
-                    if False:
+                    if True:
                         # example of passing an opencv image as a
                         # panda texture, except currently only works
                         # for gray scale (need to find the proper
@@ -224,12 +232,22 @@ class MyApp(ShowBase):
                         image = proj.findImageByName(base)
                         print(image)
                         rgb = image.load_rgb()
+                        rgb = np.flipud(rgb)
                         h, w = rgb.shape[:2]
-                        print(h, w)
+                        print('shape:', rgb.shape)
+                        # equalize
+                        hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
+                        hue, sat, val = cv2.split(hsv)
+                        aeq = clahe.apply(val)
+                        # recombine
+                        hsv = cv2.merge((hue,sat,aeq))
+                        # convert back to rgb
+                        result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
                         fulltex = Texture(base)
                         fulltex.setCompression(Texture.CMOff)
-                        fulltex.setup2dTexture(w, h, Texture.TUnsignedByte, Texture.FLuminance)
-                        fulltex.setRamImage(rgb)
+                        fulltex.setup2dTexture(w, h, Texture.TUnsignedByte, Texture.FRgb)
+                        fulltex.setRamImage(result)
+                        # fulltex.load(rgb) # for loading a pnm image
                         fulltex.setWrapU(Texture.WM_clamp)
                         fulltex.setWrapV(Texture.WM_clamp)
                         m.setTexture(fulltex, 1)
