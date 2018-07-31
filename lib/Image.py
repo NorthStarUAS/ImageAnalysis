@@ -73,7 +73,7 @@ class Image():
             dir_node = getNode('/config/directories', True)
             self.image_file = None
             for i in range( dir_node.getLen('image_sources') ):
-                dir = dir_node.getStringEnum('image_sources', i)
+                dir = os.path.normpath(dir_node.getStringEnum('image_sources', i))
                 tmp1 = os.path.join(dir, image_base + '.JPG')
                 tmp2 = os.path.join(dir, image_base + '.jpg')
                 if os.path.isfile(tmp1):
