@@ -36,6 +36,7 @@ proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
 proj.load_features(descriptors=True)
 proj.undistort_keypoints()
+proj.load_match_pairs()
 
 matcher_node = getNode('/config/matcher', True)
 matcher_node.setString('matcher', args.matcher)
