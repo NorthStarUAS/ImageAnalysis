@@ -168,7 +168,7 @@ hud2.set_ned_ref(data['gps'][0].lat, data['gps'][0].lon)
 print('ned ref:', ref)
 
 print('temporarily disabling airport loading')
-# hud1.load_airports()
+hud1.load_airports()
 
 hud1.set_ground_m(ground_m)
 hud2.set_ground_m(ground_m)

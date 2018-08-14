@@ -728,16 +728,19 @@ class HUD:
             cv2.fillPoly(self.frame, pts1, yellow)
             cv2.fillPoly(self.frame, pts2, dark_yellow)
             cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
-                
+
+        a6 = 0.0       # for wing marker
+        # a6 = self.the_rad * r2d # for horizon tracking
+
         # right horizon marker
-        a6 = self.the_rad * r2d
         tmp = [ self.cam_helper(-a6, a4),
                 self.cam_helper(-a6-a5, a4+a5),
                 self.cam_helper(-a6-a5, a4+a3),
                 self.cam_helper(-a6+a5, a4+a3),
                 self.cam_helper(-a6+a5, a4+a5),
                 self.cam_helper(-a6, a4+a3) ]
-        uv = self.rotate_pt(tmp, nose, -self.phi_rad)
+        uv = self.rotate_pt(tmp, nose, 0.0) # for wing marker
+        #uv = self.rotate_pt(tmp, nose, -self.phi_rad) # for horizon tracking
         if uv != None:
             pts1 = np.array([[uv[0], uv[1], uv[2], uv[3], uv[4]]])
             pts2 = np.array([[uv[0], uv[5], uv[3], uv[4]]])
@@ -752,7 +755,8 @@ class HUD:
                 self.cam_helper(-a6+a5, -(a4+a3)),
                 self.cam_helper(-a6+a5, -(a4+a5)),
                 self.cam_helper(-a6, -(a4+a3)) ]
-        uv = self.rotate_pt(tmp, nose, -self.phi_rad)
+        uv = self.rotate_pt(tmp, nose, 0.0) # for wing marker
+        #uv = self.rotate_pt(tmp, nose, -self.phi_rad) # for horizon tracking
         if uv != None:
             pts1 = np.array([[uv[0], uv[1], uv[2], uv[3], uv[4]]])
             pts2 = np.array([[uv[0], uv[5], uv[3], uv[4]]])
