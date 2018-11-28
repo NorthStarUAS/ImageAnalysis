@@ -69,12 +69,14 @@ filename, ext = os.path.splitext(abspath)
 dirname = os.path.dirname(args.movie)
 movie_log = filename + ".csv"
 local_config = dirname + "/camera.json"
+
 # combinations that seem to work on linux
 # ext = avi, fourcc = MJPG
 # ext = avi, fourcc = XVID
-# ext = mov, fourcc = MP4V
+# ext = m4v (was mov), fourcc = MP4V
 
-tmp_movie = filename + "_tmp.mov"
+ext = 'avi'
+tmp_movie = filename + "_tmp." + ext
 output_movie = filename + "_hud.mov"
 
 config = PropertyNode()
@@ -192,6 +194,7 @@ print("ok reading first frame")
 fps = capture.get(cv2.CAP_PROP_FPS)
 print("fps = %.2f" % fps)
 fourcc = int(capture.get(cv2.CAP_PROP_FOURCC))
+print("input fourcc: ", fourcc)
 w = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) * args.scale )
 h = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) * args.scale )
 hud1.set_render_size(w, h)
@@ -201,7 +204,14 @@ hud2.set_render_size(w, h)
 #outfourcc = cv2.cv.CV_FOURCC('H', '2', '6', '4')
 #outfourcc = cv2.cv.CV_FOURCC('X', '2', '6', '4')
 #outfourcc = cv2.cv.CV_FOURCC('X', 'V', 'I', 'D')
-outfourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+#outfourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+#outfourcc = cv2.VideoWriter_fourcc('H', '2', '6', '4')
+#outfourcc = cv2.VideoWriter_fourcc(*'XVID')
+
+#outfourcc = cv2.VideoWriter_fourcc(*'X264'); # ext = 'mkv'
+#outfourcc = cv2.VideoWriter_fourcc(*'mp4v'); # ext = 'm4v'
+outfourcc = cv2.VideoWriter_fourcc(*'MJPG'); # ext = 'avi'
+
 print(outfourcc, fps, w, h)
 output = cv2.VideoWriter(tmp_movie, outfourcc, fps, (w, h), isColor=True)
 
@@ -374,8 +384,6 @@ while True:
     hud1.update_time(time, interp.gps_unixtime(time))
     if 'event' in data:
         hud1.update_events(data['event'])
-    else:
-        print('No event log data loaded.')
     if interp.excite_mode:
         hud1.update_test_index(excite_mode, test_index)
     hud1.update_proj(PROJ)
