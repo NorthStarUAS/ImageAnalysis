@@ -447,7 +447,7 @@ class HUD:
                          cv2.LINE_AA)
 
     def draw_alpha_beta_marker(self):
-        if self.alpha_rad == None or self.beta_rad == None:
+        if True or self.alpha_rad == None or self.beta_rad == None:
             return
 
         q0 = transformations.quaternion_about_axis(self.psi_rad, [0.0, 0.0, -1.0])
@@ -930,6 +930,10 @@ class HUD:
             self.draw_label('W', uv, 1, self.line_width, vert='above')
 
     def draw_astro(self):
+        if self.unixtime < 100000.0:
+            # bail if it's clear we don't have real world unix time
+            return
+        
         sun_ned, moon_ned = self.compute_sun_moon_ned(self.lla[1],
                                                       self.lla[0],
                                                       self.lla[2],
