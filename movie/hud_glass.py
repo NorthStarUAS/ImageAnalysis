@@ -520,7 +520,9 @@ class HUD:
         center = self.rotate_pt(tmp, nose, -self.phi_rad + self.ap_roll*d2r)
         if center == None:
             return
-
+        half_width = int(self.line_width*0.5)
+        if half_width < 1: half_width = 1
+        
         # right vbar
         tmp = [ self.cam_helper(a0-a3, a1),
                 self.cam_helper(a0-a3, a1+a2),
@@ -529,8 +531,8 @@ class HUD:
         if uv != None:
             pts1 = np.array([[center, uv[0], uv[1], uv[2]]])
             cv2.fillPoly(self.frame, pts1, medium_orchid)
-            cv2.line(self.frame, uv[0], uv[2], dark_orchid, int(self.line_width*0.5), cv2.LINE_AA)
-            cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
+            cv2.line(self.frame, uv[0], uv[2], dark_orchid, half_width, cv2.LINE_AA)
+            cv2.polylines(self.frame, pts1, True, black, half_width, cv2.LINE_AA)
 
         # left vbar
         tmp = [ self.cam_helper(a0-a3, -a1),
@@ -540,8 +542,8 @@ class HUD:
         if uv != None:
             pts1 = np.array([[center, uv[0], uv[1], uv[2]]])
             cv2.fillPoly(self.frame, pts1, medium_orchid)
-            cv2.line(self.frame, uv[0], uv[2], dark_orchid, int(self.line_width*0.5), cv2.LINE_AA)
-            cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
+            cv2.line(self.frame, uv[0], uv[2], dark_orchid, half_width, cv2.LINE_AA)
+            cv2.polylines(self.frame, pts1, True, black, half_width, cv2.LINE_AA)
 
     # draw a texture based DG
     def draw_dg(self):

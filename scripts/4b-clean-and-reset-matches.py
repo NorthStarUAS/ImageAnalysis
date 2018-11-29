@@ -104,6 +104,8 @@ for image in proj.image_list:
 print("Collapsing keypoints with duplicate uv coordinates...")
 for i, i1 in enumerate(proj.image_list):
     for j, matches in enumerate(i1.match_list):
+        if matches == None:
+            continue
         count = 0
         i2 = proj.image_list[j]
         for k, pair in enumerate(matches):
@@ -168,6 +170,8 @@ if False:
 print("Checking for pair duplicates...")
 for i, i1 in enumerate(proj.image_list):
     for j, matches in enumerate(i1.match_list):
+        if matches == None:
+            continue
         i2 = proj.image_list[j]
         count = 0
         pair_dict = {}
@@ -205,6 +209,8 @@ if False:
 print("Testing for 1 vs. n keypoint duplicates...")
 for i, i1 in enumerate(proj.image_list):
     for j, matches in enumerate(i1.match_list):
+        if matches == None:
+            continue
         i2 = proj.image_list[j]
         count = 0
         kp_dict = {}
@@ -229,7 +235,7 @@ for i, img in enumerate(proj.image_list):
     # print img.name
     for j, matches in enumerate(img.match_list):
         # print proj.image_list[j].name
-        if j > i:
+        if j > i and matches != None:
             for pair in matches:
                 match = []
                 # ned place holder

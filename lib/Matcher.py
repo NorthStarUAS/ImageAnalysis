@@ -511,13 +511,14 @@ class Matcher():
             i2 = image_list[j]
                 
             percent = n_count / float(len(work_list))
+            n_count += 1
             t_elapsed = time.time() - t_start
             if percent > 0:
                 t_end = t_elapsed / percent
             else:
                 t_end = t_start
             t_remain = t_end - t_elapsed
-            
+
             # skip if match has already been computed
             if i1.match_list[j] != None and i2.match_list[i] != None:
                 print('Skipping: ', i1.name, 'vs', i2.name, 'already done.')
@@ -564,7 +565,6 @@ class Matcher():
                 self.filter_non_reciprocal_pair(image_list, i, j)
                 self.filter_non_reciprocal_pair(image_list, j, i)
             dist_stats.append( [ dist, len(i1.match_list[j]) ] )
-            n_count += 1
             if time.time() >= save_time + save_interval:
                 print('saving matches ...')
                 self.saveMatches(image_list)

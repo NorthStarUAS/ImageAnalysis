@@ -365,9 +365,10 @@ class ProjectMgr():
             for i1 in self.image_list:
                 for j, matches in enumerate(i1.match_list):
                     i2 = self.image_list[j]
-                    for k, pair in enumerate(matches):
-                        i1.kp_used[ pair[0] ] = True
-                        i2.kp_used[ pair[1] ] = True
+                    if matches != None:
+                        for k, pair in enumerate(matches):
+                            i1.kp_used[ pair[0] ] = True
+                            i2.kp_used[ pair[1] ] = True
                     
     def compute_kp_usage_new(self, matches_direct):
         print("Determining feature usage in matching pairs...")
@@ -489,7 +490,7 @@ class ProjectMgr():
                     print("rejecting height outlier:", p, '(', uv_raw[i], ')')
                     continue
                 uv_filt.append(p)
-            print('raw pts:', len(uv_raw), 'undist pts:', len(uv_filt))
+            #print('raw pts:', len(uv_raw), 'undist pts:', len(uv_filt))
             
             # project the grid out into vectors
             body2ned = image.get_body2ned() # IR
