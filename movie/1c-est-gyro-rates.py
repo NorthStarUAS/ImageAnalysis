@@ -86,22 +86,25 @@ K[2,2] = 1.0
 
 metadata = skvideo.io.ffprobe(args.movie)
 #print(metadata.keys())
-#print(json.dumps(metadata["video"], indent=4))
+print(json.dumps(metadata["video"], indent=4))
 fps_string = metadata['video']['@avg_frame_rate']
 (num, den) = fps_string.split('/')
 fps = float(num) / float(den)
 codec = metadata['video']['@codec_long_name']
 w = int(round(int(metadata['video']['@width']) * scale))
 h = int(round(int(metadata['video']['@height']) * scale))
+total_frames = int(round(float(metadata['video']['@duration']) * fps))
+
 print('fps:', fps)
 print('codec:', codec)
 print('output size:', w, 'x', h)
+print('total frames:', total_frames)
 
 print("Opening ", args.movie)
-try:
-    reader = skvideo.io.FFmpegReader(args.movie, inputdict={}, outputdict={})
-except:
-    print("error opening video")
+reader = skvideo.io.FFmpegReader(args.movie,
+                                 inputdict={},
+                                 outputdict={}
+)
 
 if args.write_smooth:
     #outfourcc = cv2.cv.CV_FOURCC('F', 'M', 'P', '4')
@@ -477,6 +480,7 @@ writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 writer.writeheader()
 
 for frame in reader.nextFrame():
+    frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
     counter += 1
 
     filtered = []
