@@ -101,10 +101,7 @@ print('output size:', w, 'x', h)
 print('total frames:', total_frames)
 
 print("Opening ", args.movie)
-reader = skvideo.io.FFmpegReader(args.movie,
-                                 inputdict={},
-                                 outputdict={}
-)
+reader = skvideo.io.FFmpegReader(args.movie, inputdict={}, outputdict={})
 
 if args.write_smooth:
     #outfourcc = cv2.cv.CV_FOURCC('F', 'M', 'P', '4')
@@ -415,6 +412,40 @@ def motion8(frame, counter):
     #     cv2.imshow('motion8 mean', np.uint8(mean))
     #     cv2.imshow('motion8 var', np.uint8(var1))
 
+# accumulate feature motion
+accum9 = None
+counter9 = None
+def motion9(frame, src, dst):
+    global accum9
+    global counter9
+    
+    if accum9 is None or counter9 is None:
+        print('creating accum/counter matrices')
+        gray = np.float64(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
+        accum9 = gray * 0
+        counter9 = gray + 0.01
+
+    for i in range(len(src)):
+        # print(src[i], dst[i])
+        dx = dst[i][0] - src[i][0]
+        dy = dst[i][1] - src[i][1]
+        dist2 = dx*dx + dy*dy
+        #accum9[ int(src[i][0]), int(src[i][1]) ] += dist2
+        #accum9[ int(dst[i][0]), int(dst[i][1]) ] += dist2
+        #counter9[ int(src[i][0]), int(src[i][1]) ] += 1
+        #counter9[ int(dst[i][0]), int(dst[i][1]) ] += 1
+        accum9[ int(src[i][1]), int(src[i][0]) ] += dist2
+        accum9[ int(dst[i][1]), int(dst[i][0]) ] += dist2
+        counter9[ int(src[i][1]), int(src[i][0]) ] += 1
+        counter9[ int(dst[i][1]), int(dst[i][0]) ] += 1
+
+    mean = accum9 / counter9
+    min = mean.min()
+    max = mean.max()
+    print(min, max)
+    var1 = mean / (max / 255.0)
+    cv2.imshow('motion9', np.uint8(var1))
+    
     
 # for ORB
 detector = cv2.ORB_create(max_features)
@@ -558,6 +589,8 @@ for frame in reader.nextFrame():
         else:
             filtered = mkp1
 
+    motion9(frame_scale, p2, p1)
+    
     affine = findAffine(p2, p1, fullAffine=False)
     (rot, tx, ty, sx, sy) = decomposeAffine(affine)
     if abs(rot) > 6:
