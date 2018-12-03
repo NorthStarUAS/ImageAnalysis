@@ -152,6 +152,7 @@ if args.movie:
     print("writing meta data to", meta)
     
     for frame in reader.nextFrame():
+        frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
         time = float(counter) / fps + time_shift
         print("frame: ", counter, "%.3f" % time, 'time shift:', time_shift)
 
