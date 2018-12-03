@@ -3,6 +3,8 @@
 import argparse
 import csv
 import cv2
+import skvideo.io
+import json
 import math
 import numpy as np
 import os
@@ -82,22 +84,27 @@ print('dist:', dist)
 K = K * args.scale
 K[2,2] = 1.0
 
+metadata = skvideo.io.ffprobe(args.movie)
+#print(metadata.keys())
+print(json.dumps(metadata["video"], indent=4))
+fps_string = metadata['video']['@avg_frame_rate']
+(num, den) = fps_string.split('/')
+fps = float(num) / float(den)
+codec = metadata['video']['@codec_long_name']
+w = int(round(int(metadata['video']['@width']) * scale))
+h = int(round(int(metadata['video']['@height']) * scale))
+total_frames = int(round(float(metadata['video']['@duration']) * fps))
+
+print('fps:', fps)
+print('codec:', codec)
+print('output size:', w, 'x', h)
+print('total frames:', total_frames)
+
 print("Opening ", args.movie)
-try:
-    capture = cv2.VideoCapture(args.movie)
-    #capture = cv2.VideoCapture() # webcam
-except:
-    print("error opening video")
-
-print("ok opening video")
-capture.read()
-print("ok reading first frame")
-
-fps = capture.get(cv2.CAP_PROP_FPS)
-print("fps = %.2f" % fps)
-fourcc = int(capture.get(cv2.CAP_PROP_FOURCC))
-w = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) * scale )
-h = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) * scale )
+reader = skvideo.io.FFmpegReader(args.movie,
+                                 inputdict={},
+                                 outputdict={}
+)
 
 if args.write_smooth:
     #outfourcc = cv2.cv.CV_FOURCC('F', 'M', 'P', '4')
@@ -112,8 +119,8 @@ if args.write_smooth:
 # include best warp/shear.  fullAffine=False means limit the
 # matrix to only best rotation, translation, and scale.
 def findAffine(src, dst, fullAffine=False):
-    #print "src = %s" % str(src)
-    #print "dst = %s" % str(dst)
+    #print("src:", src)
+    #print("dst:", dst)
     if len(src) >= affine_minpts:
         affine = cv2.estimateRigidTransform(np.array([src]), np.array([dst]),
                                             fullAffine)
@@ -199,6 +206,9 @@ def filterFeatures(p1, p2, K, method):
     total = len(status)
     #print '%s%d / %d  inliers/matched' % (space, np.sum(status), len(status))
     return M, status, np.float32(newp1), np.float32(newp2)
+
+def do_motion(src, dst):
+    pass
 
 def overlay(new_frame, base, motion_mask=None):
     newtmp = cv2.cvtColor(new_frame, cv2.COLOR_BGR2GRAY)
@@ -469,20 +479,11 @@ fieldnames=['frame', 'time', 'rotation (deg)',
 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 writer.writeheader()
 
-while True:
+for frame in reader.nextFrame():
+    frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
     counter += 1
 
     filtered = []
-    ret, frame = capture.read()
-
-    if not ret:
-        # no frame
-        stop_count += 1
-        print("no more frames:", stop_count)
-        if stop_count > args.stop_count:
-            break
-    else:
-        stop_count = 0    
 
     if counter < skip_frames:
         if counter % 1000 == 0:
@@ -490,10 +491,6 @@ while True:
         continue
 
     # print "Frame %d" % counter
-
-    if frame is None:
-        print("Skipping bad frame ...")
-        continue
 
     method = cv2.INTER_AREA
     #method = cv2.INTER_LANCZOS4
