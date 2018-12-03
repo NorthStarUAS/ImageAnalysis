@@ -4,6 +4,7 @@
 
 import argparse
 import cv2
+import skvideo.io               # pip3 install scikit-video
 import math
 import fractions
 from matplotlib import pyplot as plt 
@@ -20,6 +21,9 @@ import correlate
 parser = argparse.ArgumentParser(description='correlate movie data to flight data.')
 parser.add_argument('--flight', help='load specified aura flight log')
 parser.add_argument('--movie', required=False, help='original movie if extracting frames')
+parser.add_argument('--cam-mount', choices=['forward', 'down', 'rear'],
+                    default='down',
+                    help='approximate camera mounting orientation')
 parser.add_argument('--interval', type=float, default=1.0, help='capture interval')
 parser.add_argument('--resample-hz', type=float, default=60.0, help='resample rate (hz)')
 parser.add_argument('--time-shift', type=float, help='skip autocorrelation and use this offset time')
@@ -103,7 +107,10 @@ if len(data['imu']) == 0 and len(data['gps']) == 0:
 interp = flight_interp.FlightInterpolate()
 interp.build(data)
     
-time_shift, flight_min, flight_max = correlate.sync_clocks(data, interp, movie_log, hz=args.resample_hz, force_shift=args.time_shift, plot=args.plot)
+time_shift, flight_min, flight_max = \
+    correlate.sync_clocks(data, interp, movie_log, hz=args.resample_hz,
+                          cam_mount=args.cam_mount,
+                          force_time_shift=args.time_shift, plot=args.plot)
 
 # quick estimate ground elevation
 sum = 0.0
@@ -119,40 +126,32 @@ else:
 print("ground est:", ground_m)
 
 if args.movie:
+    metadata = skvideo.io.ffprobe(args.movie)
+    #print(metadata.keys())
+    #print(json.dumps(metadata["video"], indent=4))
+    fps_string = metadata['video']['@avg_frame_rate']
+    (num, den) = fps_string.split('/')
+    fps = float(num) / float(den)
+    codec = metadata['video']['@codec_long_name']
+    w = int(metadata['video']['@width'])
+    h = int(metadata['video']['@height'])
+    print('fps:', fps)
+    print('codec:', codec)
+    print('output size:', w, 'x', h)
+
     # extract frames
     print("Opening ", args.movie)
-    try:
-        capture = cv2.VideoCapture(args.movie)
-    except:
-        print("error opening video")
-
-    capture.read()
-    counter += 1
-    print("ok reading first frame")
-
-    fps = capture.get(cv2.CAP_PROP_FPS)
-    print("fps = %.2f" % fps)
-    fourcc = int(capture.get(cv2.CAP_PROP_FOURCC))
-    w = capture.get(cv2.CAP_PROP_FRAME_WIDTH)
-    h = capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    reader = skvideo.io.FFmpegReader(args.movie, inputdict={}, outputdict={})
 
     last_time = 0.0
     abspath = os.path.abspath(args.movie)
     basename, ext = os.path.splitext(abspath)
     dirname = os.path.dirname(abspath)
     meta = dirname + "/image-metadata.txt"
-    print("writing meta data to", meta)
     f = open(meta, 'w')
-    while True:
-        ret, frame = capture.read()
-        if not ret:
-            # no frame
-            print("no more frames:")
-            break
-            
-        if frame is None:
-            print("Skipping bad frame ...")
-            continue
+    print("writing meta data to", meta)
+    
+    for frame in reader.nextFrame():
         time = float(counter) / fps + time_shift
         print("frame: ", counter, "%.3f" % time, 'time shift:', time_shift)
 
