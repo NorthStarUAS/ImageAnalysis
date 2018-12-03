@@ -200,10 +200,11 @@ hud1.set_render_size(w, h)
 hud2.set_render_size(w, h)
 
 print("Opening ", args.movie)
-try:
-    reader = skvideo.io.FFmpegReader(args.movie, inputdict={}, outputdict={})
-except:
-    print("error opening video")
+reader = skvideo.io.FFmpegReader(args.movie, inputdict={}, outputdict={})
+
+inputdict = {
+    '-r': str(fps)
+}
 
 lossless = {
     # See all options: https://trac.ffmpeg.org/wiki/Encode/H.264
@@ -221,7 +222,7 @@ sane = {
     '-r': str(fps)         # match input fps
 }
 
-writer = skvideo.io.FFmpegWriter(tmp_movie, outputdict=sane)
+writer = skvideo.io.FFmpegWriter(tmp_movie, inputdict=inputdict, outputdict=sane)
 
 last_time = 0.0
 
@@ -256,6 +257,7 @@ if time_shift > 0:
 
 shift_mod_hack = False
 for frame in reader.nextFrame():
+    frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
     if args.rot180:
         frame = np.rot90(frame)
         frame = np.rot90(frame)
