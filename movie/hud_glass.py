@@ -63,6 +63,7 @@ class HUD:
         self.phi_rad = 0
         self.the_rad = 0
         self.psi_rad = 0
+        self.gc_rot = 0
         self.frame = None
         self.airspeed_units = 'kt'
         self.altitude_units = 'ft'
@@ -624,19 +625,21 @@ class HUD:
         cv2.fillPoly(self.frame, np.array([[top, arrow1, arrow2]]), white)
 
         # ground course indicator
-        a = math.atan2(self.filter_ve, self.filter_vn)
-        gc_rot = a - self.psi_rad
-        if gc_rot < -math.pi:
-            gc_rot += 2*math.pi
-        if gc_rot > math.pi:
-            gc_rot -= 2*math.pi
+        gs_mps = math.sqrt(self.filter_vn*self.filter_vn + self.filter_ve*self.filter_ve)
+        if gs_mps > 1.0:
+            a = math.atan2(self.filter_ve, self.filter_vn)
+            self.gc_rot = a - self.psi_rad
+            if self.gc_rot < -math.pi:
+                self.gc_rot += 2*math.pi
+            if self.gc_rot > math.pi:
+                self.gc_rot -= 2*math.pi
         nose = (center_col, row_start + 1)
         nose1 = (center_col, row_start + size1)
         #end = (self.nose_uv[0], center[1] + size2)
         end = (center_col, center[1])
         arrow1 = (center_col - size1, nose[1] + size2)
         arrow2 = (center_col + size1, nose[1] + size2)
-        uv = self.rotate_pt([nose, arrow1, arrow2, nose1, end], center, gc_rot)
+        uv = self.rotate_pt([nose, arrow1, arrow2, nose1, end], center, self.gc_rot)
         if uv != None:
             pts1 = np.array([[uv[3], uv[4]]])
             pts2 = np.array([[uv[0], uv[1], uv[2]]])
@@ -649,11 +652,11 @@ class HUD:
             wind_kt = self.wind_kt
             max_wind = self.ap_speed
             if wind_kt > max_wind: wind_kt = max_wind
-            gc_rot = wind_rad - self.psi_rad
-            if gc_rot < -math.pi:
-                gc_rot += 2*math.pi
-            if gc_rot > math.pi:
-                gc_rot -= 2*math.pi
+            wc_rot = wind_rad - self.psi_rad
+            if wc_rot < -math.pi:
+                wc_rot += 2*math.pi
+            if wc_rot > math.pi:
+                wc_rot -= 2*math.pi
             size1 = int(round(hdg_rows*0.05))
             size2 = int(round(hdg_rows*0.1))
             size3 = int(round((rows*0.5) * (wind_kt/max_wind)))
@@ -664,7 +667,7 @@ class HUD:
             end = (center_col, center[1] - size3)
             arrow1 = (nose[0] - size1, nose[1] - size2)
             arrow2 = (nose[0] + size1, nose[1] - size2)
-            uv = self.rotate_pt([nose, arrow1, arrow2, nose1, end], center, gc_rot)
+            uv = self.rotate_pt([nose, arrow1, arrow2, nose1, end], center, wc_rot)
             if uv != None:
                 pts1 = np.array([[uv[3], uv[4]]])
                 pts2 = np.array([[uv[0], uv[1], uv[2]]])
