@@ -275,7 +275,7 @@ class Matcher():
         matches = self.matcher.knnMatch(np.array(i1.des_list),
                                         trainDescriptors=np.array(i2.des_list),
                                         k=2)
-        print("  raw matches =", len(matches))
+        print('  raw matches:', len(matches))
 
         sum = 0.0
         max_good = 0
@@ -288,10 +288,10 @@ class Matcher():
                 count_good += 1
                 if m[0].distance > max_good:
                     max_good = m[0].distance
-        print('  avg dist =', sum / len(matches))
+        print('  avg dist:', sum / len(matches))
         if count_good:
-            print('  avg good dist = ', sum_good / count_good, '(%d)' % count_good)
-        print('  max good dist = ', max_good)
+            print('  avg good dist:', sum_good / count_good, '(%d)' % count_good)
+        print('  max good dist:', max_good)
 
         if False:
             # filter by absolute distance (for ORB, statistically all real
@@ -305,9 +305,10 @@ class Matcher():
 
         if True:
             # generate a quality metric for each match, sort and only
-            # pass along the top 'n' matches.  Testing the idea that
-            # 2000 matches aren't better than 20 if they are good
-            # matches (with respect to optimizing the fit.)
+            # pass along the best 'n' matches that pass the distance
+            # ratio test.  (Testing the idea that 2000 matches aren't
+            # better than 20 if they are good matches with respect to
+            # optimizing the fit.)
             by_metric = []
             for m in matches:
                 ratio = m[0].distance / m[1].distance # smaller is better
@@ -330,22 +331,33 @@ class Matcher():
             # just quit now
             return []
 
-        dim1 = i1.get_size()
-        dim2 = i2.get_size()
-        size1 = gms_matcher.Size(dim1[0], dim1[1])
-        size2 = gms_matcher.Size(dim2[0], dim2[1])
-        #gms = gms_matcher.GmsMatcher(i1.kp_list, size1, i2.kp_list, size2, matches_thresh)
-        gms = gms_matcher.GmsMatcher(i1.uv_list, size1, i2.uv_list, size2, matches_thresh)
-        vbInliers, num_inliers = gms.GetInlierMask(with_scale=False, with_rotation=True)
-        print('gms inliers:', num_inliers)
-
+        own_gms = False
+        if own_gms:
+            dim1 = i1.get_size()
+            dim2 = i2.get_size()
+            size1 = gms_matcher.Size(dim1[0], dim1[1])
+            size2 = gms_matcher.Size(dim2[0], dim2[1])
+            #gms = gms_matcher.GmsMatcher(i1.kp_list, size1, i2.kp_list, size2, matches_thresh)
+            gms = gms_matcher.GmsMatcher(i1.uv_list, size1, i2.uv_list, size2, matches_thresh)
+            vbInliers, num_inliers = gms.GetInlierMask(with_scale=False, with_rotation=True)
+            print('own gms inliers:', num_inliers)
+        else:
+            dim1 = i1.get_size()
+            dim2 = i2.get_size()
+            size1 = (dim1[0], dim1[1])
+            size2 = (dim2[0], dim2[1])
+            matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, i1.kp_list, i2.kp_list, matches_thresh, withRotation=True, withScale=False)
+            #matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, i1.uv_list, i2.uv_list, matches_thresh, withRotation=True, withScale=False)
+            #print('matchesGMS:', matchesGMS)
+            
         idx_pairs = []
-        for i, m in enumerate(matches_thresh):
-            if vbInliers[i]:
-                idx_pairs.append( [m.queryIdx, m.trainIdx] )
+        for i, m in enumerate(matchesGMS):
+            idx_pairs.append( [m.queryIdx, m.trainIdx] )
             
         if False:
-            # run the classic feature distance ratio test
+            # run the classic feature distance ratio test (already
+            # handled above in a slightly more strategic way by
+            # passing the best matches, not just all the matches.)
             p1, p2, kp_pairs, idx_pairs = self.filter_by_feature(i1, i2, matches)
             print("  dist ratio matches =", len(idx_pairs))
 
@@ -696,10 +708,9 @@ class Matcher():
         for pair in idx_pairs:
             src.append( i1.kp_list[pair[0]].pt )
             dst.append( i2.kp_list[pair[1]].pt )
-        fullAffine = False
-        affine = cv2.estimateRigidTransform(np.array([src]).astype(np.float32),
-                                            np.array([dst]).astype(np.float32),
-                                            fullAffine)
+        affine, status = \
+            cv2.estimateAffinePartial2D(np.array([src]).astype(np.float32),
+                                        np.array([dst]).astype(np.float32))
         print('affine:', affine)
         if affine is None:
             affine = np.array([[1.0, 0.0, 0.0],
