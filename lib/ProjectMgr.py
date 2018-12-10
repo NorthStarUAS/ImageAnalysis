@@ -449,6 +449,11 @@ class ProjectMgr():
             pt_list.append(p)
         return pt_list
 
+    # Fixme/Question: I don't think I need to build the grid in
+    # original uv space and then undistort, followed by ground
+    # interpolation.  Couldn't I build the grid originally in
+    # undistorted space?
+    #
     # build an interpolation table for 'fast' projection of keypoints
     # into 3d world space
     #
