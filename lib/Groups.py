@@ -324,7 +324,7 @@ def groupByImageConnections(image_list):
     return group_list
 
 def save(path, groups):
-    file = os.path.join(path, 'Groups.json')
+    file = os.path.join(path, 'groups.json')
     try:
         fd = open(file, 'w')
         json.dump(groups, fd, indent=4, sort_keys=True)
@@ -333,7 +333,7 @@ def save(path, groups):
         print('{}: error saving file: {}'.format(file, str(sys.exc_info()[1])))
 
 def load(path):
-    file = os.path.join(path, 'Groups.json')
+    file = os.path.join(path, 'groups.json')
     try:
         fd = open(file, 'r')
         groups = json.load(fd)
