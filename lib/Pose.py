@@ -70,9 +70,9 @@ def setAircraftPoses(proj, posefile="", order='ypr'):
         if not len(found_dir):
             print('No image file:', image_file, 'skipping ...')
             continue
-        if abs(roll_deg) > 45.0:
-            # rolled into a steep turn, skip
-            print('skipping steep turn:', name, 'roll:', roll_deg)
+        if abs(roll_deg) > 30.0 or abs(pitch_deg) > 30.0:
+            # fairly 'extreme' attitude, skip image
+            print('extreme attitude:', name, 'roll:', roll_deg, 'pitch:', pitch_deg)
             continue
 
         base, ext = os.path.splitext(name)
