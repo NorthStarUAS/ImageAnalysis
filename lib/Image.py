@@ -321,9 +321,12 @@ class Image():
                                          octave, class_id) )
 
         scaled_image = cv2.resize(rgb, (0,0), fx=scale, fy=scale)
-        res = cv2.drawKeypoints(scaled_image, kp_list, None,
-                                color=(0,255,0), flags=flags)
-        cv2.imshow(self.name, res)
+        #res = cv2.drawKeypoints(scaled_image, kp_list, None,
+        #                        color=(0,255,0), flags=flags)
+        for kp in kp_list:
+            cv2.circle(scaled_image, (int(kp.pt[0]), int(kp.pt[1])), 3, (0,255,0), 1, cv2.LINE_AA)
+            
+        cv2.imshow(self.name, scaled_image)
         print('waiting for keyboard input...')
         key = cv2.waitKey() & 0xff
         cv2.destroyWindow(self.name)
@@ -364,7 +367,8 @@ class Image():
 
     def set_aircraft_pose(self,
                           lat_deg, lon_deg, alt_m,
-                          yaw_deg, pitch_deg, roll_deg):
+                          yaw_deg, pitch_deg, roll_deg,
+                          flight_time=-1.0):
         # computed from euler angles
         quat = self.ypr_to_quat(yaw_deg, pitch_deg, roll_deg)
         ac_pose_node = self.node.getChild('aircraft_pose', True)
@@ -377,7 +381,9 @@ class Image():
         ac_pose_node.setLen('quat', 4)
         for i in range(4):
             ac_pose_node.setFloatEnum('quat', i, quat[i])
-        
+        if flight_time > 0.0:
+            self.node.setFloat("flight_time", flight_time)
+            
     # ned = [n_m, e_m, d_m] relative to the project ned reference point
     # ypr = [yaw_deg, pitch_deg, roll_deg] in the ned coordinate frame
     # note that the matrix derived from 'quat' is inv(R) is transpose(R)
