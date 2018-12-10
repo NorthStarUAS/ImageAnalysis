@@ -57,6 +57,10 @@ def setAircraftPoses(proj, posefile="", order='ypr'):
             roll_deg = float(field[4])
             pitch_deg = float(field[5])
             yaw_deg = float(field[6])
+        if len(field) >= 8:
+            flight_time = float(field[7])
+        else:
+            flight_time = -1.0
 
         found_dir = ''
         for i in range( proj.dir_node.getLen('image_sources') ):
@@ -66,15 +70,16 @@ def setAircraftPoses(proj, posefile="", order='ypr'):
         if not len(found_dir):
             print('No image file:', image_file, 'skipping ...')
             continue
-        if abs(roll_deg) > 30.0:
-            # rolled into a turn, skip
-            print('skipping:', name, 'roll:', roll_deg)
+        if abs(roll_deg) > 45.0:
+            # rolled into a steep turn, skip
+            print('skipping steep turn:', name, 'roll:', roll_deg)
             continue
 
         base, ext = os.path.splitext(name)
         image = Image.Image(meta_dir, base)
         image.set_aircraft_pose(lat_deg, lon_deg, alt_m,
-                                yaw_deg, pitch_deg, roll_deg)
+                                yaw_deg, pitch_deg, roll_deg,
+                                flight_time)
         print(name, 'yaw=%.1f pitch=%.1f roll=%.1f' % (yaw_deg, pitch_deg, roll_deg))
         proj.image_list.append(image)
 
