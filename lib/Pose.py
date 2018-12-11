@@ -13,6 +13,13 @@ from props import getNode
 import transformations
 import Image
 
+# this should really be a parameter.  Any aircraft poses that exceed
+# this value for either roll or pitch will be ignored.  Oblique photos
+# combined with lens distortion become really difficult for the
+# optimizer to resolve (especially when it puts points off near the
+# horizon.)
+max_angle = 25.0
+
 # a helpful constant
 d2r = math.pi / 180.0
 r2d = 180.0 / math.pi
@@ -70,7 +77,7 @@ def setAircraftPoses(proj, posefile="", order='ypr'):
         if not len(found_dir):
             print('No image file:', image_file, 'skipping ...')
             continue
-        if abs(roll_deg) > 30.0 or abs(pitch_deg) > 30.0:
+        if abs(roll_deg) > max_angle or abs(pitch_deg) > max_angle:
             # fairly 'extreme' attitude, skip image
             print('extreme attitude:', name, 'roll:', roll_deg, 'pitch:', pitch_deg)
             continue
