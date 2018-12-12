@@ -131,7 +131,7 @@ proj.save()
 #
 # each optimized group needs a separate/unique fit
 
-refit_group_orientations = False
+refit_group_orientations = True
 if refit_group_orientations:
     src_list = []
     dst_list = []
@@ -176,11 +176,8 @@ if refit_group_orientations:
         image.set_camera_pose(new_cams[i], y, p, r, opt=True)
     proj.save_images_info()
         
-    if False:
-        # update optimized poses. FIXME: do we need to update orientation
-        # here as well?  Somewhere we worked out the code, but it may not
-        # matter all that much ... except for later manually computing
-        # mean projection error.
+    if True:
+        # update optimized pose orientation.
         dist_report = []
         for i, image in enumerate(proj.image_list):
             if not i in groups[0]:
@@ -203,7 +200,6 @@ if refit_group_orientations:
             dist_report.append( (dist, image.name) )
         proj.save_images_info()
 
-
         dist_report = sorted(dist_report,
                              key=lambda fields: fields[0],
                              reverse=False)
@@ -216,7 +212,7 @@ if refit_group_orientations:
     new_feats = transform_points(A, features)
     # update
     matches_opt = list(matches) # shallow copy
-    for i, feat in enumerate(features):
+    for i, feat in enumerate(new_feats):
         match_index = feat_index_map[i]
         match = matches_opt[match_index]
         #print(' before:', match)
