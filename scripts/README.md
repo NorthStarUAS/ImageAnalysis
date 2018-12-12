@@ -160,13 +160,6 @@ for each image.
   things.  This should be run after the 4a-matching step, and can be
   rerun later to reset the matches.
   
-  ## 4b-simple-matches-reset.py
-
-  Start with the original pair-wise match set and regenerate a
-  matches_direct version of this with no extra checking or validation.
-  You shouldn't ever need/want to run this script under normal
-  circumstances.
-
   ## 4c-review-matches.py
 
   This should be done on the original match pairs before full chain
@@ -257,7 +250,7 @@ for each image.
 
   Loosely follow the approach of 6b-delauney5.py.  Create a per image
   Delaunay mesh of fitted features.  This mesh will be a convex hull
-  of features found/matched within each imaage.  Also include proper
+  of features found/matched within each image.  Also include proper
   textures and texture coordinates.  This should give accurate texture
   placement and surface elevations for the points in the sparse mesh.
 
