@@ -192,5 +192,5 @@ if args.movie:
             exif[GPS + 'MapDatum']     = 'WGS-84'
             exif.write()
             head, tail = os.path.split(file)
-            f.write("%s,%.8f,%.8f,%.4f,%.4f,%.4f,%.4f\n" % (tail, interp.gps_lat(time), interp.gps_lon(time), interp.gps_alt(time), yaw_deg, pitch_deg, roll_deg))
+            f.write("%s,%.8f,%.8f,%.4f,%.4f,%.4f,%.4f,%.2f\n" % (tail, interp.gps_lat(time), interp.gps_lon(time), interp.gps_alt(time), yaw_deg, pitch_deg, roll_deg,time))
     f.close()
