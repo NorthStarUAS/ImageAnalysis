@@ -13,6 +13,7 @@ from props import getNode
 import math
 import numpy as np
 
+# pip3 install panda3d
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
 from panda3d.core import LineSegs, NodePath, OrthographicLens, PNMImage, Texture
