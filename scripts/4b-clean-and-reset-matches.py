@@ -20,12 +20,10 @@ import SRTM
 # projection onto DEM earth surface
 
 # extends 4b-reset-matches-ned2 by only joining chains with similar 3d
-# locations ... this should be what we want to do, but I believe there
-# is a bug somewhere in linking or joinging or referencing that leads
-# to wrong associations and then messes up the downstream solver.  So
-# someday would like to come back to this and figure out what is going
-# wrong because ultimately if we squeeze out redundancy, the optimized
-# solution should be better.
+# locations ... this should be what we want to do.  So someday would
+# like to come back to this and figure out what is going wrong because
+# ultimately if we squeeze out redundancy, the optimized solution
+# should be better.
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
