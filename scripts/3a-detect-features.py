@@ -24,9 +24,9 @@ import ProjectMgr
 #
 # Basic description of censure/star algorithm: http://www.researchgate.net/publication/221304099_CenSurE_Center_Surround_Extremas_for_Realtime_Feature_Detection_and_Matching
 
-parser = argparse.ArgumentParser(description='Load the project\'s images.')
+parser = argparse.ArgumentParser(description='Detect features in the project images.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--scale', type=float, default=0.25, help='scale images before detecting features')
+parser.add_argument('--scale', type=float, default=0.25, help='scale images before detecting features, this acts much like a noise filter')
 parser.add_argument('--detector', default='SIFT',
                     choices=['SIFT', 'SURF', 'ORB', 'Star'])
 parser.add_argument('--sift-max-features', default=30000,
@@ -45,7 +45,7 @@ parser.add_argument('--star-response-threshold', default=30)
 parser.add_argument('--star-line-threshold-projected', default=10)
 parser.add_argument('--star-line-threshold-binarized', default=8)
 parser.add_argument('--star-suppress-nonmax-size', default=5)
-parser.add_argument('--reject-margin', default=0, help='reject features within this distance of the image margin')
+parser.add_argument('--reject-margin', default=0, help='reject features within this distance of the image outer edge margin')
 
 parser.add_argument('--show', action='store_true',
                     help='show features as we detect them')
@@ -83,13 +83,15 @@ elif args.detector == 'Star':
 # find features in the full image set
 proj.detect_features(scale=args.scale, show=args.show)
 
-# I don't know if I want to mess around with undistorting keypoints at
-# this stage.
+# December 11, 2018: (fixme) Mjolnir's nadir camera shows the landing
+# gear and the time/date stamp around the fringes.  Conveniently if we
+# trim the undistorted features that fall outside the image range,
+# these artifacts go away.  So for Mjolnir, the following section is
+# helpful, but for general mapping, this probably shouldn't be used.
 
-# We want this next code block so later we don't pass out of range
-# (undistorted) coordinates to the gms filter and blow up that
-# algorithm's expectations of feature coordinates living inside the
-# image bounds.
+# this should somehow be configurable, or a better solution for
+# filtering out near plane artifacts should be devised (or Mjolnir's
+# camera mount should be adjusted.)
 
 if True:
     # compute the undistorted mapping of the keypoints (features)
