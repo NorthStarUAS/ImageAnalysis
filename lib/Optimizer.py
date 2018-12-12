@@ -31,8 +31,8 @@ class Optimizer():
         self.last_mre = 1.0e+10 # a big number
         self.graph = None
         self.graph_counter = 0
-        self.optimize_calib = 'global' # global camera optimization
-        #self.optimize_calib = 'none' # no camera calibration optimization
+        #self.optimize_calib = 'global' # global camera optimization
+        self.optimize_calib = 'none' # no camera calibration optimization
         self.min_chain_length = 3
         self.with_bounds = False
         self.ncp = 6
@@ -164,11 +164,13 @@ class Optimizer():
                 plt.clim(cmin, cmax)
                 plt.gcf().set_size_inches(16,9,forward=True)
                 plt.draw()
-                # ex: ffmpeg -f image2 -r 2 -s 1280x720 -i optimizer-%03d.png -vcodec libx264 -crf 25  -pix_fmt yuv420p optimizer.mp4
-                plt_name = 'optimizer-%03d.png' % self.graph_counter
-                out_file = os.path.join(self.root, plt_name)
-                plt.savefig(out_file, dpi=80)
-                self.graph_counter += 1
+                if False:
+                    # animate the optimizer progress as a movie
+                    # ex: ffmpeg -f image2 -r 2 -s 1280x720 -i optimizer-%03d.png -vcodec libx264 -crf 25  -pix_fmt yuv420p optimizer.mp4
+                    plt_name = 'optimizer-%03d.png' % self.graph_counter
+                    out_file = os.path.join(self.root, plt_name)
+                    plt.savefig(out_file, dpi=80)
+                    self.graph_counter += 1
                 plt.pause(0.01)
         return error
 
@@ -345,12 +347,13 @@ class Optimizer():
         plt.pause(0.01)
         
         t0 = time.time()
+        ftol = 1e-2             # probably a good general number
         res = least_squares(self.fun, x0, bounds=bounds,
                             jac_sparsity=A,
                             verbose=2,
                             x_scale='jac',
                             method='trf',
-                            loss='linear', ftol=1e-3,
+                            loss='linear', ftol=ftol,
                             args=(self.n_cameras, self.n_points,
                                   self.by_camera_point_indices,
                                   self.by_camera_points_2d))
