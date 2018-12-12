@@ -84,7 +84,7 @@ def compute_feature_depths(image_list, group, matches):
             if m[0] in group:
                 image = image_list[m[0]]
                 cam_ned, ypr, quat = image.get_camera_pose(opt=True)
-                dist = np.linalg.norm(feat_ned - cam_ned)
+                dist = np.linalg.norm(np.array(feat_ned) - np.array(cam_ned))
                 image.z_list.append(dist)
 
     # compute stats
