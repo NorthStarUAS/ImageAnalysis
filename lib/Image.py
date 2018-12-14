@@ -419,6 +419,19 @@ class Image():
         Rbody2ned = np.matrix(Rned2body).T
         return Rbody2ned
 
+    def get_aircraft_pose(self):
+        pose_node = self.node.getChild('aircraft_pose', True)
+        lla = [ pose_node.getFloat('lat_deg'),
+                pose_node.getFloat('lon_deg'),
+                pose_node.getFloat('alt_m') ]
+        ypr = [ pose_node.getFloat('yaw_deg'),
+                pose_node.getFloat('pitch_deg'),
+                pose_node.getFloat('roll_deg') ]
+        quat = []
+        for i in range(4):
+            quat.append( pose_node.getFloatEnum('quat', i) )
+        return lla, ypr, quat
+
     def get_camera_pose(self, opt=False):
         if opt:
             pose_node = self.node.getChild('camera_pose_opt', True)
