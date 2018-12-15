@@ -27,6 +27,16 @@ $ git checkout X.Y.Z (version matches the opencv version we are building)
 # cd back to opencv-opencv-blah-blah/build
 $ cmake -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_INSTALL_PREFIX=/usr/local -DWITH_TBB=ON -DWITH_EIGEN=ON -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules -DOPENCV_ENABLE_NONFREE=ON -DPYTHON_DEFAULT_EXECUTABLE=python3 ..
 
-# build it with:
+# build it:
 $ make -j4
+
+# install it:
+$ sudo make install
+
+# make it accessible to yourself by adding this to your ~/.bashrc file:
+# and if you run [t]csh or something else you probably already know how to
+# do the equivalent in your own shell.
+
+  # User specific aliases and functions
+  export PYTHONPATH=$PYTHONPATH:/usr/local/python/cv2/python-3.7
 
