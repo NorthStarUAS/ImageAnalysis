@@ -14,8 +14,9 @@ import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Set the aircraft poses from flight data.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--sentera', help='use the specified sentera image-metadata.txt file (lat,lon,alt,yaw,pitch,roll)')
+parser.add_argument('--meta', help='use the specified image-metadata.txt file (lat,lon,alt,yaw,pitch,roll)')
 parser.add_argument('--pix4d', help='use the specified pix4d csv file (lat,lon,alt,roll,pitch,yaw)')
+parser.add_argument('--max-angle', type=float, default=25.0, help='max pitch or roll angle for image inclusion')
 
 args = parser.parse_args()
 
@@ -24,8 +25,8 @@ print("Loading image info...")
 proj.load_images_info()
 
 pose_set = False
-if args.sentera != None:
-    Pose.setAircraftPoses(proj, args.sentera, order='ypr')
+if args.meta != None:
+    Pose.setAircraftPoses(proj, args.meta, order='ypr', max_angle=args.max_angle)
     pose_set = True
 elif args.pix4d != None:
     Pose.setAircraftPoses(proj, args.pix4d, order='rpy')
