@@ -24,6 +24,8 @@ parser.add_argument('--match-ratio', default=0.75, type=float,
                     help='match ratio')
 parser.add_argument('--min-pairs', default=25, type=int,
                     help='minimum matches between image pairs to keep')
+parser.add_argument('--min-dist', default=10, type=float,
+                    help='minimum 2d camera distance for pair comparison')
 parser.add_argument('--max-dist', default=75, type=float,
                     help='maximum 2d camera distance for pair comparison')
 parser.add_argument('--filter', default='essential',
@@ -43,6 +45,7 @@ matcher_node.setString('matcher', args.matcher)
 matcher_node.setString('match_ratio', args.match_ratio)
 matcher_node.setString('filter', args.filter)
 matcher_node.setString('min_pairs', args.min_pairs)
+matcher_node.setString('min_dist', args.min_dist)
 matcher_node.setString('max_dist', args.max_dist)
 
 # save any config changes
