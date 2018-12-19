@@ -18,7 +18,6 @@ import Image
 # combined with lens distortion become really difficult for the
 # optimizer to resolve (especially when it puts points off near the
 # horizon.)
-max_angle = 25.0
 
 # a helpful constant
 d2r = math.pi / 180.0
@@ -38,7 +37,7 @@ r2d = 180.0 / math.pi
 
 
 # define the image aircraft poses from Sentera meta data file
-def setAircraftPoses(proj, posefile="", order='ypr'):
+def setAircraftPoses(proj, posefile="", order='ypr', max_angle=25.0):
     meta_dir = os.path.join(proj.project_dir, 'meta')
     proj.image_list = []
     
