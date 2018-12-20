@@ -29,7 +29,7 @@ if args.meta != None:
     Pose.setAircraftPoses(proj, args.meta, order='ypr', max_angle=args.max_angle)
     pose_set = True
 elif args.pix4d != None:
-    Pose.setAircraftPoses(proj, args.pix4d, order='rpy')
+    Pose.setAircraftPoses(proj, args.pix4d, order='rpy', max_angle=args.max_angle)
     pose_set = True
 
 if not pose_set:
