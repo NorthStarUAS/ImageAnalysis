@@ -248,8 +248,8 @@ for image in proj.image_list:
         avg = np.mean(np.array(image.z_list))
         std = np.std(np.array(image.z_list))
     else:
-        avg = None
-        std = None
+        avg = 0.0
+        std = 0.0
     image.z_avg = avg
     image.z_std = std
     # print(image.name, 'features:', len(image.z_list), 'avg:', avg, 'std:', std)
@@ -297,6 +297,7 @@ if True:
             for u in u_list:
                 grid_list.append( [u, v] )
         #print 'grid_list:', grid_list
+        image.distorted_uv = proj.redistort(grid_list, optimized=True)
 
         if args.direct:
             proj_list = proj.projectVectors( IK, image.get_body2ned(),
