@@ -68,30 +68,24 @@ def generate(image_list, group, ref_image=False, src_dir=".", project_dir=".", b
         # this is contructed in a weird way, but we generate the 2d
         # iteration in the same order that the original grid_list was
         # constucted so it works.
+        width, height = image.get_size()
         steps = int(math.sqrt(len(image.grid_list))) - 1
-        dx = 1.0 / float(steps)
-        dy = 1.0 / float(steps)
-        y = 1.0
         n = 1
         for j in range(steps+1):
-            x = 0.0
             for i in range(steps+1):
                 v = image.grid_list[n-1]
+                uv = image.distorted_uv[n-1]
                 f.write("  <Vertex> %d {\n" % n)
                 f.write("    %.2f %.2f %.2f\n" % (v[0], v[1], v[2]))
-                f.write("    <UV> { %.5f %.5f }\n" % (x, y))
+                f.write("    <UV> { %.5f %.5f }\n" % (uv[0]/float(width), 1.0-uv[1]/float(height)))
                 f.write("  }\n")
-                x += dx
                 n += 1
-            y -= dy
         f.write("}\n\n")
 
         f.write("<Group> surface {\n")
         
-        y = 1.0
         n = 1
         for j in range(steps):
-            x = 0.0
             for i in range(steps):
                 c = (j * (steps+1)) + i + 1
                 d = ((j+1) * (steps+1)) + i + 1
@@ -101,9 +95,7 @@ def generate(image_list, group, ref_image=False, src_dir=".", project_dir=".", b
                 f.write("   <VertexRef> { %d %d %d %d <Ref> { surface } }\n" \
                         % (d, d+1, c+1, c))
                 f.write("  }\n")
-                x += dx
                 n += 1
-            y -= dy
 
         f.write("}\n")
         f.close()
