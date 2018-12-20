@@ -323,7 +323,9 @@ class ProjectMgr():
                 
     # for each uv in the provided uv list, apply the distortion
     # formula to compute the original distorted value.
-    def redistort(self, uv_list, K, dist_coeffs):
+    def redistort(self, uv_list, optimized=False):
+        K = self.cam.get_K(optimized)
+        dist_coeffs = self.cam.get_dist_coeffs(optimized)
         fx = K[0,0]
         fy = K[1,1]
         cx = K[0,2]
@@ -457,19 +459,19 @@ class ProjectMgr():
     # build an interpolation table for 'fast' projection of keypoints
     # into 3d world space
     #
-    # 1. make a grid (i.e. 8x8) of uv coordinates covering the whole image
-    # 2. undistort these uv coordinates
-    # 3. project them into vectors
-    # 4. intersect them with the srtm terrain to get ned coordinates
-    # 5. use linearndinterpolator ... g = scipy.interpolate.LinearNDInterpolator([[0,0],[1,0],[0,1],[1,1]], [[0,4,8],[1,3,2],[2,2,-4],[4,1,0]])
+    # 1. make a grid (i.e. 8x8) of undistored uv coordinates covering the whole image
+    # 2. project these into vectors
+    # 3. intersect them with the srtm terrain to get ned coordinates
+    # 4. use linearndinterpolator ... g = scipy.interpolate.LinearNDInterpolator([[0,0],[1,0],[0,1],[1,1]], [[0,4,8],[1,3,2],[2,2,-4],[4,1,0]])
     #    with origin uv vs. 3d location to build a table
-    # 6. interpolate original uv coordinates to 3d locations
+    # 5. interpolate original uv coordinates to 3d locations
     def fastProjectKeypointsTo3d(self, sss):
         bar = Bar('Projecting keypoints to 3d:',
                   max = len(self.image_list))
         K = self.cam.get_K()
         IK = np.linalg.inv(K)
         for image in self.image_list:
+            print(image.name)
             # build a regular grid of uv coordinates
             w, h = image.get_size()
             steps = 32
@@ -479,24 +481,28 @@ class ProjectMgr():
             for u in u_grid:
                 for v in v_grid:
                     uv_raw.append( [u,v] )
-                    
-            # undistort the grid of points
-            uv_grid = self.undistort_uvlist(image, uv_raw)
 
-            # filter crazy values when can happen out at the very fringes
-            half_width = w * 0.5
-            half_height = h * 0.5
-            uv_filt = []
-            for i, p in enumerate(uv_grid):
-                if p[0] < -half_width or p[0] > w + half_width:
-                    print("rejecting width outlier:", p, '(', uv_raw[i], ')')
-                    continue
-                if p[1] < -half_height or p[1] > h + half_height:
-                    print("rejecting height outlier:", p, '(', uv_raw[i], ')')
-                    continue
-                uv_filt.append(p)
-            #print('raw pts:', len(uv_raw), 'undist pts:', len(uv_filt))
-            
+            if False: # assuming the original grid is distorted, but lets not do that!
+                # undistort the grid of points
+                uv_grid = self.undistort_uvlist(image, uv_raw)
+
+                # filter crazy values when can happen out at the very fringes
+                half_width = w * 0.5
+                half_height = h * 0.5
+                uv_filt = []
+                for i, p in enumerate(uv_grid):
+                    if p[0] < -half_width or p[0] > w + half_width:
+                        print("rejecting width outlier:", p, '(', uv_raw[i], ')')
+                        continue
+                    if p[1] < -half_height or p[1] > h + half_height:
+                        print("rejecting height outlier:", p, '(', uv_raw[i], ')')
+                        continue
+                    uv_filt.append(p)
+                #print('raw pts:', len(uv_raw), 'undist pts:', len(uv_filt))
+            else:
+                # no filtering by default if the grid begins undistored
+                uv_filt = uv_raw
+                
             # project the grid out into vectors
             body2ned = image.get_body2ned() # IR
 
