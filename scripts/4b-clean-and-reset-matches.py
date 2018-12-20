@@ -52,7 +52,7 @@ else:
             ref_node.getFloat('alt_m') ]
     
     # setup SRTM ground interpolator
-    sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
+    sss = SRTM.NEDGround( ref, 3000, 3000, 30 )
 
     # fast way:
     # 1. make a grid (i.e. 8x8) of uv coordinates covering the whole image
