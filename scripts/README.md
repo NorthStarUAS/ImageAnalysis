@@ -179,7 +179,7 @@ for each image.
   Iterate through the matches_direct structure, locate and connect all
   match chains.  Continues until no more chains can be connected.
   
-  ## 4d-image-groups.py
+  ## 4e-image-groups.py
 
   Images are matches as pairs, but these pairs can be connected into
   larger groups.  Ideally all images will connect with each other, but
@@ -248,23 +248,20 @@ for each image.
 
   ## 6a-render-model2.py
 
-  Loosely follow the approach of 6b-delauney5.py.  Create a per image
-  Delaunay mesh of fitted features.  This mesh will be a convex hull
-  of features found/matched within each image.  Also include proper
-  textures and texture coordinates.  This should give accurate texture
-  placement and surface elevations for the points in the sparse mesh.
-
-  Outside of the convex hull, generate a secondary model to cover the
-  remaining area of the image ... project the corners/edges onto a
-  surface approximation and alpha blend away the extreme edges.
+  Create a global Delaunay mesh of the optimized feature coordinates
+  (like 6b-delauney5.py).  For each image in the main group, project
+  the uv image grid onto the deluaney mesh to generate 3d textured
+  surfaces.  This still can lead to some visible discontinuity at the
+  edges of the image because it's not a dense mesh approach, but it
+  generally works pretty well for many purposes.  Support filtering
+  image grid squares that project too close to the horizon or fall
+  outside of the convex hull of the delauney mesh.
   
-  ## 6b-delaunay3.py
-
-  Insert description
-
   ## 6b-delaunay5.py
 
-  Output a non-textured delaunay triangulation of the fitted surface
+  Output a non-textured delaunay triangulation of the fitted surface.
+  Viewable with the osgviewer utility, the model can be displayed as a
+  shaded surface, wireframe, or point cloud.
 
 
 # 7. Explore
