@@ -22,7 +22,7 @@ import sys
 
 if sys.version_info[0] < 3:
     print("gms_matcher.py: Must be using Python 3")
-    quit()
+    # quit()
 
 THRESHOLD_FACTOR = 6
 
