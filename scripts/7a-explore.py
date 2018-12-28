@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+from __future__ import print_function
 import argparse
 import cv2
 import fnmatch
@@ -174,7 +175,8 @@ class MyApp(ShowBase):
             dx = b.getCenter()[0] - self.cam_pos[0]
             dy = b.getCenter()[1] - self.cam_pos[1]
             dist = math.sqrt(dx*dx + dy*dy)
-            result_list.append( [dist, m] )
+            metric = dist * b.getRadius()
+            result_list.append( [metric, m] )
         result_list = sorted(result_list, key=lambda fields: fields[0],
                              reverse=True)
         top = result_list[-1][1]
