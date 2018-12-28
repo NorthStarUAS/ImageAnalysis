@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+from __future__ import print_function
 
 # need to explore this more:
 # https://github.com/JiawangBian/GMS-Feature-Matcher/blob/master/python/gms_matcher.py
@@ -481,8 +482,9 @@ class Matcher():
 
     def robustGroupMatches(self, image_list, K, filter="fundamental",
                            review=False):
+        min_dist = self.matcher_node.getFloat('min_dist')
         max_dist = self.matcher_node.getFloat('max_dist')
-        print('max_dist:', max_dist)
+        print('range:', min_dist, max_dist)
         
         n = len(image_list) - 1
         n_work = float(n*(n+1)/2)
@@ -507,7 +509,7 @@ class Matcher():
                 ned1, ypr1, q1 = i1.get_camera_pose()
                 ned2, ypr2, q2 = i2.get_camera_pose()
                 dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
-                if dist <= max_dist:
+                if dist >= min_dist and dist <= max_dist:
                     work_list.append( [dist, i, j] )
         work_list = sorted(work_list, key=lambda fields: fields[0])
         
