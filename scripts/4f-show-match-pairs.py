@@ -94,7 +94,7 @@ elif args.order == 'sequential':
             if i >= j:
                 # don't repeat reciprocal matches
                 continue
-            if len(i1.match_list[j]):
+            if type(i1.match_list[j]) is list and len(i1.match_list[j]):
                 print("Showing %s vs %s" % (i1.name, i2.name))
                 status = m.showMatchOrient(i1, i2, i1.match_list[j],
                                            orient=args.orient)
