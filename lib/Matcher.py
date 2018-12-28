@@ -2,9 +2,8 @@
 
 from __future__ import print_function
 
-# need to explore this more:
+# put most of our eggs in the gms matching basket:
 # https://github.com/JiawangBian/GMS-Feature-Matcher/blob/master/python/gms_matcher.py
-
 
 import copy
 import cv2
@@ -18,9 +17,6 @@ from props import getNode
 from find_obj import filter_matches,explore_match
 import ImageList
 import transformations
-
-import gms_matcher
-
 
 class Matcher():
     def __init__(self):
@@ -332,24 +328,13 @@ class Matcher():
             # just quit now
             return []
 
-        own_gms = False
-        if own_gms:
-            dim1 = i1.get_size()
-            dim2 = i2.get_size()
-            size1 = gms_matcher.Size(dim1[0], dim1[1])
-            size2 = gms_matcher.Size(dim2[0], dim2[1])
-            #gms = gms_matcher.GmsMatcher(i1.kp_list, size1, i2.kp_list, size2, matches_thresh)
-            gms = gms_matcher.GmsMatcher(i1.uv_list, size1, i2.uv_list, size2, matches_thresh)
-            vbInliers, num_inliers = gms.GetInlierMask(with_scale=False, with_rotation=True)
-            print('own gms inliers:', num_inliers)
-        else:
-            dim1 = i1.get_size()
-            dim2 = i2.get_size()
-            size1 = (dim1[0], dim1[1])
-            size2 = (dim2[0], dim2[1])
-            matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, i1.kp_list, i2.kp_list, matches_thresh, withRotation=True, withScale=False)
-            #matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, i1.uv_list, i2.uv_list, matches_thresh, withRotation=True, withScale=False)
-            #print('matchesGMS:', matchesGMS)
+        dim1 = i1.get_size()
+        dim2 = i2.get_size()
+        size1 = (dim1[0], dim1[1])
+        size2 = (dim2[0], dim2[1])
+        matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, i1.kp_list, i2.kp_list, matches_thresh, withRotation=True, withScale=False)
+        #matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, i1.uv_list, i2.uv_list, matches_thresh, withRotation=True, withScale=False)
+        #print('matchesGMS:', matchesGMS)
             
         idx_pairs = []
         for i, m in enumerate(matchesGMS):
