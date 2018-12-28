@@ -25,58 +25,6 @@ parser = argparse.ArgumentParser(description='Compute Delauney triangulation of 
 parser.add_argument('--project', required=True, help='project directory')
 args = parser.parse_args()
 
-# project the estimated uv coordinates for the specified image and ned
-# point
-def compute_feature_uv(K, image, ned):
-    if image.PROJ == None:
-        rvec, tvec = image.get_proj_sba()
-        R, jac = cv2.Rodrigues(rvec)
-        image.PROJ = np.concatenate((R, tvec), axis=1)
-
-    PROJ = image.PROJ
-    uvh = K.dot( PROJ.dot( np.hstack((ned, 1.0)) ).T )
-    uvh /= uvh[2]
-    uv = np.array( [ np.squeeze(uvh[0,0]), np.squeeze(uvh[1,0]) ] )
-    return uv
-
-def redistort(u, v, dist_coeffs, K):
-    fx = K[0,0]
-    fy = K[1,1]
-    cx = K[0,2]
-    cy = K[1,2]
-    x = (u - cx) / fx
-    y = (v - cy) / fy
-    #print [x, y]
-    k1, k2, p1, p2, k3 = dist_coeffs
-    
-    # Compute radius^2
-    r2 = x**2 + y**2
-    r4, r6 = r2**2, r2**3
-  
-    # Compute tangential distortion
-    dx = 2*p1*x*y + p2*(r2 + 2*x*x)
-    dy = p1*(r2 + 2*y*y) + 2*p2*x*y
-    
-    # Compute radial factor
-    Lr = 1.0 + k1*r2 + k2*r4 + k3*r6
-  
-    ud = Lr*x + dx
-    vd = Lr*y + dy
-    
-    return ud * fx + cx, vd * fy + cy
-
-# adds the value to the list and returns the index
-def unique_add( mylist, value ):
-    key = "%.5f,%.5f,%.5f" % (value[0], value[1], value[2])
-    if key in mylist:
-        return mylist[key]['index']
-    else:
-        mylist[key] = {}
-        mylist[key]['index'] = mylist['counter']
-        mylist[key]['vertex'] = value
-        mylist['counter'] += 1
-    return mylist['counter'] - 1
-
 def gen_ac3d_surface(name, points_group, values_group, tris_group):
     kids = len(tris_group)
     # write out the ac3d file
