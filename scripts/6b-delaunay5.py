@@ -56,7 +56,6 @@ def gen_ac3d_surface(name, points_group, values_group, tris_group):
                 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
-#proj.load_features()
         
 print("Loading optimized points ...")
 matches_opt = pickle.load( open( os.path.join(args.project, "matches_opt"), "rb" ) )
@@ -70,7 +69,7 @@ tris_group = []
 
 min_chain_length = 3
 
-# initialize temporary structures
+# initialize temporary structures for vanity stats
 for image in proj.image_list:
     image.raw_points = []
     image.raw_values = []
@@ -80,7 +79,7 @@ for image in proj.image_list:
     image.min_z = 9999.0
 
 # sort through points
-print('Initial sort through optimized match points ...')
+print('Reading feature locations from optimized match points ...')
 global_raw_points = []
 global_raw_values = []
 for match in matches_opt:
