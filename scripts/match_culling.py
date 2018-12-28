@@ -108,17 +108,17 @@ def show_outliers(result_list, matches, image_list):
     return mark_list
 
 # mark the outlier
-def mark_outlier(matches, match_index, feat_index, error):
+def mark_feature(matches, match_index, feat_index, error):
     print('  outlier - match index:', match_index, 'feature index:', feat_index, 'error:', error)
     match = matches[match_index]
     match[feat_index+1] = [-1, -1]
 
 def mark_using_list(mark_list, matches):
     for mark in mark_list:
-        mark_outlier( matches, mark[0], mark[1], None )
+        mark_feature( matches, mark[0], mark[1], None )
         
 # delete marked matches
-def delete_marked_matches(matches):
+def delete_marked_features(matches):
     print(" deleting marked items...")
     for i in reversed(range(len(matches))):
         match = matches[i]

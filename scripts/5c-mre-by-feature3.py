@@ -27,7 +27,6 @@ args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
-#proj.load_features()
 
 #source = 'matches_direct'
 source = 'matches_grouped'
@@ -106,14 +105,14 @@ def mark_outliers(error_list, trim_stddev):
     for line in error_list:
         # print "line:", line
         if line[0] > mre + stddev * trim_stddev:
-            cull.mark_outlier(matches_orig, line[1], line[2], line[0])
-            cull.mark_outlier(matches_opt, line[1], line[2], line[0])
+            cull.mark_feature(matches_orig, line[1], line[2], line[0])
+            cull.mark_feature(matches_opt, line[1], line[2], line[0])
             mark_count += 1
             
     return mark_count
 
 # delete marked matches
-def delete_marked_matches(matches):
+def delete_marked_features(matches):
     print(" deleting marked items...")
     for i in reversed(range(len(matches))):
         match = matches[i]
@@ -181,8 +180,8 @@ if mark_sum > 0:
     print('Outliers removed from match lists:', mark_sum)
     result = input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
-        delete_marked_matches(matches_orig)
-        delete_marked_matches(matches_opt)
+        delete_marked_features(matches_orig)
+        delete_marked_features(matches_opt)
         # write out the updated match dictionaries
         print("Writing:", source)
         pickle.dump(matches_orig, open(os.path.join(args.project, source), "wb"))

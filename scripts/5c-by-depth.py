@@ -152,8 +152,8 @@ def mark_outliers(error_list, trim_stddev):
     for line in error_list:
         # print "line:", line
         if line[0] > mean + stddev * trim_stddev:
-            cull.mark_outlier(matches_orig, line[1], line[2], line[0])
-            cull.mark_outlier(matches_opt, line[1], line[2], line[0])
+            cull.mark_feature(matches_orig, line[1], line[2], line[0])
+            cull.mark_feature(matches_opt, line[1], line[2], line[0])
             mark_count += 1
             
     return mark_count
@@ -203,8 +203,8 @@ if mark_sum > 0:
     print('Outliers removed from match lists:', mark_sum)
     result = input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
-        cull.delete_marked_matches(matches_orig)
-        cull.delete_marked_matches(matches_opt)
+        cull.delete_marked_features(matches_orig)
+        cull.delete_marked_features(matches_opt)
         
         # write out the updated match dictionaries
         print("Writing original matches...")

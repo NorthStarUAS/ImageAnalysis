@@ -135,7 +135,7 @@ cull.mark_using_list(mark_list, matches_orig)
 cull.mark_using_list(mark_list, matches_opt)
 mark_sum = len(mark_list)
 
-def delete_marked_matches(matches):
+def delete_marked_features(matches):
     print(" deleting marked items...")
     for i in reversed(range(len(matches))):
         match = matches[i]
@@ -154,8 +154,8 @@ if mark_sum > 0:
     print('Outliers to remove from match lists:', mark_sum)
     result = input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
-        delete_marked_matches(matches_orig)
-        delete_marked_matches(matches_opt)
+        delete_marked_features(matches_orig)
+        delete_marked_features(matches_opt)
         # write out the updated match dictionaries
         print("Writing original matches...")
         pickle.dump(matches_orig, open(os.path.join(args.project, source), "wb"))

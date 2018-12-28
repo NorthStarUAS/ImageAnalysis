@@ -279,7 +279,7 @@ if len(mark_list):
     if result == 'y' or result == 'Y':
         # mark and delete the outliers
         cull.mark_using_list(mark_list, matches)
-        cull.delete_marked_matches(matches)
+        cull.delete_marked_features(matches)
  
         # write out the updated match dictionaries
         print("Writing matches (direct) ...")
@@ -337,7 +337,7 @@ if mark_sum > 0:
     print('Outliers removed from match lists:', mark_sum)
     result=input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
-        cull.delete_marked_matches(matches)
+        cull.delete_marked_features(matches)
         print('Number of matches:', len(matches))
         
         # write out the updated match dictionaries

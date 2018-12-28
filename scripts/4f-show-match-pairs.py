@@ -72,7 +72,7 @@ if args.image:
     i1 = proj.findImageByName(args.image)
     if i1 != None:
         for j, i2 in enumerate(proj.image_list):
-            if len(i1.match_list[j]):
+            if type(i1.match_list[j]) == list and len(i1.match_list[j]):
                 print("Showing %s vs %s (%d matches)" % (i1.name, i2.name, len(i1.match_list[j])))
                 status = m.showMatchOrient(i1, i2, i1.match_list[j],
                                            orient=args.orient)

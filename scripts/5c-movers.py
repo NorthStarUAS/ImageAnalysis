@@ -128,13 +128,13 @@ def mark_outliers(error_list, trim_stddev):
     for line in error_list:
         # print "line:", line
         if line[0] > mre + stddev * trim_stddev:
-            cull.mark_outlier(matches_sba, line[1], line[2], line[0])
+            cull.mark_feature(matches_sba, line[1], line[2], line[0])
             mark_count += 1
             
     return mark_count
 
 # delete marked matches
-def delete_marked_matches(matches):
+def delete_marked_features(matches):
     print(" deleting marked items...")
     for i in reversed(range(len(matches))):
         match = matches[i]
@@ -224,8 +224,8 @@ if mark_sum > 0:
     print('Outliers removed from match lists:', mark_sum)
     result=input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
-        delete_marked_matches(matches_grouped)
-        delete_marked_matches(matches_sba)
+        delete_marked_features(matches_grouped)
+        delete_marked_features(matches_sba)
         # write out the updated match dictionaries
         print("Writing grouped matches...")
         pickle.dump(matches_grouped, open(os.path.join(args.project, "matches_grouped"), "wb"))
