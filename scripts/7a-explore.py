@@ -14,14 +14,18 @@ from props import getNode
 import math
 import numpy as np
 
+# pip3 install --pre --extra-index-url https://archive.panda3d.org/ panda3d
 # pip3 install panda3d
+
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
 from panda3d.core import LineSegs, NodePath, OrthographicLens, PNMImage, Texture
+from direct.gui.DirectGui import YesNoDialog
 
 sys.path.append('../lib')
 import ProjectMgr
 
+import explore.annotations
 import explore.reticle
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
@@ -32,10 +36,10 @@ proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
 
 # lookup ned reference
-ref_node = getNode("/config/ned_reference", True)
-ref = [ ref_node.getFloat('lat_deg'),
-        ref_node.getFloat('lon_deg'),
-        ref_node.getFloat('alt_m') ]
+# ref_node = getNode("/config/ned_reference", True)
+# ref = [ ref_node.getFloat('lat_deg'),
+#         ref_node.getFloat('lon_deg'),
+#         ref_node.getFloat('alt_m') ]
 
 tcache = {}
 
@@ -57,13 +61,14 @@ class MyApp(ShowBase):
         self.lens.setFilmSize(20, 15)
         base.camNode.setLens(self.lens)
 
-        self.cam_pos = [ ref[1], ref[0], -ref[2] + 1000 ]
+        self.cam_pos = [ 0.0, 0.0, 1000.0 ]
         self.camera.setPos(self.cam_pos[0], self.cam_pos[1], self.cam_pos[2])
         self.camera.setHpr(0, -90.0, 0)
         self.view_size = 100.0
-
-        self.top_image = 0
+        self.last_ysize = 0
         
+        self.top_image = 0
+
         # setup keyboard handlers
         #self.messenger.toggleVerbose()
         self.accept('arrow_left', self.cam_move, [-0.1, 0, 0])
@@ -93,15 +98,24 @@ class MyApp(ShowBase):
         self.accept('wheel_down', self.cam_zoom, [1.0/1.1])
         self.accept('mouse1', self.mouse_state, [0, 1])
         self.accept('mouse1-up', self.mouse_state, [0, 0])
+        self.accept('mouse3', self.dialog_test, [0])
         self.mouse = [0, 0, 0]
         self.last_mouse = [0, 0, 0]
         
         # Add the tasks to the task manager.
         self.taskMgr.add(self.updateCameraTask, "updateCameraTask")
 
-        # reticle
+        # modules
+        self.annotations = explore.annotations.Annotations(self.render)
         self.reticle = explore.reticle.Reticle(self.render)
-
+        
+    def tmpItemSel(self, arg):
+        self.dialog.cleanup()
+        print('result:', arg)
+        
+    def dialog_test(self, tmp):
+        self.dialog = YesNoDialog(dialogName="YesNoCancelDialog", text="Please choose:", command=self.tmpItemSel)
+        
     def mouse_state(self, index, state):
         self.mouse[index] = state
     
@@ -135,6 +149,8 @@ class MyApp(ShowBase):
             bar.next()
         bar.finish()
         self.sortImages()
+        self.annotations.rebuild(self.view_size)
+
 
     def cam_move(self, x, y, z, sort=True):
         print('move:', x, y)
@@ -146,6 +162,7 @@ class MyApp(ShowBase):
         
     def cam_zoom(self, f):
         self.view_size /= f
+        self.annotations.rebuild(self.view_size)
 
     def quit(self):
         quit()
@@ -160,7 +177,14 @@ class MyApp(ShowBase):
         self.camera.setHpr(0, -90, 0)
         self.lens.setFilmSize(self.view_size*base.getAspectRatio(),
                               self.view_size)
+        # reticle
         self.reticle.update(self.cam_pos, self.view_size)
+        # annotations
+        props = base.win.getProperties()
+        y = props.getYSize()
+        if y != self.last_ysize:
+            self.annotations.rebuild(self.view_size)
+            self.last_ysize = y
         mw = base.mouseWatcherNode
         if mw.hasMouse():
             mpos = mw.getMouse()
@@ -189,7 +213,7 @@ class MyApp(ShowBase):
         result_list = []
         for m in self.models:
             b = m.getTightBounds()
-            print('tight', b)
+            #print('tight', b)
             center = [ (b[0][0] + b[1][0]) * 0.5,
                        (b[0][1] + b[1][1]) * 0.5,
                        (b[0][2] + b[1][2]) * 0.5 ]
@@ -200,7 +224,7 @@ class MyApp(ShowBase):
             dx = center[0] - self.cam_pos[0]
             dy = center[1] - self.cam_pos[1]
             dist = math.sqrt(dx*dx + dy*dy)
-            print('center:', center, 'span:', span, 'dist:', dist)
+            #print('center:', center, 'span:', span, 'dist:', dist)
             metric = dist + (span * 0.1)
             if not self.inbounds(b):
                 metric += 1000
