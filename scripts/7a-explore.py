@@ -22,6 +22,8 @@ from panda3d.core import LineSegs, NodePath, OrthographicLens, PNMImage, Texture
 sys.path.append('../lib')
 import ProjectMgr
 
+import explore.reticle
+
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
 args = parser.parse_args()
@@ -57,21 +59,21 @@ class MyApp(ShowBase):
 
         self.cam_pos = [ ref[1], ref[0], -ref[2] + 1000 ]
         self.camera.setPos(self.cam_pos[0], self.cam_pos[1], self.cam_pos[2])
-        self.camera.setHpr(0, -89.9, 0)
+        self.camera.setHpr(0, -90.0, 0)
         self.view_size = 100.0
 
         # test line drawing
-        ls = LineSegs()
-        ls.setThickness(1)
-        ls.setColor(1.0, 0.0, 0.0, 1.0)
-        ls.moveTo(-100, -100, 400)
-        ls.drawTo(100, -100, 400)
-        ls.drawTo(100, 100, 400)
-        ls.drawTo(-100, 100, 400)
-        ls.drawTo(-100, -100, 400)
-        node = NodePath(ls.create())
-        node.setBin("unsorted", 0)
-        node.reparentTo(self.render)
+        # ls = LineSegs()
+        # ls.setThickness(1)
+        # ls.setColor(1.0, 0.0, 0.0, 1.0)
+        # ls.moveTo(-100, -100, 400)
+        # ls.drawTo(100, -100, 400)
+        # ls.drawTo(100, 100, 400)
+        # ls.drawTo(-100, 100, 400)
+        # ls.drawTo(-100, -100, 400)
+        # node = NodePath(ls.create())
+        # node.setBin("unsorted", 0)
+        # node.reparentTo(self.render)
 
         # setup keyboard handlers
         #self.messenger.toggleVerbose()
@@ -86,6 +88,9 @@ class MyApp(ShowBase):
         
         # Add the tasks to the task manager.
         self.taskMgr.add(self.updateCameraTask, "updateCameraTask")
+
+        # reticle
+        self.reticle = explore.reticle.Reticle(self.render)
 
     def pretty_print(self, node, indent=''):
         for child in node.getChildren():
@@ -135,6 +140,7 @@ class MyApp(ShowBase):
         self.camera.setHpr(0, -90, 0)
         self.lens.setFilmSize(self.view_size*base.getAspectRatio(),
                               self.view_size)
+        self.reticle.update(self.cam_pos, self.view_size)
         return Task.cont
 
     def sortImagesBS(self):
