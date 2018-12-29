@@ -3,6 +3,7 @@
 import subprocess
 import cv2
 import math
+import numpy as np
 import os.path
 
 def make_textures(src_dir, project_dir, image_list, resolution=256):
@@ -71,9 +72,13 @@ def generate(image_list, group, ref_image=False, src_dir=".", project_dir=".", b
         width, height = image.get_size()
         steps = int(math.sqrt(len(image.grid_list))) - 1
         n = 1
+        nan_list = []
         for j in range(steps+1):
             for i in range(steps+1):
                 v = image.grid_list[n-1]
+                if np.isnan(v[0]) or np.isnan(v[1]) or np.isnan(v[2]):
+                    v = [0.0, 0.0, 0.0]
+                    nan_list.append( (j * (steps+1)) + i + 1 )
                 uv = image.distorted_uv[n-1]
                 f.write("  <Vertex> %d {\n" % n)
                 f.write("    %.2f %.2f %.2f\n" % (v[0], v[1], v[2]))
@@ -84,18 +89,20 @@ def generate(image_list, group, ref_image=False, src_dir=".", project_dir=".", b
 
         f.write("<Group> surface {\n")
         
-        n = 1
         for j in range(steps):
             for i in range(steps):
                 c = (j * (steps+1)) + i + 1
                 d = ((j+1) * (steps+1)) + i + 1
-                f.write("  <Polygon> {\n")
-                f.write("   <TRef> { tex }\n")
-                f.write("   <Normal> { 0 0 1 }\n")
-                f.write("   <VertexRef> { %d %d %d %d <Ref> { surface } }\n" \
-                        % (d, d+1, c+1, c))
-                f.write("  }\n")
-                n += 1
+                if c in nan_list or d in nan_list or (c+1) in nan_list or (d+1) in nan_list:
+                    # skip
+                    pass
+                else:
+                    f.write("  <Polygon> {\n")
+                    f.write("   <TRef> { tex }\n")
+                    f.write("   <Normal> { 0 0 1 }\n")
+                    f.write("   <VertexRef> { %d %d %d %d <Ref> { surface } }\n" \
+                            % (d, d+1, c+1, c))
+                    f.write("  }\n")
 
         f.write("}\n")
         f.close()
