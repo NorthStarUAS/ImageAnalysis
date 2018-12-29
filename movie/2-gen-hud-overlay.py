@@ -19,6 +19,7 @@ from aurauas.flightdata import flight_loader, flight_interp
 sys.path.append('../lib')
 import transformations
 
+import correction
 import correlate
 import hud
 import hud_glass
@@ -60,6 +61,7 @@ parser.add_argument('--elevator-scale', type=float, default=1.0, help='useful fo
 parser.add_argument('--rudder-scale', type=float, default=1.0, help='useful for reversing rudder in display')
 parser.add_argument('--flight-track-seconds', type=float, default=600.0, help='how many seconds of flight track to draw')
 parser.add_argument('--keep-tmp-movie', action='store_true', help='Keep the temp movie')
+parser.add_argument('--correction', help='correction table')
 parser.add_argument('--features', help='feature database')
 args = parser.parse_args()
 
@@ -116,6 +118,9 @@ print('dist:', dist)
 K = K * args.scale
 K[2,2] = 1.0
 
+if args.correction:
+    correction.load(args.correction)
+    
 if 'recalibrate' in args:
     recal_file = args.recalibrate
 else:
@@ -277,6 +282,10 @@ for frame in reader.nextFrame():
     yaw_rad = math.atan2(psiy, psix)
     pitch_rad = interp.filter_the(time)
     roll_rad = interp.filter_phi(time)
+    if args.correction:
+        yaw_rad += correction.yaw_interp(time)
+        pitch_rad += correction.pitch_interp(time)
+        roll_rad += correction.roll_interp(time)
     lat_deg = interp.filter_lat(time)*r2d
     lon_deg = interp.filter_lon(time)*r2d
     #altitude_m = float(interp.air_true_alt(time))
@@ -360,6 +369,10 @@ for frame in reader.nextFrame():
     rvec, jac = cv2.Rodrigues(R)
     ned = navpy.lla2ned( lat_deg, lon_deg, filt_alt,
                          ref[0], ref[1], ref[2] )
+    if args.correction:
+        ned[0] += correction.north_interp(time)
+        ned[1] += correction.east_interp(time)
+        ned[2] += correction.down_interp(time)
     #print 'ned:', ned
     tvec = -np.matrix(R) * np.matrix(ned).T
     R, jac = cv2.Rodrigues(rvec)
