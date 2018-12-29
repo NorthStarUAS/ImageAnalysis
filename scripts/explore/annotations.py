@@ -9,6 +9,7 @@ class Annotations():
         self.render = render
         random.seed()
         self.icon = loader.loadTexture('explore/marker-icon-2x.png')
+        self.view_size = 100
         self.markers = []
         for i in range(20):
             x = random.uniform(-100, 100)
@@ -16,10 +17,33 @@ class Annotations():
             self.markers.append( [x, y] )
         self.nodes = []
 
-    def rebuild(self, view_size):
+    def toggle(self, cam_pos):
+        mw = base.mouseWatcherNode
+        if not mw.hasMouse():
+            return
         props = base.win.getProperties()
         y = props.getYSize()
-        pxm = float(y) / view_size
+        pxm = float(y) / self.view_size
+        range = 25 / pxm
+        mpos = mw.getMouse()
+        x = cam_pos[0] + mpos[0] * self.view_size*0.5 * base.getAspectRatio()
+        y = cam_pos[1] + mpos[1] * self.view_size*0.5
+        # check if we clicked on an existing marker
+        exists = False
+        for i, m in enumerate(self.markers):
+            if abs(x - m[0]) <= range and abs(y - m[1]) <= range:
+                exists = True
+                del self.markers[i]
+                break
+        if not exists:
+            self.markers.append( [x, y] )
+        self.rebuild(self.view_size)
+            
+    def rebuild(self, view_size):
+        self.view_size = view_size
+        props = base.win.getProperties()
+        y = props.getYSize()
+        pxm = float(y) / self.view_size
         hsize = 12 / pxm
         vsize = 40 / pxm
         print(hsize, vsize)

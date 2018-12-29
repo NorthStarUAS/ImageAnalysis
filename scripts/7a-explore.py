@@ -69,6 +69,10 @@ class MyApp(ShowBase):
         
         self.top_image = 0
 
+        # modules
+        self.annotations = explore.annotations.Annotations(self.render)
+        self.reticle = explore.reticle.Reticle(self.render)
+
         # setup keyboard handlers
         #self.messenger.toggleVerbose()
         self.accept('arrow_left', self.cam_move, [-0.1, 0, 0])
@@ -98,16 +102,13 @@ class MyApp(ShowBase):
         self.accept('wheel_down', self.cam_zoom, [1.0/1.1])
         self.accept('mouse1', self.mouse_state, [0, 1])
         self.accept('mouse1-up', self.mouse_state, [0, 0])
-        self.accept('mouse3', self.dialog_test, [0])
+        self.accept('mouse3', self.annotations.toggle, [self.cam_pos])
         self.mouse = [0, 0, 0]
         self.last_mouse = [0, 0, 0]
         
         # Add the tasks to the task manager.
         self.taskMgr.add(self.updateCameraTask, "updateCameraTask")
 
-        # modules
-        self.annotations = explore.annotations.Annotations(self.render)
-        self.reticle = explore.reticle.Reticle(self.render)
         
     def tmpItemSel(self, arg):
         self.dialog.cleanup()
