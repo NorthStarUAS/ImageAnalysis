@@ -71,7 +71,7 @@ class binned_surface:
         return self.mean[c][r]
         
     def intersect(self, ned, v, avg_ground):
-        p = ned[:] # copy hopefully
+        p = ned[:] # copy
 
         # sanity check (always assume camera pose is above ground!)
         if v[2] <= 0.0:
