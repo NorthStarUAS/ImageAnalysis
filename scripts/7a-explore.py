@@ -62,6 +62,8 @@ class MyApp(ShowBase):
         self.camera.setHpr(0, -90.0, 0)
         self.view_size = 100.0
 
+        self.top_image = 0
+        
         # test line drawing
         # ls = LineSegs()
         # ls.setThickness(1)
@@ -84,6 +86,16 @@ class MyApp(ShowBase):
         self.accept('=', self.cam_zoom, [1.1])
         self.accept('shift-=', self.cam_zoom, [1.1])
         self.accept('-', self.cam_zoom, [1.0 / 1.1])
+        self.accept('0', self.image_select, [0])
+        self.accept('1', self.image_select, [1])
+        self.accept('2', self.image_select, [2])
+        self.accept('3', self.image_select, [3])
+        self.accept('4', self.image_select, [4])
+        self.accept('5', self.image_select, [5])
+        self.accept('6', self.image_select, [6])
+        self.accept('7', self.image_select, [7])
+        self.accept('8', self.image_select, [8])
+        self.accept('9', self.image_select, [9])
         self.accept('escape', self.quit)
         
         # Add the tasks to the task manager.
@@ -121,18 +133,23 @@ class MyApp(ShowBase):
             self.base_textures.append(tex)
             bar.next()
         bar.finish()
-        self.sortImages2()
+        self.sortImages()
 
     def cam_move(self, x, y, z):
         self.cam_pos[0] += x * self.view_size / 10.0
         self.cam_pos[1] += y * self.view_size / 10.0
-        self.sortImages2()
+        self.image_select(0)
+        self.sortImages()
         
     def cam_zoom(self, f):
         self.view_size /= f
 
     def quit(self):
         quit()
+
+    def image_select(self, level):
+        self.top_image = level
+        self.sortImages()
         
     # Define a procedure to move the camera.
     def updateCameraTask(self, task):
@@ -143,62 +160,54 @@ class MyApp(ShowBase):
         self.reticle.update(self.cam_pos, self.view_size)
         return Task.cont
 
-    def sortImagesBS(self):
-        # sort images by depth
+    # return true if cam_pos inside bounding corners
+    def inbounds(self, b):
+        if self.cam_pos[0] < b[0][0] or self.cam_pos[0] > b[1][0]:
+            return False
+        elif self.cam_pos[1] < b[0][1] or self.cam_pos[1] > b[1][1]:
+            return False
+        else:
+            return True
+        
+    def sortImages(self):
+        # sort images by (hopefully) best covering view center
         result_list = []
         for m in self.models:
-            b = m.getBounds()
-            print('tight', m.getTightBounds())
-            print(b.getCenter(), b.getRadius())
-            dx = b.getCenter()[0] - self.cam_pos[0]
-            dy = b.getCenter()[1] - self.cam_pos[1]
+            b = m.getTightBounds()
+            print('tight', b)
+            center = [ (b[0][0] + b[1][0]) * 0.5,
+                       (b[0][1] + b[1][1]) * 0.5,
+                       (b[0][2] + b[1][2]) * 0.5 ]
+            vol = [ b[0][0] - b[1][0],
+                    b[0][1] - b[1][1],
+                    b[0][2] - b[1][2] ]
+            span = math.sqrt(vol[0]*vol[0] + vol[1]*vol[1] + vol[2]*vol[2])
+            dx = center[0] - self.cam_pos[0]
+            dy = center[1] - self.cam_pos[1]
             dist = math.sqrt(dx*dx + dy*dy)
-            result_list.append( [dist, m] )
-        result_list = sorted(result_list, key=lambda fields: fields[0],
-                             reverse=True)
-        top = result_list[-1][1]
-        top.setColor(1.0, 1.0, 1.0, 1.0)
-        self.updateTexture(top)
-        for i, line in enumerate(result_list):
-            m = line[1]
-            if m.getName() in tcache:
-                # reward draw order for models with high res texture loaded
-                m.setBin("fixed", i + len(self.models))
-            else:
-                m.setBin("fixed", i)
-            m.setDepthTest(False)
-            m.setDepthWrite(False)
-            #if m != top:
-            #    m.setColor(0.7, 0.7, 0.7, 1.0)
-
-    def sortImages2(self):
-        # sort images by reprojection
-        result_list = []
-        for m in self.models:
-            b = m.getBounds()
-            print('tight', m.getTightBounds())
-            print(b.getCenter(), b.getRadius())
-            dx = b.getCenter()[0] - self.cam_pos[0]
-            dy = b.getCenter()[1] - self.cam_pos[1]
-            dist = math.sqrt(dx*dx + dy*dy)
-            metric = dist * b.getRadius()
+            print('center:', center, 'span:', span, 'dist:', dist)
+            metric = dist + (span * 0.1)
+            if not self.inbounds(b):
+                metric += 1000
             result_list.append( [metric, m] )
         result_list = sorted(result_list, key=lambda fields: fields[0],
                              reverse=True)
-        top = result_list[-1][1]
+        top = result_list[-1-self.top_image][1]
         top.setColor(1.0, 1.0, 1.0, 1.0)
         self.updateTexture(top)
         for i, line in enumerate(result_list):
             m = line[1]
-            if m.getName() in tcache:
+            if False and m.getName() in tcache:
                 # reward draw order for models with high res texture loaded
                 m.setBin("fixed", i + len(self.models))
+            elif m == top:
+                m.setBin("fixed", len(result_list))
             else:
                 m.setBin("fixed", i)
             m.setDepthTest(False)
             m.setDepthWrite(False)
-            #if m != top:
-            #    m.setColor(0.7, 0.7, 0.7, 1.0)
+            if m != top:
+                m.setColor(0.7, 0.7, 0.7, 1.0)
 
     def updateTexture(self, main):
         dir_node = getNode('/config/directories', True)
