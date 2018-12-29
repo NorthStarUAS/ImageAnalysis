@@ -64,28 +64,15 @@ class MyApp(ShowBase):
 
         self.top_image = 0
         
-        # test line drawing
-        # ls = LineSegs()
-        # ls.setThickness(1)
-        # ls.setColor(1.0, 0.0, 0.0, 1.0)
-        # ls.moveTo(-100, -100, 400)
-        # ls.drawTo(100, -100, 400)
-        # ls.drawTo(100, 100, 400)
-        # ls.drawTo(-100, 100, 400)
-        # ls.drawTo(-100, -100, 400)
-        # node = NodePath(ls.create())
-        # node.setBin("unsorted", 0)
-        # node.reparentTo(self.render)
-
         # setup keyboard handlers
         #self.messenger.toggleVerbose()
-        self.accept('arrow_left', self.cam_move, [-1, 0, 0])
-        self.accept('arrow_right', self.cam_move, [1, 0, 0])
-        self.accept('arrow_down', self.cam_move, [0, -1, 0])
-        self.accept('arrow_up', self.cam_move, [0, 1, 0])
+        self.accept('arrow_left', self.cam_move, [-0.1, 0, 0])
+        self.accept('arrow_right', self.cam_move, [0.1, 0, 0])
+        self.accept('arrow_down', self.cam_move, [0, -0.1, 0])
+        self.accept('arrow_up', self.cam_move, [0, 0.1, 0])
         self.accept('=', self.cam_zoom, [1.1])
         self.accept('shift-=', self.cam_zoom, [1.1])
-        self.accept('-', self.cam_zoom, [1.0 / 1.1])
+        self.accept('-', self.cam_zoom, [1.0/1.1])
         self.accept('0', self.image_select, [0])
         self.accept('1', self.image_select, [1])
         self.accept('2', self.image_select, [2])
@@ -97,6 +84,17 @@ class MyApp(ShowBase):
         self.accept('8', self.image_select, [8])
         self.accept('9', self.image_select, [9])
         self.accept('escape', self.quit)
+
+        # disable default mouse actions
+        #base.disableMouse()
+
+        # register our mouse events
+        self.accept('wheel_up', self.cam_zoom, [1.1])
+        self.accept('wheel_down', self.cam_zoom, [1.0/1.1])
+        self.accept('mouse1', self.mouse_state, [0, 1])
+        self.accept('mouse1-up', self.mouse_state, [0, 0])
+        self.mouse = [0, 0, 0]
+        self.last_mouse = [0, 0, 0]
         
         # Add the tasks to the task manager.
         self.taskMgr.add(self.updateCameraTask, "updateCameraTask")
@@ -104,6 +102,9 @@ class MyApp(ShowBase):
         # reticle
         self.reticle = explore.reticle.Reticle(self.render)
 
+    def mouse_state(self, index, state):
+        self.mouse[index] = state
+    
     def pretty_print(self, node, indent=''):
         for child in node.getChildren():
             print(indent, child)
@@ -135,11 +136,13 @@ class MyApp(ShowBase):
         bar.finish()
         self.sortImages()
 
-    def cam_move(self, x, y, z):
-        self.cam_pos[0] += x * self.view_size / 10.0
-        self.cam_pos[1] += y * self.view_size / 10.0
-        self.image_select(0)
-        self.sortImages()
+    def cam_move(self, x, y, z, sort=True):
+        print('move:', x, y)
+        self.cam_pos[0] += x * self.view_size * base.getAspectRatio()
+        self.cam_pos[1] += y * self.view_size
+        if sort:
+            self.image_select(0)
+            self.sortImages()
         
     def cam_zoom(self, f):
         self.view_size /= f
@@ -158,6 +161,18 @@ class MyApp(ShowBase):
         self.lens.setFilmSize(self.view_size*base.getAspectRatio(),
                               self.view_size)
         self.reticle.update(self.cam_pos, self.view_size)
+        mw = base.mouseWatcherNode
+        if mw.hasMouse():
+            mpos = mw.getMouse()
+            if self.mouse[0]:
+                dx = self.last_mpos[0] - mpos[0]
+                dy = self.last_mpos[1] - mpos[1]
+                self.cam_move( dx * 0.5, dy * 0.5, 0, sort=False)
+            elif not self.mouse[0] and self.last_mouse[0]:
+                # button up
+                self.cam_move( 0, 0, 0, sort=True)
+            self.last_mpos = list(mpos)
+            self.last_mouse[0] = self.mouse[0]
         return Task.cont
 
     # return true if cam_pos inside bounding corners

@@ -5,16 +5,17 @@ from panda3d.core import LineSegs, NodePath
 class Reticle():
     def __init__(self, render):
         self.render = render
+        self.last_cam_pos = [0, 0, 0]
 
     def build(self, cam_pos, view_size):
-        alpha = 1
+        alpha = 0.5
         depth = 0
         a1 = view_size / 20
         a2 = view_size / 5
         
         ls = LineSegs()
         ls.setThickness(1)
-        ls.setColor(0.0, 1.0, 0.0)
+        ls.setColor(0.0, 1.0, 0.0, alpha)
         ls.moveTo(cam_pos[0] + a1, cam_pos[1], 0)
         ls.drawTo(cam_pos[0] + a2, cam_pos[1], 0)
         ls.moveTo(cam_pos[0] - a1, cam_pos[1], 0)
