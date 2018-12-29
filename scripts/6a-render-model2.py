@@ -226,10 +226,8 @@ if True:
 
         # convert ned to xyz and stash the result for each image
         image.grid_list = []
-        ground_sum = 0
         for p in pts_ned:
             image.grid_list.append( [p[1], p[0], -p[2]] )
-            ground_sum += -p[2]
 
 # generate the panda3d egg models
 dir_node = getNode('/config/directories', True)
@@ -242,6 +240,3 @@ Panda3d.generate(proj.image_list, groups[0], src_dir=img_src_dir,
 AC3D.generate(proj.image_list, groups[0], src_dir=img_src_dir,
               project_dir=args.project, base_name='direct',
               version=1.0, trans=0.1, resolution=args.texture_resolution)
-
-if not args.ground:
-    print('Avg ground elevation (SRTM):', ground_sum / len(pts_ned))
