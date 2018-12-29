@@ -207,7 +207,7 @@ class MyApp(ShowBase):
             m.setDepthTest(False)
             m.setDepthWrite(False)
             if m != top:
-                m.setColor(0.7, 0.7, 0.7, 1.0)
+                m.setColor(0.8, 0.8, 0.8, 1.0)
 
     def updateTexture(self, main):
         dir_node = getNode('/config/directories', True)
@@ -278,7 +278,7 @@ class MyApp(ShowBase):
                         #print('fulltex:', fulltex)
                         m.setTexture(fulltex, 1)
                         tcache[m.getName()] = [m, fulltex, time.time()]
-        cachesize = 5
+        cachesize = 10
         while len(tcache) > cachesize:
             oldest_time = time.time()
             oldest_name = ""
