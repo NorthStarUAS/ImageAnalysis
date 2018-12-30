@@ -26,7 +26,7 @@ import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Detect features in the project images.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--scale', type=float, default=0.25, help='scale images before detecting features, this acts much like a noise filter')
+parser.add_argument('--scale', type=float, default=0.5, help='scale images before detecting features, this acts much like a noise filter')
 parser.add_argument('--detector', default='SIFT',
                     choices=['SIFT', 'SURF', 'ORB', 'Star'])
 parser.add_argument('--sift-max-features', default=30000,
