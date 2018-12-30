@@ -272,27 +272,29 @@ class NEDGround():
         #print "start:", p
         #print "vec:", v
         #print "ned:", ned
-        ground = self.interp([p[0], p[1]])
-        error = abs(p[2] + ground[0])
+        tmp = self.interp([p[0], p[1]])
+        if not np.isnan(tmp[0]) and tmp[0] > -32768:
+            ground = tmp[0]
+        else:
+            ground = 0.0
+        error = abs(p[2] + ground)
         #print "  p=%s ground=%s error=%s" % (p, ground, error)
-        while error > eps and count < 25 and ground[0] > -32768:
-            d_proj = -(ned[2] + ground[0])
+        while error > eps and count < 25:
+            d_proj = -(ned[2] + ground)
             factor = d_proj / v[2]
             n_proj = v[0] * factor
             e_proj = v[1] * factor
             #print "proj = %s %s" % (n_proj, e_proj)
             p = [ ned[0] + n_proj, ned[1] + e_proj, ned[2] + d_proj ]
             #print "new p:", p
-            ground = self.interp([p[0], p[1]])
-            error = abs(p[2] + ground[0])
+            tmp = self.interp([p[0], p[1]])
+            if not np.isnan(tmp[0]) and tmp[0] > -32768:
+                ground = tmp[0]
+            error = abs(p[2] + ground)
             #print "  p=%s ground=%.2f error = %.3f" % (p, ground, error)
             count += 1
         #print "ground:", ground[0]
-        if ground[0] > -32768:
-            return p
-        else:
-            #print " returning nans"
-            return np.zeros(3)*np.nan
+        return p
 
     # return a list of (3d) ground intersection points for the give
     # vector list and camera pose.  Vectors are already transformed
