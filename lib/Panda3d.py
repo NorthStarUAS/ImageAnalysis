@@ -4,7 +4,7 @@ import subprocess
 import cv2
 import math
 import numpy as np
-import os.path
+import os
 
 def make_textures(src_dir, project_dir, image_list, resolution=256):
     dst_dir = project_dir + '/Textures/'
@@ -88,7 +88,8 @@ def generate(image_list, group, ref_image=False, src_dir=".", project_dir=".", b
         f.write("}\n\n")
 
         f.write("<Group> surface {\n")
-        
+
+        count = 0
         for j in range(steps):
             for i in range(steps):
                 c = (j * (steps+1)) + i + 1
@@ -103,7 +104,13 @@ def generate(image_list, group, ref_image=False, src_dir=".", project_dir=".", b
                     f.write("   <VertexRef> { %d %d %d %d <Ref> { surface } }\n" \
                             % (d, d+1, c+1, c))
                     f.write("  }\n")
+                    count += 1
 
         f.write("}\n")
         f.close()
 
+        if count == 0:
+            # uh oh, no polygons fully projected onto the surface for
+            # this image.  For now let's warn and delete the model
+            print("Warning: no polygons fully on surface, removing:", name)
+            os.remove(name)
