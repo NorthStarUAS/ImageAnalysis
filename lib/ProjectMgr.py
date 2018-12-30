@@ -471,7 +471,7 @@ class ProjectMgr():
         K = self.cam.get_K()
         IK = np.linalg.inv(K)
         for image in self.image_list:
-            print(image.name)
+            # print(image.name)
             # build a regular grid of uv coordinates
             w, h = image.get_size()
             steps = 32
