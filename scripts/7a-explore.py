@@ -73,8 +73,9 @@ class MyApp(ShowBase):
         self.annotations = explore.annotations.Annotations(self.render)
         self.reticle = explore.reticle.Reticle(self.render)
 
-        # setup keyboard handlers
         #self.messenger.toggleVerbose()
+
+        # event handlers
         self.accept('arrow_left', self.cam_move, [-0.1, 0, 0])
         self.accept('arrow_right', self.cam_move, [0.1, 0, 0])
         self.accept('arrow_down', self.cam_move, [0, -0.1, 0])
@@ -82,6 +83,10 @@ class MyApp(ShowBase):
         self.accept('=', self.cam_zoom, [1.1])
         self.accept('shift-=', self.cam_zoom, [1.1])
         self.accept('-', self.cam_zoom, [1.0/1.1])
+        self.accept('wheel_up', self.cam_zoom, [1.1])
+        self.accept('wheel_down', self.cam_zoom, [1.0/1.1])
+        self.accept('mouse1', self.mouse_state, [0, 1])
+        self.accept('mouse1-up', self.mouse_state, [0, 0])
         self.accept('0', self.image_select, [0])
         self.accept('1', self.image_select, [1])
         self.accept('2', self.image_select, [2])
@@ -93,19 +98,12 @@ class MyApp(ShowBase):
         self.accept('8', self.image_select, [8])
         self.accept('9', self.image_select, [9])
         self.accept('escape', self.quit)
-
-        # disable default mouse actions
-        #base.disableMouse()
-
-        # register our mouse events
-        self.accept('wheel_up', self.cam_zoom, [1.1])
-        self.accept('wheel_down', self.cam_zoom, [1.0/1.1])
-        self.accept('mouse1', self.mouse_state, [0, 1])
-        self.accept('mouse1-up', self.mouse_state, [0, 0])
         self.accept('mouse3', self.annotations.toggle, [self.cam_pos])
+
+        # mouse state
         self.mouse = [0, 0, 0]
-        self.last_mouse = [0, 0, 0]
-        
+        self.last_mouse = [0, 0, 0] 
+       
         # Add the tasks to the task manager.
         self.taskMgr.add(self.updateCameraTask, "updateCameraTask")
 
