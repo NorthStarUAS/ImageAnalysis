@@ -496,9 +496,19 @@ class Matcher():
                 dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
                 if dist >= min_dist and dist <= max_dist:
                     work_list.append( [dist, i, j] )
-        work_list = sorted(work_list, key=lambda fields: fields[0])
+
+        # (optional) sort worklist from closest pairs to furthest pairs
+        #
+        # benefits of sorting by distance: most important work is done
+        # first (chance to quit early)
+        #
+        # benefits of sorting by order: for large memory usage, active
+        # memory pool decreases as work progresses (becoming more and
+        # more system friendly.)
         
-        # proces the work list form closest to furthest
+        # work_list = sorted(work_list, key=lambda fields: fields[0])
+        
+        # proces the work list
         n_count = 0
         save_time = time.time()
         save_interval = 60      # seconds
