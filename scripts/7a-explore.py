@@ -101,6 +101,7 @@ class MyApp(ShowBase):
         self.accept('mouse3', self.annotations.toggle, [self.cam_pos])
 
         # mouse state
+        self.last_mpos = [0, 0]
         self.mouse = [0, 0, 0]
         self.last_mouse = [0, 0, 0] 
        
