@@ -115,7 +115,7 @@ def intersect2d(ned, v, avg_ground):
     #print("start:", p)
     #print("vec:", v)
     #print("ned:", ned)
-    surface = interp([p[0], p[1]])[0]
+    surface = interp([p[1], p[0]])[0]
     
     error = abs(p[2] - surface)
     #print("p=%s surface=%s error=%s" % (p, surface, error))
@@ -127,11 +127,11 @@ def intersect2d(ned, v, avg_ground):
         #print(" proj = %s %s" % (n_proj, e_proj))
         p = [ ned[0] + n_proj, ned[1] + e_proj, ned[2] + d_proj ]
         #print(" new p:", p)
-        surface = interp([p[0], p[1]])[0]
+        surface = interp([p[1], p[0]])[0]
         error = abs(p[2] - surface)
         #print("  p=%s surface=%.2f error = %.3f" % (p, surface, error))
         count += 1
-    #print("surface:", p)
+    #print("surface:", surface)
     if np.isnan(surface):
         #print(" returning nans")
         return [np.nan, np.nan, np.nan]
