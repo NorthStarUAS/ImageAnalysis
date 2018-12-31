@@ -546,7 +546,7 @@ class ProjectMgr():
                         image.coord_list.append(coord[0])
                     else:
                         print("nan alert!")
-                        print("a feature is too close to an edge and undistorting puts it in a weird place.")
+                        print("a feature is too close to an edge and numerically fell off the edge of the interpolator area..")
                         print("  uv:", uv, "coord:", coord)
                         print("  orig:", image.kp_list[i].pt)
                         #or append zeros which would be a hack until
@@ -554,7 +554,7 @@ class ProjectMgr():
                         #... if it isn't wrong image dimensions in the
                         #.info file...
                         #
-                        image.coord_list.append(np.zeros(3)*np.nan)
+                        image.coord_list.append(np.zeros(3))
                 else:
                     image.coord_list.append(np.zeros(3)*np.nan)
             bar.next()
