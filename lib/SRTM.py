@@ -294,6 +294,8 @@ class NEDGround():
             #print "  p=%s ground=%.2f error = %.3f" % (p, ground, error)
             count += 1
         #print "ground:", ground[0]
+        if np.any(np.isnan(p)):
+            print('SRTM interpolation made a nan:' ,p)
         return p
 
     # return a list of (3d) ground intersection points for the give
