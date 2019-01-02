@@ -77,18 +77,23 @@ for each image.
   significantly varying camera perspectives.  SIFT gives the highest
   quality at the expense of performance (and commercial license
   restrictions.)  Use ORB for real time work, gaining fast speed at
-  the expense of quality (ORB does perform really well when processing
-  video when the camera hasn't moved much from one frame to the next.)
-  Star may be worth trying for outdoor natural environments when
-  processing one frame to the next.
+  the expense of quality (ORB performs well when processing adjacent
+  video frames because the camera hasn't moved much from one frame to
+  the next.)  Star may be worth trying for outdoor natural
+  environments when processing one frame to the next.
 
-  Important note: sometimes less is more!  Processing the images at
-  scaled resoltuions can often be beneficial.  Feature detectors work
-  (roughly) in pixel space so using a 6000x4000 image means most of
-  your features will be itty bitty.  Using a 600x400 image means most
-  of your features will be larger items and perhaps more import and
-  real.  Feature matching can get lost in the noise if you are
-  matching outdoor natural environments at extreme full resolution.
+  Scale: (nb) sometimes less is more!  Processing the images at scaled
+  resoltuions can often be beneficial.  Reducing the scale of an image
+  is a form of signal smoothing (filtering.)  All analog -> digital
+  sensors have some noise, so processing your images at full 100%
+  scale (--scale=1.0) may be counter productive.  Additionally feature
+  detectors work (roughly) in pixel space so using a 6000x4000 image
+  means most of your features will be itty bitty.  Using a 600x400
+  image means most of your features will be larger items and perhaps
+  more import and real.  Feature matching can get lost in the noise if
+  you are matching outdoor natural environments at extreme full
+  resolution.  The best scale depends on your camera, altitude, and
+  even scene content.  Suggest 0.50 may be a good starting number.
 
   Ultimately there needs to be a balance ... too high of a
   resolution/scaling can introduce too many small indistinguishable
@@ -213,7 +218,7 @@ for each image.
   points to impossible places.)
 
 
-  ## 5c-mre-by-feature3.py
+  ## 5c-mre-by-feature.py
 
   Compute the mre of the assembled scene (optionally delete worst
   outliers)
