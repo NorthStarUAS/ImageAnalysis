@@ -3,7 +3,9 @@ current state (Dec 04, 2018) is that we have to build ourselves from source
 code in order to get access to the SIFT functionality.
 
 # required
-# dnf install gtk2-devel libdc1394-devel libv4l-devel ffmpeg-devel gstreamer-plugins-base-devel
+# dnf install gtk3-devel libdc1394-devel libv4l-devel ffmpeg-devel gstreamer-plugins-base-devel
+
+? gtk2-devel ?
 
 # optional
 # dnf install libpng-devel libjpeg-turbo-devel jasper-devel openexr-devel libtiff-devel libwebp-devel
