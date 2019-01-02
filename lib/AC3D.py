@@ -4,7 +4,7 @@ import math
 import os.path
 
 def make_textures(src_dir, project_dir, image_list, resolution=256):
-    dst_dir = os.path.join(project_dir, 'Textures')
+    dst_dir = os.path.join(project_dir, 'models')
     if not os.path.exists(dst_dir):
         print("Notice: creating texture directory =", dst_dir)
         os.makedirs(dst_dir)
@@ -15,7 +15,7 @@ def make_textures(src_dir, project_dir, image_list, resolution=256):
             subprocess.run(['convert', '-resize', '%dx%d!' % (resolution, resolution), src, dst])
         
 def make_textures_opencv(src_dir, project_dir, image_list, resolution=256):
-    dst_dir = os.path.join(project_dir, 'Textures')
+    dst_dir = os.path.join(project_dir, 'models')
     if not os.path.exists(dst_dir):
         print("Notice: creating texture directory =", dst_dir)
         os.makedirs(dst_dir)
@@ -88,7 +88,7 @@ def generate(image_list, group, ref_image=False, src_dir=".", project_dir=".", b
 
         f.write("OBJECT poly\n")
         f.write("name \"rect\"\n")
-        f.write("texture \"./Textures/" + image.name + "\"\n")
+        f.write("texture \"./models/" + image.name + "\"\n")
         f.write("loc 0 0 0\n")
 
         f.write("numvert %d\n" % len(image.grid_list))

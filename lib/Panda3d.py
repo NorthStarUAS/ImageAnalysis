@@ -7,18 +7,18 @@ import numpy as np
 import os
 
 def make_textures(src_dir, project_dir, image_list, resolution=256):
-    dst_dir = project_dir + '/Textures/'
+    dst_dir = os.path.join(project_dir, 'models')
     if not os.path.exists(dst_dir):
         print("Notice: creating texture directory =", dst_dir)
         os.makedirs(dst_dir)
     for image in image_list:
-        src = src_dir + image.name
-        dst = dst_dir + image.name
+        src = os.path.join(src_dir, image.name)
+        dst = os.path.join(dst_dir, image.name)
         if not os.path.exists(dst):
             subprocess.run(['convert', '-resize', '%dx%d!' % (resolution, resolution), src, dst])
         
 def make_textures_opencv(src_dir, project_dir, image_list, resolution=256):
-    dst_dir = os.path.join(project_dir, 'Textures')
+    dst_dir = os.path.join(project_dir, 'models')
     if not os.path.exists(dst_dir):
         print("Notice: creating texture directory =", dst_dir)
         os.makedirs(dst_dir)
@@ -58,7 +58,7 @@ def generate(image_list, group, ref_image=False, src_dir=".", project_dir=".", b
             continue
 
         root, ext = os.path.splitext(image.name)
-        name = os.path.join( project_dir, "Textures", root + ".egg" )
+        name = os.path.join( project_dir, "models", root + ".egg" )
         print("EGG file name:", name)
 
         f = open(name, "w")
