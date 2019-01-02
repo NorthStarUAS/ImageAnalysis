@@ -328,5 +328,5 @@ class MyApp(ShowBase):
             del tcache[oldest_name]
     
 app = MyApp()
-app.load( os.path.join(args.project, "Textures") )
+app.load( os.path.join(args.project, "models") )
 app.run()
