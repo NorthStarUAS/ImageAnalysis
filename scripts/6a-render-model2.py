@@ -22,7 +22,7 @@ import sys
 from props import getNode
 
 sys.path.append('../lib')
-import AC3D
+#import AC3D
 import Groups
 import Panda3d
 import Pose
@@ -30,12 +30,11 @@ import ProjectMgr
 import SRTM
 import transformations
 
-ac3d_steps = 8
+ac3d_steps = 16
 r2d = 180 / math.pi
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--bins', type=int, default=128, help='surface bins for stats')
 parser.add_argument('--texture-resolution', type=int, default=512, help='texture resolution (should be 2**n, so numbers like 256, 512, 1024, etc.')
 parser.add_argument('--srtm', action='store_true', help='use srtm elevation')
 parser.add_argument('--ground', type=float, help='force ground elevation in meters')
@@ -45,8 +44,6 @@ args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
-proj.load_features()
-proj.undistort_keypoints(optimized=True)
 
 # lookup ned reference
 ref_node = getNode("/config/ned_reference", True)
@@ -115,8 +112,11 @@ def intersect2d(ned, v, avg_ground):
     #print("start:", p)
     #print("vec:", v)
     #print("ned:", ned)
-    surface = interp([p[1], p[0]])[0]
-    
+    tmp = interp([p[1], p[0]])[0]
+    if not np.isnan(tmp):
+        surface = tmp
+    else:
+        surface = 0.0
     error = abs(p[2] - surface)
     #print("p=%s surface=%s error=%s" % (p, surface, error))
     while error > eps and count < 25:
@@ -127,14 +127,16 @@ def intersect2d(ned, v, avg_ground):
         #print(" proj = %s %s" % (n_proj, e_proj))
         p = [ ned[0] + n_proj, ned[1] + e_proj, ned[2] + d_proj ]
         #print(" new p:", p)
-        surface = interp([p[1], p[0]])[0]
+        tmp = interp([p[1], p[0]])[0]
+        if not np.isnan(tmp):
+            surface = tmp
         error = abs(p[2] - surface)
         #print("  p=%s surface=%.2f error = %.3f" % (p, surface, error))
         count += 1
     #print("surface:", surface)
-    if np.isnan(surface):
-        #print(" returning nans")
-        return [np.nan, np.nan, np.nan]
+    #if np.isnan(surface):
+    #    #print(" returning nans")
+    #    return [np.nan, np.nan, np.nan]
     dy = ned[0] - p[0]
     dx = ned[1] - p[1]
     dz = ned[2] - p[2]
@@ -237,6 +239,6 @@ Panda3d.generate(proj.image_list, groups[0], src_dir=img_src_dir,
                  version=1.0, trans=0.1, resolution=args.texture_resolution)
 
 # call the ac3d generator
-AC3D.generate(proj.image_list, groups[0], src_dir=img_src_dir,
-              project_dir=args.project, base_name='direct',
-              version=1.0, trans=0.1, resolution=args.texture_resolution)
+# AC3D.generate(proj.image_list, groups[0], src_dir=img_src_dir,
+#               project_dir=args.project, base_name='direct',
+#               version=1.0, trans=0.1, resolution=args.texture_resolution)
