@@ -224,10 +224,12 @@ class ProjectMgr():
             bar = Bar('Detecting features:', max = len(self.image_list))
         for image in self.image_list:
             #print "detecting features and computing descriptors: " + image.name
-            rgb = image.load_rgb()
+            rgb = image.load_rgb(equalize=True)
             image.detect_features(rgb, scale)
             image.save_features()
             image.save_descriptors()
+            # clear descriptor memory(?)
+            image.des_list = None
             image.save_matches()
             if show:
                 result = image.show_features()
