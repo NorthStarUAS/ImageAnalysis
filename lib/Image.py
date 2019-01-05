@@ -88,10 +88,20 @@ class Image():
             self.des_file = file_root + ".desc"
             self.match_file = file_root + ".match"
             
-    def load_rgb(self):
+    def load_rgb(self, equalize=False):
         # print("Loading:", self.image_file)
         try:
             img_rgb = cv2.imread(self.image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
+            if equalize:
+                # equalize val (essentially gray scale level)
+                clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+                hsv = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2HSV)
+                hue, sat, val = cv2.split(hsv)
+                aeq = clahe.apply(val)
+                # recombine
+                hsv = cv2.merge((hue,sat,aeq))
+                # convert back to rgb
+                img_rgb = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
             h, w = img_rgb.shape[:2]
             self.node.setInt('height', h)
             self.node.setInt('width', w)
@@ -304,7 +314,7 @@ class Image():
     def show_features(self, flags=0):
         # flags=0: draw only keypoints location
         # flags=4: draw rich keypoints
-        rgb = self.load_rgb()
+        rgb = self.load_rgb(equalize=True)
         w, h = self.get_size()
         scale = 1000.0 / float(h)
         kp_list = []
