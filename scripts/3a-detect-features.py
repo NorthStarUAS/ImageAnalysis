@@ -93,7 +93,8 @@ proj.detect_features(scale=args.scale, show=args.show)
 # filtering out near plane artifacts should be devised (or Mjolnir's
 # camera mount should be adjusted.)
 
-if True:
+if False:
+    # should now be handled by proj.detect_features() automatically
     # compute the undistorted mapping of the keypoints (features)
     proj.undistort_keypoints()
 
