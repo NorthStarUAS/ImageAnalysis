@@ -469,7 +469,7 @@ class Matcher():
                            review=False):
         min_dist = self.matcher_node.getFloat('min_dist')
         max_dist = self.matcher_node.getFloat('max_dist')
-        print('range:', min_dist, max_dist)
+        print('Generating work list for range:', min_dist, '-', max_dist)
         
         n = len(image_list) - 1
         n_work = float(n*(n+1)/2)
@@ -507,6 +507,11 @@ class Matcher():
         # more system friendly.)
         
         # work_list = sorted(work_list, key=lambda fields: fields[0])
+
+        # note: image.desc_timestamp is used to unload not recently
+        # used descriptors ... these burn a ton of memory so unloading
+        # things not recently used should help our memory foot print
+        # at hopefully not too much of a performance expense.
         
         # proces the work list
         n_count = 0
@@ -518,7 +523,8 @@ class Matcher():
             j = line[2]
             i1 = image_list[i]
             i2 = image_list[j]
-                
+
+            # eta estimation
             percent = n_count / float(len(work_list))
             n_count += 1
             t_elapsed = time.time() - t_start
@@ -540,6 +546,12 @@ class Matcher():
             else:
                 print('%.1f (hr)' % (t_remain / 3600.0))
             print("  separation = %.1f (m)" % dist)
+
+            # update cache timers and make sure features are loaded
+            i1.desc_timestamp = time.time()
+            i2.desc_timestamp = time.time()
+            i1.load_descriptors()
+            i2.load_descriptors()
 
             if len(i2.match_list) == 0:
                 # create if needed
@@ -574,11 +586,27 @@ class Matcher():
                 self.filter_non_reciprocal_pair(image_list, i, j)
                 self.filter_non_reciprocal_pair(image_list, j, i)
             dist_stats.append( [ dist, len(i1.match_list[j]) ] )
+
+            # save our work so far, and flush descriptor cache
             if time.time() >= save_time + save_interval:
                 print('saving matches ...')
                 self.saveMatches(image_list)
                 save_time = time.time()
-                
+
+                time_list = []
+                for i3 in image_list:
+                    if not i3.des_list is None:
+                        time_list.append( [i3.desc_timestamp, i3] )
+                time_list = sorted(time_list, key=lambda fields: fields[0],
+                                   reverse=True)
+                # may wish to monitor and update cache_size formula
+                cache_size = 10 + 2 * (int(math.sqrt(len(image_list))) + 1)
+                flush_list = time_list[cache_size:]
+                print('flushing descriptor cache - size: %d (over by: %d)' % (cache_size, len(flush_list)) )
+                for line in flush_list:
+                    print('  clearing descriptors for:', line[1].name)
+                    line[1].des_list = None
+                    
         # and save
         self.saveMatches(image_list)
         print('Pair-wise matches successfully saved.')
