@@ -36,7 +36,7 @@ args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
-proj.load_features(descriptors=True)
+proj.load_features(descriptors=False) # desc cached on the fly later
 proj.undistort_keypoints()
 proj.load_match_pairs()
 
