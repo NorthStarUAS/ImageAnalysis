@@ -165,19 +165,20 @@ class Image():
 
     def load_descriptors(self):
         filename = self.des_file + ".npy"
-        if self.des_list == None and os.path.exists(filename):
-            #print "Loading " + filename
-            try:
-                self.des_list = np.load(filename)
-                #print np.any(self.des_list)
-                #val = "%s" % self.des_list
-                #print
-                #print "des_list.size =", self.des_list.size
-                #print val
-                #print
-            except:
-                print(filename + ":\n" + "  desc load error: " \
-                    + str(sys.exc_info()[1]))
+        if os.path.exists(filename):
+            if self.des_list is None:
+                #print "Loading " + filename
+                try:
+                    self.des_list = np.load(filename)
+                    #print np.any(self.des_list)
+                    #val = "%s" % self.des_list
+                    #print
+                    #print "des_list.size =", self.des_list.size
+                    #print val
+                    #print
+                except:
+                    print(filename + ":\n" + "  desc load error: " \
+                        + str(sys.exc_info()[1]))
         else:
             print("no file:", filename)
             
