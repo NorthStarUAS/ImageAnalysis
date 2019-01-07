@@ -11,8 +11,8 @@ import time
 
 import cv2
 import math
-import matplotlib.pyplot as plt
-from matplotlib import cm
+# import matplotlib.pyplot as plt
+# from matplotlib import cm
 import numpy as np
 from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix
@@ -33,7 +33,7 @@ class Optimizer():
         self.graph_counter = 0
         #self.optimize_calib = 'global' # global camera optimization
         self.optimize_calib = 'none' # no camera calibration optimization
-        self.min_chain_length = 3
+        self.min_chain_length = 2
         self.with_bounds = False
         self.ncp = 6
 
@@ -126,12 +126,12 @@ class Optimizer():
         #distCoeffs = self.distCoeffs
 
         sum = 0
-        cams_3d = np.zeros((n_cameras, 3)) # for plotting
+        # cams_3d = np.zeros((n_cameras, 3)) # for plotting
         for i, cam in enumerate(camera_params):
             rvec = cam[:3]
             tvec = cam[3:6]
-            ypr, ned = self.rvectvec2yprned(rvec, tvec)
-            cams_3d[i] = ned
+            # ypr, ned = self.rvectvec2yprned(rvec, tvec)
+            # cams_3d[i] = ned # for plotting
             if len(by_camera_point_indices[i]) == 0:
                 continue
             proj_points, jac = cv2.projectPoints(points_3d[by_camera_point_indices[i]], rvec, tvec, K, distCoeffs)
@@ -147,31 +147,32 @@ class Optimizer():
             # mre has improved by more than 0.1%
             self.last_mre = mre
             print('mre: %.3f std: %.3f max: %.2f' % (mre, np.std(error), np.amax(np.abs(error))) )
-            print("K:\n", K)
-            print("distCoeffs: %.3f %.3f %.3f %.3f %.3f" %
-                  (distCoeffs[0], distCoeffs[1], distCoeffs[2], distCoeffs[3],
-                   distCoeffs[4]))
-            if not self.graph is None:
-                points = points_3d
-                #points = cams_3d
-                self.graph.set_offsets(points[:,[1,0]])
-                self.graph.set_array(-points[:,2])
-                xmin, xmax = self.my_plot_range(points[:,1])
-                ymin, ymax = self.my_plot_range(points[:,0])
-                plt.xlim(xmin, xmax)
-                plt.ylim(ymin, ymax)
-                cmin, cmax = self.my_plot_range(-points[:,2], stats=True)
-                plt.clim(cmin, cmax)
-                plt.gcf().set_size_inches(16,9,forward=True)
-                plt.draw()
-                if False:
-                    # animate the optimizer progress as a movie
-                    # ex: ffmpeg -f image2 -r 2 -s 1280x720 -i optimizer-%03d.png -vcodec libx264 -crf 25  -pix_fmt yuv420p optimizer.mp4
-                    plt_name = 'optimizer-%03d.png' % self.graph_counter
-                    out_file = os.path.join(self.root, plt_name)
-                    plt.savefig(out_file, dpi=80)
-                    self.graph_counter += 1
-                plt.pause(0.01)
+            if self.optimize_calib == 'global':
+                print("K:\n", K)
+                print("distCoeffs: %.3f %.3f %.3f %.3f %.3f" %
+                      (distCoeffs[0], distCoeffs[1], distCoeffs[2],
+                       distCoeffs[3], distCoeffs[4]))
+            # if not self.graph is None:
+            #     points = points_3d
+            #     #points = cams_3d
+            #     self.graph.set_offsets(points[:,[1,0]])
+            #     self.graph.set_array(-points[:,2])
+            #     xmin, xmax = self.my_plot_range(points[:,1])
+            #     ymin, ymax = self.my_plot_range(points[:,0])
+            #     plt.xlim(xmin, xmax)
+            #     plt.ylim(ymin, ymax)
+            #     cmin, cmax = self.my_plot_range(-points[:,2], stats=True)
+            #     plt.clim(cmin, cmax)
+            #     plt.gcf().set_size_inches(16,9,forward=True)
+            #     plt.draw()
+            #     if False:
+            #         # animate the optimizer progress as a movie
+            #         # ex: ffmpeg -f image2 -r 2 -s 1280x720 -i optimizer-%03d.png -vcodec libx264 -crf 25  -pix_fmt yuv420p optimizer.mp4
+            #         plt_name = 'optimizer-%03d.png' % self.graph_counter
+            #         out_file = os.path.join(self.root, plt_name)
+            #         plt.savefig(out_file, dpi=80)
+            #         self.graph_counter += 1
+            #     plt.pause(0.01)
         return error
 
     # assemble the structures and remapping indices required for
@@ -235,6 +236,8 @@ class Optimizer():
                 self.feat_map_rev[feat_used] = i
                 feat_used += 1
                 ned = np.array(match[0])
+                if np.any(np.isnan(ned)):
+                    print(i, ned)
                 self.points_3d[point_idx] = ned[0]
                 self.points_3d[point_idx+1] = ned[1]
                 self.points_3d[point_idx+2] = ned[2]
@@ -338,17 +341,19 @@ class Optimizer():
             bounds = [lower, upper]
         else:
             bounds = (-np.inf, np.inf)
-        plt.figure(figsize=(16,9))
-        plt.ion()
-        mypts = self.points_3d.reshape((self.n_points, 3))
-        self.graph = plt.scatter(mypts[:,1], mypts[:,0], 100, -mypts[:,2], cmap=cm.jet)
-        plt.colorbar()
-        plt.draw()
-        plt.pause(0.01)
+        # plt.figure(figsize=(16,9))
+        # plt.ion()
+        # mypts = self.points_3d.reshape((self.n_points, 3))
+        # self.graph = plt.scatter(mypts[:,1], mypts[:,0], 100, -mypts[:,2], cmap=cm.jet)
+        # plt.colorbar()
+        # plt.draw()
+        # plt.pause(0.01)
         
         t0 = time.time()
-        ftol = 1e-2             # probably a good general number
-        res = least_squares(self.fun, x0, bounds=bounds,
+        ftol = 0.01             # probably a good general number
+        ftol = 0.001            # or this?
+        # bounds=bounds,
+        res = least_squares(self.fun, x0,
                             jac_sparsity=A,
                             verbose=2,
                             x_scale='jac',
@@ -391,8 +396,8 @@ class Optimizer():
 
         # final plot
         # plt.plot(res.fun)
-        plt.ioff()
-        plt.show()
+        # plt.ioff()
+        # plt.show()
 
         return ( self.camera_params, self.points_3d,
                  self.camera_map_fwd, self.feat_map_rev,
