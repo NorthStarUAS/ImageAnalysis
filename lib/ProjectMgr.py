@@ -226,6 +226,21 @@ class ProjectMgr():
             #print "detecting features and computing descriptors: " + image.name
             rgb = image.load_rgb(equalize=True)
             image.detect_features(rgb, scale)
+
+            # Filter out of bound undistorted feature points.
+            # Traverse the list in reverse so we can safely remove
+            # features if needed
+            self.undistort_image_keypoints(image)
+            width, height = image.get_size()
+            margin = 0
+            for i in reversed(range(len(image.uv_list))):
+                uv = image.uv_list[i]
+                if uv[0] < margin or uv[0] > width - margin \
+                   or uv[1] < margin or uv[1] > height - margin:
+                    #print ' ', i, uv
+                    image.kp_list.pop(i)                             # python list
+                    image.des_list = np.delete(image.des_list, i, 0) # np array
+
             image.save_features()
             image.save_descriptors()
             # clear descriptor memory(?)
@@ -305,21 +320,25 @@ class ProjectMgr():
         
     # for each feature in each image, compute the undistorted pixel
     # location (from the calibrated distortion parameters)
+    def undistort_image_keypoints(self, image, optimized=False):
+        if len(image.kp_list) == 0:
+            return
+        K = self.cam.get_K(optimized)
+        uv_raw = np.zeros((len(image.kp_list),1,2), dtype=np.float32)
+        for i, kp in enumerate(image.kp_list):
+            uv_raw[i][0] = (kp.pt[0], kp.pt[1])
+        dist_coeffs = self.cam.get_dist_coeffs(optimized)
+        uv_new = cv2.undistortPoints(uv_raw, K, np.array(dist_coeffs), P=K)
+        image.uv_list = []
+        for i, uv in enumerate(uv_new):
+            image.uv_list.append(uv_new[i][0])
+            # print("  orig = %s  undistort = %s" % (uv_raw[i][0], uv_new[i]        
+    # for each feature in each image, compute the undistorted pixel
+    # location (from the calibrated distortion parameters)
     def undistort_keypoints(self, optimized=False):
         bar = Bar('Undistorting keypoints:', max = len(self.image_list))
         for image in self.image_list:
-            if len(image.kp_list) == 0:
-                continue
-            K = self.cam.get_K(optimized)
-            uv_raw = np.zeros((len(image.kp_list),1,2), dtype=np.float32)
-            for i, kp in enumerate(image.kp_list):
-                uv_raw[i][0] = (kp.pt[0], kp.pt[1])
-            dist_coeffs = self.cam.get_dist_coeffs(optimized)
-            uv_new = cv2.undistortPoints(uv_raw, K, np.array(dist_coeffs), P=K)
-            image.uv_list = []
-            for i, uv in enumerate(uv_new):
-                image.uv_list.append(uv_new[i][0])
-                # print("  orig = %s  undistort = %s" % (uv_raw[i][0], uv_new[i][0]))
+            self.undistort_image_keypoints(image, optimized)
             bar.next()
         bar.finish()
                 
