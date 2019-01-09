@@ -46,7 +46,7 @@ class Annotations():
         pxm = float(y) / self.view_size
         hsize = 12 / pxm
         vsize = 40 / pxm
-        print(hsize, vsize)
+        #print(hsize, vsize)
         cm = CardMaker('card')
         cm.setFrame( LPoint3(-hsize, 0,     0 ),
                      LPoint3( hsize, 0,     0 ),
