@@ -61,7 +61,7 @@ print("K:", K)
 # fire up the matcher
 m = Matcher.Matcher()
 m.configure()
-m.robustGroupMatches(proj.image_list, area_dir, K,
+m.robustGroupMatches(proj.image_list, K,
                      filter=args.filter, review=False)
 
 # The following code is deprecated ...
