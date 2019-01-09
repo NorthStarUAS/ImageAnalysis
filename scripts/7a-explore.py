@@ -153,7 +153,7 @@ class MyApp(ShowBase):
 
 
     def cam_move(self, x, y, z, sort=True):
-        print('move:', x, y)
+        #print('move:', x, y)
         self.cam_pos[0] += x * self.view_size * base.getAspectRatio()
         self.cam_pos[1] += y * self.view_size
         if sort:
@@ -281,6 +281,7 @@ class MyApp(ShowBase):
                     print('Warning: no full resolution image source file found:', base)
                 else:
                     if True:
+                        print('HERE')
                         # example of passing an opencv image as a
                         # panda texture, except currently only works
                         # for gray scale (need to find the proper
@@ -293,13 +294,22 @@ class MyApp(ShowBase):
                         h, w = rgb.shape[:2]
                         print('shape:', rgb.shape)
                         # equalize
-                        hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
-                        hue, sat, val = cv2.split(hsv)
-                        aeq = clahe.apply(val)
-                        # recombine
-                        hsv = cv2.merge((hue,sat,aeq))
-                        # convert back to rgb
-                        result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+                        if True:
+                            # equalize val (essentially gray scale level)
+                            hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
+                            hue, sat, val = cv2.split(hsv)
+                            aeq = clahe.apply(val)
+                            # recombine
+                            hsv = cv2.merge((hue,sat,aeq))
+                            # convert back to rgb
+                            result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+                        else:
+                            # equalize individual b, g, r channels
+                            b, g, r = cv2.split(rgb)
+                            b = clahe.apply(b)
+                            g = clahe.apply(g)
+                            r = clahe.apply(r)
+                            result = cv2.merge((b,g,r))
                         fulltex = Texture(base)
                         fulltex.setCompression(Texture.CMOff)
                         fulltex.setup2dTexture(w, h, Texture.TUnsignedByte, Texture.FRgb)
