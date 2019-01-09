@@ -465,8 +465,8 @@ class Matcher():
         # a = raw_input("Press Enter to continue...")
 
 
-    def robustGroupMatches(self, image_list, K, filter="fundamental",
-                           review=False):
+    def robustGroupMatches(self, image_list, area_dir, K,
+                           filter="fundamental", review=False):
         min_dist = self.matcher_node.getFloat('min_dist')
         max_dist = self.matcher_node.getFloat('max_dist')
         print('Generating work list for range:', min_dist, '-', max_dist)
@@ -590,7 +590,7 @@ class Matcher():
             # save our work so far, and flush descriptor cache
             if time.time() >= save_time + save_interval:
                 print('saving matches ...')
-                self.saveMatches(image_list)
+                self.saveMatches(image_list, area_dir)
                 save_time = time.time()
 
                 time_list = []
@@ -600,7 +600,7 @@ class Matcher():
                 time_list = sorted(time_list, key=lambda fields: fields[0],
                                    reverse=True)
                 # may wish to monitor and update cache_size formula
-                cache_size = 10 + 2 * (int(math.sqrt(len(image_list))) + 1)
+                cache_size = 10 + 3 * (int(math.sqrt(len(image_list))) + 1)
                 flush_list = time_list[cache_size:]
                 print('flushing descriptor cache - size: %d (over by: %d)' % (cache_size, len(flush_list)) )
                 for line in flush_list:
@@ -608,7 +608,7 @@ class Matcher():
                     line[1].des_list = None
                     
         # and save
-        self.saveMatches(image_list)
+        self.saveMatches(image_list, area_dir)
         print('Pair-wise matches successfully saved.')
 
         dist_stats = np.array(dist_stats)
@@ -625,9 +625,9 @@ class Matcher():
                     print('  Culling pair index:', j)
                     i1.match_list[j] = []
 
-    def saveMatches(self, image_list):
+    def saveMatches(self, image_list, area_dir):
         for image in image_list:
-            image.save_matches()
+            image.save_matches(area_dir)
 
         
 ###########################################################

@@ -182,12 +182,13 @@ class Image():
         else:
             print("no file:", filename)
             
-    def load_matches(self):
+    def load_matches(self, area_dir):
+        match_file = os.path.join(area_dir, self.name + '.match')
         try:
-            self.match_list = pickle.load( open( self.match_file, "rb" ) )
+            self.match_list = pickle.load( open( match_file, "rb" ) )
             #print(self.match_list)
         except:
-            print(self.features_file + ":\n" + "  matches load error: " \
+            print(match_file + ":\n" + "  matches load error: " \
                   + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1]))
             return
 
@@ -214,11 +215,12 @@ class Image():
             print(self.des_file + ": error saving file: " \
                 + str(sys.exc_info()[1]))
 
-    def save_matches(self):
+    def save_matches(self, area_dir):
+        match_file = os.path.join(area_dir, self.name + '.match')
         try:
-            pickle.dump(self.match_list, open(self.match_file, "wb"))
+            pickle.dump(self.match_list, open(match_file, "wb"))
         except IOError as e:
-            print(self.match_file + ": error saving file: " \
+            print(match_file + ": error saving file: " \
                 + str(sys.exc_info()[1]))
             return
         except:
