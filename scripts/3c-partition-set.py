@@ -111,7 +111,7 @@ while not done:
             if not os.path.exists(dirname):
                 os.makedirs(dirname)
             pickle.dump(images, open(os.path.join(dirname, "image_list"), 'wb'))
-            if len(images) > args.size * args.pad:
+            if len(images) > float(args.size) * args.pad:
                 done = False
         
 for image in proj.image_list:
