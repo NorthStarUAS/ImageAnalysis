@@ -33,7 +33,7 @@ class Optimizer():
         self.graph_counter = 0
         #self.optimize_calib = 'global' # global camera optimization
         self.optimize_calib = 'none' # no camera calibration optimization
-        self.min_chain_length = 2
+        self.min_chain_length = 3
         self.with_bounds = False
         self.ncp = 6
 
@@ -350,15 +350,16 @@ class Optimizer():
         # plt.pause(0.01)
         
         t0 = time.time()
-        ftol = 0.01             # probably a good general number
-        ftol = 0.001            # or this?
+        ftol = 0.01             # default is 1e-8
+        ftol = 1e-4
         # bounds=bounds,
         res = least_squares(self.fun, x0,
                             jac_sparsity=A,
                             verbose=2,
-                            x_scale='jac',
                             method='trf',
-                            loss='linear', ftol=ftol,
+                            loss='linear',
+                            ftol=ftol,
+                            x_scale='jac',
                             args=(self.n_cameras, self.n_points,
                                   self.by_camera_point_indices,
                                   self.by_camera_points_2d))
