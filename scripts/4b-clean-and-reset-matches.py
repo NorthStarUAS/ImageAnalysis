@@ -39,7 +39,7 @@ proj.load_area_info(args.area)
 proj.load_features(descriptors=False)
 proj.undistort_keypoints()
 area_dir = os.path.join(args.project, args.area)
-proj.load_match_pairs(area_dir, extra_verbose=False)
+proj.load_match_pairs(extra_verbose=False)
 
 # compute keypoint usage map
 proj.compute_kp_usage()
@@ -103,11 +103,13 @@ for image in proj.image_list:
 # redundancy.
 print("Collapsing keypoints with duplicate uv coordinates...")
 for i, i1 in enumerate(proj.image_list):
-    for j, matches in enumerate(i1.match_list):
-        if matches == None:
-            continue
+    for key in i1.match_list:
+        matches = i1.match_list[key]
         count = 0
-        i2 = proj.image_list[j]
+        i2 = proj.findImageByName(key)
+        if i2 is None:
+            # ignore pairs outside our area set
+            continue
         for k, pair in enumerate(matches):
             # print pair
             idx1 = pair[0]
@@ -145,7 +147,7 @@ for i, i1 in enumerate(proj.image_list):
             # rewrite matches
             matches[k] = [new_idx1, new_idx2]
         if count > 0:
-            print('Match:', i, 'vs', j, 'matches:', len(matches), 'rewrites:', count)
+            print('Match:', i1.name, 'vs', i2.name, 'matches:', len(matches), 'rewrites:', count)
 
 # enable the following code to visualize the matches after collapsing
 # identical uv coordinates
@@ -169,24 +171,26 @@ if False:
 # Hmmm...
 print("Checking for pair duplicates...")
 for i, i1 in enumerate(proj.image_list):
-    for j, matches in enumerate(i1.match_list):
-        if matches == None:
+    for key in i1.match_list:
+        matches = i1.match_list[key]
+        i2 = proj.findImageByName(key)
+        if i2 is None:
+            # ignore pairs not in our area set
             continue
-        i2 = proj.image_list[j]
         count = 0
         pair_dict = {}
         new_matches = []
         for k, pair in enumerate(matches):
-            key = "%d-%d" % (pair[0], pair[1])
-            if not key in pair_dict:
-                pair_dict[key] = True
+            pair_key = "%d-%d" % (pair[0], pair[1])
+            if not pair_key in pair_dict:
+                pair_dict[pair_key] = True
                 new_matches.append(pair)
             else:
                 count += 1
         if count > 0:
             print('Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count)
       
-        i1.match_list[j] = new_matches
+        i1.match_list[key] = new_matches
         
 # enable the following code to visualize the matches after eliminating
 # duplicates (duplicates can happen after collapsing uv coordinates.)
@@ -208,10 +212,12 @@ if False:
 # logic principle allows somne of these to still exist here.
 print("Testing for 1 vs. n keypoint duplicates...")
 for i, i1 in enumerate(proj.image_list):
-    for j, matches in enumerate(i1.match_list):
-        if matches == None:
+    for key in i1.match_list:
+        matches = i1.match_list[key]
+        i2 = proj.findImageByName(key)
+        if i2 is None:
+            # skip pairs outside our area set
             continue
-        i2 = proj.image_list[j]
         count = 0
         kp_dict = {}
         for k, pair in enumerate(matches):
@@ -233,9 +239,13 @@ print("Constructing unified match structure...")
 matches_direct = []
 for i, img in enumerate(proj.image_list):
     # print img.name
-    for j, matches in enumerate(img.match_list):
+    for key in img.match_list:
+        j = proj.findIndexByName(key)
+        if j is None:
+            continue
+        matches = img.match_list[key]
         # print proj.image_list[j].name
-        if j > i and matches != None:
+        if j > i:
             for pair in matches:
                 match = []
                 # ned place holder
