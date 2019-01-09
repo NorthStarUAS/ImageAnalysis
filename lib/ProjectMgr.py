@@ -413,8 +413,9 @@ class ProjectMgr():
                 print(i1.name, len(i1.match_list))
                 for key in i1.match_list:
                     matches = i1.match_list[key]
-                    i2 = self.findImageByName[key]
-                    if matches != None:
+                    i2 = self.findImageByName(key)
+                    if not i2 is None:
+                        # ignore match pairs not from our area set
                         for k, pair in enumerate(matches):
                             i1.kp_used[ pair[0] ] = True
                             i2.kp_used[ pair[1] ] = True
