@@ -31,7 +31,7 @@ class Image():
         self.kp_list = []       # opencv keypoint list
         self.kp_usage = []
         self.des_list = None      # opencv descriptor list
-        self.match_list = []
+        self.match_list = {}
 
         self.uv_list = []       # the 'undistorted' uv coordinates of all kp's
         
@@ -182,13 +182,12 @@ class Image():
         else:
             print("no file:", filename)
             
-    def load_matches(self, area_dir):
-        match_file = os.path.join(area_dir, self.name + '.match')
+    def load_matches(self):
         try:
-            self.match_list = pickle.load( open( match_file, "rb" ) )
+            self.match_list = pickle.load( open( self.match_file, "rb" ) )
             #print(self.match_list)
         except:
-            print(match_file + ":\n" + "  matches load error: " \
+            print(self.match_file + ":\n" + "  matches load error: " \
                   + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1]))
             return
 
@@ -215,12 +214,11 @@ class Image():
             print(self.des_file + ": error saving file: " \
                 + str(sys.exc_info()[1]))
 
-    def save_matches(self, area_dir):
-        match_file = os.path.join(area_dir, self.name + '.match')
+    def save_matches(self):
         try:
-            pickle.dump(self.match_list, open(match_file, "wb"))
+            pickle.dump(self.match_list, open(self.match_file, "wb"))
         except IOError as e:
-            print(match_file + ": error saving file: " \
+            print(self.match_file + ": error saving file: " \
                 + str(sys.exc_info()[1]))
             return
         except:
@@ -310,7 +308,7 @@ class Image():
             #print('full:', kp.pt)
             
         # wipe matches because we've touched the keypoints
-        self.match_list = []
+        self.match_list = {}
 
     # Displays the image in a window and waits for a keystroke and
     # then destroys the window.  Returns the value of the keystroke.

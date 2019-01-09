@@ -183,7 +183,7 @@ class ProjectMgr():
             bar.next()
         bar.finish()
 
-    def load_match_pairs(self, area_dir, extra_verbose=True):
+    def load_match_pairs(self, extra_verbose=True):
         if extra_verbose:
             print("")
             print("ProjectMgr.load_match_pairs():")
@@ -194,7 +194,7 @@ class ProjectMgr():
         bar = Bar('Loading keypoint (pair) matches:',
                   max = len(self.image_list))
         for image in self.image_list:
-            image.load_matches(area_dir)
+            image.load_matches()
             bar.next()
         bar.finish()
 
@@ -411,8 +411,9 @@ class ProjectMgr():
                 image.kp_used = np.zeros(len(image.kp_list), np.bool_)
             for i1 in self.image_list:
                 print(i1.name, len(i1.match_list))
-                for j, matches in enumerate(i1.match_list):
-                    i2 = self.image_list[j]
+                for key in i1.match_list:
+                    matches = i1.match_list[key]
+                    i2 = self.findImageByName[key]
                     if matches != None:
                         for k, pair in enumerate(matches):
                             i1.kp_used[ pair[0] ] = True

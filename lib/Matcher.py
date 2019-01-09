@@ -145,7 +145,7 @@ class Matcher():
     # Notice: this tends to eliminate matches that aren't all on the
     # same plane, so if the scene has a lot of depth, this could knock
     # out a lot of good matches.
-    def filter_by_homography(self, K, i1, i2, j, filter):
+    def filter_by_homography(self, K, i1, i2, filter):
         clean = True
         
         # tol = float(i1.width) / 200.0 # rejection range in pixels
@@ -153,9 +153,9 @@ class Matcher():
         if tol < 1.0:
             tol = 1.0
         # print "tol = %.4f" % tol 
-        matches = i1.match_list[j]
+        matches = i1.match_list[i2.name]
         if len(matches) < self.min_pairs:
-            i1.match_list[j] = []
+            i1.match_list[i2.name] = []
             return True
         p1 = []
         p2 = []
@@ -227,8 +227,8 @@ class Matcher():
         i1 = image_list[i]
         i2 = image_list[j]
         #print "testing %i vs %i" % (i, j)
-        matches = i1.match_list[j]
-        rmatches = i2.match_list[i]
+        matches = i1.match_list[i2.name]
+        rmatches = i2.match_list[i1.name]
         before = len(matches)
         for k, pair in enumerate(matches):
             rpair = [pair[1], pair[0]]
@@ -465,7 +465,7 @@ class Matcher():
         # a = raw_input("Press Enter to continue...")
 
 
-    def robustGroupMatches(self, image_list, area_dir, K,
+    def robustGroupMatches(self, image_list, K,
                            filter="fundamental", review=False):
         min_dist = self.matcher_node.getFloat('min_dist')
         max_dist = self.matcher_node.getFloat('max_dist')
@@ -483,8 +483,9 @@ class Matcher():
         # closest first
         work_list = []
         for i, i1 in enumerate(image_list):
-            if len(i1.match_list) == 0:
-                i1.match_list = [None] * len(image_list)
+            #shouldn't need to allocate space now that it's a dict
+            #if len(i1.match_list) == 0:
+            #    i1.match_list = {}
 
             for j, i2 in enumerate(image_list):
                 if j <= i:
@@ -535,7 +536,7 @@ class Matcher():
             t_remain = t_end - t_elapsed
 
             # skip if match has already been computed
-            if i1.match_list[j] != None and i2.match_list[i] != None:
+            if i2.name in i1.match_list and i1.name in i2.match_list:
                 print('Skipping: ', i1.name, 'vs', i2.name, 'already done.')
                 continue
             
@@ -553,10 +554,11 @@ class Matcher():
             i1.load_descriptors()
             i2.load_descriptors()
 
-            if len(i2.match_list) == 0:
-                # create if needed
-                i2.match_list = [[]] * len(image_list)
-            i1.match_list[j], i2.match_list[i] \
+            #shouldn't need to do this
+            #if len(i2.match_list) == 0:
+            #    # create if needed
+            #    i2.match_list = [[]] * len(image_list)
+            i1.match_list[i2.name], i2.match_list[i1.name] \
                 = self.bidirectional_matches(image_list, i, j, review)
 
             scheme = 'none'
@@ -585,12 +587,12 @@ class Matcher():
                 # cull any new non-reciprocals
                 self.filter_non_reciprocal_pair(image_list, i, j)
                 self.filter_non_reciprocal_pair(image_list, j, i)
-            dist_stats.append( [ dist, len(i1.match_list[j]) ] )
+            dist_stats.append( [ dist, len(i1.match_list[i2.name]) ] )
 
             # save our work so far, and flush descriptor cache
             if time.time() >= save_time + save_interval:
                 print('saving matches ...')
-                self.saveMatches(image_list, area_dir)
+                self.saveMatches(image_list)
                 save_time = time.time()
 
                 time_list = []
@@ -608,7 +610,7 @@ class Matcher():
                     line[1].des_list = None
                     
         # and save
-        self.saveMatches(image_list, area_dir)
+        self.saveMatches(image_list)
         print('Pair-wise matches successfully saved.')
 
         dist_stats = np.array(dist_stats)
@@ -620,14 +622,15 @@ class Matcher():
     def cullShortMatches(self, image_list):
         for i, i1 in enumerate(image_list):
             print("(needed?) Cull matches for %s" % i1.name)
-            for j, matches in enumerate(i1.match_list):
+            for key in i1.match_list:
+                matches = i1.match_list[key]
                 if len(matches) < self.min_pairs:
                     print('  Culling pair index:', j)
-                    i1.match_list[j] = []
+                    i1.match_list[key] = []
 
-    def saveMatches(self, image_list, area_dir):
+    def saveMatches(self, image_list):
         for image in image_list:
-            image.save_matches(area_dir)
+            image.save_matches()
 
         
 ###########################################################
@@ -817,10 +820,10 @@ class Matcher():
         return status, key
 
     def showMatches(self, i1):
-        for j, i2 in enumerate(self.image_list):
-            #print str(i1.match_list[j])
-            idx_pairs = i1.match_list[j]
-            if len(idx_pairs) > self.min_pairs:
+        for key in i1.match_list:
+            idx_pairs = i1.match_list[key]
+            if len(idx_pairs) >= self.min_pairs:
+                i2 = self.findImageByName(key)
                 print("Showing matches for image %s and %s" % (i1.name, i2.name))
                 self.showMatch( i1, i2, idx_pairs )
 
@@ -942,20 +945,20 @@ class Matcher():
         var_sum = 0.0
         weight_sum = i1.weight  # give ourselves an appropriate weight
         i1.num_matches = 0
-        for j, match in enumerate(i1.match_list):
-            if len(match):
+        for key in enumerate(i1.match_list):
+            matches = i1.match_list[key]
+            if len(matches):
                 i1.num_matches += 1
-                i2 = self.image_list[j]
+                i2 = self.findImageByName[key]
                 #print "Matching %s vs %s " % (i1.name, i2.name)
                 error = 0.0
                 if variance:
-                    var = self.imagePairVariance2(i, alt_coord_list, j,
-                                                 match)
+                    var = self.imagePairVariance2(i, alt_coord_list, j, matches)
                     #print "  %s var = %.2f" % (i1.name, var)
                     var_sum += var * i2.weight
                 else:
                     error = self.imagePairError(i, alt_coord_list, j,
-                                                match, emax)
+                                                matches, emax)
                     dist2_sum += error * error * i2.weight
                 weight_sum += i2.weight
                 if emax_value < error:
@@ -976,18 +979,18 @@ class Matcher():
         #print "%s v. %s" % (i1.name, i2.name)
         #print "i1 pairs before = %s" % str(i1.match_list[j])
         #print "pair = %s" % str(pair)
-        i1.match_list[j].remove(pair)
+        i1.match_list[i2.name].remove(pair)
         #print "i1 pairs after = %s" % str(i1.match_list[j])
         pair_rev = (pair[1], pair[0])
         #print "i2 pairs before = %s" % str(i2.match_list[i])
-        i2.match_list[i].remove(pair_rev)
+        i2.match_list[i1.name].remove(pair_rev)
         #print "i2 pairs after = %s" % str(i2.match_list[i])
 
     # compute the error between a pair of images
     def pairErrorReport(self, i, alt_coord_list, j, minError):
         i1 = self.image_list[i]
         i2 = self.image_list[j]
-        match = i1.match_list[j]
+        match = i1.match_list[i2.name]
         print("pair error report %s v. %s (%d)" % (i1.name, i2.name, len(match)))
         if len(match) == 0:
             return
@@ -1074,6 +1077,12 @@ class Matcher():
                 return i
         return None
 
+    def findImageByName(self, search):
+        for image in self.image_list:
+            if search == image.name:
+                return image
+        return None
+
     # fuzz factor increases (decreases) the ransac tolerance and is in
     # pixel units so it makes sense to bump this up or down in integer
     # increments.
@@ -1087,13 +1096,14 @@ class Matcher():
             print("tol = %.4f" % tol)
             if tol < 0.0:
                 tol = 0.0
-            for j, matches in enumerate(i1.match_list):
-                if i == j:
+            for key in i1.match_list:
+                matches = i1.match_list[key]
+                i2 = self.findImageByName[key]
+                if i1.name == i2.name:
                     continue
                 if len(matches) < self.min_pairs:
-                    i1.match_list[j] = []
+                    i1.match_list[i2.name] = []
                     continue
-                i2 = self.image_list[j]
                 p1 = []
                 p2 = []
                 for k, pair in enumerate(matches):
@@ -1146,13 +1156,14 @@ class Matcher():
     def reviewLinearSets(self, threshold=20.0):
         # Test fundametal matrix constraint
         for i, i1 in enumerate(self.image_list):
-            for j, matches in enumerate(i1.match_list):
-                if i == j:
+            for key in i1.match_list:
+                matches = i1.match_list[key]
+                i2 = self.findImageByName[key]
+                if i1.name == i2.name:
                     continue
                 if len(matches) < self.min_pairs:
-                    i1.match_list[j] = []
+                    i1.match_list[i2.name] = []
                     continue
-                i2 = self.image_list[j]
                 pts = []
                 status = []
                 for k, pair in enumerate(matches):
@@ -1184,16 +1195,17 @@ class Matcher():
         if len(self.image_list):
             report_list = []
             for i, image in enumerate(self.image_list):
-                for j, pairs in enumerate(image.match_list):
-                    e = len(pairs)
+                for key in image.match_list:
+                    matches = image.match_list[key]
+                    e = len(matches)
                     if e > 0 and e <= maxpairs:
-                        report_list.append( (e, i, j) )
+                        report_list.append( (e, i, key) )
             report_list = sorted(report_list, key=lambda fields: fields[0],
                                  reverse=False)
             # show images sorted by largest positional disagreement first
             for line in report_list:
                 i1 = self.image_list[line[1]]
-                i2 = self.image_list[line[2]]
+                i2 = self.findImageByName(line[2])
                 pairs = i1.match_list[line[2]]
                 if len(pairs) == 0:
                     # probably already deleted by the other match order
@@ -1215,13 +1227,14 @@ class Matcher():
         i1 = self.image_list[i]
         # now for each image, find/show worst individual matches
         report_list = []
-        for j, pairs in enumerate(i1.match_list):
-            if len(pairs):
-                i2 = self.image_list[j]
+        for key in i1.match_list:
+            matches = i1.match_list[key]
+            if len(matches):
+                i2 = self.findImageByName[key]
                 #print "Matching %s vs %s " % (i1.name, i2.name)
-                e = self.imagePairError(i, None, j, pairs)
+                e = self.imagePairError(i, None, key, matches)
                 if e > minError:
-                    report_list.append( (e, i, j) )
+                    report_list.append( (e, i, key) )
 
         report_list = sorted(report_list,
                              key=lambda fields: fields[0],
@@ -1229,7 +1242,7 @@ class Matcher():
 
         for line in report_list:
             i1 = self.image_list[line[1]]
-            i2 = self.image_list[line[2]]
+            i2 = self.findImageByName(line[2])
             print("min error = %.3f" % minError)
             print("%.1f %s %s" % (line[0], i1.name, i2.name))
             if line[0] > minError:
@@ -1244,13 +1257,14 @@ class Matcher():
         for i, image in enumerate(self.image_list):
             i1 = self.image_list[i]
             # now for each image, find/show worst individual matches
-            for j, pairs in enumerate(i1.match_list):
-                if len(pairs):
-                    i2 = self.image_list[j]
+            for key in i1.match_list:
+                matches = i1.match_list[key]
+                if len(matches):
+                    i2 = self.findImageByName(key)
                     #print "Matching %s vs %s " % (i1.name, i2.name)
-                    e = self.imagePairError(i, None, j, pairs)
+                    e = self.imagePairError(i, None, key, matches)
                     if e > minError:
-                        report_list.append( (e, i, j) )
+                        report_list.append( (e, i, key) )
 
         report_list = sorted(report_list,
                              key=lambda fields: fields[0],
@@ -1258,7 +1272,7 @@ class Matcher():
 
         for line in report_list:
             i1 = self.image_list[line[1]]
-            i2 = self.image_list[line[2]]
+            i2 = self.findImageByName(line[2])
             print("min error = %.3f" % minError)
             print("%.1f %s %s" % (line[0], i1.name, i2.name))
             if line[0] > minError:
@@ -1274,9 +1288,10 @@ class Matcher():
         #print "  Images = %s" % str(review_list)
         for image in review_list:
             print("    %s -> " % image.name,)
-            for j, pairs in enumerate(image.match_list):
-                if len(pairs):
-                    print("%s (%d) " % (self.image_list[j].name, len(pairs)),)
+            for key in image.match_list:
+                matches = image.match_list[key]
+                if len(matches):
+                    print("%s (%d) " % (self.image_list[j].name, len(matches)),)
             print
             r2 = image.coverage()
             p = ImageList.getImagesCoveringRectangle(self.image_list, r2)
