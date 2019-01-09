@@ -14,24 +14,23 @@ import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--area', required=True, help='sub area directory')
 parser.add_argument('--original-pairs', action='store_true', help='use original pair-rwise matches')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_images_info()
-#proj.load_features()
-#proj.undistort_keypoints()
+proj.load_area_info(args.area)
 
-#source = 'matches_direct'
+area_dir = os.path.join(args.project, args.area)
 source = 'matches_grouped'
 print("Loading source matches:", source)
-matches = pickle.load( open( os.path.join(args.project, source), 'rb' ) )
+matches = pickle.load( open( os.path.join(area_dir, source), 'rb' ) )
 
 print("features:", len(matches))
 
 if not args.original_pairs:
     # recreate the pair-wise match structure
-    matches_list = pickle.load( open( os.path.join(args.project, "matches_direct"), "rb" ) )
+    matches_list = pickle.load( open( os.path.join(area_dir, "matches_direct"), "rb" ) )
     for i1 in proj.image_list:
         i1.match_list = []
         for i2 in proj.image_list:
@@ -65,14 +64,14 @@ groups = Groups.groupByFeatureConnections(proj.image_list, matches)
 
 groups.sort(key=len, reverse=True)
 
-Groups.save(args.project, groups)
+Groups.save(area_dir, groups)
 
 print('Main group size:', len(groups[0]))
 
 # this is extra (and I'll put it here for now for lack of a better
 # place), but for visualization's sake, create a gnuplot data file
 # that will show all the match connectivity in the set.
-file = os.path.join(args.project, 'connections.gnuplot')
+file = os.path.join(area_dir, 'connections.gnuplot')
 f = open(file, 'w')
 pair_dict = {}
 for match in matches:

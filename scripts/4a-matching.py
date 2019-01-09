@@ -3,6 +3,7 @@
 import argparse
 import pickle
 import numpy as np
+import os
 from progress.bar import Bar
 import sys
 
@@ -18,6 +19,7 @@ import SRTM
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--area', required=True, help='sub area directory')
 parser.add_argument('--matcher', default='FLANN',
                     choices=['FLANN', 'BF'])
 parser.add_argument('--match-ratio', default=0.75, type=float,
@@ -35,10 +37,11 @@ parser.add_argument('--filter', default='gms',
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_images_info()
-proj.load_features(descriptors=False) # desc cached on the fly later
+proj.load_area_info(args.area)
+proj.load_features(descriptors=False) # descriptors cached on the fly later
 proj.undistort_keypoints()
-proj.load_match_pairs()
+area_dir = os.path.join(args.project, args.area)
+proj.load_match_pairs(area_dir)
 
 matcher_node = getNode('/config/matcher', True)
 matcher_node.setString('matcher', args.matcher)
@@ -58,7 +61,8 @@ print("K:", K)
 # fire up the matcher
 m = Matcher.Matcher()
 m.configure()
-m.robustGroupMatches(proj.image_list, K, filter=args.filter, review=False)
+m.robustGroupMatches(proj.image_list, area_dir, K,
+                     filter=args.filter, review=False)
 
 # The following code is deprecated ...
 do_old_match_consolodation = False

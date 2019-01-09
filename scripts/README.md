@@ -102,6 +102,17 @@ for each image.
   features.  The exact amount of scaling probably depends on the
   camera, lens, altitude, and subject matter.
 
+  ## 3c-partition-set.py
+
+  As the number of images increase linearly, required resources and
+  processing time can increase exponentially.  This script partitions
+  an image set into smaller regional groups allowing each partition to
+  be processed individually.  This is a concession due to the lack of
+  infinite resources.
+
+  Note that image groups are intentionally created ot overlap
+  somewhat.
+  
 # 4. Feature Matching
 
   ## 4a-matching.py

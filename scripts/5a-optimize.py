@@ -23,6 +23,7 @@ r2d = 180.0 / math.pi
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--area', required=True, help='sub area directory')
 parser.add_argument('--refine', action='store_true', help='refine a previous optimization.')
 
 args = parser.parse_args()
@@ -66,11 +67,13 @@ def transform_points( A, pts_list ):
     return result
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_images_info()
+proj.load_area_info(args.area)
 
-source_file = os.path.join(args.project, 'matches_grouped' )
-#source_file = os.path.join(args.project, 'matches_direct' )
-opt_file = os.path.join(args.project, 'matches_opt')
+area_dir = os.path.join(args.project, args.area)
+
+source_file = os.path.join(area_dir, 'matches_grouped' )
+#source_file = os.path.join(area_dir, 'matches_direct' )
+opt_file = os.path.join(area_dir, 'matches_opt')
 if args.refine and os.path.isfile( opt_file ):
     print('Match file:', opt_file)
     matches = pickle.load( open(opt_file, "rb") )
@@ -84,7 +87,7 @@ else:
 print('Match features:', len(matches))
 
 # load the group connections within the image set
-groups = Groups.load(args.project)
+groups = Groups.load(area_dir)
 print('Main group size:', len(groups[0]))
 
 opt = Optimizer.Optimizer(args.project)
@@ -228,20 +231,20 @@ else:
 
 # write out the updated match_dict
 print('Writing matches_opt file:', len(matches_opt), 'features')
-pickle.dump(matches_opt, open(os.path.join(args.project, 'matches_opt'), 'wb'))
+pickle.dump(matches_opt, open(os.path.join(area_dir, 'matches_opt'), 'wb'))
 
 #proj.cam.set_K(fx_opt/scale[0], fy_opt/scale[0], cu_opt/scale[0], cv_opt/scale[0], optimized=True)
 #proj.save()
 
 # temp write out just the points so we can plot them with gnuplot
-f = open(os.path.join(args.project, 'opt-plot.txt'), 'w')
+f = open(os.path.join(area_dir, 'opt-plot.txt'), 'w')
 for m in matches_opt:
     f.write('%.2f %.2f %.2f\n' % (m[0][0], m[0][1], m[0][2]))
 f.close()
 
 # temp write out direct and optimized camera positions
-f1 = open(os.path.join(args.project, 'cams-direct.txt'), 'w')
-f2 = open(os.path.join(args.project, 'cams-opt.txt'), 'w')
+f1 = open(os.path.join(area_dir, 'cams-direct.txt'), 'w')
+f2 = open(os.path.join(area_dir, 'cams-opt.txt'), 'w')
 for i in groups[0]:
     image = proj.image_list[i]
     ned1, ypr1, quat1 = image.get_camera_pose()

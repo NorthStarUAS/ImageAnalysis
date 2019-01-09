@@ -27,6 +27,7 @@ import SRTM
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--area', required=True, help='sub area directory')
 parser.add_argument('--ground', type=float, help='ground elevation in meters')
 
 args = parser.parse_args()
@@ -34,10 +35,11 @@ args = parser.parse_args()
 m = Matcher.Matcher()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_images_info()
-proj.load_features()
+proj.load_area_info(args.area)
+proj.load_features(descriptors=False)
 proj.undistort_keypoints()
-proj.load_match_pairs(extra_verbose=False)
+area_dir = os.path.join(args.project, args.area)
+proj.load_match_pairs(area_dir, extra_verbose=False)
 
 # compute keypoint usage map
 proj.compute_kp_usage()
@@ -266,7 +268,7 @@ for match in matches_direct:
     match[0] = ned.tolist()
 
 print("Writing match file ...")
-direct_file = os.path.join(args.project, "matches_direct")
+direct_file = os.path.join(area_dir, "matches_direct")
 pickle.dump(matches_direct, open(direct_file, "wb"))
 
 #print "temp: writing ascii version..."

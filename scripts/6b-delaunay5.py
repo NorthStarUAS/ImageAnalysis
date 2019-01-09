@@ -23,6 +23,7 @@ import transformations
 
 parser = argparse.ArgumentParser(description='Compute Delauney triangulation of matches.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--area', required=True, help='sub area directory')
 args = parser.parse_args()
 
 def gen_ac3d_surface(name, points_group, values_group, tris_group):
@@ -55,13 +56,15 @@ def gen_ac3d_surface(name, points_group, values_group, tris_group):
         f.write("kids 0\n")
                 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_images_info()
-        
+proj.load_area_info(args.area)
+
+area_dir = os.path.join(args.project, args.area)
+
 print("Loading optimized points ...")
-matches_opt = pickle.load( open( os.path.join(args.project, "matches_opt"), "rb" ) )
+matches_opt = pickle.load( open( os.path.join(area_dir, "matches_opt"), "rb" ) )
 
 # load the group connections within the image set
-groups = Groups.load(args.project)
+groups = Groups.load(area_dir)
 
 points_group = []
 values_group = []
@@ -149,7 +152,7 @@ for i, image in enumerate(proj.image_list):
     tris_group.append(tri_list)
 
 print('Generating ac3d surface model ...')
-name = args.project + "/surface-global.ac"
+name = os.path.join(area_dir, "surface-global.ac")
 gen_ac3d_surface(name, [global_raw_points], [global_raw_values], [global_tri_list])
-name = args.project + "/surface.ac"
+name = os.path.join(area_dir, "surface.ac")
 gen_ac3d_surface(name, points_group, values_group, tris_group)

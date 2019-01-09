@@ -19,22 +19,24 @@ min_angle_deg = 2.0
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--area', required=True, help='sub area directory')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_images_info()
+proj.load_area_info(args.area)
 
+area_dir = os.path.join(args.project, args.area)
 #source = 'matches_direct'
 source = 'matches_grouped'
 print("Loading matches:", source)
-matches_orig = pickle.load( open( os.path.join(args.project, source), "rb" ) )
+matches_orig = pickle.load( open( os.path.join(area_dir, source), "rb" ) )
 print('Number of original features:', len(matches_orig))
 print("Loading optimized matches: matches_opt")
-matches_opt = pickle.load( open( os.path.join(args.project, "matches_opt"), "rb" ) )
+matches_opt = pickle.load( open( os.path.join(area_dir, "matches_opt"), "rb" ) )
 print('Number of optimized features:', len(matches_opt))
 
 # load the group connections within the image set
-groups = Groups.load(args.project)
+groups = Groups.load(area_dir)
 print('Main group size:', len(groups[0]))
 
 def compute_angle(ned1, ned2, ned3):
@@ -114,7 +116,7 @@ if mark_sum > 0:
         delete_marked_features(matches_opt)
         # write out the updated match dictionaries
         print("Writing original matches...")
-        pickle.dump(matches_orig, open(os.path.join(args.project, source), "wb"))
+        pickle.dump(matches_orig, open(os.path.join(area_dir, source), "wb"))
         print("Writing optimized matches...")
-        pickle.dump(matches_opt, open(os.path.join(args.project, "matches_opt"), "wb"))
+        pickle.dump(matches_opt, open(os.path.join(area_dir, "matches_opt"), "wb"))
 

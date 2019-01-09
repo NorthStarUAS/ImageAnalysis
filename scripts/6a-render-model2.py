@@ -35,6 +35,7 @@ r2d = 180 / math.pi
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--area', required=True, help='sub area directory')
 parser.add_argument('--texture-resolution', type=int, default=512, help='texture resolution (should be 2**n, so numbers like 256, 512, 1024, etc.')
 parser.add_argument('--srtm', action='store_true', help='use srtm elevation')
 parser.add_argument('--ground', type=float, help='force ground elevation in meters')
@@ -43,7 +44,7 @@ parser.add_argument('--direct', action='store_true', help='use direct pose')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_images_info()
+proj.load_area_info(args.area)
 
 # lookup ned reference
 ref_node = getNode("/config/ned_reference", True)
@@ -54,11 +55,13 @@ ref = [ ref_node.getFloat('lat_deg'),
 # setup SRTM ground interpolator
 sss = SRTM.NEDGround( ref, 6000, 6000, 30 )
 
+area_dir = os.path.join(args.project, args.area)
+
 print("Loading optimized match points ...")
-matches_opt = pickle.load( open( os.path.join(args.project, "matches_opt"), "rb" ) )
+matches_opt = pickle.load( open( os.path.join(area_dir, "matches_opt"), "rb" ) )
 
 # load the group connections within the image set
-groups = Groups.load(args.project)
+groups = Groups.load(area_dir)
 
 min_chain_length = 3
 
@@ -113,7 +116,7 @@ def intersect2d(ned, v, avg_ground):
     #print("vec:", v)
     #print("ned:", ned)
     tmp = interp([p[1], p[0]])[0]
-    if not np.isnan(tmp):
+    if True or not np.isnan(tmp):
         surface = tmp
     else:
         surface = 0.0
@@ -128,7 +131,7 @@ def intersect2d(ned, v, avg_ground):
         p = [ ned[0] + n_proj, ned[1] + e_proj, ned[2] + d_proj ]
         #print(" new p:", p)
         tmp = interp([p[1], p[0]])[0]
-        if not np.isnan(tmp):
+        if True or not np.isnan(tmp):
             surface = tmp
         error = abs(p[2] - surface)
         #print("  p=%s surface=%.2f error = %.3f" % (p, surface, error))
@@ -159,6 +162,8 @@ for image in proj.image_list:
     if image.sum_count > 0:
         image.z_avg = image.sum_values / float(image.sum_count)
         print(image.name, 'avg elev:', image.z_avg)
+    else:
+        image.z_avg = 0
     
 # compute the uv grid for each image and project each point out into
 # ned space, then intersect each vector with the srtm / ground /
