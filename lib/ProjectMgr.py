@@ -9,6 +9,7 @@ import math
 from matplotlib import pyplot as plt
 import numpy as np
 import os.path
+import pickle
 from progress.bar import Bar
 import scipy.interpolate
 import subprocess
@@ -146,6 +147,29 @@ class ProjectMgr():
         # make sure our matcher gets a copy of the image list
         self.render.setImageList(self.image_list)
 
+    def load_area_info(self, area='area-00'):
+        # load image meta info for specified sub area
+        result = False
+        meta_dir = os.path.join(self.project_dir, 'meta')
+        images_node = getNode("/images", True)
+
+        area_file = os.path.join(self.project_dir, area, 'image_list')
+        area_list = pickle.load( open(area_file, 'rb') )
+        for name in area_list:
+            meta_file = os.path.join(meta_dir, name + ".json")
+            image_node = images_node.getChild(name, True)
+            props_json.load(meta_file, image_node)
+        # images_node.pretty_print()
+                
+        # wipe image list (so we don't double load)
+        self.image_list = []
+        for name in images_node.getChildren():
+            image = Image.Image(meta_dir, name)
+            self.image_list.append( image )
+
+        # make sure our matcher gets a copy of the image list
+        self.render.setImageList(self.image_list)
+
     def load_features(self, descriptors=False):
         if descriptors:
             msg = 'Loading keypoints and descriptors:'
@@ -159,7 +183,7 @@ class ProjectMgr():
             bar.next()
         bar.finish()
 
-    def load_match_pairs(self, extra_verbose=True):
+    def load_match_pairs(self, area_dir, extra_verbose=True):
         if extra_verbose:
             print("")
             print("ProjectMgr.load_match_pairs():")
@@ -170,7 +194,7 @@ class ProjectMgr():
         bar = Bar('Loading keypoint (pair) matches:',
                   max = len(self.image_list))
         for image in self.image_list:
-            image.load_matches()
+            image.load_matches(area_dir)
             bar.next()
         bar.finish()
 
@@ -386,6 +410,7 @@ class ProjectMgr():
             for image in self.image_list:
                 image.kp_used = np.zeros(len(image.kp_list), np.bool_)
             for i1 in self.image_list:
+                print(i1.name, len(i1.match_list))
                 for j, matches in enumerate(i1.match_list):
                     i2 = self.image_list[j]
                     if matches != None:
