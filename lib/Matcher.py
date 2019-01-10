@@ -602,7 +602,7 @@ class Matcher():
                 time_list = sorted(time_list, key=lambda fields: fields[0],
                                    reverse=True)
                 # may wish to monitor and update cache_size formula
-                cache_size = 10 + 3 * (int(math.sqrt(len(image_list))) + 1)
+                cache_size = 20 + 3 * (int(math.sqrt(len(image_list))) + 1)
                 flush_list = time_list[cache_size:]
                 print('flushing descriptor cache - size: %d (over by: %d)' % (cache_size, len(flush_list)) )
                 for line in flush_list:
