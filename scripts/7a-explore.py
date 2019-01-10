@@ -36,10 +36,10 @@ proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
 
 # lookup ned reference
-# ref_node = getNode("/config/ned_reference", True)
-# ref = [ ref_node.getFloat('lat_deg'),
-#         ref_node.getFloat('lon_deg'),
-#         ref_node.getFloat('alt_m') ]
+ref_node = getNode("/config/ned_reference", True)
+ned_ref = [ ref_node.getFloat('lat_deg'),
+            ref_node.getFloat('lon_deg'),
+            ref_node.getFloat('alt_m') ]
 
 tcache = {}
 
@@ -70,7 +70,9 @@ class MyApp(ShowBase):
         self.top_image = 0
 
         # modules
-        self.annotations = explore.annotations.Annotations(self.render)
+        self.annotations = explore.annotations.Annotations(self.render,
+                                                           args.project,
+                                                           ned_ref)
         self.reticle = explore.reticle.Reticle(self.render)
 
         #self.messenger.toggleVerbose()
@@ -294,7 +296,7 @@ class MyApp(ShowBase):
                         h, w = rgb.shape[:2]
                         print('shape:', rgb.shape)
                         # equalize
-                        if True:
+                        if False:
                             # equalize val (essentially gray scale level)
                             hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
                             hue, sat, val = cv2.split(hsv)
