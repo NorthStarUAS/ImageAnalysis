@@ -15,19 +15,22 @@ import match_culling as cull
 
 parser = argparse.ArgumentParser(description='Remove all matches referencing the specific image.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--area', required=True, help='sub area directory')
 parser.add_argument('--index', type=int, help='image index')
 parser.add_argument('--image', help='image name')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_images_info()
+proj.load_area_info(args.area)
+
+area_dir = os.path.join(args.project, args.area)
 
 source = 'matches_grouped'
 print("Loading matches:", source)
-matches_orig = pickle.load( open( os.path.join(args.project, source), "rb" ) )
+matches_orig = pickle.load( open( os.path.join(area_dir, source), "rb" ) )
 print('Number of original features:', len(matches_orig))
 print("Loading optimized matches: matches_opt")
-matches_opt = pickle.load( open( os.path.join(args.project, "matches_opt"), "rb" ) )
+matches_opt = pickle.load( open( os.path.join(area_dir, "matches_opt"), "rb" ) )
 print('Number of optimized features:', len(matches_opt))
 
 def remove_image_features(index):
@@ -67,7 +70,7 @@ if count > 0:
         cull.delete_marked_features(matches_opt)
         # write out the updated match dictionaries
         print("Writing:", source)
-        pickle.dump(matches_orig, open(os.path.join(args.project, source), "wb"))
+        pickle.dump(matches_orig, open(os.path.join(area_dir, source), "wb"))
         print("Writing optimized matches...")
-        pickle.dump(matches_opt, open(os.path.join(args.project, "matches_opt"), "wb"))
+        pickle.dump(matches_opt, open(os.path.join(area_dir, "matches_opt"), "wb"))
 
