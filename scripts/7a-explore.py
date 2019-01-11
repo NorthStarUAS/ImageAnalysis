@@ -283,7 +283,6 @@ class MyApp(ShowBase):
                     print('Warning: no full resolution image source file found:', base)
                 else:
                     if True:
-                        print('HERE')
                         # example of passing an opencv image as a
                         # panda texture, except currently only works
                         # for gray scale (need to find the proper
