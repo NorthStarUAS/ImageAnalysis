@@ -87,7 +87,7 @@ def groupByFeatureConnections(image_list, matches):
             for i, match in enumerate(matches):
                 # only proceed if this feature has been placed (i.e. it
                 # connects to two or more placed images)
-                if placed_features[i] >= 2:
+                if placed_features[i] >= 1:
                     for m in match[1:]:
                         if not m[0] in placed_images:
                             image_counter[m[0]] += 1
@@ -231,44 +231,30 @@ def groupByConnectedArea(image_list, matches):
     return groups
 
 # return the number of connections into the placed set
-def numPlacedConnections(image, image_list):
+def numPlacedConnections(image, proj):
     count = 0
-    connects_to_group_starter = False
-    for i, pairs in enumerate(image.match_list):
-        if len(pairs):
-            i2 = image_list[i]
-            if i2.placed:
-                count += 1
-                if i2.group_starter:
-                    connects_to_group_starter = True
-
-    # disable this for the moment (this code attempts to break single
-    # image connections between larger groups, which might be hard for
-    # the optimizer to resolve efficiently (or small errors in the
-    # connecting features could lead to larger global errors)
-    if True and count == 1:
-        # don't allow single connection chains to form (except
-        # relative to first placed image in a group)
-        if connects_to_group_starter:
-            # ok
-            pass
-        else:
-            count = 0
+    for key in image.match_list:
+        i2 = proj.findImageByName(key)
+        if i2.group_starter:
+            # artificially inflate count if we are connected to a group starter
+            count += 1
+        if i2.placed:
+            count += 1
     return count
 
-def groupByImageConnections(image_list):
+def groupByImageConnections(proj):
     # reset the cycle distance for all images
-    for image in image_list:
+    for image in proj.image_list:
         image.placed = False
         image.group_starter = False
         
-    for image in image_list:
+    for image in proj.image_list:
         image.total_connections = 0
-        for match in image.match_list:
-            if len(match) >= 8:
+        for key in image.match_list:
+            if proj.findImageByName(key):
                 image.total_connections += 1
-        if image.total_connections > 1:
-            print("{} connections: {}".format(image.name, image.total_connections))
+        #if image.total_connections > 1:
+        #    print("%s: connections: %d" % (image.name, image.total_connections))
 
     group_list = []
     group = []
@@ -278,16 +264,15 @@ def groupByImageConnections(image_list):
         best_index = -1
         # find the unplaced image with the most placed neighbors
         best_connections = 0
-        for i, image in enumerate(image_list):
+        for i, image in enumerate(proj.image_list):
             if not image.placed:
-                connections = numPlacedConnections(image, image_list)
+                connections = numPlacedConnections(image, proj)
                 if connections > best_connections:
                     best_index = i
                     best_connections = connections
                     done = False
-        if best_index < 0:
-            print("Cannot find an unplaced image with a connected neighbor:",
-                  best_index)
+        if best_index < 0 or best_connections < 2:
+            print("Cannot find an unplaced image with a double connected neighbor.")
             if len(group):
                 # commit the previous group (if it exists)
                 group_list.append(group)
@@ -296,19 +281,22 @@ def groupByImageConnections(image_list):
             # now find an unplaced image that has the most connections
             # to other images (new cycle start)
             max_connections = 0
-            for i, image in enumerate(image_list):
+            for i, image in enumerate(proj.image_list):
                 if not image.placed:
                     if (image.total_connections > max_connections):
                         max_connections = image.total_connections
                         best_index = i
                         done = False
-                        print(" found image {} connections = {}".format(i, max_connections))
+                        # print(" found image {} connections = {}".format(i, max_connections))
+            if best_index >= 0:
+                # group starter!
+                print("Starting a new group with:",
+                      proj.image_list[best_index].name)
+                proj.image_list[best_index].group_starter = True
         if best_index >= 0:
-            image = image_list[best_index]
+            image = proj.image_list[best_index]
             image.placed = True
-            print("Adding {} (placed connections = {}, total connections = {})".format(image.name, best_connections, image.total_connections), )
-            if len(group) == 0:
-                image.group_starter = True
+            print("Adding: {} (placed connections = {}, total connections = {})".format(image.name, best_connections, image.total_connections), )
             group.append(best_index)
 
     print("Group (cycles) report:")
@@ -317,7 +305,7 @@ def groupByImageConnections(image_list):
         #    continue
         print("group (size = {}):".format((len(group))))
         for i in group:
-            image = image_list[i]
+            image = proj.image_list[i]
             print("{} ({})".format(image.name, image.total_connections))
         print("")
 
@@ -342,98 +330,3 @@ def load(path):
         print('{}: error loading file: {}'.format(file, str(sys.exc_info()[1])))
         groups = []
     return groups
-   
-##
-## For historical/archival purposes, here is an alternative grouping
-## function that uses number of neighbor with matches instead of
-## number of total number of matches.  The results should be
-## identical, but the order images are added to the group may be
-## slightly different...
-##
-
-# return the neighbor that is closest to the root node of the
-# placement tree (i.e. smallest cycle_depth.
-def bestNeighbor(image, image_list):
-    best_cycle_depth = len(image_list) + 1
-    best_index = None
-    for i, pairs in enumerate(image.match_list):
-        if len(pairs):
-            i2 = image_list[i]
-            dist = i2.cycle_depth
-            # print "  neighbor check %d = %d" % ( i, dist )
-            if dist >= 0 and dist < best_cycle_depth:
-                # print '    new best:', dist
-                best_cycle_depth = dist
-                best_index = i
-    return best_index, best_cycle_depth
-
-def groupByImageCycleDepth(image_list):
-    # reset the cycle distance for all images
-    for image in image_list:
-        image.cycle_depth = -1
-        
-    for image in image_list:
-        image.connections = 0
-        for match in image.match_list:
-            if len(match) >= 8:
-                image.connections += 1
-        if image.connections > 1:
-            print("{} connections: {}".format(image.name, image.connections))
-
-    last_cycle_depth = len(image_list) + 1
-    group_list = []
-    group = []
-    done = False
-    while not done:
-        done = True
-        best_index = None
-        # find an unplaced image with a placd neighbor that is the
-        # closest conection to the root of the placement tree.
-        best_cycle_depth = len(image_list) + 1
-        for i, image in enumerate(image_list):
-            if image.cycle_depth < 0:
-                index, cycle_depth = bestNeighbor(image, image_list)
-                if cycle_depth >= 0 and (cycle_depth+1 < best_cycle_depth):
-                    best_index = i
-                    best_cycle_depth = cycle_depth+1
-                    done = False
-        if best_index == None:
-            print("Cannot find an unplaced image with a connected neighbor")
-            if len(group):
-                # commit the previous group (if it exists)
-                group_list.append(group)
-                # and start a new group
-                group = []
-                best_cycle_depth = last_cycle_depth + 1
-            else:
-                best_cycle_depth = 0
-            # now find an unplaced image that has the most connections
-            # to other images (new cycle start)
-            max_connections = None
-            for i, image in enumerate(image_list):
-                if image.cycle_depth < 0:
-                    if (max_connections == None or image.connections > max_connections):
-                        max_connections = image.connections
-                        best_index = i
-                        done = False
-
-                        # print(" found image {} connections = {}".format(i, max_connections))
-        if best_index != None:
-            image = image_list[best_index]
-            image.cycle_depth = best_cycle_depth
-            last_cycle_depth = best_cycle_depth
-            print("Adding {} (cycles = {})".format(image.name, best_cycle_depth))
-            group.append(image)
-
-    print("Group (cycles) report:")
-    for group in group_list:
-        #if len(group) < 2:
-        #    continue
-        print("group (size = {}):".format((len(group))))
-        for image in group:
-            print("{}({})".format(image.name, image.cycle_depth))
-        print("")
-
-    return group_list
-
-
