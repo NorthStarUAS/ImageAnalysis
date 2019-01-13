@@ -85,18 +85,19 @@ for image in proj.image_list:
 print('Reading feature locations from optimized match points ...')
 global_raw_points = []
 global_raw_values = []
+group = groups[0]
 for match in matches_opt:
     count = 0
     found = False
     for m in match[1:]:
-        if m[0] in groups[0]:
+        if proj.image_list[m[0]].name in group:
             count += 1
     if count >= min_chain_length:
         ned = match[0]
         global_raw_points.append( [ned[1], ned[0]] )
         global_raw_values.append( -ned[2] )
         for m in match[1:]:
-            if m[0] in groups[0]:
+            if proj.image_list[m[0]].name in group:
                 image = proj.image_list[ m[0] ]
                 image.raw_points.append( [ned[1], ned[0]] )
                 z = -ned[2]

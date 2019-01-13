@@ -80,14 +80,14 @@ for match in matches_opt:
     count = 0
     found = False
     for m in match[1:]:
-        if m[0] in groups[0]:
+        if proj.image_list[m[0]].name in groups[0]:
             count += 1
     if count >= min_chain_length:
         ned = match[0]
         raw_points.append( [ned[1], ned[0]] )
         raw_values.append( ned[2] )
         for m in match[1:]:
-            if m[0] in groups[0]:
+            if proj.image_list[m[0]].name in groups[0]:
                 image = proj.image_list[ m[0] ]
                 z = -ned[2]
                 image.sum_values += z
@@ -174,8 +174,8 @@ if True:
     group = groups[0]
     #if len(group) < 3:
     #    continue
-    for g in group:
-        image = proj.image_list[g]
+    for name in group:
+        image = proj.findImageByName(name)
         print(image.name, image.z_avg)
         width, height = image.get_size()
         # scale the K matrix if we have scaled the images
@@ -239,7 +239,7 @@ if True:
 # generate the panda3d egg models
 dir_node = getNode('/config/directories', True)
 img_src_dir = dir_node.getString('images_source')
-Panda3d.generate(proj.image_list, groups[0], src_dir=img_src_dir,
+Panda3d.generate(proj, groups[0], src_dir=img_src_dir,
                  project_dir=args.project, base_name='direct',
                  version=1.0, trans=0.1, resolution=args.texture_resolution)
 
