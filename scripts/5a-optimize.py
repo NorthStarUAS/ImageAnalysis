@@ -88,10 +88,18 @@ print('Match features:', len(matches))
 
 # load the group connections within the image set
 groups = Groups.load(area_dir)
-print('Main group size:', len(groups[0]))
+# sort from smallest to largest
+groups.sort(key=len)
 
+# make a single flat list of all images named in any group
+flat_group = []
+for group in groups:
+    for name in group:
+        index = proj.findIndexByName(name)
+        flat_group.append(index)
+        
 opt = Optimizer.Optimizer(args.project)
-opt.setup( proj, groups[0], matches, optimized=args.refine )
+opt.setup( proj, flat_group, matches, optimized=args.refine )
 cameras, features, cam_index_map, feat_index_map, fx_opt, fy_opt, cu_opt, cv_opt, distCoeffs_opt = opt.run()
 
 # mark all the optimized poses as invalid
@@ -134,96 +142,114 @@ proj.save()
 #
 # each optimized group needs a separate/unique fit
 
+matches_opt = list(matches) # shallow copy
 refit_group_orientations = True
 if refit_group_orientations:
-    src_list = []
-    dst_list = []
-    # only consider images that are in the main group
-    for i in groups[0]:
-        image = proj.image_list[i]
-        ned, ypr, quat = image.get_camera_pose(opt=True)
-        src_list.append(ned)
-        ned, ypr, quat = image.get_camera_pose()
-        dst_list.append(ned)
-    A = get_recenter_affine(src_list, dst_list)
-
-    # extract the rotation matrix (R) from the affine transform
-    scale, shear, angles, trans, persp = transformations.decompose_matrix(A)
-    print('  scale:', scale)
-    print('  shear:', shear)
-    print('  angles:', angles)
-    print('  translate:', trans)
-    print('  perspective:', persp)
-    R = transformations.euler_matrix(*angles)
-    print("R:\n{}".format(R))
-
-    # update the optimized camera locations based on best fit
-    camera_list = []
-    # load optimized poses
-    for i, image in enumerate(proj.image_list):
-        if i in groups[0]:
-            ned, ypr, quat = image.get_camera_pose(opt=True)
-        else:
-            # this is just fodder to match size/index of the lists
-            ned, ypr, quat = image.get_camera_pose()
-        camera_list.append( ned )
-
-    # refit
-    new_cams = transform_points(A, camera_list)
-
-    # update position
-    for i, image in enumerate(proj.image_list):
-        if not i in groups[0]:
+    for group in groups:
+        if len(group) < 10:
+            # skip group sizes < 10
             continue
-        ned, [y, p, r], quat = image.get_camera_pose(opt=True)
-        image.set_camera_pose(new_cams[i], y, p, r, opt=True)
-    proj.save_images_info()
-        
-    if True:
-        # update optimized pose orientation.
-        dist_report = []
-        for i, image in enumerate(proj.image_list):
-            if not i in groups[0]:
-                continue
-            ned_orig, ypr_orig, quat_orig = image.get_camera_pose()
+        print('refitting group size:', len(group))
+        src_list = []
+        dst_list = []
+        # only consider images that are in the current   group
+        for name in group:
+            image = proj.findImageByName(name)
             ned, ypr, quat = image.get_camera_pose(opt=True)
-            Rbody2ned = image.get_body2ned(opt=True)
-            # update the orientation with the same transform to keep
-            # everything in proper consistent alignment
+            src_list.append(ned)
+            ned, ypr, quat = image.get_camera_pose()
+            dst_list.append(ned)
+        A = get_recenter_affine(src_list, dst_list)
 
-            newRbody2ned = R[:3,:3].dot(Rbody2ned)
-            (yaw, pitch, roll) = transformations.euler_from_matrix(newRbody2ned, 'rzyx')
-            image.set_camera_pose(new_cams[i], yaw*r2d, pitch*r2d, roll*r2d,
-                                  opt=True)
-            dist = np.linalg.norm( np.array(ned_orig) - np.array(new_cams[i]))
-            print('image: {}'.format(image.name))
-            print('  orig pos: {}'.format(ned_orig))
-            print('  fit pos: {}'.format(new_cams[i]))
-            print('  dist moved: {}'.format(dist))
-            dist_report.append( (dist, image.name) )
+        # extract the rotation matrix (R) from the affine transform
+        scale, shear, angles, trans, persp = transformations.decompose_matrix(A)
+        print('  scale:', scale)
+        print('  shear:', shear)
+        print('  angles:', angles)
+        print('  translate:', trans)
+        print('  perspective:', persp)
+        R = transformations.euler_matrix(*angles)
+        print("R:\n{}".format(R))
+
+        # fixme (just group):
+        
+        # update the optimized camera locations based on best fit
+        camera_list = []
+        # load optimized poses
+        for image in proj.image_list:
+            if image.name in group:
+                ned, ypr, quat = image.get_camera_pose(opt=True)
+            else:
+                # this is just fodder to match size/index of the lists
+                ned, ypr, quat = image.get_camera_pose()
+            camera_list.append( ned )
+
+        # refit
+        new_cams = transform_points(A, camera_list)
+
+        # update position
+        for i, image in enumerate(proj.image_list):
+            if not image.name in group:
+                continue
+            ned, [y, p, r], quat = image.get_camera_pose(opt=True)
+            image.set_camera_pose(new_cams[i], y, p, r, opt=True)
         proj.save_images_info()
 
-        dist_report = sorted(dist_report,
-                             key=lambda fields: fields[0],
-                             reverse=False)
-        print('Image movement sorted lowest to highest:')
-        for report in dist_report:
-            print('{} dist: {}'.format(report[1], report[0]))
+        if True:
+            # update optimized pose orientation.
+            dist_report = []
+            for i, image in enumerate(proj.image_list):
+                if not image.name in group:
+                    continue
+                ned_orig, ypr_orig, quat_orig = image.get_camera_pose()
+                ned, ypr, quat = image.get_camera_pose(opt=True)
+                Rbody2ned = image.get_body2ned(opt=True)
+                # update the orientation with the same transform to keep
+                # everything in proper consistent alignment
 
-    # tranform the optimized point locations using the same best
-    # fit transform for the camera locations.
-    new_feats = transform_points(A, features)
-    # update
-    matches_opt = list(matches) # shallow copy
-    for i, feat in enumerate(new_feats):
-        match_index = feat_index_map[i]
-        match = matches_opt[match_index]
-        #print(' before:', match)
-        match[0] = feat
-        #print(' after:', match)
+                newRbody2ned = R[:3,:3].dot(Rbody2ned)
+                (yaw, pitch, roll) = transformations.euler_from_matrix(newRbody2ned, 'rzyx')
+                image.set_camera_pose(new_cams[i], yaw*r2d, pitch*r2d, roll*r2d,
+                                      opt=True)
+                dist = np.linalg.norm( np.array(ned_orig) - np.array(new_cams[i]))
+                print('image: {}'.format(image.name))
+                print('  orig pos: {}'.format(ned_orig))
+                print('  fit pos: {}'.format(new_cams[i]))
+                print('  dist moved: {}'.format(dist))
+                dist_report.append( (dist, image.name) )
+            proj.save_images_info()
+
+            dist_report = sorted(dist_report,
+                                 key=lambda fields: fields[0],
+                                 reverse=False)
+            print('Image movement sorted lowest to highest:')
+            for report in dist_report:
+                print('{} dist: {}'.format(report[1], report[0]))
+
+        # tranform the optimized point locations using the same best
+        # fit transform for the camera locations.
+        new_feats = transform_points(A, features)
+        
+        # update any of the transformed feature locations that have
+        # membership in the currently processing group back to the
+        # master match structure.  Note we process groups in order of
+        # little to big so if a match is in more than one group it
+        # follows the larger group.
+        for i, feat in enumerate(new_feats):
+            match_index = feat_index_map[i]
+            match = matches_opt[match_index]
+            in_group = False
+            for m in match[1:]:
+                if proj.image_list[m[0]].name in group:
+                    in_group = True
+                    break
+            if in_group:
+                #print(' before:', match)
+                match[0] = feat
+                #print(' after:', match)
 else:
-    # not refitting group orientations create a matches_opt
-    matches_opt = list(matches) # shallow copy
+    # not refitting group orientations, just copy over optimized
+    # coordinates
     for i, feat in enumerate(features):
         match_index = feat_index_map[i]
         match = matches_opt[match_index]
@@ -245,8 +271,8 @@ f.close()
 # temp write out direct and optimized camera positions
 f1 = open(os.path.join(area_dir, 'cams-direct.txt'), 'w')
 f2 = open(os.path.join(area_dir, 'cams-opt.txt'), 'w')
-for i in groups[0]:
-    image = proj.image_list[i]
+for name in groups[0]:
+    image = proj.findImageByName(name)
     ned1, ypr1, quat1 = image.get_camera_pose()
     ned2, ypr2, quat2 = image.get_camera_pose(opt=True)
     f1.write('%.2f %.2f %.2f\n' % (ned1[0], ned1[1], ned1[2]))
