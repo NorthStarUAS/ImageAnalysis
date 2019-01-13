@@ -41,10 +41,20 @@ print('Number of optimized features:', len(matches_opt))
 
 # load the group connections within the image set
 groups = Groups.load(area_dir)
-print('Main group size:', len(groups[0]))
+print('Group sizes:', end=" ")
+for group in groups:
+    print(len(group), end=" ")
+print()
 
+# make a single flat list of all images named in any group
+flat_group = []
+for group in groups:
+    for name in group:
+        index = proj.findIndexByName(name)
+        flat_group.append(index)
+        
 opt = Optimizer.Optimizer(args.project)
-opt.setup( proj, groups[0], matches_opt, optimized=True )
+opt.setup( proj, flat_group, matches_opt, optimized=True )
 x0 = np.hstack((opt.camera_params.ravel(), opt.points_3d.ravel(),
                 opt.K[0,0], opt.K[0,2], opt.K[1,2],
                 opt.distCoeffs))
