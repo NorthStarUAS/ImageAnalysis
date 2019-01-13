@@ -180,10 +180,10 @@ class Optimizer():
     def setup(self, proj, placed_images, matches_list, optimized=False):
         print('Setting up optimizer data structures...')
         if placed_images == None:
-            placed_images = set()
+            placed_images = []
             # if no placed images specified, mark them all as placed
             for i in range(len(proj.image_list)):
-                placed_images.add(i)
+                placed_images.append(i)
                 
         # construct the camera index remapping
         self.camera_map_fwd = {}
