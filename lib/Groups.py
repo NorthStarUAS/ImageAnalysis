@@ -166,11 +166,11 @@ def groupByImageConnections(proj):
                     done = False
         if best_index < 0 or best_connections < 2:
             print("Cannot find an unplaced image with a double connected neighbor.")
-            if len(group):
-                # commit the previous group (if it exists)
+            if len(group) >= 10:
+                # commit the previous group (if it is long enough to be useful)
                 group_list.append(group)
-                # and start a new group
-                group = []
+            # and start a new group
+            group = []
             # now find an unplaced image that has the most connections
             # to other images (new cycle start)
             max_connections = 0
@@ -190,15 +190,15 @@ def groupByImageConnections(proj):
             image = proj.image_list[best_index]
             image.placed = True
             print("Adding: {} (placed connections = {}, total connections = {})".format(image.name, best_connections, image.total_connections), )
-            group.append(best_index)
+            group.append(image.name)
 
     print("Group (cycles) report:")
     for group in group_list:
         #if len(group) < 2:
         #    continue
         print("group (size = {}):".format((len(group))))
-        for i in group:
-            image = proj.image_list[i]
+        for name in group:
+            image = proj.findImageByName(name)
             print("{} ({})".format(image.name, image.total_connections))
         print("")
 
