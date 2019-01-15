@@ -37,7 +37,10 @@ print('Number of optimized features:', len(matches_opt))
 
 # load the group connections within the image set
 groups = Groups.load(area_dir)
-print('Main group size:', len(groups[0]))
+print('Group sizes:', end=" ")
+for group in groups:
+    print(len(group), end=" ")
+print()
 
 def compute_angle(ned1, ned2, ned3):
     vec1 = np.array(ned3) - np.array(ned1)
@@ -56,7 +59,7 @@ def compute_angle(ned1, ned2, ned3):
             return 0
     else:
         return 0
-    
+
 bar = Bar('Scanning match pair angles:', max=len(matches_opt))
 #print("Scanning match pair angles...")
 mark_list = []
@@ -64,9 +67,9 @@ for k, match in enumerate(matches_opt):
     for i, m1 in enumerate(match[1:]):
         for j, m2 in enumerate(match[1:]):
             if i < j:
-                if m1[0] in groups[0] and m2[0] in groups[0]:
-                    i1 = proj.image_list[m1[0]]
-                    i2 = proj.image_list[m2[0]]
+                i1 = proj.image_list[m1[0]]
+                i2 = proj.image_list[m2[0]]
+                if True or i1.name in groups[0] and i2.name in groups[0]:
                     ned1, ypr1, q1 = i1.get_camera_pose(opt=True)
                     ned2, ypr2, q2 = i2.get_camera_pose(opt=True)
                     quick_approx = False
