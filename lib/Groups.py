@@ -126,14 +126,17 @@ def groupByFeatureConnections(image_list, matches):
 # return the number of connections into the placed set
 def numPlacedConnections(image, proj):
     count = 0
+    total_matches = 0
     for key in image.match_list:
+        num_matches = len(image.match_list[key])
         i2 = proj.findImageByName(key)
         if i2.group_starter:
             # artificially inflate count if we are connected to a group starter
-            count += 1
+            count += 1000
         if i2.placed:
             count += 1
-    return count
+            total_matches += num_matches
+    return count, total_matches
 
 def groupByImageConnections(proj):
     # reset the cycle distance for all images
@@ -159,12 +162,12 @@ def groupByImageConnections(proj):
         best_connections = 0
         for i, image in enumerate(proj.image_list):
             if not image.placed:
-                connections = numPlacedConnections(image, proj)
-                if connections > best_connections:
+                connections, total_matches = numPlacedConnections(image, proj)
+                if connections > best_connections and total_matches > 25:
                     best_index = i
                     best_connections = connections
                     done = False
-        if best_index < 0 or best_connections < 2:
+        if best_index < 0 or best_connections < 3:
             print("Cannot find an unplaced image with a double connected neighbor.")
             if len(group) >= 10:
                 # commit the previous group (if it is long enough to be useful)

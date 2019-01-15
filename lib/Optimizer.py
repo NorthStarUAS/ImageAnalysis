@@ -28,7 +28,7 @@ class Optimizer():
         self.camera_map_rev = {}
         self.feat_map_fwd = {}
         self.feat_map_rev = {}
-        self.last_mre = 1.0e+10 # a big number
+        self.last_mre = 1.0e+20 # a big number
         self.graph = None
         self.graph_counter = 0
         #self.optimize_calib = 'global' # global camera optimization
