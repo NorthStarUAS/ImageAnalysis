@@ -119,8 +119,10 @@ def findAffine(src, dst, fullAffine=False):
     #print("src:", src)
     #print("dst:", dst)
     if len(src) >= affine_minpts:
-        affine = cv2.estimateRigidTransform(np.array([src]), np.array([dst]),
-                                            fullAffine)
+        # affine = cv2.estimateRigidTransform(np.array([src]), np.array([dst]), fullAffine)
+        affine, status = \
+            cv2.estimateAffinePartial2D(np.array([src]).astype(np.float32),
+                                        np.array([dst]).astype(np.float32))
     else:
         affine = None
     #print str(affine)
@@ -589,7 +591,7 @@ for frame in reader.nextFrame():
         else:
             filtered = mkp1
 
-    motion9(frame_scale, p2, p1)
+    # motion9(frame_scale, p2, p1)
     
     affine = findAffine(p2, p1, fullAffine=False)
     (rot, tx, ty, sx, sy) = decomposeAffine(affine)
@@ -705,7 +707,12 @@ for frame in reader.nextFrame():
     new_frame = cv2.warpAffine(frame_undist, affine_new, (cols,rows))
 
     if True:
-        res1 = cv2.drawKeypoints(frame_undist, filtered, None, color=(0,255,0), flags=0)
+        # FIXME
+        # res1 = cv2.drawKeypoints(frame_undist, filtered, None, color=(0,255,0), flags=0)
+        for kp in filtered:
+            cv2.circle(frame_undist, (int(kp.pt[0]), int(kp.pt[1])), 3, (0,255,0), 1, cv2.LINE_AA)
+        res1 = frame_undist
+
     else:
         res1 = frame_undist
 
