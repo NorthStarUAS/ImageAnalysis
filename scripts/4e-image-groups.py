@@ -49,14 +49,15 @@ else:
 
 # compute the group connections within the image set.
 
-#groups = Groups.groupByFeatureConnections(proj.image_list, matches)
+groups = Groups.groupByFeatureConnections(proj.image_list, matches)
 #groups = Groups.groupByConnectedArea(proj.image_list, matches)
-groups = Groups.groupByImageConnections(proj)
+#groups = Groups.groupByImageConnections(proj)
 
 groups.sort(key=len, reverse=True)
 
 Groups.save(area_dir, groups)
 
+print('Total images:', len(proj.image_list))
 print('Group sizes:', end=" ")
 for g in groups:
     print(len(g), end=" ")

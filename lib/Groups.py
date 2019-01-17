@@ -7,6 +7,9 @@ import numpy as np
 import os
 import sys
 
+min_group = 10
+min_connections = 25
+
 # this builds a simple set structure that records if any image has any
 # connection to any other image
 def countFeatureConnections(image_list, matches):
@@ -39,7 +42,7 @@ def updatePlacedFeatures(placed_images, matches, placed_features):
 
 # This is the current, best grouping function to use
 def groupByFeatureConnections(image_list, matches):
-    countFeatureConnections(image_list, matches)
+    # countFeatureConnections(image_list, matches)
     print("Start of top level grouping algorithm...")
 
     # start with no placed images or features
@@ -47,15 +50,11 @@ def groupByFeatureConnections(image_list, matches):
     groups = []
     placed_features = [0] * len(matches)
 
-    # wipe connection order for all images
-    for image in image_list:
-        image.connection_order = -1
-
     done = False
     while not done:
         print("Start of new group...")
         # start a fresh group
-        group_images = set()
+        group_images = []
         
         # find the unplaced feature with the most connections to other
         # images
@@ -68,58 +67,50 @@ def groupByFeatureConnections(image_list, matches):
         if max_index == -1:
             break
         print('Feature with max connections (%d) = %d' % (max_connections, max_index))
-        print('Starting group with:')
+        print('Seeding group with:', end=" ")
         match = matches[max_index]
         for m in match[1:]:
-            group_images.add(m[0])
+            group_images.append(image_list[m[0]].name)
             placed_images.add(m[0])
-            print(' ', image_list[m[0]].name)
+            print(image_list[m[0]].name, end=" ")
+        print()
         updatePlacedFeatures(placed_images, matches, placed_features)
         
         while True:
-            # find the unplaced image with the most connections into
-            # the placed set
+            # find the unplaced images with sufficient connections
+            # into the placed set
 
             # per image counter
             image_counter = [0] * len(image_list)
 
-            # count up the placed feature references to unplaced images
+            # count up the placed feature references to each image
             for i, match in enumerate(matches):
                 # only proceed if this feature has been placed (i.e. it
                 # connects to two or more placed images)
-                if placed_features[i] >= 1:
+                if placed_features[i] >= 2:
                     for m in match[1:]:
-                        if not m[0] in placed_images:
-                            image_counter[m[0]] += 1
-            # print 'connected image count:', image_counter
-            new_index = -1
-            max_connections = -1
+                        image_counter[m[0]] += 1
+            # add all unplaced images with more than 25 connections to
+            # the placed set
+            add_count = 0
+            print('adding:', end=" ")
             for i in range(len(image_counter)):
-                if image_counter[i] > max_connections:
-                    new_index = i
-                    max_connections = image_counter[i]
-            if max_connections >= 25:
-                print("New image with max connections:", image_list[new_index].name, "features:", max_connections)
-                placed_images.add(new_index)
-                group_images.add(new_index)
-            else:
-                if len(group_images) > 1:
-                    groups.append(list(group_images))
+                if not i in placed_images and image_counter[i] >= min_connections:
+                    print("%s(%d)" % (image_list[i].name, image_counter[i]),
+                          end=" ")
+                    placed_images.add(i)
+                    group_images.append(image_list[i].name)
+                    add_count += 1
+            print()
+            if add_count == 0:
+                # no more images could be connected
+                if len(group_images) > min_group:
+                    groups.append(group_images)
                 else:
                     done = True
                 break
-
             updatePlacedFeatures(placed_images, matches, placed_features)
 
-            new_image = image_list[new_index]
-            new_image.connection_order = len(placed_images) - 1
-            print('Added: {} groups: {} in current group {} total: {}'.format(new_image.name, len(groups)+1, len(group_images), len(placed_images)))
-            
-    # add all unplaced images in their own groups of 1
-    for i, image in enumerate(image_list):
-        if not i in placed_images:
-            groups.append( [i] )
-            
     print(groups)
     return groups
 
@@ -169,7 +160,7 @@ def groupByImageConnections(proj):
                     done = False
         if best_index < 0 or best_connections < 3:
             print("Cannot find an unplaced image with a double connected neighbor.")
-            if len(group) >= 10:
+            if len(group) >= min_group:
                 # commit the previous group (if it is long enough to be useful)
                 group_list.append(group)
             # and start a new group
