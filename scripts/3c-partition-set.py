@@ -63,13 +63,6 @@ divy = 1
 
 done = False
 while not done:
-    # figure out which dimension to subdivide to maintain squarish cells
-    if dx / divx > dy / divy:
-        divx += 1
-    else:
-        divy += 1
-    print('divs:', divx, divy)
-
     # determine the cell division points to maintain even image number
     # distribution
     xsplits = []
@@ -113,6 +106,15 @@ while not done:
             pickle.dump(images, open(os.path.join(dirname, "image_list"), 'wb'))
             if len(images) > float(args.size) * args.pad:
                 done = False
+
+    if not done:
+        # figure out which dimension to subdivide to maintain squarish cells
+        if dx / divx > dy / divy:
+            divx += 1
+        else:
+            divy += 1
+        print('divs:', divx, divy)
+
         
 for image in proj.image_list:
     if not image.is_assigned:
