@@ -19,8 +19,8 @@ from aurauas.flightdata import flight_loader, flight_interp
 import correlate
 
 parser = argparse.ArgumentParser(description='correlate movie data to flight data.')
-parser.add_argument('--flight', help='load specified aura flight log')
-parser.add_argument('--movie', required=False, help='original movie if extracting frames')
+parser.add_argument('--flight', required=True, help='load specified aura flight log')
+parser.add_argument('--movie', required=True, help='original movie if extracting frames')
 parser.add_argument('--cam-mount', choices=['forward', 'down', 'rear'],
                     default='down',
                     help='approximate camera mounting orientation')
