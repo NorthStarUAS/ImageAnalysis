@@ -94,7 +94,7 @@ class Optimizer():
                 A[2 * i, n_cameras * self.ncp + n_points * 3 + s] = 1
                 A[2 * i + 1, n_cameras * self.ncp + n_points * 3 + s] = 1
 
-        print('A non-zero elements:', A.nnz)
+        print('A-matrix non-zero elements:', A.nnz)
         return A
 
     # compute an array of residuals (one for each observation)
