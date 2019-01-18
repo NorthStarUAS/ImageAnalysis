@@ -13,7 +13,6 @@ sys.path.append('../lib')
 import Matcher
 #import Pose
 import ProjectMgr
-import SRTM
 
 # Reset all match point locations to their original direct
 # georeferenced locations based on estimated camera pose and
@@ -28,8 +27,6 @@ import SRTM
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--area', required=True, help='sub area directory')
-parser.add_argument('--ground', type=float, help='ground elevation in meters')
-
 args = parser.parse_args()
 
 m = Matcher.Matcher()
@@ -43,28 +40,6 @@ proj.load_match_pairs(extra_verbose=False)
 
 # compute keypoint usage map
 proj.compute_kp_usage()
-
-if args.ground:
-    proj.fastProjectKeypointsToGround(args.ground)
-else:
-    # lookup ned reference
-    ref_node = getNode("/config/ned_reference", True)
-    ref = [ ref_node.getFloat('lat_deg'),
-            ref_node.getFloat('lon_deg'),
-            ref_node.getFloat('alt_m') ]
-    
-    # setup SRTM ground interpolator
-    sss = SRTM.NEDGround( ref, 3000, 3000, 30 )
-
-    # fast way:
-    # 1. make a grid (i.e. 8x8) of uv coordinates covering the whole image
-    # 2. undistort these uv coordinates
-    # 3. project them into vectors
-    # 4. intersect them with the srtm terrain to get ned coordinates
-    # 5. use linearndinterpolator ... g = scipy.interpolate.LinearNDInterpolator([[0,0],[1,0],[0,1],[1,1]], [[0,4,8],[1,3,2],[2,2,-4],[4,1,0]])
-    #    with origin uv vs. 3d location to build a table
-    # 6. interpolate original uv coordinates to 3d locations
-    proj.fastProjectKeypointsTo3d(sss)
 
 # For some features detection algorithms we expect duplicated feature
 # uv coordinates.  These duplicates may have different scaling or
@@ -167,9 +142,8 @@ if False:
 #
 # notes: this really shouldn't (!) (by my best current understanding)
 # be able to find any dups.  These should all get caught in the
-# original pair matching step.  But some dupes seem to survive?
-# Hmmm...
-print("Checking for pair duplicates...")
+# original pair matching step.
+print("Checking for pair duplicates (there never should be any...)")
 for i, i1 in enumerate(proj.image_list):
     for key in i1.match_list:
         matches = i1.match_list[key]
@@ -267,20 +241,16 @@ if count >= 1:
 
 # compute an initial guess at the 3d location of each unique feature
 # by averaging the locations of each projection
-print("Estimating world coordinates of each keypoint...")
-for match in matches_direct:
-    sum = np.array( [0.0, 0.0, 0.0] )
-    for p in match[1:]:
-        #if len(match) >= 4: print proj.image_list[ p[0] ].coord_list[ p[1] ]
-        sum += proj.image_list[ p[0] ].coord_list[ p[1] ]
-    ned = sum / len(match[1:])
-    # if len(match) >= 4: print "avg =", ned
-    match[0] = ned.tolist()
+# print("Estimating world coordinates of each keypoint...")
+# for match in matches_direct:
+#     sum = np.array( [0.0, 0.0, 0.0] )
+#     for p in match[1:]:
+#         #if len(match) >= 4: print proj.image_list[ p[0] ].coord_list[ p[1] ]
+#         sum += proj.image_list[ p[0] ].coord_list[ p[1] ]
+#     ned = sum / len(match[1:])
+#     # if len(match) >= 4: print "avg =", ned
+#     match[0] = ned.tolist()
 
 print("Writing match file ...")
 direct_file = os.path.join(area_dir, "matches_direct")
 pickle.dump(matches_direct, open(direct_file, "wb"))
-
-#print "temp: writing ascii version..."
-#for match in matches_direct:
-#    print match

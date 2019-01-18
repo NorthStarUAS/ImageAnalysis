@@ -101,17 +101,21 @@ fourcc = int(capture.get(cv2.CAP_PROP_FOURCC))
 w = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) * scale )
 h = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) * scale )
 
-aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_250)
+aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_50)
 parameters =  aruco.DetectorParameters_create()
 
 # produce a consistant ordering of corner points
 def order_corner_points(corners, ids):
-    num_markers = 4
-    if len(corners) != num_markers or len(corners) != len(ids):
-        print "error: need %d markers and ids" % num_markers
+    if len(corners) != 6:
+        print "error: need at least 6 markers"
+        return
+    if len(corners) != len(ids):
+        print "error: mismatch between number of corners and number of id's"
         return
 
     new_corners = []
+
+    num_markers = len(corners)
     for id in range(num_markers):
         # find k = 1, 2, 3, 4 in ids in that order (ids is unordered)
         index = -1
@@ -156,7 +160,7 @@ def findAffine(src, dst, fullAffine=False):
     return affine
 
 def decomposeAffine(affine):
-    if affine == None:
+    if not affine.any():
         return (0.0, 0.0, 0.0, 1.0, 1.0)
 
     tx = affine[0][2]
@@ -215,7 +219,7 @@ while True:
             print "Skipping %d frames..." % counter
         continue
 
-    if frame == None:
+    if not frame.any():
         print "Skipping bad frame ..."
         continue
 
@@ -237,7 +241,8 @@ while True:
     corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
 
     # there should always be exactly 4 markers
-    if len(corners) != 4:
+    if len(corners) < 4:
+        print "less than 4 corners"
         continue
 
     # look for marker ids 1, 2, 3, 4 and sort the points in that

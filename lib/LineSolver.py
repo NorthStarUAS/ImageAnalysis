@@ -15,12 +15,13 @@ def ls_lines_intersection(a, n, transpose=True):
     assert(len(a) == len(n))  # same numbers of points as numbers of directions
  
     if transpose:
-        n = map(lambda v: np.asmatrix(v/norm(v)).T, n)  # normalize directions and transpose
-        a = map(lambda v: np.asmatrix(v).T, a)          # transform into matrix and transpose
+        n = list(map(lambda v: np.asmatrix(v/norm(v)).T, n))  # normalize directions and transpose
+        a = list(map(lambda v: np.asmatrix(v).T, a))          # transform into matrix and transpose
     else:
-        n = map(lambda v: np.asmatrix(v/norm(v)).T, n)  # normalize directions
-        a = map(lambda v: np.asmatrix(v), a)            # transform into matrix
- 
+        n = list(map(lambda v: np.asmatrix(v/norm(v)).T, n))  # normalize directions
+        a = list(map(lambda v: np.asmatrix(v), a))            # transform into matrix
+
+    #print('n:', type(n), n)
     r = np.zeros((n[0].shape[0], n[0].shape[0]))
     q = np.zeros((n[0].shape[0], 1))
     for point, direction in zip(a, n):
@@ -37,4 +38,9 @@ def ls_lines_intersection(a, n, transpose=True):
 # v1 = np.array( [1, 1, 1] )
 # v2 = np.array( [1, -1, 0] )
 # v3 = np.array( [0.5, -1, -1] )
-# print ls_lines_intersection([p1, p2, p3], [v1, v2, v3], transpose=True)
+# print( ls_lines_intersection([p1, p2, p3], [v1, v2, v3], transpose=True))
+
+# correct answer = [[-1.  ]
+#                   [ 0.  ]
+#                   [ 0.95]]
+
