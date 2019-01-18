@@ -89,17 +89,17 @@ print('Match features:', len(matches))
 # load the group connections within the image set
 groups = Groups.load(area_dir)
 # sort from smallest to largest
-groups.sort(key=len)
+# groups.sort(key=len)
 
 # make a single flat list of all images named in any group
-flat_group = []
-for group in groups:
-    for name in group:
-        index = proj.findIndexByName(name)
-        flat_group.append(index)
+# flat_group = []
+# for group in groups:
+#     for name in group:
+#         index = proj.findIndexByName(name)
+#         flat_group.append(index)
         
 opt = Optimizer.Optimizer(args.project)
-opt.setup( proj, flat_group, matches, optimized=args.refine )
+opt.setup( proj, groups[0], matches, optimized=args.refine )
 cameras, features, cam_index_map, feat_index_map, fx_opt, fy_opt, cu_opt, cv_opt, distCoeffs_opt = opt.run()
 
 # mark all the optimized poses as invalid
@@ -145,10 +145,7 @@ proj.save()
 matches_opt = list(matches) # shallow copy
 refit_group_orientations = True
 if refit_group_orientations:
-    for group in groups:
-        if len(group) < 10:
-            # skip group sizes < 10
-            continue
+    for group in [group[0]]:
         print('refitting group size:', len(group))
         src_list = []
         dst_list = []
