@@ -177,14 +177,19 @@ class Optimizer():
 
     # assemble the structures and remapping indices required for
     # optimizing a group of images/features
-    def setup(self, proj, placed_images, matches_list, optimized=False):
+    def setup(self, proj, group, matches_list, optimized=False):
         print('Setting up optimizer data structures...')
-        if placed_images == None:
-            placed_images = []
-            # if no placed images specified, mark them all as placed
-            for i in range(len(proj.image_list)):
-                placed_images.append(i)
-                
+        # if placed_images == None:
+        #     placed_images = []
+        #     # if no placed images specified, mark them all as placed
+        #     for i in range(len(proj.image_list)):
+        #         placed_images.append(i)
+        placed_images = set()
+        for name in group:
+            i = proj.findIndexByName(name)
+            placed_images.add(i)            
+        print('Number of placed images:', len(placed_images))
+        
         # construct the camera index remapping
         self.camera_map_fwd = {}
         self.camera_map_rev = {}
