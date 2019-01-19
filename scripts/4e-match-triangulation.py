@@ -44,11 +44,13 @@ if args.method == 'srtm':
     sss = SRTM.NEDGround( ref, 3000, 3000, 30 )
 
     # for each image lookup the SRTM elevation under the camera
+    print('SRTM base elevator for each image location...')
     for image in proj.image_list:
         ned, ypr, quat = image.get_camera_pose()
         image.base_elev = sss.interp([ned[0], ned[1]])[0]
         #print(image.name, image.base_elev)
-    
+
+    print('Estimating initial location for each feature...')
     for match in matches:
         sum = np.zeros(3)
         for m in match[1:]:
