@@ -15,7 +15,7 @@ import ProjectMgr
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--area', required=True, help='sub area directory')
-parser.add_argument('--original-pairs', action='store_true', help='use original pair-rwise matches')
+# parser.add_argument('--original-pairs', action='store_true', help='use original pair-rwise matches')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
@@ -28,30 +28,30 @@ matches = pickle.load( open( os.path.join(area_dir, source), 'rb' ) )
 
 print("features:", len(matches))
 
-if not args.original_pairs:
-    # recreate the pair-wise match structure (so we can honor any
-    # features/pairs removed by outlier rejection strategies
-    for i1 in proj.image_list:
-        i1.match_list = {}
-    for match in matches:
-        for p1 in match[1:]:
-            image1 = proj.image_list[p1[0]]
-            for p2 in match[1:]:
-                if p1 == p2:
-                    continue
-                image2 = proj.image_list[p2[0]]
-                if image2.name in image1.match_list:
-                    image1.match_list[image2.name].append( [p1[1], p2[1]] )
-                else:
-                    image1.match_list[image2.name] = [ [p1[1], p2[1]] ]
-else:
-    proj.load_match_pairs(extra_verbose=False)
+# if not args.original_pairs:
+#     # recreate the pair-wise match structure (so we can honor any
+#     # features/pairs removed by outlier rejection strategies
+#     for i1 in proj.image_list:
+#         i1.match_list = {}
+#     for match in matches:
+#         for p1 in match[1:]:
+#             image1 = proj.image_list[p1[0]]
+#             for p2 in match[1:]:
+#                 if p1 == p2:
+#                     continue
+#                 image2 = proj.image_list[p2[0]]
+#                 if image2.name in image1.match_list:
+#                     image1.match_list[image2.name].append( [p1[1], p2[1]] )
+#                 else:
+#                     image1.match_list[image2.name] = [ [p1[1], p2[1]] ]
+# else:
+#     proj.load_match_pairs(extra_verbose=False)
 
 # compute the group connections within the image set.
 
 groups, used_features = Groups.groupByFeatureConnections(proj.image_list, matches)
-#groups = Groups.groupByConnectedArea(proj.image_list, matches)
-#groups = Groups.groupByImageConnections(proj)
+# groups = Groups.groupByConnectedArea(proj.image_list, matches)
+# groups = Groups.groupByImageConnections(proj)
 
 groups.sort(key=len, reverse=True)
 
