@@ -49,7 +49,7 @@ else:
 
 # compute the group connections within the image set.
 
-groups = Groups.groupByFeatureConnections(proj.image_list, matches)
+groups, used_features = Groups.groupByFeatureConnections(proj.image_list, matches)
 #groups = Groups.groupByConnectedArea(proj.image_list, matches)
 #groups = Groups.groupByImageConnections(proj)
 
@@ -62,6 +62,16 @@ print('Group sizes:', end=" ")
 for g in groups:
     print(len(g), end=" ")
 print()
+
+# generate the matches_used file
+matches_used = []
+for i, match in enumerate(matches):
+    if used_features[i]:
+        matches_used.append(match)
+
+print("Writing matches_used...")
+print("Features: %d/%d" % (len(matches_used), len(matches)))
+pickle.dump(matches_used, open(os.path.join(area_dir, "matches_used"), "wb"))
 
 # this is extra (and I'll put it here for now for lack of a better
 # place), but for visualization's sake, create a gnuplot data file
