@@ -20,6 +20,7 @@ import match_culling as cull
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--area', required=True, help='sub area directory')
+parser.add_argument('--group', type=int, default=0, help='group number')
 parser.add_argument('--stddev', type=float, default=5, help='how many stddevs above the mean for auto discarding features')
 parser.add_argument('--strong', action='store_true', help='remove entire match chain, not just the worst offending element.')
 parser.add_argument('--interactive', action='store_true', help='interactively review reprojection errors from worst to best and select for deletion or keep.')
@@ -31,7 +32,7 @@ proj.load_area_info(args.area)
 
 area_dir = os.path.join(args.project, args.area)
 #source = 'matches_direct'
-source = 'matches_grouped'
+source = 'matches_used'
 print("Loading matches:", source)
 matches_orig = pickle.load( open( os.path.join(area_dir, source), "rb" ) )
 print('Number of original features:', len(matches_orig))
@@ -46,15 +47,8 @@ for group in groups:
     print(len(group), end=" ")
 print()
 
-# make a single flat list of all images named in any group
-flat_group = []
-for group in groups:
-    for name in group:
-        index = proj.findIndexByName(name)
-        flat_group.append(index)
-        
 opt = Optimizer.Optimizer(args.project)
-opt.setup( proj, flat_group, matches_opt, optimized=True )
+opt.setup( proj, groups[args.group], matches_opt, optimized=True )
 x0 = np.hstack((opt.camera_params.ravel(), opt.points_3d.ravel(),
                 opt.K[0,0], opt.K[0,2], opt.K[1,2],
                 opt.distCoeffs))
