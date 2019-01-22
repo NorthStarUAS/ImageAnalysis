@@ -143,7 +143,7 @@ class Optimizer():
 
         # provide some runtime feedback for the operator
         mre = np.mean(np.abs(error))
-        if 1.0 - mre/self.last_mre > 0.001:
+        if self.last_mre is None or 1.0 - mre/self.last_mre > 0.001:
             # mre has improved by more than 0.1%
             self.last_mre = mre
             print('mre: %.3f std: %.3f max: %.2f' % (mre, np.std(error), np.amax(np.abs(error))) )
