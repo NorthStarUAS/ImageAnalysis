@@ -195,6 +195,13 @@ class ProjectMgr():
                   max = len(self.image_list))
         for image in self.image_list:
             image.load_matches()
+            wipe_list = []
+            for name in image.match_list:
+                if self.findImageByName(name) == None:
+                    print(image.name, 'references', name, 'which does not exist')
+                    wipe_list.append(name)
+            for name in wipe_list:
+                del image.match_list[name]
             bar.next()
         bar.finish()
 
@@ -247,6 +254,10 @@ class ProjectMgr():
         if not show:
             bar = Bar('Detecting features:', max = len(self.image_list))
         for image in self.image_list:
+            image.load_features()
+            if len(image.kp_list) > 0:
+                print("skipping:", image.name)
+                continue
             #print "detecting features and computing descriptors: " + image.name
             rgb = image.load_rgb(equalize=True)
             image.detect_features(rgb, scale)
