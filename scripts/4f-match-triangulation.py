@@ -2,6 +2,7 @@
 
 import numpy as np
 import os
+from progress.bar import Bar
 import sys
 
 import argparse
@@ -26,12 +27,14 @@ proj.load_area_info(args.area)
 #proj.undistort_keypoints()
 area_dir = os.path.join(args.project, args.area)
 
-source = 'matches_grouped'
+source = 'matches_used'
 print("Loading source matches:", source)
 matches = pickle.load( open( os.path.join(area_dir, source), 'rb' ) )
 
 K = proj.cam.get_K()
 IK = np.linalg.inv(K)
+
+do_sanity_check = False
 
 if args.method == 'srtm':
     # lookup ned reference
@@ -51,8 +54,13 @@ if args.method == 'srtm':
         #print(image.name, image.base_elev)
 
     print('Estimating initial location for each feature...')
-    for match in matches:
+    bad_count = 0
+    bad_indices = []
+    bar = Bar('Working:', max=100)
+    step = int(len(matches) / 100)
+    for i, match in enumerate(matches):
         sum = np.zeros(3)
+        array = []              # fixme: temp/debug
         for m in match[1:]:
             image = proj.image_list[m[0]]
             cam2body = image.get_cam2body()
@@ -69,9 +77,33 @@ if args.method == 'srtm':
                 p = [ ned[0] + n_proj, ned[1] + e_proj, ned[2] + d_proj ]
                 #print('  ', p)
                 sum += np.array(p)
+                array.append(p)
             else:
                 print('vector projected above horizon.')
         match[0] = (sum/len(match[1:])).tolist()
+        if do_sanity_check:
+            # crude sanity check
+            ok = True
+            for p in array:
+                dist = np.linalg.norm(np.array(match[0]) - np.array(p))
+                if dist > 100:
+                    ok = False
+            if not ok:
+                bad_count += 1
+                bad_indices.append(i)
+                print('match:', i, match[0])
+                for p in array:
+                    dist = np.linalg.norm(np.array(match[0]) - np.array(p))
+                    print(' ', dist, p)
+        if i % step == 0:
+            bar.next()
+    bar.finish()
+    if do_sanity_check:
+        print('bad count:', bad_count)
+        print('deleting bad matches...')
+        bad_indices.reverse()
+        for i in bad_indices:
+            del matches[i]
 elif args.method == 'triangulate':
     for match in matches:
         #print(match)
