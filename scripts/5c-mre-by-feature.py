@@ -22,6 +22,7 @@ parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--area', required=True, help='sub area directory')
 parser.add_argument('--group', type=int, default=0, help='group number')
 parser.add_argument('--stddev', type=float, default=5, help='how many stddevs above the mean for auto discarding features')
+parser.add_argument('--initial-pose', action='store_true', help='work on initial pose, not optimized pose')
 parser.add_argument('--strong', action='store_true', help='remove entire match chain, not just the worst offending element.')
 parser.add_argument('--interactive', action='store_true', help='interactively review reprojection errors from worst to best and select for deletion or keep.')
 
@@ -34,8 +35,8 @@ area_dir = os.path.join(args.project, args.area)
 #source = 'matches_direct'
 source = 'matches_used'
 print("Loading matches:", source)
-matches_orig = pickle.load( open( os.path.join(area_dir, source), "rb" ) )
-print('Number of original features:', len(matches_orig))
+matches_init = pickle.load( open( os.path.join(area_dir, source), "rb" ) )
+print('Number of original features:', len(matches_init))
 print("Loading optimized matches: matches_opt")
 matches_opt = pickle.load( open( os.path.join(area_dir, "matches_opt"), "rb" ) )
 print('Number of optimized features:', len(matches_opt))
@@ -48,7 +49,10 @@ for group in groups:
 print()
 
 opt = Optimizer.Optimizer(args.project)
-opt.setup( proj, groups[args.group], matches_opt, optimized=True )
+if args.initial_pose:
+    opt.setup( proj, groups[args.group], matches_init, optimized=False )
+else:
+    opt.setup( proj, groups[args.group], matches_opt, optimized=True )
 x0 = np.hstack((opt.camera_params.ravel(), opt.points_3d.ravel(),
                 opt.K[0,0], opt.K[0,2], opt.K[1,2],
                 opt.distCoeffs))
@@ -60,6 +64,7 @@ std = np.std(error)
 max = np.amax(np.abs(error))
 print('mre: %.3f std: %.3f max: %.2f' % (mre, std, max) )
 
+print('Tabulating results...')
 results = []
 count = 0
 for i, cam in enumerate(opt.camera_params.reshape((opt.n_cameras, opt.ncp))):
@@ -111,7 +116,7 @@ def mark_outliers(error_list, trim_stddev):
     for line in error_list:
         # print "line:", line
         if line[0] > mre + stddev * trim_stddev:
-            cull.mark_feature(matches_orig, line[1], line[2], line[0])
+            cull.mark_feature(matches_init, line[1], line[2], line[0])
             cull.mark_feature(matches_opt, line[1], line[2], line[0])
             mark_count += 1
             
@@ -140,7 +145,7 @@ if args.interactive:
     mark_list = cull.show_outliers(error_list, matches_opt, proj.image_list)
 
     # mark selection
-    cull.mark_using_list(mark_list, matches_orig)
+    cull.mark_using_list(mark_list, matches_init)
     cull.mark_using_list(mark_list, matches_opt)
     mark_sum = len(mark_list)
 else:
@@ -168,7 +173,7 @@ if purge_weak_images:
     print('weak images:', weak_dict)
 
     # mark any features in the weak images list
-    for i, match in enumerate(matches_orig):
+    for i, match in enumerate(matches_init):
         #print 'before:', match
         for j, p in enumerate(match[1:]):
             if p[0] in weak_dict:
@@ -186,11 +191,11 @@ if mark_sum > 0:
     print('Outliers removed from match lists:', mark_sum)
     result = input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
-        delete_marked_features(matches_orig)
+        delete_marked_features(matches_init)
         delete_marked_features(matches_opt)
         # write out the updated match dictionaries
         print("Writing:", source)
-        pickle.dump(matches_orig, open(os.path.join(area_dir, source), "wb"))
+        pickle.dump(matches_init, open(os.path.join(area_dir, source), "wb"))
         print("Writing optimized matches...")
         pickle.dump(matches_opt, open(os.path.join(area_dir, "matches_opt"), "wb"))
 
