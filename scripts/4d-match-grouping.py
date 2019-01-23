@@ -64,7 +64,6 @@ while not done:
             if key in matches_lookup:
                 index = matches_lookup[key]
                 break
-        # if index < 0 or len(matches_new[index][1:]) > 2: // one way to limit max match chain length
         if index < 0:
             # not found, append to the new list
             for p in match[1:]:
@@ -119,7 +118,7 @@ for i, match in enumerate(matches_direct):
     sum += refs
     if refs > max:
         max = refs
-        print('new max:', match)
+        # print('new max:', match)
         max_index = i
         # cull.draw_match(i, 0, matches_direct, proj.image_list)
     count += 1
