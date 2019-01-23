@@ -17,12 +17,6 @@ import ProjectMgr
 # georeferenced locations based on estimated camera pose and
 # projection onto DEM earth surface
 
-# extends 4b-reset-matches-ned2 by only joining chains with similar 3d
-# locations ... this should be what we want to do.  So someday would
-# like to come back to this and figure out what is going wrong because
-# ultimately if we squeeze out redundancy, the optimized solution
-# should be better.
-
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--area', required=True, help='sub area directory')
@@ -121,7 +115,7 @@ for i, i1 in enumerate(proj.image_list):
             # rewrite matches
             matches[k] = [new_idx1, new_idx2]
         if count > 0:
-            print('Match:', i1.name, 'vs', i2.name, 'matches:', len(matches), 'rewrites:', count)
+            print('Match:', i1.name, 'vs', i2.name, '%d/%d' % ( count, len(matches) ), 'rewrites')
 
 # enable the following code to visualize the matches after collapsing
 # identical uv coordinates
@@ -183,7 +177,7 @@ if False:
 # we start finding these here, I should hunt for the reason earlier in
 # the code that lets some through, or try to understand what larger
 # logic principle allows somne of these to still exist here.
-print("Testing for 1 vs. n keypoint duplicates...")
+print("Testing for 1 vs. n keypoint duplicates (there never should be any...)")
 for i, i1 in enumerate(proj.image_list):
     for key in i1.match_list:
         matches = i1.match_list[key]
@@ -237,18 +231,6 @@ for match in matches_direct:
 if count >= 1:
     print("Total unique features in image set = %d" % count)
     print("Keypoint average instances = %.1f (should be 2.0 here)" % (sum / count))
-
-# compute an initial guess at the 3d location of each unique feature
-# by averaging the locations of each projection
-# print("Estimating world coordinates of each keypoint...")
-# for match in matches_direct:
-#     sum = np.array( [0.0, 0.0, 0.0] )
-#     for p in match[1:]:
-#         #if len(match) >= 4: print proj.image_list[ p[0] ].coord_list[ p[1] ]
-#         sum += proj.image_list[ p[0] ].coord_list[ p[1] ]
-#     ned = sum / len(match[1:])
-#     # if len(match) >= 4: print "avg =", ned
-#     match[0] = ned.tolist()
 
 print("Writing match file ...")
 direct_file = os.path.join(area_dir, "matches_direct")
