@@ -74,7 +74,7 @@ def setAircraftPoses(proj, posefile="", order='ypr', max_angle=25.0):
             if os.path.isfile( os.path.join(dir, name) ):
                 found_dir = dir
         if not len(found_dir):
-            print('No image file:', image_file, 'skipping ...')
+            print('No image file:', name, 'skipping ...')
             continue
         if abs(roll_deg) > max_angle or abs(pitch_deg) > max_angle:
             # fairly 'extreme' attitude, skip image
