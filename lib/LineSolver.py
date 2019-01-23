@@ -29,7 +29,12 @@ def ls_lines_intersection(a, n, transpose=True):
         qi = ri.dot(point)
         r = r + ri
         q = q + qi
- 
+
+    # test
+    # x = solve(r, q)
+    # q1 = np.dot(r, x)
+    # print(x, q1)
+    
     return solve(r, q)
 
 # p1 = np.array( [-1, 0, 1] )
