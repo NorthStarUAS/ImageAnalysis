@@ -517,7 +517,7 @@ class Matcher():
         # proces the work list
         n_count = 0
         save_time = time.time()
-        save_interval = 60      # seconds
+        save_interval = 120     # seconds
         for line in work_list:
             dist = line[0]
             i = line[1]
