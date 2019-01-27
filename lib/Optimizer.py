@@ -219,34 +219,36 @@ class Optimizer():
         n_observations = 0
         for i, match in enumerate(matches_list):
             # count the number of referenced observations
-            count = 0
-            for m in match[1:]:
-                if m[0] in placed_images:
-                    count += 1
-            if count >= self.min_chain_length:
-                n_observations += count
-                self.n_points += 1
+            if match[1]:        # in use
+                count = 0
+                for m in match[2:]:
+                    if m[0] in placed_images:
+                        count += 1
+                if count >= self.min_chain_length:
+                    n_observations += count
+                    self.n_points += 1
 
         # assemble 3d point estimates and build indexing maps
         self.points_3d = np.empty(self.n_points * 3)
         point_idx = 0
         feat_used = 0
         for i, match in enumerate(matches_list):
-            count = 0
-            for m in match[1:]:
-                if m[0] in placed_images:
-                    count += 1
-            if count >= self.min_chain_length:
-                self.feat_map_fwd[i] = feat_used
-                self.feat_map_rev[feat_used] = i
-                feat_used += 1
-                ned = np.array(match[0])
-                if np.any(np.isnan(ned)):
-                    print(i, ned)
-                self.points_3d[point_idx] = ned[0]
-                self.points_3d[point_idx+1] = ned[1]
-                self.points_3d[point_idx+2] = ned[2]
-                point_idx += 3
+            if match[1]:        # in use
+                count = 0
+                for m in match[2:]:
+                    if m[0] in placed_images:
+                        count += 1
+                if count >= self.min_chain_length:
+                    self.feat_map_fwd[i] = feat_used
+                    self.feat_map_rev[feat_used] = i
+                    feat_used += 1
+                    ned = np.array(match[0])
+                    if np.any(np.isnan(ned)):
+                        print(i, ned)
+                    self.points_3d[point_idx] = ned[0]
+                    self.points_3d[point_idx+1] = ned[1]
+                    self.points_3d[point_idx+2] = ned[2]
+                    point_idx += 3
                 
         # assemble observations (image index, feature index, u, v)
         self.by_camera_point_indices = [ [] for i in range(self.n_cameras) ]
@@ -255,19 +257,20 @@ class Optimizer():
         #points_2d = np.empty((n_observations, 2))
         #obs_idx = 0
         for i, match in enumerate(matches_list):
-            count = 0
-            for m in match[1:]:
-                if m[0] in placed_images:
-                    count += 1
-            if count >= self.min_chain_length:
-                for m in match[1:]:
+            if match[1]:        # in use
+                count = 0
+                for m in match[2:]:
                     if m[0] in placed_images:
-                        cam_index = self.camera_map_rev[m[0]]
-                        feat_index = self.feat_map_fwd[i]
-                        kp = m[1] # orig/distorted
-                        #kp = proj.image_list[m[0]].uv_list[m[1]] # undistorted
-                        self.by_camera_point_indices[cam_index].append(feat_index)
-                        self.by_camera_points_2d[cam_index].append(kp)
+                        count += 1
+                if count >= self.min_chain_length:
+                    for m in match[2:]:
+                        if m[0] in placed_images:
+                            cam_index = self.camera_map_rev[m[0]]
+                            feat_index = self.feat_map_fwd[i]
+                            kp = m[1] # orig/distorted
+                            #kp = proj.image_list[m[0]].uv_list[m[1]] # undistorted
+                            self.by_camera_point_indices[cam_index].append(feat_index)
+                            self.by_camera_points_2d[cam_index].append(kp)
 
         # convert to numpy native structures
         for i in range(self.n_cameras):

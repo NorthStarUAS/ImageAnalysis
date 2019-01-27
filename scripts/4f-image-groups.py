@@ -42,15 +42,18 @@ for g in groups:
     print(len(g), end=" ")
 print()
 
-# generate the matches_used file
-matches_used = []
+# update the used/not-used flag
+count = 0
 for i, match in enumerate(matches):
     if used_features[i]:
-        matches_used.append(match)
+        match[1] = True
+        count += 1
+    else:
+        match[1] = False
 
-print("Writing matches_used...")
-print("Features: %d/%d" % (len(matches_used), len(matches)))
-pickle.dump(matches_used, open(os.path.join(area_dir, "matches_used"), "wb"))
+print("Writing:", source, "...")
+print("Features: %d/%d" % (count, len(matches)))
+pickle.dump(matches, open(os.path.join(area_dir, source), "wb"))
 
 # this is extra (and I'll put it here for now for lack of a better
 # place), but for visualization's sake, create a gnuplot data file

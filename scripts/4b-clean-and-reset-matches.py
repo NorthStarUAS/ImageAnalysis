@@ -27,7 +27,7 @@ m = Matcher.Matcher()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_area_info(args.area)
 proj.load_features(descriptors=False)
-proj.undistort_keypoints()
+#proj.undistort_keypoints()
 area_dir = os.path.join(args.project, args.area)
 proj.load_match_pairs(extra_verbose=False)
 
@@ -214,23 +214,21 @@ for i, img in enumerate(proj.image_list):
         # print proj.image_list[j].name
         if j > i:
             for pair in matches:
-                match = []
-                # ned place holder
-                match.append([0.0, 0.0, 0.0])
+                # ned place holder, in use flag
+                match = [None, False]
+                # camera/feature references
                 match.append([i, pair[0]])
                 match.append([j, pair[1]])
                 matches_direct.append(match)
                 # print pair, match
 
-count = 0.0
 sum = 0.0
 for match in matches_direct:
-    sum += len(match) - 1
-    count += 1
+    sum += len(match[2:])
         
-if count >= 1:
-    print("Total unique features in image set = %d" % count)
-    print("Keypoint average instances = %.1f (should be 2.0 here)" % (sum / count))
+if len(matches_direct):
+    print("Total unique features in image set:", len(matches_direct))
+    print("Keypoint average instances = %.1f (should be 2.0 here)" % (sum / len(matches_direct)))
 
 print("Writing match file ...")
 direct_file = os.path.join(area_dir, "matches_direct")

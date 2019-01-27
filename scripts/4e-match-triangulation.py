@@ -23,11 +23,9 @@ args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_area_info(args.area)
-#proj.load_features(descriptors=False)
-#proj.undistort_keypoints()
 area_dir = os.path.join(args.project, args.area)
 
-source = 'matches_used'
+source = 'matches_grouped'
 print("Loading source matches:", source)
 matches = pickle.load( open( os.path.join(area_dir, source), 'rb' ) )
 
@@ -53,7 +51,7 @@ if args.method == 'srtm':
         image.base_elev = sss.interp([ned[0], ned[1]])[0]
         #print(image.name, image.base_elev)
 
-    print('Estimating initial location for each feature...')
+    print('Estimating initial projection for each feature...')
     bad_count = 0
     bad_indices = []
     bar = Bar('Working:', max=100)
@@ -61,7 +59,7 @@ if args.method == 'srtm':
     for i, match in enumerate(matches):
         sum = np.zeros(3)
         array = []              # fixme: temp/debug
-        for m in match[1:]:
+        for m in match[2:]:
             image = proj.image_list[m[0]]
             cam2body = image.get_cam2body()
             body2ned = image.get_body2ned()
@@ -80,7 +78,7 @@ if args.method == 'srtm':
                 array.append(p)
             else:
                 print('vector projected above horizon.')
-        match[0] = (sum/len(match[1:])).tolist()
+        match[0] = (sum/len(match[2:])).tolist()
         if do_sanity_check:
             # crude sanity check
             ok = True
@@ -95,7 +93,7 @@ if args.method == 'srtm':
                 for p in array:
                     dist = np.linalg.norm(np.array(match[0]) - np.array(p))
                     print(' ', dist, p)
-        if i % step == 0:
+        if (i+1) % step == 0:
             bar.next()
     bar.finish()
     if do_sanity_check:
@@ -109,7 +107,7 @@ elif args.method == 'triangulate':
         #print(match)
         points = []
         vectors = []
-        for m in match[1:]:
+        for m in match[2:]:
             #print(m)
             image = proj.image_list[m[0]]
             cam2body = image.get_cam2body()

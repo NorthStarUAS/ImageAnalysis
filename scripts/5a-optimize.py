@@ -72,7 +72,7 @@ proj.load_area_info(args.area)
 
 area_dir = os.path.join(args.project, args.area)
 
-source_file = os.path.join(area_dir, 'matches_used' )
+source_file = os.path.join(area_dir, 'matches_grouped' )
 #source_file = os.path.join(area_dir, 'matches_direct' )
 opt_file = os.path.join(area_dir, 'matches_opt')
 if args.refine and os.path.isfile( opt_file ):
@@ -229,7 +229,7 @@ if refit_group_orientations:
         match_index = feat_index_map[i]
         match = matches_opt[match_index]
         in_group = False
-        for m in match[1:]:
+        for m in match[2:]:
             if proj.image_list[m[0]].name in group:
                 in_group = True
                 break

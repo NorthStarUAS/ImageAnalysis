@@ -17,8 +17,8 @@ def countFeatureConnections(image_list, matches):
     for image in image_list:
         image.connection_set = set()
     for i, match in enumerate(matches):
-        for mi in match[1:]:
-            for mj in match[1:]:
+        for mi in match[2:]:
+            for mj in match[2:]:
                 if mi != mj:
                     image_list[mi[0]].connection_set.add(mj[0])
     for i, image in enumerate(image_list):
@@ -35,8 +35,8 @@ def countFeatureConnections(image_list, matches):
 def updatePlacedFeatures(placed_images, matches, placed_features):
     for i, match in enumerate(matches):
         count = 0
-        if len(match[1:]) > 2:
-            for m in match[1:]:
+        if len(match[2:]) > 2:
+            for m in match[2:]:
                 if m[0] in placed_images:
                     count += 1
         placed_features[i] = count
@@ -63,15 +63,15 @@ def groupByFeatureConnections(image_list, matches):
         max_connections = 2
         max_index = -1
         for i, match in enumerate(matches):
-            if placed_features[i] == 0 and len(match[1:]) > max_connections:
-                max_connections = len(match[1:])
+            if placed_features[i] == 0 and len(match[2:]) > max_connections:
+                max_connections = len(match[2:])
                 max_index = i
         if max_index == -1:
             break
         print('Feature with max connections (%d) = %d' % (max_connections, max_index))
         print('Seeding group with:', end=" ")
         match = matches[max_index]
-        for m in match[1:]:
+        for m in match[2:]:
             group_images.append(image_list[m[0]].name)
             placed_images.add(m[0])
             print(image_list[m[0]].name, end=" ")
@@ -92,7 +92,7 @@ def groupByFeatureConnections(image_list, matches):
                 # connects to two or more placed images)
                 num = placed_features[i]
                 if num >= 2:
-                    for m in match[1:]:
+                    for m in match[2:]:
                         if num in image_counter[m[0]]:
                             image_counter[m[0]][num].append(i)
                         else:

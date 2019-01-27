@@ -26,7 +26,6 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_area_info(args.area)
 proj.load_features(descriptors=False)
-#proj.undistort_keypoints()
 
 print("Loading match points (direct)...")
 area_dir = os.path.join(args.project, args.area)
@@ -59,24 +58,24 @@ while not done:
         # scan if any of these match points have been previously seen
         # and record the match index
         index = -1
-        for p in match[1:]:
+        for p in match[2:]:
             key = "%d-%d" % (p[0], p[1])
             if key in matches_lookup:
                 index = matches_lookup[key]
                 break
         if index < 0:
             # not found, append to the new list
-            for p in match[1:]:
+            for p in match[2:]:
                 key = "%d-%d" % (p[0], p[1])
                 matches_lookup[key] = len(matches_new)
             matches_new.append(list(match)) # shallow copy
         else:
             # found a previous reference, append these match items
             existing = matches_new[index]
-            for p in match[1:]:
+            for p in match[2:]:
                 key = "%d-%d" % (p[0], p[1])
                 found = False
-                for e in existing[1:]:
+                for e in existing[2:]:
                     if p[0] == e[0]:
                         found = True
                         break
@@ -84,16 +83,17 @@ while not done:
                     # add
                     existing.append(list(p)) # shallow copy
                     matches_lookup[key] = index
-            # attempt to combine location equitably
-            size1 = len(match[1:])
-            size2 = len(existing[1:])
-            ned1 = np.array(match[0])
-            ned2 = np.array(existing[0])
-            avg = (ned1 * size1 + ned2 * size2) / (size1 + size2)
-            existing[0] = avg.tolist()
-            # print(ned1, ned2, existing[0])
-            # print "new:", existing
-            # print
+            # no 3d location estimation yet
+            # # attempt to combine location equitably
+            # size1 = len(match[2:])
+            # size2 = len(existing[2:])
+            # ned1 = np.array(match[0])
+            # ned2 = np.array(existing[0])
+            # avg = (ned1 * size1 + ned2 * size2) / (size1 + size2)
+            # existing[0] = avg.tolist()
+            # # print(ned1, ned2, existing[0])
+            # # print "new:", existing
+            # # print
     if len(matches_new) == len(matches_direct):
         done = True
     else:
@@ -103,29 +103,26 @@ while not done:
 # values.  This will save time later and avoid needing to load the
 # full original feature files which are quite large.  This also will
 # reduce the in-memory footprint for many steps.
+print('Replace keypoint indices with uv coordinates.')
 for match in matches_direct:
-    for m in match[1:]:
+    for m in match[2:]:
         kp = proj.image_list[m[0]].kp_list[m[1]].pt
         m[1] = list(kp)
     # print(match)
 
-count = 0.0
 sum = 0.0
 max = 0
 max_index = 0
 for i, match in enumerate(matches_direct):
-    refs = len(match[1:])
+    refs = len(match[2:])
     sum += refs
     if refs > max:
         max = refs
-        # print('new max:', match)
         max_index = i
-        # cull.draw_match(i, 0, matches_direct, proj.image_list)
-    count += 1
         
 if count >= 1:
-    print("Total unique features in image set = %d" % count)
-    print("Keypoint average instances = %.2f" % (sum / count))
+    print("Total unique features in image set:", len(matches_direct))
+    print("Keypoint average instances:", "%.2f" % (sum / len(matches_direct)))
     print("Max chain length =", max, ' @ index =', max_index)
 
 print("Writing full group chain match file ...")
