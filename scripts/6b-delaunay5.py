@@ -87,29 +87,30 @@ global_raw_points = []
 global_raw_values = []
 group = groups[0]
 for match in matches_opt:
-    count = 0
-    found = False
-    for m in match[1:]:
-        if proj.image_list[m[0]].name in group:
-            count += 1
-    if count >= min_chain_length:
-        ned = match[0]
-        global_raw_points.append( [ned[1], ned[0]] )
-        global_raw_values.append( -ned[2] )
-        # for m in match[1:]:
-        #     if proj.image_list[m[0]].name in group:
-        #         image = proj.image_list[ m[0] ]
-        #         image.raw_points.append( [ned[1], ned[0]] )
-        #         z = -ned[2]
-        #         image.raw_values.append( z )
-        #         image.sum_values += z
-        #         image.sum_count += 1
-        #         if z < image.min_z:
-        #             image.min_z = z
-        #             #print(min_z, match)
-        #         if z > image.max_z:
-        #             image.max_z = z
-        #             #print(max_z, match)
+    if match[1]:                # in use
+        count = 0
+        found = False
+        for m in match[2:]:
+            if proj.image_list[m[0]].name in group:
+                count += 1
+        if count >= min_chain_length:
+            ned = match[0]
+            global_raw_points.append( [ned[1], ned[0]] )
+            global_raw_values.append( -ned[2] )
+            # for m in match[2:]:
+            #     if proj.image_list[m[0]].name in group:
+            #         image = proj.image_list[ m[0] ]
+            #         image.raw_points.append( [ned[1], ned[0]] )
+            #         z = -ned[2]
+            #         image.raw_values.append( z )
+            #         image.sum_values += z
+            #         image.sum_count += 1
+            #         if z < image.min_z:
+            #             image.min_z = z
+            #             #print(min_z, match)
+            #         if z > image.max_z:
+            #             image.max_z = z
+            #             #print(max_z, match)
 
 print('Generating Delaunay meshes ...')
 global_tri_list = scipy.spatial.Delaunay(np.array(global_raw_points))
