@@ -32,8 +32,7 @@ proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_area_info(args.area)
 
 area_dir = os.path.join(args.project, args.area)
-#source = 'matches_direct'
-source = 'matches_used'
+source = 'matches_grouped'
 print("Loading matches:", source)
 matches_init = pickle.load( open( os.path.join(area_dir, source), "rb" ) )
 print('Number of original features:', len(matches_init))
@@ -75,7 +74,7 @@ for i, cam in enumerate(opt.camera_params.reshape((opt.n_cameras, opt.ncp))):
         match = matches_opt[opt.feat_map_rev[j]]
         match_index = 0
         #print(orig_cam_index, match)
-        for k, p in enumerate(match[1:]):
+        for k, p in enumerate(match[2:]):
             if p[0] == orig_cam_index:
                 match_index = k
         # print(match[0], opt.points_3d[j*3:j*3+3])
@@ -87,7 +86,6 @@ for i, cam in enumerate(opt.camera_params.reshape((opt.n_cameras, opt.ncp))):
         count += 1
 
 error_list = sorted(results, key=lambda fields: fields[0], reverse=True)
-
 
 def mark_outliers(error_list, trim_stddev):
     print("Marking outliers...")
@@ -128,7 +126,7 @@ def delete_marked_features(matches):
     for i in reversed(range(len(matches))):
         match = matches[i]
         has_bad_elem = False
-        for j in reversed(range(1, len(match))):
+        for j in reversed(range(2, len(match))):
             p = match[j]
             if p == [-1, -1]:
                 has_bad_elem = True
@@ -136,7 +134,7 @@ def delete_marked_features(matches):
         if args.strong and has_bad_elem:
             print("deleting entire match that contains a bad element")
             matches.pop(i)
-        elif len(match) < 3:
+        elif len(match) < 4:
             print("deleting match that is now in less than 2 images:", match)
             matches.pop(i)
 
@@ -157,7 +155,7 @@ else:
 for i in proj.image_list:
     i.feature_count = 0
 for i, match in enumerate(matches_opt):
-    for j, p in enumerate(match[1:]):
+    for j, p in enumerate(match[2:]):
         if p[1] != [-1, -1]:
             image = proj.image_list[ p[0] ]
             image.feature_count += 1
@@ -175,13 +173,13 @@ if purge_weak_images:
     # mark any features in the weak images list
     for i, match in enumerate(matches_init):
         #print 'before:', match
-        for j, p in enumerate(match[1:]):
+        for j, p in enumerate(match[2:]):
             if p[0] in weak_dict:
                  match[j+1] = [-1, -1]
                  mark_sum += 1
     for i, match in enumerate(matches_opt):
         #print 'before:', match
-        for j, p in enumerate(match[1:]):
+        for j, p in enumerate(match[2:]):
             if p[0] in weak_dict:
                  match[j+1] = [-1, -1]
                  mark_sum += 0      # don't count these in the mark_sum

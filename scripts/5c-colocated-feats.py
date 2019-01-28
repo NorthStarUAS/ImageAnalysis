@@ -60,30 +60,33 @@ def compute_angle(ned1, ned2, ned3):
     else:
         return 0
 
-bar = Bar('Scanning match pair angles:', max=len(matches_opt))
+bar = Bar('Scanning match pair angles:', max=100)
+step = int(len(matches_opt) / 100)
 #print("Scanning match pair angles...")
 mark_list = []
 for k, match in enumerate(matches_opt):
-    for i, m1 in enumerate(match[1:]):
-        for j, m2 in enumerate(match[1:]):
-            if i < j:
-                i1 = proj.image_list[m1[0]]
-                i2 = proj.image_list[m2[0]]
-                if True or i1.name in groups[0] and i2.name in groups[0]:
-                    ned1, ypr1, q1 = i1.get_camera_pose(opt=True)
-                    ned2, ypr2, q2 = i2.get_camera_pose(opt=True)
-                    quick_approx = False
-                    if quick_approx:
-                        # quick hack angle approximation
-                        avg = (np.array(ned1) + np.array(ned2)) * 0.5
-                        y = np.linalg.norm(np.array(ned2) - np.array(ned1))
-                        x = np.linalg.norm(avg - np.array(match[0]))
-                        angle_deg = math.atan2(y, x) * r2d
-                    else:
-                        angle_deg = compute_angle(ned1, ned2, match[0]) * r2d
-                    if angle_deg < min_angle_deg:
-                        mark_list.append( [k, i] )
-    bar.next()
+    if match[1]:                # in use
+        for i, m1 in enumerate(match[2:]):
+            for j, m2 in enumerate(match[2:]):
+                if i < j:
+                    i1 = proj.image_list[m1[0]]
+                    i2 = proj.image_list[m2[0]]
+                    if True or i1.name in groups[0] and i2.name in groups[0]:
+                        ned1, ypr1, q1 = i1.get_camera_pose(opt=True)
+                        ned2, ypr2, q2 = i2.get_camera_pose(opt=True)
+                        quick_approx = False
+                        if quick_approx:
+                            # quick hack angle approximation
+                            avg = (np.array(ned1) + np.array(ned2)) * 0.5
+                            y = np.linalg.norm(np.array(ned2) - np.array(ned1))
+                            x = np.linalg.norm(avg - np.array(match[0]))
+                            angle_deg = math.atan2(y, x) * r2d
+                        else:
+                            angle_deg = compute_angle(ned1, ned2, match[0]) * r2d
+                        if angle_deg < min_angle_deg:
+                            mark_list.append( [k, i] )
+    if (k+1) % step == 0:
+        bar.next()
 bar.finish()
 
 # Pairs with very small average angles between each feature and camera
@@ -118,8 +121,8 @@ if mark_sum > 0:
         delete_marked_features(matches_orig)
         delete_marked_features(matches_opt)
         # write out the updated match dictionaries
-        print("Writing original matches...")
+        print("Writing original matches:", source)
         pickle.dump(matches_orig, open(os.path.join(area_dir, source), "wb"))
-        print("Writing optimized matches...")
+        print("Writing optimized matches: matches_opt")
         pickle.dump(matches_opt, open(os.path.join(area_dir, "matches_opt"), "wb"))
 

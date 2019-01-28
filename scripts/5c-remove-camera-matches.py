@@ -29,10 +29,6 @@ print("Loading matches_grouped...")
 matches_grouped = pickle.load( open( os.path.join(area_dir, "matches_grouped"), "rb" ) )
 print("  features:", len(matches_grouped))
 
-print("Loading matches_used...")
-matches_used = pickle.load( open( os.path.join(area_dir, "matches_used"), "rb" ) )
-print('  features:', len(matches_used))
-
 print("Loading matches_opt...")
 matches_opt = pickle.load( open( os.path.join(area_dir, "matches_opt"), "rb" ) )
 print('  features:', len(matches_opt))
@@ -43,7 +39,7 @@ def remove_image_features(index, matches):
     print("Marking feature matches for image:", index)
     count = 0
     for i, match in enumerate(matches):
-        for j, p in enumerate(match[1:]):
+        for j, p in enumerate(match[2:]):
             if p[0] == index:
                 cull.mark_feature(matches, i, j, 0)
                 count += 1
@@ -62,24 +58,21 @@ elif args.index:
         
 if index != None:
     count_grouped = remove_image_features(index, matches_grouped)
-    count_used = remove_image_features(index, matches_used)
     count_opt = remove_image_features(index, matches_opt)
 else:
-    count = 0
+    count_grouped = 0
+    count_opt = 0
     
-if count_grouped + count_used + count_opt > 0:
-    print('Features marked:', count_grouped, count_used, count_opt)
+if count_grouped + count_opt > 0:
+    print('Features marked:', count_grouped, count_opt)
     result = input('Delete these matches and save? (y/n):')
     if result == 'y' or result == 'Y':
         cull.delete_marked_features(matches_grouped)
-        cull.delete_marked_features(matches_used)
         cull.delete_marked_features(matches_opt)
         
         # write out the updated match dictionaries
         print("Writing: matches_grouped")
         pickle.dump(matches_grouped, open(os.path.join(area_dir, "matches_grouped"), "wb"))
-        print("Writing: matches_used")
-        pickle.dump(matches_used, open(os.path.join(area_dir, "matches_used"), "wb"))
         print("Writing matches_opt")
         pickle.dump(matches_opt, open(os.path.join(area_dir, "matches_opt"), "wb"))
 
