@@ -17,7 +17,7 @@ def draw_match(i, index, matches, image_list):
 
     match = matches[i]
     print('match:', match, 'index:', index)
-    for j, m in enumerate(match[1:]):
+    for j, m in enumerate(match[2:]):
         if j > 20:
             # try to be sane and not open 100's of windows
             break
@@ -111,11 +111,11 @@ def show_outliers(result_list, matches, image_list):
 def mark_feature(matches, match_index, feat_index, error):
     print('  outlier - match index:', match_index, 'feature index:', feat_index, 'error:', error)
     match = matches[match_index]
-    match[feat_index+1] = [-1, -1]
+    match[feat_index+2] = [-1, -1]
 
 def mark_using_list(mark_list, matches):
     for mark in mark_list:
-        mark_feature( matches, mark[0], mark[1], None )
+        mark_feature( matches, mark[0], mark[1], "-" )
         
 # delete marked matches
 def delete_marked_features(matches):
@@ -123,7 +123,7 @@ def delete_marked_features(matches):
     for i in reversed(range(len(matches))):
         match = matches[i]
         has_bad_elem = False
-        for j in reversed(range(1, len(match))):
+        for j in reversed(range(2, len(match))):
             p = match[j]
             if p == [-1, -1]:
                 has_bad_elem = True
@@ -131,12 +131,8 @@ def delete_marked_features(matches):
         if False and has_bad_elem: # was 'if args.strong and ...'
             print("deleting entire match that contains a bad element", i)
             matches.pop(i)
-        elif len(match) < 3:
+        elif len(match) < 4:
             print("deleting match that is now in less than 2 images:", match, i)
-            matches.pop(i)
-        elif False and len(match) < 4:
-            # this is seeming like less and less of a good idea (Jan 3, 2017)
-            print("deleting match that is now in less than 3 images:", match, i)
             matches.pop(i)
     print("final matches size:", len(matches))
 
