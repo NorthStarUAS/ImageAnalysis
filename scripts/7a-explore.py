@@ -216,21 +216,22 @@ class MyApp(ShowBase):
         for m in self.models:
             b = m.getTightBounds()
             #print('tight', b)
-            center = [ (b[0][0] + b[1][0]) * 0.5,
-                       (b[0][1] + b[1][1]) * 0.5,
-                       (b[0][2] + b[1][2]) * 0.5 ]
-            vol = [ b[0][0] - b[1][0],
-                    b[0][1] - b[1][1],
-                    b[0][2] - b[1][2] ]
-            span = math.sqrt(vol[0]*vol[0] + vol[1]*vol[1] + vol[2]*vol[2])
-            dx = center[0] - self.cam_pos[0]
-            dy = center[1] - self.cam_pos[1]
-            dist = math.sqrt(dx*dx + dy*dy)
-            #print('center:', center, 'span:', span, 'dist:', dist)
-            metric = dist + (span * 0.1)
-            if not self.inbounds(b):
-                metric += 1000
-            result_list.append( [metric, m] )
+            if b:
+                center = [ (b[0][0] + b[1][0]) * 0.5,
+                           (b[0][1] + b[1][1]) * 0.5,
+                           (b[0][2] + b[1][2]) * 0.5 ]
+                vol = [ b[0][0] - b[1][0],
+                        b[0][1] - b[1][1],
+                        b[0][2] - b[1][2] ]
+                span = math.sqrt(vol[0]*vol[0] + vol[1]*vol[1] + vol[2]*vol[2])
+                dx = center[0] - self.cam_pos[0]
+                dy = center[1] - self.cam_pos[1]
+                dist = math.sqrt(dx*dx + dy*dy)
+                #print('center:', center, 'span:', span, 'dist:', dist)
+                metric = dist + (span * 0.1)
+                if not self.inbounds(b):
+                    metric += 1000
+                result_list.append( [metric, m] )
         result_list = sorted(result_list, key=lambda fields: fields[0],
                              reverse=True)
         top = result_list[-1-self.top_image][1]
