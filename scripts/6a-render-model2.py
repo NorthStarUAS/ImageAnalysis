@@ -77,27 +77,28 @@ print('Reading feature locations from optimized match points ...')
 raw_points = []
 raw_values = []
 for match in matches_opt:
-    count = 0
-    found = False
-    for m in match[1:]:
-        if proj.image_list[m[0]].name in groups[0]:
-            count += 1
-    if count >= min_chain_length:
-        ned = match[0]
-        raw_points.append( [ned[1], ned[0]] )
-        raw_values.append( ned[2] )
-        for m in match[1:]:
+    if match[1]:                # in use
+        count = 0
+        found = False
+        for m in match[2:]:
             if proj.image_list[m[0]].name in groups[0]:
-                image = proj.image_list[ m[0] ]
-                z = -ned[2]
-                image.sum_values += z
-                image.sum_count += 1
-                if z < image.min_z:
-                    image.min_z = z
-                    #print(min_z, match)
-                if z > image.max_z:
-                    image.max_z = z
-                    #print(max_z, match)
+                count += 1
+        if count >= min_chain_length:
+            ned = match[0]
+            raw_points.append( [ned[1], ned[0]] )
+            raw_values.append( ned[2] )
+            for m in match[2:]:
+                if proj.image_list[m[0]].name in groups[0]:
+                    image = proj.image_list[ m[0] ]
+                    z = -ned[2]
+                    image.sum_values += z
+                    image.sum_count += 1
+                    if z < image.min_z:
+                        image.min_z = z
+                        #print(min_z, match)
+                    if z > image.max_z:
+                        image.max_z = z
+                        #print(max_z, match)
 
 print('Generating Delaunay mesh and interpolator ...')
 global_tri_list = scipy.spatial.Delaunay(np.array(raw_points))
@@ -240,8 +241,7 @@ if True:
 dir_node = getNode('/config/directories', True)
 img_src_dir = dir_node.getString('images_source')
 Panda3d.generate(proj, groups[0], src_dir=img_src_dir,
-                 project_dir=args.project, base_name='direct',
-                 version=1.0, trans=0.1, resolution=args.texture_resolution)
+                 project_dir=args.project, resolution=args.texture_resolution)
 
 # call the ac3d generator
 # AC3D.generate(proj.image_list, groups[0], src_dir=img_src_dir,

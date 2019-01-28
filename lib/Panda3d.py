@@ -48,7 +48,8 @@ def make_textures_opencv(src_dir, project_dir, image_list, resolution=256):
             cv2.imwrite(dst, result)
             print("Texture %dx%d %s" % (resolution, resolution, dst))
             
-def generate(proj, group, ref_image=False, src_dir=".", project_dir=".", base_name="quick", version=1.0, trans=0.0, resolution=512 ):
+def generate(proj, group, ref_image=False, src_dir=".", project_dir=".",
+             resolution=512 ):
     # make the textures if needed
     make_textures_opencv(src_dir, project_dir, proj.image_list, resolution)
     
