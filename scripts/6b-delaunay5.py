@@ -24,6 +24,7 @@ import transformations
 parser = argparse.ArgumentParser(description='Compute Delauney triangulation of matches.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--area', required=True, help='sub area directory')
+parser.add_argument('--group', type=int, default=0, help='group index')
 args = parser.parse_args()
 
 def gen_ac3d_surface(name, points_group, values_group, tris_group):
@@ -85,76 +86,21 @@ for image in proj.image_list:
 print('Reading feature locations from optimized match points ...')
 global_raw_points = []
 global_raw_values = []
-group = groups[0]
 for match in matches_opt:
     if match[1]:                # in use
         count = 0
         found = False
         for m in match[2:]:
-            if proj.image_list[m[0]].name in group:
+            if proj.image_list[m[0]].name in groups[args.group]:
                 count += 1
         if count >= min_chain_length:
             ned = match[0]
             global_raw_points.append( [ned[1], ned[0]] )
             global_raw_values.append( -ned[2] )
-            # for m in match[2:]:
-            #     if proj.image_list[m[0]].name in group:
-            #         image = proj.image_list[ m[0] ]
-            #         image.raw_points.append( [ned[1], ned[0]] )
-            #         z = -ned[2]
-            #         image.raw_values.append( z )
-            #         image.sum_values += z
-            #         image.sum_count += 1
-            #         if z < image.min_z:
-            #             image.min_z = z
-            #             #print(min_z, match)
-            #         if z > image.max_z:
-            #             image.max_z = z
-            #             #print(max_z, match)
 
 print('Generating Delaunay meshes ...')
 global_tri_list = scipy.spatial.Delaunay(np.array(global_raw_points))
-# for i, image in enumerate(proj.image_list):
-#     # iterate through the optimized match dictionary and build a list of feature
-#     # points and heights (in x=east,y=north,z=up coordinates)
- 
-#     if image.sum_count == 0:
-#         # no suitable features found for this image ... skip
-#         continue
-    
-#     print(image.name)
-#     avg_height = image.sum_values / image.sum_count
-#     spread = image.max_z - image.min_z
-#     print("  Average elevation = %.1f Spread = %.1f" % ( avg_height, spread ))
-#     try:
-#         tri_list = scipy.spatial.Delaunay(np.array(image.raw_points))
-#     except:
-#         print('problem with delaunay triangulation, skipping')
-#         continue
-
-#     # compute min/max range of horizontal surface
-#     p0 = image.raw_points[0]
-#     x_min = p0[0]
-#     x_max = p0[0]
-#     y_min = p0[1]
-#     y_max = p0[1]
-#     for p in image.raw_points:
-#         if p[0] < x_min: x_min = p[0]
-#         if p[0] > x_max: x_max = p[0]
-#         if p[1] < y_min: y_min = p[1]
-#         if p[1] > y_max: y_max = p[1]
-#     print("  Area coverage = %.1f,%.1f to %.1f,%.1f (%.1f x %.1f meters)" % \
-#         (x_min, y_min, x_max, y_max, x_max-x_min, y_max-y_min))
-
-#     print("  Points:", len(image.raw_points))
-#     print("  Triangles:", len(tri_list.simplices))
-
-#     points_group.append(image.raw_points)
-#     values_group.append(image.raw_values)
-#     tris_group.append(tri_list)
 
 print('Generating ac3d surface model ...')
 name = os.path.join(area_dir, "surface-global.ac")
 gen_ac3d_surface(name, [global_raw_points], [global_raw_values], [global_tri_list])
-# name = os.path.join(area_dir, "surface.ac")
-# gen_ac3d_surface(name, points_group, values_group, tris_group)

@@ -36,6 +36,7 @@ r2d = 180 / math.pi
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--area', required=True, help='sub area directory')
+parser.add_argument('--group', type=int, default=0, help='group index')
 parser.add_argument('--texture-resolution', type=int, default=512, help='texture resolution (should be 2**n, so numbers like 256, 512, 1024, etc.')
 parser.add_argument('--srtm', action='store_true', help='use srtm elevation')
 parser.add_argument('--ground', type=float, help='force ground elevation in meters')
@@ -81,14 +82,14 @@ for match in matches_opt:
         count = 0
         found = False
         for m in match[2:]:
-            if proj.image_list[m[0]].name in groups[0]:
+            if proj.image_list[m[0]].name in groups[args.group]:
                 count += 1
         if count >= min_chain_length:
             ned = match[0]
             raw_points.append( [ned[1], ned[0]] )
             raw_values.append( ned[2] )
             for m in match[2:]:
-                if proj.image_list[m[0]].name in groups[0]:
+                if proj.image_list[m[0]].name in groups[args.group]:
                     image = proj.image_list[ m[0] ]
                     z = -ned[2]
                     image.sum_values += z
@@ -172,7 +173,7 @@ for image in proj.image_list:
 
 #for group in groups:
 if True:
-    group = groups[0]
+    group = groups[args.group]
     #if len(group) < 3:
     #    continue
     for name in group:
@@ -240,7 +241,7 @@ if True:
 # generate the panda3d egg models
 dir_node = getNode('/config/directories', True)
 img_src_dir = dir_node.getString('images_source')
-Panda3d.generate(proj, groups[0], src_dir=img_src_dir,
+Panda3d.generate(proj, groups[args.group], src_dir=img_src_dir,
                  project_dir=args.project, resolution=args.texture_resolution)
 
 # call the ac3d generator
