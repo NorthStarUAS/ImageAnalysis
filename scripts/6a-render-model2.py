@@ -30,7 +30,7 @@ import ProjectMgr
 import SRTM
 import transformations
 
-ac3d_steps = 16
+ac3d_steps = 8
 r2d = 180 / math.pi
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
@@ -64,8 +64,6 @@ matches_opt = pickle.load( open( os.path.join(area_dir, "matches_opt"), "rb" ) )
 # load the group connections within the image set
 groups = Groups.load(area_dir)
 
-min_chain_length = 3
-
 # initialize temporary structures for vanity stats
 for image in proj.image_list:
     image.sum_values = 0.0
@@ -78,28 +76,22 @@ print('Reading feature locations from optimized match points ...')
 raw_points = []
 raw_values = []
 for match in matches_opt:
-    if match[1]:                # in use
-        count = 0
-        found = False
+    if match[1] == args.group:  # used by current group
+        ned = match[0]
+        raw_points.append( [ned[1], ned[0]] )
+        raw_values.append( ned[2] )
         for m in match[2:]:
             if proj.image_list[m[0]].name in groups[args.group]:
-                count += 1
-        if count >= min_chain_length:
-            ned = match[0]
-            raw_points.append( [ned[1], ned[0]] )
-            raw_values.append( ned[2] )
-            for m in match[2:]:
-                if proj.image_list[m[0]].name in groups[args.group]:
-                    image = proj.image_list[ m[0] ]
-                    z = -ned[2]
-                    image.sum_values += z
-                    image.sum_count += 1
-                    if z < image.min_z:
-                        image.min_z = z
-                        #print(min_z, match)
-                    if z > image.max_z:
-                        image.max_z = z
-                        #print(max_z, match)
+                image = proj.image_list[ m[0] ]
+                z = -ned[2]
+                image.sum_values += z
+                image.sum_count += 1
+                if z < image.min_z:
+                    image.min_z = z
+                    #print(min_z, match)
+                if z > image.max_z:
+                    image.max_z = z
+                    #print(max_z, match)
 
 print('Generating Delaunay mesh and interpolator ...')
 global_tri_list = scipy.spatial.Delaunay(np.array(raw_points))
@@ -147,7 +139,7 @@ def intersect2d(ned, v, avg_ground):
     dz = ned[2] - p[2]
     dist = math.sqrt(dx*dx+dy*dy)
     angle = math.atan2(-dz, dist) * r2d # relative to horizon
-    if angle < 40:
+    if angle < 30:
         print(" returning high angle nans:", angle)
         return [np.nan, np.nan, np.nan]
     else:

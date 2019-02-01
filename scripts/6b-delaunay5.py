@@ -71,8 +71,6 @@ points_group = []
 values_group = []
 tris_group = []
 
-min_chain_length = 3
-
 # initialize temporary structures for vanity stats
 for image in proj.image_list:
     image.raw_points = []
