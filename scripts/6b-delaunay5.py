@@ -87,16 +87,10 @@ print('Reading feature locations from optimized match points ...')
 global_raw_points = []
 global_raw_values = []
 for match in matches_opt:
-    if match[1]:                # in use
-        count = 0
-        found = False
-        for m in match[2:]:
-            if proj.image_list[m[0]].name in groups[args.group]:
-                count += 1
-        if count >= min_chain_length:
-            ned = match[0]
-            global_raw_points.append( [ned[1], ned[0]] )
-            global_raw_values.append( -ned[2] )
+    if match[1] == args.group:  # used by current group
+        ned = match[0]
+        global_raw_points.append( [ned[1], ned[0]] )
+        global_raw_values.append( -ned[2] )
 
 print('Generating Delaunay meshes ...')
 global_tri_list = scipy.spatial.Delaunay(np.array(global_raw_points))
