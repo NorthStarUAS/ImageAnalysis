@@ -10,6 +10,7 @@ import argparse
 import math
 import numpy as np
 import numpy.matlib as npm
+import os
 from props import getNode
 
 import sys
@@ -23,20 +24,23 @@ d2r = math.pi / 180.0
 
 parser = argparse.ArgumentParser(description='Set the aircraft poses from flight data.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--area', required=True, help='sub area directory')
 
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 print("Loading image info...")
-proj.load_images_info()
+proj.load_area_info()
 
-groups = Groups.load(args.project)
+area_dir = os.path.join(args.project, args.area)
+
+groups = Groups.load(area_dir)
 
 # compute an average transform between original camera attitude estimate
 # and optimized camera attitude estimate
 quats = []
 for i, image in enumerate(proj.image_list):
-    if i in groups[0]:
+    if image.name in groups[0]:
         print(image.name)
         ned, ypr, q0 = image.get_camera_pose(opt=False)
         ned, ypr, q1 = image.get_camera_pose(opt=True)
@@ -117,7 +121,7 @@ def wrap_pi(val):
 
 # test correcting the original aircraft attitude from optimized camera attitude
 for i, image in enumerate(proj.image_list):
-    if i in groups[0]:
+    if image.name in groups[0]:
         lla, ypr, q_aircraft = image.get_aircraft_pose()
         ned_init, ypr, q_cam_initial = image.get_camera_pose(opt=False)
         ned_opt, ypr, q_cam_opt = image.get_camera_pose(opt=True)
