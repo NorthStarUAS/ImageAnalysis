@@ -47,6 +47,7 @@ matches_direct = pickle.load( open( os.path.join(area_dir, "matches_direct"), "r
 # Ultimately we depend on a network of 3+ way feature match chains
 # to link all the images and features together.
 
+print("Linking common matches together into chains.")
 count = 0
 done = False
 while not done:
