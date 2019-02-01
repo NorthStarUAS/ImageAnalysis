@@ -177,7 +177,7 @@ class Optimizer():
 
     # assemble the structures and remapping indices required for
     # optimizing a group of images/features
-    def setup(self, proj, group, matches_list, optimized=False):
+    def setup(self, proj, groups, group_index, matches_list, optimized=False):
         print('Setting up optimizer data structures...')
         # if placed_images == None:
         #     placed_images = []
@@ -185,7 +185,7 @@ class Optimizer():
         #     for i in range(len(proj.image_list)):
         #         placed_images.append(i)
         placed_images = set()
-        for name in group:
+        for name in groups[group_index]:
             i = proj.findIndexByName(name)
             placed_images.add(i)            
         print('Number of placed images:', len(placed_images))
@@ -219,7 +219,7 @@ class Optimizer():
         n_observations = 0
         for i, match in enumerate(matches_list):
             # count the number of referenced observations
-            if match[1]:        # in use
+            if match[1] == group_index: # used by the current group
                 count = 0
                 for m in match[2:]:
                     if m[0] in placed_images:
@@ -233,7 +233,7 @@ class Optimizer():
         point_idx = 0
         feat_used = 0
         for i, match in enumerate(matches_list):
-            if match[1]:        # in use
+            if match[1] == group_index: # used by the current group
                 count = 0
                 for m in match[2:]:
                     if m[0] in placed_images:
@@ -257,7 +257,7 @@ class Optimizer():
         #points_2d = np.empty((n_observations, 2))
         #obs_idx = 0
         for i, match in enumerate(matches_list):
-            if match[1]:        # in use
+            if match[1] == group_index: # used by the current group
                 count = 0
                 for m in match[2:]:
                     if m[0] in placed_images:

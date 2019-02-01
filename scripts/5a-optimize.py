@@ -92,7 +92,7 @@ groups = Groups.load(area_dir)
 # sort from smallest to largest: groups.sort(key=len)
 
 opt = Optimizer.Optimizer(args.project)
-opt.setup( proj, groups[args.group], matches, optimized=args.refine )
+opt.setup( proj, groups, args.group, matches, optimized=args.refine )
 cameras, features, cam_index_map, feat_index_map, fx_opt, fy_opt, cu_opt, cv_opt, distCoeffs_opt = opt.run()
 
 # mark all the optimized poses as invalid
