@@ -20,6 +20,7 @@ min_angle_deg = 2.0
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--area', required=True, help='sub area directory')
+parser.add_argument('--group', type=int, default=0, help='group index')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
@@ -71,7 +72,7 @@ for k, match in enumerate(matches_opt):
                 if i < j:
                     i1 = proj.image_list[m1[0]]
                     i2 = proj.image_list[m2[0]]
-                    if True or i1.name in groups[0] and i2.name in groups[0]:
+                    if i1.name in groups[args.group] and i2.name in groups[args.group]:
                         ned1, ypr1, q1 = i1.get_camera_pose(opt=True)
                         ned2, ypr2, q2 = i2.get_camera_pose(opt=True)
                         quick_approx = False
