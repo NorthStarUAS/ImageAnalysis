@@ -29,7 +29,7 @@ print("features:", len(matches))
 
 # compute the group connections within the image set.
 
-groups, used_features = Groups.groupByFeatureConnections(proj.image_list, matches)
+groups = Groups.groupByFeatureConnections(proj.image_list, matches)
 # groups = Groups.groupByConnectedArea(proj.image_list, matches)
 # groups = Groups.groupByImageConnections(proj)
 
@@ -42,14 +42,12 @@ for g in groups:
     print(len(g), end=" ")
 print()
 
-# update the used/not-used flag
+# debug
+print("Counting allocated features...")
 count = 0
 for i, match in enumerate(matches):
-    if used_features[i]:
-        match[1] = True
+    if match[1] >= 0:
         count += 1
-    else:
-        match[1] = False
 
 print("Writing:", source, "...")
 print("Features: %d/%d" % (count, len(matches)))

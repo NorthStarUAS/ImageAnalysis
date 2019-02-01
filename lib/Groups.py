@@ -31,52 +31,65 @@ def countFeatureConnections(image_list, matches):
             size = len(image.match_list[j])
             if size > 0 and not j in image.connection_set:
                 print('  matches, but no connection')
-        
-def updatePlacedFeatures(placed_images, matches, placed_features):
+
+# for unallocated features, count the number of connections into the
+# current placed group
+def updateAvailableFeatures(group_images, matches, avail_features):
     for i, match in enumerate(matches):
-        count = 0
-        if len(match[2:]) > 2:
+        if match[1] < 0:
+            count = 0
             for m in match[2:]:
-                if m[0] in placed_images:
+                if m[0] in group_images:
                     count += 1
-        placed_features[i] = count
+            avail_features[i] = count
+        else:
+            avail_features[i] = 0
 
 # This is the current, best grouping function to use
 def groupByFeatureConnections(image_list, matches):
     # countFeatureConnections(image_list, matches)
     print("Start of top level grouping algorithm...")
 
+    # mark all features as unaffiliated
+    for match in matches:
+        match[1] = -1
+        
     # start with no placed images or features
     placed_images = set()
     groups = []
-    placed_features = [0] * len(matches)
-    used_features = [False] * len(matches)
+    avail_features = [0] * len(matches)
 
     done = False
     while not done:
         print("Start of new group...")
         # start a fresh group
-        group_images = []
+        group_images = set()
+        group_level = len(groups)
         
-        # find the unplaced feature with the most connections to other
-        # images
+        # find the unaffiliated feature with the most connections to
+        # unplaced images
         max_connections = 2
         max_index = -1
         for i, match in enumerate(matches):
-            if placed_features[i] == 0 and len(match[2:]) > max_connections:
-                max_connections = len(match[2:])
-                max_index = i
+            if match[1] < 0:
+                count = 0
+                for m in match[2:]:
+                    if not m[0] in placed_images:
+                        count += 1
+                if count > max_connections:
+                    max_connections = count
+                    max_index = i
         if max_index == -1:
             break
         print('Feature with max connections (%d) = %d' % (max_connections, max_index))
         print('Seeding group with:', end=" ")
         match = matches[max_index]
         for m in match[2:]:
-            group_images.append(image_list[m[0]].name)
+            group_images.add(m[0])
             placed_images.add(m[0])
             print(image_list[m[0]].name, end=" ")
         print()
-        updatePlacedFeatures(placed_images, matches, placed_features)
+        updateAvailableFeatures(group_images, matches, avail_features)
         
         while True:
             # find the unplaced images with sufficient connections
@@ -90,7 +103,7 @@ def groupByFeatureConnections(image_list, matches):
             for i, match in enumerate(matches):
                 # only proceed if this feature has been placed (i.e. it
                 # connects to two or more placed images)
-                num = placed_features[i]
+                num = avail_features[i]
                 if num >= 2:
                     for m in match[2:]:
                         if num in image_counter[m[0]]:
@@ -112,9 +125,9 @@ def groupByFeatureConnections(image_list, matches):
                         print("%s:" % image_list[i].name, end=" ")
                         # use the most redundant first
                         for key in sorted(image_counter[i].keys(), reverse=True):
-                            print("%d(%d)" % (key, len(image_counter[i][key])),
-                                  end=" ")
                             if total_found < max_wanted:
+                                print("%d:%d" % (key, len(image_counter[i][key])),
+                                      end=" ")
                                 avail = len(image_counter[i][key])
                                 want = max_wanted - total_found
                                 #print('total_found:', total_found,
@@ -124,7 +137,7 @@ def groupByFeatureConnections(image_list, matches):
                                     # use the whole set
                                     total_found += len(image_counter[i][key])
                                     for j in image_counter[i][key]:
-                                        used_features[j] = True
+                                        matches[j][1] = group_level
                                 else:
                                     # use a subsample of the set
                                     step = int(avail / want)
@@ -132,21 +145,24 @@ def groupByFeatureConnections(image_list, matches):
                                         #print(' using:', k)
                                         total_found += 1
                                         j = image_counter[i][key][k]
-                                        used_features[j] = True
+                                        matches[j][1] = group_level
                         placed_images.add(i)
-                        group_images.append(image_list[i].name)
+                        group_images.add(i)
                         add_count += 1
                         print("[%d/%d]" % (total_found, total_avail), end=" ")
                         print()
             if add_count == 0:
                 # no more images could be connected
                 if len(group_images) > min_group:
-                    groups.append(group_images)
+                    group_list = []
+                    for i in list(group_images):
+                        group_list.append(image_list[i].name)
+                    groups.append(group_list)
                 else:
                     done = True
                 break
-            updatePlacedFeatures(placed_images, matches, placed_features)
-    return groups, used_features
+            updateAvailableFeatures(group_images, matches, avail_features)
+    return groups
 
 # return the number of connections into the placed set
 def numPlacedConnections(image, proj):
