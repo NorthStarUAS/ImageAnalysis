@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser(description='Remove all matches referencing the
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--area', required=True, help='sub area directory')
 parser.add_argument('--index', type=int, help='image index')
-parser.add_argument('--image', help='image name')
+parser.add_argument('--images', nargs='+', help='image names')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
@@ -46,22 +46,23 @@ def remove_image_features(index, matches):
     return count
 
 index = None
-if args.image:
-    index = proj.findIndexByName(args.image)
-    if index == None:
-        print("Cannot locate by name:", args.image)
+count_grouped = 0
+count_opt = 0
+if not args.images is None:
+    for name in args.images:
+        index = proj.findIndexByName(name)
+        if index == None:
+            print("Cannot locate by name:", args.images)
+        else:
+            count_grouped += remove_image_features(index, matches_grouped)
+            count_opt += remove_image_features(index, matches_opt)
 elif args.index:
     if args.index >= len(proj.image_list):
         print("Index greater than image list size:", args.index)
     else:
         index = args.index
-        
-if index != None:
-    count_grouped = remove_image_features(index, matches_grouped)
-    count_opt = remove_image_features(index, matches_opt)
-else:
-    count_grouped = 0
-    count_opt = 0
+        count_grouped = remove_image_features(index, matches_grouped)
+        count_opt = remove_image_features(index, matches_opt)
     
 if count_grouped + count_opt > 0:
     print('Features marked:', count_grouped, count_opt)
