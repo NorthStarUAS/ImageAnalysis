@@ -109,7 +109,6 @@ class MyApp(ShowBase):
        
         # Add the tasks to the task manager.
         self.taskMgr.add(self.updateCameraTask, "updateCameraTask")
-
         
     def tmpItemSel(self, arg):
         self.dialog.cleanup()
