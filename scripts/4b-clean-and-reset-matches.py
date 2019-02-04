@@ -215,7 +215,7 @@ for i, img in enumerate(proj.image_list):
         if j > i:
             for pair in matches:
                 # ned place holder, in use flag
-                match = [None, False]
+                match = [None, -1]
                 # camera/feature references
                 match.append([i, pair[0]])
                 match.append([j, pair[1]])
