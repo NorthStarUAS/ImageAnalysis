@@ -30,11 +30,8 @@ area_dir = os.path.join(args.project, args.area)
 #source = 'matches_direct'
 source = 'matches_grouped'
 print("Loading matches:", source)
-matches_orig = pickle.load( open( os.path.join(area_dir, source), "rb" ) )
-print('Number of original features:', len(matches_orig))
-print("Loading optimized matches: matches_opt")
-matches_opt = pickle.load( open( os.path.join(area_dir, "matches_opt"), "rb" ) )
-print('Number of optimized features:', len(matches_opt))
+matches = pickle.load( open( os.path.join(area_dir, source), "rb" ) )
+print('Number of original features:', len(matches))
 
 # load the group connections within the image set
 groups = Groups.load(area_dir)
@@ -62,11 +59,11 @@ def compute_angle(ned1, ned2, ned3):
         return 0
 
 bar = Bar('Scanning match pair angles:', max=100)
-step = int(len(matches_opt) / 100)
+step = int(len(matches) / 100)
 #print("Scanning match pair angles...")
 mark_list = []
-for k, match in enumerate(matches_opt):
-    if match[1]:                # in use
+for k, match in enumerate(matches):
+    if match[1] == args.group:  # used by current group
         for i, m1 in enumerate(match[2:]):
             for j, m2 in enumerate(match[2:]):
                 if i < j:
@@ -96,8 +93,7 @@ bar.finish()
 # large changes in feature location.
 
 # mark selection
-cull.mark_using_list(mark_list, matches_orig)
-cull.mark_using_list(mark_list, matches_opt)
+cull.mark_using_list(mark_list, matches)
 mark_sum = len(mark_list)
 
 def delete_marked_features(matches):
@@ -119,11 +115,8 @@ if mark_sum > 0:
     print('Outliers to remove from match lists:', mark_sum)
     result = input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
-        delete_marked_features(matches_orig)
-        delete_marked_features(matches_opt)
+        delete_marked_features(matches)
         # write out the updated match dictionaries
         print("Writing original matches:", source)
-        pickle.dump(matches_orig, open(os.path.join(area_dir, source), "wb"))
-        print("Writing optimized matches: matches_opt")
-        pickle.dump(matches_opt, open(os.path.join(area_dir, "matches_opt"), "wb"))
+        pickle.dump(matches, open(os.path.join(area_dir, source), "wb"))
 

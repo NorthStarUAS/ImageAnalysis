@@ -73,18 +73,8 @@ proj.load_area_info(args.area)
 area_dir = os.path.join(args.project, args.area)
 
 source_file = os.path.join(area_dir, 'matches_grouped' )
-#source_file = os.path.join(area_dir, 'matches_direct' )
-opt_file = os.path.join(area_dir, 'matches_opt')
-if args.refine and os.path.isfile( opt_file ):
-    print('Match file:', opt_file)
-    matches = pickle.load( open(opt_file, "rb") )
-elif os.path.isfile( source_file ):
-    print('Match file:', source_file)
-    matches = pickle.load( open(source_file, "rb") )
-else:
-    print("Cannot find a matches file to load... aborting")
-    quit()
-    
+print('Match file:', source_file)
+matches = pickle.load( open(source_file, "rb") )
 print('Match features:', len(matches))
 
 # load the group connections within the image set
@@ -246,8 +236,8 @@ else:
         match[0] = feat
 
 # write out the updated match_dict
-print('Writing matches_opt file:', len(matches_opt), 'features')
-pickle.dump(matches_opt, open(os.path.join(area_dir, 'matches_opt'), 'wb'))
+print('Updating matches file:', len(matches_opt), 'features')
+pickle.dump(matches_opt, open(source_file, 'wb'))
 
 #proj.cam.set_K(fx_opt/scale[0], fy_opt/scale[0], cu_opt/scale[0], cv_opt/scale[0], optimized=True)
 #proj.save()

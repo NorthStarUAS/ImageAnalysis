@@ -34,11 +34,8 @@ proj.load_area_info(args.area)
 area_dir = os.path.join(args.project, args.area)
 source = 'matches_grouped'
 print("Loading matches:", source)
-matches_init = pickle.load( open( os.path.join(area_dir, source), "rb" ) )
-print('Number of original features:', len(matches_init))
-print("Loading optimized matches: matches_opt")
-matches_opt = pickle.load( open( os.path.join(area_dir, "matches_opt"), "rb" ) )
-print('Number of optimized features:', len(matches_opt))
+matches = pickle.load( open( os.path.join(area_dir, source), "rb" ) )
+print('Number of original features:', len(matches))
 
 # load the group connections within the image set
 groups = Groups.load(area_dir)
@@ -49,9 +46,9 @@ print()
 
 opt = Optimizer.Optimizer(args.project)
 if args.initial_pose:
-    opt.setup( proj, groups[args.group], matches_init, optimized=False )
+    opt.setup( proj, groups, args.group, matches, optimized=False )
 else:
-    opt.setup( proj, groups[args.group], matches_opt, optimized=True )
+    opt.setup( proj, groups, args.group, matches, optimized=True )
 x0 = np.hstack((opt.camera_params.ravel(), opt.points_3d.ravel(),
                 opt.K[0,0], opt.K[0,2], opt.K[1,2],
                 opt.distCoeffs))
@@ -71,7 +68,7 @@ for i, cam in enumerate(opt.camera_params.reshape((opt.n_cameras, opt.ncp))):
     orig_cam_index = opt.camera_map_fwd[i]
     # print(count, opt.by_camera_point_indices[i])
     for j in opt.by_camera_point_indices[i]:
-        match = matches_opt[opt.feat_map_rev[j]]
+        match = matches[opt.feat_map_rev[j]]
         match_index = 0
         #print(orig_cam_index, match)
         for k, p in enumerate(match[2:]):
@@ -114,8 +111,7 @@ def mark_outliers(error_list, trim_stddev):
     for line in error_list:
         # print "line:", line
         if line[0] > mre + stddev * trim_stddev:
-            cull.mark_feature(matches_init, line[1], line[2], line[0])
-            cull.mark_feature(matches_opt, line[1], line[2], line[0])
+            cull.mark_feature(matches, line[1], line[2], line[0])
             mark_count += 1
             
     return mark_count
@@ -140,11 +136,10 @@ def delete_marked_features(matches):
 
 if args.interactive:
     # interactively pick outliers
-    mark_list = cull.show_outliers(error_list, matches_opt, proj.image_list)
+    mark_list = cull.show_outliers(error_list, matches, proj.image_list)
 
     # mark selection
-    cull.mark_using_list(mark_list, matches_init)
-    cull.mark_using_list(mark_list, matches_opt)
+    cull.mark_using_list(mark_list, matches)
     mark_sum = len(mark_list)
 else:
     # trim outliers by some # of standard deviations high
@@ -154,7 +149,7 @@ else:
 # show up in each image
 for i in proj.image_list:
     i.feature_count = 0
-for i, match in enumerate(matches_opt):
+for i, match in enumerate(matches):
     for j, p in enumerate(match[2:]):
         if p[1] != [-1, -1]:
             image = proj.image_list[ p[0] ]
@@ -171,29 +166,19 @@ if purge_weak_images:
     print('weak images:', weak_dict)
 
     # mark any features in the weak images list
-    for i, match in enumerate(matches_init):
+    for i, match in enumerate(matches):
         #print 'before:', match
         for j, p in enumerate(match[2:]):
             if p[0] in weak_dict:
                  match[j+1] = [-1, -1]
                  mark_sum += 1
-    for i, match in enumerate(matches_opt):
-        #print 'before:', match
-        for j, p in enumerate(match[2:]):
-            if p[0] in weak_dict:
-                 match[j+1] = [-1, -1]
-                 mark_sum += 0      # don't count these in the mark_sum
-        #print 'after:', match
 
 if mark_sum > 0:
     print('Outliers removed from match lists:', mark_sum)
     result = input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
-        delete_marked_features(matches_init)
-        delete_marked_features(matches_opt)
+        delete_marked_features(matches)
         # write out the updated match dictionaries
         print("Writing:", source)
-        pickle.dump(matches_init, open(os.path.join(area_dir, source), "wb"))
-        print("Writing optimized matches...")
-        pickle.dump(matches_opt, open(os.path.join(area_dir, "matches_opt"), "wb"))
+        pickle.dump(matches, open(os.path.join(area_dir, source), "wb"))
 
