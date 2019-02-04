@@ -11,6 +11,7 @@ import pickle
 from props import getNode
 
 sys.path.append('../lib')
+import Groups
 import LineSolver
 import ProjectMgr
 import SRTM
@@ -18,6 +19,7 @@ import SRTM
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--area', required=True, help='sub area directory')
+parser.add_argument('--group', type=int, default=0, help='group number')
 parser.add_argument('--method', default='srtm', choices=['srtm', 'triangulate'])
 args = parser.parse_args()
 
@@ -29,7 +31,17 @@ source = 'matches_grouped'
 print("Loading source matches:", source)
 matches = pickle.load( open( os.path.join(area_dir, source), 'rb' ) )
 
-K = proj.cam.get_K()
+# load the group connections within the image set
+groups = Groups.load(area_dir)
+print('Group sizes:', end=" ")
+for group in groups:
+    print(len(group), end=" ")
+print()
+
+if args.method == 'triangulate':
+    K = proj.cam.get_K(optimized=True)
+else:
+    K = proj.cam.get_K(optimized=False)
 IK = np.linalg.inv(K)
 
 do_sanity_check = False
@@ -103,30 +115,35 @@ if args.method == 'srtm':
         for i in bad_indices:
             del matches[i]
 elif args.method == 'triangulate':
-    for match in matches:
-        #print(match)
-        points = []
-        vectors = []
-        for m in match[2:]:
-            #print(m)
-            image = proj.image_list[m[0]]
-            cam2body = image.get_cam2body()
-            body2ned = image.get_body2ned()
-            ned, ypr, quat = image.get_camera_pose()
-            uv_list = [ m[1] ] # just one uv element
-            vec_list = proj.projectVectors(IK, body2ned, cam2body, uv_list)
-            points.append( ned )
-            vectors.append( vec_list[0] )
-            #print(' ', image.name)
-            #print(' ', uv_list)
-            #print('  ', vec_list)
-        #print('points:', points)
-        #print('vectors:', vectors)
-        p = LineSolver.ls_lines_intersection(points, vectors, transpose=True).tolist()
-        #print('result:',  p, p[0])
-        #print(match[0], '>>>', end=" ")
-        match[0] = [ p[0][0], p[1][0], p[2][0] ]
-        #print(match[0])
+    for i, match in enumerate(matches):
+        if match[1] == args.group: # used in current group
+            #print(match)
+            points = []
+            vectors = []
+            for m in match[2:]:
+                if proj.image_list[m[0]].name in groups[args.group]:
+                    #print(m)
+                    image = proj.image_list[m[0]]
+                    cam2body = image.get_cam2body()
+                    body2ned = image.get_body2ned()
+                    ned, ypr, quat = image.get_camera_pose(opt=True)
+                    uv_list = [ m[1] ] # just one uv element
+                    vec_list = proj.projectVectors(IK, body2ned, cam2body, uv_list)
+                    points.append( ned )
+                    vectors.append( vec_list[0] )
+                    #print(' ', image.name)
+                    #print(' ', uv_list)
+                    #print('  ', vec_list)
+            if len(points) >= 2:
+                #print('points:', points)
+                #print('vectors:', vectors)
+                p = LineSolver.ls_lines_intersection(points, vectors, transpose=True).tolist()
+                #print('result:',  p, p[0])
+                print(i, match[0], '>>>', end=" ")
+                match[0] = [ p[0][0], p[1][0], p[2][0] ]
+                if p[2][0] > 0:
+                    print("WHOA!")
+                print(match[0])
     
 print("Writing:", source)
 pickle.dump(matches, open(os.path.join(area_dir, source), "wb"))
