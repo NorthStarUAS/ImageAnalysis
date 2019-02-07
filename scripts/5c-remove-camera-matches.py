@@ -15,7 +15,7 @@ import match_culling as cull
 
 parser = argparse.ArgumentParser(description='Remove all matches referencing the specific image.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--area', required=True, help='sub area directory')
+parser.add_argument('--area', default='area-00', help='sub area directory')
 parser.add_argument('--index', type=int, help='image index')
 parser.add_argument('--images', nargs='+', help='image names')
 args = parser.parse_args()

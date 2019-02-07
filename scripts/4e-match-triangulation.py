@@ -18,7 +18,7 @@ import SRTM
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--area', required=True, help='sub area directory')
+parser.add_argument('--area', default='area-00', help='sub area directory')
 parser.add_argument('--group', type=int, default=0, help='group number')
 parser.add_argument('--method', default='srtm', choices=['srtm', 'triangulate'])
 args = parser.parse_args()

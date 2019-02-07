@@ -19,7 +19,7 @@ import SRTM
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--area', required=True, help='sub area directory')
+parser.add_argument('--area', default='area-00', help='sub area directory')
 parser.add_argument('--matcher', default='FLANN',
                     choices=['FLANN', 'BF'])
 parser.add_argument('--match-ratio', default=0.75, type=float,

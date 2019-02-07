@@ -23,7 +23,7 @@ import transformations
 
 parser = argparse.ArgumentParser(description='Compute Delauney triangulation of matches.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--area', required=True, help='sub area directory')
+parser.add_argument('--area', default='area-00', help='sub area directory')
 parser.add_argument('--group', type=int, default=0, help='group index')
 args = parser.parse_args()
 
