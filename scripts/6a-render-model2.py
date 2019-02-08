@@ -59,7 +59,7 @@ sss = SRTM.NEDGround( ref, 6000, 6000, 30 )
 area_dir = os.path.join(args.project, args.area)
 
 print("Loading optimized match points ...")
-matches_opt = pickle.load( open( os.path.join(area_dir, "matches_opt"), "rb" ) )
+matches = pickle.load( open( os.path.join(area_dir, "matches_grouped"), "rb" ) )
 
 # load the group connections within the image set
 groups = Groups.load(area_dir)
@@ -75,7 +75,7 @@ for image in proj.image_list:
 print('Reading feature locations from optimized match points ...')
 raw_points = []
 raw_values = []
-for match in matches_opt:
+for match in matches:
     if match[1] == args.group:  # used by current group
         ned = match[0]
         raw_points.append( [ned[1], ned[0]] )

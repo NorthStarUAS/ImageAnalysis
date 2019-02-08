@@ -62,7 +62,7 @@ proj.load_area_info(args.area)
 area_dir = os.path.join(args.project, args.area)
 
 print("Loading optimized points ...")
-matches_opt = pickle.load( open( os.path.join(area_dir, "matches_opt"), "rb" ) )
+matches = pickle.load( open( os.path.join(area_dir, "matches_grouped"), "rb" ) )
 
 # load the group connections within the image set
 groups = Groups.load(area_dir)
@@ -84,7 +84,7 @@ for image in proj.image_list:
 print('Reading feature locations from optimized match points ...')
 global_raw_points = []
 global_raw_values = []
-for match in matches_opt:
+for match in matches:
     if match[1] == args.group:  # used by current group
         ned = match[0]
         global_raw_points.append( [ned[1], ned[0]] )
