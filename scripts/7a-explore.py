@@ -29,10 +29,10 @@ import explore.annotations
 import explore.reticle
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--project', help='project directory')
 args = parser.parse_args()
 
-if True:
+if not args.project:
     import tkinter as tk
     from tkinter import filedialog
 
@@ -40,8 +40,13 @@ if True:
     root.withdraw()
 
     # file_path = filedialog.askopenfilename()
-    file_path = filedialog.askdirectory()
-    print('selected:', file_path)
+    file_path = filedialog.askdirectory(title="Please open the project directory", mustexist=True)
+    # print('selected:', type(file_path), len(file_path), file_path)
+    if file_path:
+        args.project = file_path
+    else:
+        print("no project selected, exiting.")
+        quit()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
