@@ -38,7 +38,7 @@ class Annotations():
                                     self.ned_ref[0],
                                     self.ned_ref[1],
                                     self.ned_ref[2])
-                print(lla, ned)
+                # print(lla, ned)
                 self.markers.append( [ned[1], ned[0]] )
         else:
             print('No annotations file found.')
