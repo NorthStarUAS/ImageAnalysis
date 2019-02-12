@@ -21,8 +21,6 @@ import geojson
 from props import root, getNode
 import props_json
 
-print(sys.path)
-#from getchar import find_getch
 from . import Camera
 from . import Image
 

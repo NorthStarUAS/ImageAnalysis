@@ -10,8 +10,8 @@ import re
 import navpy
 from props import getNode
 
-import transformations
-import Image
+from . import transformations
+from . import Image
 
 # this should really be a parameter.  Any aircraft poses that exceed
 # this value for either roll or pitch will be ignored.  Oblique photos
