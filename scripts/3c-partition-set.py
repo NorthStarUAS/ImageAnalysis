@@ -11,13 +11,11 @@ import math
 import os
 import pickle
 
-import sys
-sys.path.append('../lib')
-import ProjectMgr
+from lib import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--size', default=500, help='target image group size')
+parser.add_argument('--size', default=3000, help='target image group size')
 parser.add_argument('--pad', type=float, default=1.05, help='pad cell radius to grab more neighbors')
 
 args = parser.parse_args()
