@@ -19,11 +19,11 @@ import numpy as np
 
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
-from panda3d.core import LineSegs, NodePath, OrthographicLens, PNMImage, Texture
+from panda3d.core import LineSegs, NodePath, OrthographicLens, PNMImage, Texture, Filename
 from direct.gui.DirectGui import YesNoDialog
 
-sys.path.append('../lib')
-import ProjectMgr
+#sys.path.append('../lib')
+from lib import ProjectMgr
 
 import explore.annotations
 import explore.reticle
@@ -31,6 +31,17 @@ import explore.reticle
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
 args = parser.parse_args()
+
+if True:
+    import tkinter as tk
+    from tkinter import filedialog
+
+    root = tk.Tk()
+    root.withdraw()
+
+    # file_path = filedialog.askopenfilename()
+    file_path = filedialog.askdirectory()
+    print('selected:', file_path)
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
@@ -133,7 +144,8 @@ class MyApp(ShowBase):
         bar = Bar('Loading models:', max=len(files))
         for file in files:
             # load and reparent each egg file
-            model = self.loader.loadModel(os.path.join(path, file))
+            pandafile = Filename.fromOsSpecific(os.path.join(path, file))
+            model = self.loader.loadModel(pandafile)
 
             # print(file)
             # self.pretty_print(model, '  ')
@@ -236,6 +248,7 @@ class MyApp(ShowBase):
         top = result_list[-1-self.top_image][1]
         top.setColor(1.0, 1.0, 1.0, 1.0)
         self.updateTexture(top)
+
         for i, line in enumerate(result_list):
             m = line[1]
             if False and m.getName() in tcache:
@@ -271,8 +284,11 @@ class MyApp(ShowBase):
                     continue
                 base, ext = os.path.splitext(m.getName())
                 image_file = None
+                search = [ os.path.join(args.project, 'images') ]
                 for i in range( dir_node.getLen('image_sources') ):
                     dir = dir_node.getStringEnum('image_sources', i)
+                    search.append(dir)
+                for dir in search:
                     tmp1 = os.path.join(dir, base + '.JPG')
                     tmp2 = os.path.join(dir, base + '.jpg')
                     if os.path.isfile(tmp1):
@@ -288,9 +304,9 @@ class MyApp(ShowBase):
                         # for gray scale (need to find the proper
                         # constant for rgb in setup2dTexture()
                         print(base, image_file)
-                        image = proj.findImageByName(base)
-                        print(image)
-                        rgb = image.load_rgb()
+                        #image = proj.findImageByName(base)
+                        #print(image)
+                        rgb = cv2.imread(image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
                         rgb = np.flipud(rgb)
                         h, w = rgb.shape[:2]
                         print('shape:', rgb.shape)
