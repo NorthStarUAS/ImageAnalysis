@@ -5,15 +5,13 @@ import pickle
 import numpy as np
 import os
 from progress.bar import Bar
-import sys
 
 from props import getNode
 
-sys.path.append('../lib')
-import Matcher
-import Pose
-import ProjectMgr
-import SRTM
+from lib import Matcher
+from lib import Pose
+from lib import ProjectMgr
+from lib import SRTM
 
 # working on matching features ...
 

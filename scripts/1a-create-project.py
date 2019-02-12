@@ -5,9 +5,8 @@ import fnmatch
 import os.path
 import sys
 
-sys.path.append('../lib')
-import ProjectMgr
-import Image
+from lib import ProjectMgr
+from lib import Image
 
 # initialize a new project workspace
 

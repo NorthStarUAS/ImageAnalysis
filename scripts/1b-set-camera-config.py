@@ -7,12 +7,11 @@ import cv2
 import fnmatch
 import os.path
 
-sys.path.append('../lib')
-import ProjectMgr
-
 # from the aura-props package
 from props import getNode, PropertyNode
 import props_json
+
+from lib import ProjectMgr
 
 # set all the various camera configuration parameters
 

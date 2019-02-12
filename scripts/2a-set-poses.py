@@ -4,10 +4,8 @@ import argparse
 
 from props import getNode
 
-import sys
-sys.path.append('../lib')
-import Pose
-import ProjectMgr
+from lib import Pose
+from lib import ProjectMgr
 
 # for all the images in the project image_dir, detect features using the
 # specified method and parameters
