@@ -17,18 +17,15 @@ import math
 import numpy as np
 import os.path
 import scipy.spatial
-import sys
 
 from props import getNode
 
-sys.path.append('../lib')
-#import AC3D
-import Groups
-import Panda3d
-import Pose
-import ProjectMgr
-import SRTM
-import transformations
+from lib import Groups
+from lib import Panda3d
+from lib import Pose
+from lib import ProjectMgr
+from lib import SRTM
+from lib import transformations
 
 ac3d_steps = 8
 r2d = 180 / math.pi

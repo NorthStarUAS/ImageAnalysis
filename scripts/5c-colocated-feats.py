@@ -6,21 +6,19 @@ import numpy as np
 import os.path
 from progress.bar import Bar
 import pickle
-import sys
 
-sys.path.append('../lib')
-import Groups
-import ProjectMgr
+from lib import Groups
+from lib import ProjectMgr
 
 import match_culling as cull
 
 r2d = 180.0 / math.pi
-min_angle_deg = 2.0
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--area', default='area-00', help='sub area directory')
 parser.add_argument('--group', type=int, default=0, help='group index')
+parser.add_argument('--min-angle', type=float, default=1.0, help='max feature angle')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
@@ -81,7 +79,7 @@ for k, match in enumerate(matches):
                             angle_deg = math.atan2(y, x) * r2d
                         else:
                             angle_deg = compute_angle(ned1, ned2, match[0]) * r2d
-                        if angle_deg < min_angle_deg:
+                        if angle_deg < args.min_angle:
                             mark_list.append( [k, i] )
     if (k+1) % step == 0:
         bar.next()

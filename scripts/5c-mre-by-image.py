@@ -9,11 +9,9 @@ import math
 import numpy as np
 import os
 
-import sys
-sys.path.append('../lib')
-import Groups
-import Optimizer
-import ProjectMgr
+from lib import Groups
+from lib import Optimizer
+from lib import ProjectMgr
 
 import match_culling as cull
 
@@ -86,15 +84,26 @@ for i, cam in enumerate(opt.camera_params.reshape((opt.n_cameras, opt.ncp))):
         cam_errors.append( np.linalg.norm(e) )
         results.append( [np.linalg.norm(e), opt.feat_map_rev[j], match_index] )
         count += 1
-    results_by_cam.append( [np.mean(np.abs(np.array(cam_errors))),
-                            np.amax(np.abs(np.array(cam_errors))),
-                            proj.image_list[orig_cam_index].name ] )
+    if len(cam_errors):
+        results_by_cam.append( [np.mean(np.abs(np.array(cam_errors))),
+                                np.amax(np.abs(np.array(cam_errors))),
+                                proj.image_list[orig_cam_index].name ] )
+    else:
+        results_by_cam.append( [9999.0, 9999.0,
+                                proj.image_list[orig_cam_index].name ] )
+        
     #print(proj.image_list[orig_cam_index].name, ':',
     #      np.mean(np.abs(np.array(cam_errors))))
 
-results_by_cam = sorted(results_by_cam, key=lambda fields: fields[1], reverse=True)
+print("Report of images that aren't fitting well:")
+results_by_cam = sorted(results_by_cam, key=lambda fields: fields[0], reverse=True)
 for line in results_by_cam:
-    print("%s.  max: %.3f mean: %.3f" % (line[2], line[1], line[0]))
+    if line[0] > mre + 3*std:
+        print("%s - mean: %.3f max: %.3f" % (line[2], line[0], line[1]))
+for line in results_by_cam:
+    if line[0] > mre + 3*std:
+        print(line[2], end=" ")
+print()
     
 error_list = sorted(results, key=lambda fields: fields[0], reverse=True)
 

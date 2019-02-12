@@ -5,12 +5,8 @@ import pickle
 import numpy as np
 import os.path
 from progress.bar import Bar
-import sys
 
-sys.path.append('../lib')
-import ProjectMgr
-
-# import match_culling as cull
+from lib import ProjectMgr
 
 # Maximally group all match chains.  If we squeeze out redundancy, the
 # sba solution should be better.
@@ -20,8 +16,6 @@ parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--area', default='area-00', help='sub area directory')
 
 args = parser.parse_args()
-
-#m = Matcher.Matcher()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_area_info(args.area)

@@ -11,15 +11,13 @@ import numpy as np
 import os.path
 from progress.bar import Bar
 import scipy.spatial
-import sys
 
-sys.path.append('../lib')
-import Groups
-import Matcher
-import Pose
-import ProjectMgr
-import SRTM
-import transformations
+from lib import Groups
+from lib import Matcher
+from lib import Pose
+from lib import ProjectMgr
+from lib import SRTM
+from lib import transformations
 
 parser = argparse.ArgumentParser(description='Compute Delauney triangulation of matches.')
 parser.add_argument('--project', required=True, help='project directory')

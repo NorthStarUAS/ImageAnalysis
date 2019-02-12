@@ -1,20 +1,18 @@
 #!/usr/bin/python3
 
+import argparse
+import cv2
 import numpy as np
 import os
-from progress.bar import Bar
-import sys
-
-import argparse
 import pickle
+from progress.bar import Bar
 
 from props import getNode
 
-sys.path.append('../lib')
-import Groups
-import LineSolver
-import ProjectMgr
-import SRTM
+from lib import Groups
+from lib import LineSolver
+from lib import ProjectMgr
+from lib import SRTM
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
@@ -40,12 +38,23 @@ print()
 
 if args.method == 'triangulate':
     K = proj.cam.get_K(optimized=True)
+    dist_coeffs = np.array(proj.cam.get_dist_coeffs(optimized=True))
 else:
     K = proj.cam.get_K(optimized=False)
 IK = np.linalg.inv(K)
 
 do_sanity_check = False
 
+# assume global K and distcoeff set earlier
+def undistort(uv_orig):
+    # convert the point into the proper format for opencv
+    uv_raw = np.zeros((1,1,2), dtype=np.float32)
+    uv_raw[0][0] = (uv_orig[0], uv_orig[1])
+    # do the actual undistort
+    uv_new = cv2.undistortPoints(uv_raw, K, dist_coeffs, P=K)
+    # print(uv_orig, type(uv_new), uv_new)
+    return uv_new[0][0]
+    
 if args.method == 'srtm':
     # lookup ned reference
     ref_node = getNode("/config/ned_reference", True)
@@ -127,7 +136,7 @@ elif args.method == 'triangulate':
                     cam2body = image.get_cam2body()
                     body2ned = image.get_body2ned()
                     ned, ypr, quat = image.get_camera_pose(opt=True)
-                    uv_list = [ m[1] ] # just one uv element
+                    uv_list = [ undistort(m[1]) ] # just one uv element
                     vec_list = proj.projectVectors(IK, body2ned, cam2body, uv_list)
                     points.append( ned )
                     vectors.append( vec_list[0] )

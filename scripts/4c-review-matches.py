@@ -15,12 +15,10 @@ import pickle
 import cv2
 import numpy as np
 import os.path
-import sys
 
-sys.path.append('../lib')
-import Groups
-import Matcher
-import ProjectMgr
+from lib import Groups
+from lib import Matcher
+from lib import ProjectMgr
 
 import match_culling as cull
 

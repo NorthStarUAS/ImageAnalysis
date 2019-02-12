@@ -6,13 +6,11 @@
 import argparse
 import pickle
 import os.path
-import sys
 
 import pygraphviz as pgv
 
-sys.path.append('../lib')
-import Groups
-import ProjectMgr
+from lib import Groups
+from lib import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')

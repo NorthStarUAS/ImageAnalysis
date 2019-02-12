@@ -4,14 +4,11 @@ import argparse
 import pickle
 import numpy as np
 import os.path
-import sys
 
 from props import getNode
 
-sys.path.append('../lib')
-import Matcher
-#import Pose
-import ProjectMgr
+from lib import Matcher
+from lib import ProjectMgr
 
 # Reset all match point locations to their original direct
 # georeferenced locations based on estimated camera pose and

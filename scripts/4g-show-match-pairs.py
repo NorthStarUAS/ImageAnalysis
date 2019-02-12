@@ -4,14 +4,12 @@ import argparse
 import pickle
 import os.path
 from progress.bar import Bar
-import sys
 
 from props import getNode
 
-sys.path.append('../lib')
-import Matcher
-import Pose
-import ProjectMgr
+from lib import Matcher
+from lib import Pose
+from lib import ProjectMgr
 
 # working on matching features ...
 

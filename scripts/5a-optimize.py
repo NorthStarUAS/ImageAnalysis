@@ -10,13 +10,11 @@ import cv2
 import math
 import numpy as np
 import os
-import sys
 
-sys.path.append('../lib')
-import Groups
-import Optimizer
-import ProjectMgr
-import transformations
+from lib import Groups
+from lib import Optimizer
+from lib import ProjectMgr
+from lib import transformations
 
 d2r = math.pi / 180.0
 r2d = 180.0 / math.pi
