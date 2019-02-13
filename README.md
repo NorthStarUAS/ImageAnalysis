@@ -36,20 +36,20 @@ The project goals remain:
 
 Briefly, near term development goals include:
 
-- Renable/retool code to best fit optimized solution to original
+- [done] Renable/retool code to best fit optimized solution to original
   camera pose locations.  (This ensures the solution didn't walk off
   in some random direction, and also that the final fit is as close to
   the real world location as we are able to do with the given data
   set.)
 
-- Continued improvement of python3 support
+- [done] Continued improvement of python3 support
+
+- [first release available] A scene exploration tool that knows all
+  the views covering any point, can geolocate any selected point in an
+  image, can import/export shape files or feature databases for map
+  creation or validation.
 
 Medium term development goals include:
-
-- A scene exploration tool that knows all the views covering any
-  point, can geolocate any selected point in an image, can
-  import/export shape files or feature databases for map creation or
-  validation.
 
 - Continued exploration of machine vision strategies for automatically
   identifying/locating items of interest in imagery.  (Such as:
@@ -95,11 +95,6 @@ Wish list items:
    for attitude errors and thus produce more consistent results in the
    output images.
 
-## lib
-
-   library of code, mostly to support feature detection, feature
-   matching, and scene assembly.
-
 ## movie
 
    Some of these image analysis techniques can be applied to movies in
@@ -125,6 +120,12 @@ Wish list items:
 
    A series of front-end scripts that primarily pair with the lib
    directory for feature detection, matching, and scene assembly.
+   
+## scripts/lib
+
+   Libraries of python modules with all the functionality that
+   supports the higher level scripts.
+
 
 ## srtm
 
@@ -139,8 +140,7 @@ Wish list items:
 
    A random collection of scripts for testing different things.
 
+## installation hints
 
-## installation
-
-  sudo pip3 install opencv-contrib-python
-  sudo pip3 install --pre --extra-index-url https://archive.panda3d.org/ panda3d
+  - sudo pip3 install opencv-contrib-python
+  - sudo pip3 install --pre --extra-index-url https://archive.panda3d.org/ panda3d
