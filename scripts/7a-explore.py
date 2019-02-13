@@ -22,15 +22,29 @@ from direct.task import Task
 from panda3d.core import LineSegs, NodePath, OrthographicLens, PNMImage, Texture, Filename
 from direct.gui.DirectGui import YesNoDialog
 
-#sys.path.append('../lib')
 from lib import ProjectMgr
-
-import explore.annotations
-import explore.reticle
+from explore import annotations
+from explore import reticle
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', help='project directory')
 args = parser.parse_args()
+
+if False:
+    import wx
+    def get_path(wildcard):
+        app = wx.App(None)
+        style = wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
+        dialog = wx.FileDialog(None, 'Open', wildcard=wildcard, style=style)
+        if dialog.ShowModal() == wx.ID_OK:
+            path = dialog.GetPath()
+        else:
+            path = None
+        dialog.Destroy()
+        return path
+    get_path("*")
+    print(get_path('*.txt'))
+    quit()
 
 if not args.project:
     import tkinter as tk
@@ -86,10 +100,9 @@ class MyApp(ShowBase):
         self.top_image = 0
 
         # modules
-        self.annotations = explore.annotations.Annotations(self.render,
-                                                           args.project,
-                                                           ned_ref)
-        self.reticle = explore.reticle.Reticle(self.render)
+        self.annotations = annotations.Annotations(self.render, args.project,
+                                                   ned_ref)
+        self.reticle = reticle.Reticle(self.render)
 
         #self.messenger.toggleVerbose()
 
@@ -169,7 +182,6 @@ class MyApp(ShowBase):
         self.sortImages()
         self.annotations.rebuild(self.view_size)
 
-
     def cam_move(self, x, y, z, sort=True):
         #print('move:', x, y)
         self.cam_pos[0] += x * self.view_size * base.getAspectRatio()
@@ -197,6 +209,7 @@ class MyApp(ShowBase):
                               self.view_size)
         # reticle
         self.reticle.update(self.cam_pos, self.view_size)
+        
         # annotations
         props = base.win.getProperties()
         y = props.getYSize()
@@ -270,7 +283,6 @@ class MyApp(ShowBase):
 
     def updateTexture(self, main):
         dir_node = getNode('/config/directories', True)
-        images_src = dir_node.getString('images_source')
         
         # reset base textures
         for i, m in enumerate(self.models):
