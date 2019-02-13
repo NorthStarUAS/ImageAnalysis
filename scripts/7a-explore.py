@@ -269,11 +269,11 @@ class MyApp(ShowBase):
 
         for i, line in enumerate(result_list):
             m = line[1]
-            if False and m.getName() in tcache:
+            if m == top:
+                m.setBin("fixed", 2*len(self.models))
+            elif m.getName() in tcache:
                 # reward draw order for models with high res texture loaded
                 m.setBin("fixed", i + len(self.models))
-            elif m == top:
-                m.setBin("fixed", len(result_list))
             else:
                 m.setBin("fixed", i)
             m.setDepthTest(False)
