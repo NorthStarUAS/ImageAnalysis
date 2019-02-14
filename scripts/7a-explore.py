@@ -138,7 +138,45 @@ class MyApp(ShowBase):
        
         # Add the tasks to the task manager.
         self.taskMgr.add(self.updateCameraTask, "updateCameraTask")
+
+        self.query_capabilities(display=True)
         
+    def query_capabilities(self, display=True):
+        gsg=base.win.getGsg()
+        print("alpha_scale_via_texture", bool(gsg.getAlphaScaleViaTexture()))
+        print("color_scale_via_lighting", bool(gsg.getColorScaleViaLighting()))
+        print("copy_texture_inverted", bool(gsg.getCopyTextureInverted()))
+        print("max_3d_texture_dimension", gsg.getMax3dTextureDimension())
+        print("max_clip_planes", gsg.getMaxClipPlanes())
+        print("max_cube_map_dimension", gsg.getMaxCubeMapDimension())
+        print("max_lights", gsg.getMaxLights())
+        print("max_texture_dimension", gsg.getMaxTextureDimension())
+        self.max_texture_dimension = gsg.getMaxTextureDimension()
+        print("max_texture_stages", gsg.getMaxTextureStages())
+        print("max_vertex_transform_indices",  gsg.getMaxVertexTransformIndices())
+        print("max_vertex_transforms", gsg.getMaxVertexTransforms())
+        print("shader_model", gsg.getShaderModel())
+        print("supports_3d_texture", bool(gsg.getSupports3dTexture()))
+        print("supports_basic_shaders", bool(gsg.getSupportsBasicShaders()))
+        print("supports_compressed_texture",  bool(gsg.getSupportsCompressedTexture()))
+        print("supports_cube_map", bool(gsg.getSupportsCubeMap()))
+        print("supports_depth_stencil", bool(gsg.getSupportsDepthStencil()))
+        print("supports_depth_texture",  bool(gsg.getSupportsDepthTexture()))
+        print("supports_generate_mipmap",  bool(gsg.getSupportsGenerateMipmap()))
+        #print("supports_render_texture", bool(gsg.getSupportsRenderTexture()))
+        print("supports_shadow_filter", bool(gsg.getSupportsShadowFilter()))
+        print("supports_tex_non_pow2", bool(gsg.getSupportsTexNonPow2()))
+        print("supports_texture_combine", bool(gsg.getSupportsTextureCombine()))
+        print("supports_texture_dot3", bool(gsg.getSupportsTextureDot3()))
+        print("supports_texture_saved_result",  bool(gsg.getSupportsTextureSavedResult()))
+        print("supports_two_sided_stencil",  bool(gsg.getSupportsTwoSidedStencil()))
+        print("max_vertices_per_array", gsg.getMaxVerticesPerArray())
+        print("max_vertices_per_primitive", gsg.getMaxVerticesPerPrimitive())
+        print("supported_geom_rendering", gsg.getSupportedGeomRendering())
+        print("supports_multisample", bool(gsg.getSupportsMultisample()))
+        print("supports_occlusion_query", bool(gsg.getSupportsOcclusionQuery()))
+        print("prefers_triangle_strips", bool(gsg.prefersTriangleStrips()))
+
     def tmpItemSel(self, arg):
         self.dialog.cleanup()
         print('result:', arg)
@@ -327,6 +365,17 @@ class MyApp(ShowBase):
                         rgb = np.flipud(rgb)
                         h, w = rgb.shape[:2]
                         print('shape:', rgb.shape)
+                        rescale = False
+                        if h > self.max_texture_dimension:
+                            h = self.max_texture_dimension
+                            rescale = True
+                        if w > self.max_texture_dimension:
+                            w = self.max_texture_dimension
+                            rescale = True
+                        if rescale:
+                            print("Notice: rescaling texture to (%d,%d) to honor video card max capability." % (w, h))
+                            rgb = cv2.resize(rgb, (w,h))
+                            
                         # equalize
                         if False:
                             # equalize val (essentially gray scale level)
