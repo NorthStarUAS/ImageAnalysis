@@ -10,6 +10,7 @@ from lib import ProjectMgr
 parser = argparse.ArgumentParser(description='Compute Delauney triangulation of matches.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--area', default='area-00', help='sub area directory')
+parser.add_argument('--output', help='specify output /path/file')
 args = parser.parse_args()
 
 # list of files to include in zip archive
@@ -81,7 +82,10 @@ for file in os.listdir(images_dir):
     file_paths.append(file_path)
 
 # writing files to a zip file
-zipfile = args.project + '.zip'
+if args.output:
+    zipfile = args.output
+else:
+    zipfile = args.project + '.zip'
 print("Writing zip file:", zipfile)
 with ZipFile(zipfile, 'w') as zip:
     # writing each file one by one
