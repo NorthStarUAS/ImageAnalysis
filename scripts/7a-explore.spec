@@ -8,6 +8,7 @@ a = Analysis(['7a-explore.py'],
              binaries=[
                  ('C:\\Users\curt\Anaconda3\Lib\site-packages\panda3d\cgGL.dll', '.'),
                  ('C:\\Users\curt\Anaconda3\Lib\site-packages\panda3d\libpandagl.dll', '.'),
+                 ('C:\\Users\curt\Anaconda3\Lib\site-packages\panda3d\libpandaegg.dll', '.'),
                  ('C:\\Users\curt\Anaconda3\Lib\site-packages\panda3d\libp3assimp.dll', '.'),
                  ('C:\\Users\curt\Anaconda3\Lib\site-packages\panda3d\libp3ptloader.dll', '.'),
                  ('C:\\Users\curt\Anaconda3\Lib\site-packages\panda3d\libp3windisplay.dll', '.')
