@@ -143,6 +143,8 @@ class MyApp(ShowBase):
         
     def query_capabilities(self, display=True):
         gsg=base.win.getGsg()
+        print("driver vendor", gsg.getDriverVendor())
+        self.driver_vendor = gsg.getDriverVendor()
         print("alpha_scale_via_texture", bool(gsg.getAlphaScaleViaTexture()))
         print("color_scale_via_lighting", bool(gsg.getColorScaleViaLighting()))
         print("copy_texture_inverted", bool(gsg.getCopyTextureInverted()))
@@ -167,6 +169,9 @@ class MyApp(ShowBase):
         print("supports_shadow_filter", bool(gsg.getSupportsShadowFilter()))
         print("supports_tex_non_pow2", bool(gsg.getSupportsTexNonPow2()))
         self.needs_pow2 = not bool(gsg.getSupportsTexNonPow2())
+        if self.driver_vendor == 'Intel' and os.name == 'nt':
+            # windows driver lies!
+            self.needs_pow2 = True
         print("supports_texture_combine", bool(gsg.getSupportsTextureCombine()))
         print("supports_texture_dot3", bool(gsg.getSupportsTextureDot3()))
         print("supports_texture_saved_result",  bool(gsg.getSupportsTextureSavedResult()))
@@ -373,7 +378,6 @@ class MyApp(ShowBase):
                         if w > self.max_texture_dimension:
                             w = self.max_texture_dimension
                             rescale = True
-                        self.needs_pow2 = True
                         if self.needs_pow2:
                             h2 = 2**math.floor(math.log(h,2))
                             w2 = 2**math.floor(math.log(w,2))
