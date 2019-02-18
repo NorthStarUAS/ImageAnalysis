@@ -166,6 +166,7 @@ class MyApp(ShowBase):
         #print("supports_render_texture", bool(gsg.getSupportsRenderTexture()))
         print("supports_shadow_filter", bool(gsg.getSupportsShadowFilter()))
         print("supports_tex_non_pow2", bool(gsg.getSupportsTexNonPow2()))
+        self.needs_pow2 = not bool(gsg.getSupportsTexNonPow2())
         print("supports_texture_combine", bool(gsg.getSupportsTextureCombine()))
         print("supports_texture_dot3", bool(gsg.getSupportsTextureDot3()))
         print("supports_texture_saved_result",  bool(gsg.getSupportsTextureSavedResult()))
@@ -364,7 +365,7 @@ class MyApp(ShowBase):
                         rgb = cv2.imread(image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
                         rgb = np.flipud(rgb)
                         h, w = rgb.shape[:2]
-                        print('shape:', rgb.shape)
+                        print('shape: (%d,%d)' % (w, h))
                         rescale = False
                         if h > self.max_texture_dimension:
                             h = self.max_texture_dimension
@@ -372,8 +373,18 @@ class MyApp(ShowBase):
                         if w > self.max_texture_dimension:
                             w = self.max_texture_dimension
                             rescale = True
+                        self.needs_pow2 = True
+                        if self.needs_pow2:
+                            h2 = 2**math.floor(math.log(h,2))
+                            w2 = 2**math.floor(math.log(w,2))
+                            if h2 != h:
+                                h = h2
+                                rescale = True
+                            if w2 != w:
+                                w = w2
+                                rescale = True
                         if rescale:
-                            print("Notice: rescaling texture to (%d,%d) to honor video card max capability." % (w, h))
+                            print("Notice: rescaling texture to (%d,%d) to honor video card capability." % (w, h))
                             rgb = cv2.resize(rgb, (w,h))
                             
                         # equalize
