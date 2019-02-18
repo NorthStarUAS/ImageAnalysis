@@ -239,7 +239,7 @@ class MyApp(ShowBase):
         self.annotations.rebuild(self.view_size)
 
     def quit(self):
-        quit()
+        raise SystemExit
 
     def image_select(self, level):
         self.top_image = level
