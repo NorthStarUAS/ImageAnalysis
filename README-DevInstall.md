@@ -1,8 +1,12 @@
-This document is a work and progress and initially focused on the
-windows platform.  The essentials are similar for any other platform
-so this guide may still be helpful for Mac and Linux users (who may
-have many of these components already installed by default on their
-systems.)
+# Install ImageAnalysis source code package for devel and testing purposes
+
+This document is intended for those that are interested in running the
+native python scripts on their own computer.  This doc a work and
+progress and initially focused on the windows platform.  The
+essentials are similar for any other platform so this guide may still
+be helpful for Mac and Linux users (who may have many of these
+components already installed by default on their systems.)  Note: I do
+all my development and testing on Linux.
 
 The following install recipe ensures all the required prerequisites
 are in place for running the ImageAnalysis software:
