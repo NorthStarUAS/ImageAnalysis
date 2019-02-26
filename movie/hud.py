@@ -9,8 +9,8 @@ import sys
 sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
 import cv2
 
-sys.path.append('../lib')
-import transformations
+sys.path.append('../scripts')
+from lib import transformations
 
 import airports
 

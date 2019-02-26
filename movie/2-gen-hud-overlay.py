@@ -16,8 +16,8 @@ import props_json
 
 from aurauas.flightdata import flight_loader, flight_interp
 
-sys.path.append('../lib')
-import transformations
+sys.path.append('../scripts')
+from lib import transformations
 
 import correction
 import correlate

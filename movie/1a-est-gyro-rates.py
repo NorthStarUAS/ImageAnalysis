@@ -13,9 +13,9 @@ import sys
 from props import PropertyNode
 import props_json
 
-sys.path.append('../lib')
-import Render
-import transformations
+sys.path.append('../scripts')
+from lib import Render
+from lib import transformations
 r = Render.Render()
 
 d2r = math.pi / 180.0
