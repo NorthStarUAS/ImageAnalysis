@@ -63,6 +63,7 @@ class HUD:
         self.phi_rad = 0
         self.the_rad = 0
         self.psi_rad = 0
+        self.gc_rad = 0
         self.gc_rot = 0
         self.frame = None
         self.airspeed_units = 'kt'
@@ -180,7 +181,10 @@ class HUD:
 
     def update_airdata(self, airspeed_kt, altitude_m, wind_deg=0, wind_kt=0,
                        alpha_rad=0, beta_rad=0):
-        self.airspeed_kt = airspeed_kt
+        if airspeed_kt >= 0:
+            self.airspeed_kt = airspeed_kt
+        else:
+            self.airspeed_kt = 0
         self.altitude_m = altitude_m
         self.wind_deg = wind_deg
         self.wind_kt = wind_kt
@@ -627,12 +631,12 @@ class HUD:
         # ground course indicator
         gs_mps = math.sqrt(self.filter_vn*self.filter_vn + self.filter_ve*self.filter_ve)
         if gs_mps > 1.0:
-            a = math.atan2(self.filter_ve, self.filter_vn)
-            self.gc_rot = a - self.psi_rad
-            if self.gc_rot < -math.pi:
-                self.gc_rot += 2*math.pi
-            if self.gc_rot > math.pi:
-                self.gc_rot -= 2*math.pi
+            self.gc_rad = math.atan2(self.filter_ve, self.filter_vn)
+        self.gc_rot = self.gc_rad - self.psi_rad
+        if self.gc_rot < -math.pi:
+            self.gc_rot += 2*math.pi
+        if self.gc_rot > math.pi:
+            self.gc_rot -= 2*math.pi
         nose = (center_col, row_start + 1)
         nose1 = (center_col, row_start + size1)
         #end = (self.nose_uv[0], center[1] + size2)
@@ -704,7 +708,7 @@ class HUD:
         a1 = 14.0
         a2 = 3.0
         a3 = 5.0
-        a4 = 18.0
+        a4 = 16.0
         a5 = 0.5
 
         # center point
@@ -783,7 +787,7 @@ class HUD:
             cv2.polylines(self.frame, np.array([uv]), False, white, self.line_width, cv2.LINE_AA)
 
     def draw_roll_indicator(self):
-        a1 = 16.0
+        a1 = 14.0
 
         # center point
         nose = self.cam_helper(0.0, 0.0)
@@ -800,16 +804,16 @@ class HUD:
         if uv != None:
             cv2.polylines(self.frame, np.array([uv]), False, white, self.line_width, cv2.LINE_AA)
 
-        self.draw_roll_indicator_tic(nose, a1, -60, 2)
-        self.draw_roll_indicator_tic(nose, a1, -30, 2)
-        self.draw_roll_indicator_tic(nose, a1, 30, 2)
-        self.draw_roll_indicator_tic(nose, a1, 60, 2)
-        self.draw_roll_indicator_tic(nose, a1, -45, 1)
-        self.draw_roll_indicator_tic(nose, a1, 45, 1)
-        self.draw_roll_indicator_tic(nose, a1, -20, 1)
-        self.draw_roll_indicator_tic(nose, a1, 20, 1)
-        self.draw_roll_indicator_tic(nose, a1, -10, 1)
-        self.draw_roll_indicator_tic(nose, a1, 10, 1)
+        self.draw_roll_indicator_tic(nose, a1, -60, 1.5)
+        self.draw_roll_indicator_tic(nose, a1, -30, 1.5)
+        self.draw_roll_indicator_tic(nose, a1, 30, 1.5)
+        self.draw_roll_indicator_tic(nose, a1, 60, 1.5)
+        self.draw_roll_indicator_tic(nose, a1, -45, 0.9)
+        self.draw_roll_indicator_tic(nose, a1, 45, 0.9)
+        self.draw_roll_indicator_tic(nose, a1, -20, 0.9)
+        self.draw_roll_indicator_tic(nose, a1, 20, 0.9)
+        self.draw_roll_indicator_tic(nose, a1, -10, 0.9)
+        self.draw_roll_indicator_tic(nose, a1, 10, 0.9)
 
         # center marker
         tmp = [ self.cam_helper(a1, 0),
