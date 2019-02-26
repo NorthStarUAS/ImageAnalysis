@@ -503,9 +503,11 @@ class HUD:
                 return None
 
     def draw_vbars(self):
-        a1 = 14.0
-        a2 = 2.0
-        a3 = 5.0
+        scale = 12.0
+        angle = 20 * d2r
+        a1 = scale * math.cos(angle)
+        a3 = scale * math.sin(angle)
+        a2 = a3 * 0.4
 
         a0 = -self.the_rad*r2d + self.ap_pitch
         #a0 = 5
@@ -636,7 +638,7 @@ class HUD:
         if self.gc_rot < -math.pi:
             self.gc_rot += 2*math.pi
         if self.gc_rot > math.pi:
-            self.gc_rot -= 2*math.pi
+             self.gc_rot -= 2*math.pi
         nose = (center_col, row_start + 1)
         nose1 = (center_col, row_start + size1)
         #end = (self.nose_uv[0], center[1] + size2)
@@ -705,11 +707,13 @@ class HUD:
         cv2.line(self.frame, pts[6], pts[0], color, self.line_width, cv2.LINE_AA)
 
     def draw_bird(self):
-        a1 = 14.0
-        a2 = 3.0
-        a3 = 5.0
-        a4 = 16.0
-        a5 = 0.5
+        scale = 12.0
+        angle = 20 * d2r
+        a1 = scale * math.cos(angle)
+        a3 = scale * math.sin(angle)
+        a2 = a3 * 0.5
+        a4 = scale * 1.15
+        a5 = scale * 0.036
 
         # center point
         nose = self.nose_uv
@@ -787,7 +791,10 @@ class HUD:
             cv2.polylines(self.frame, np.array([uv]), False, white, self.line_width, cv2.LINE_AA)
 
     def draw_roll_indicator(self):
-        a1 = 14.0
+        scale = 12.0
+        a1 = scale
+        a2 = scale*0.1
+        a3 = scale*0.06
 
         # center point
         nose = self.cam_helper(0.0, 0.0)
@@ -804,29 +811,29 @@ class HUD:
         if uv != None:
             cv2.polylines(self.frame, np.array([uv]), False, white, self.line_width, cv2.LINE_AA)
 
-        self.draw_roll_indicator_tic(nose, a1, -60, 1.5)
-        self.draw_roll_indicator_tic(nose, a1, -30, 1.5)
-        self.draw_roll_indicator_tic(nose, a1, 30, 1.5)
-        self.draw_roll_indicator_tic(nose, a1, 60, 1.5)
-        self.draw_roll_indicator_tic(nose, a1, -45, 0.9)
-        self.draw_roll_indicator_tic(nose, a1, 45, 0.9)
-        self.draw_roll_indicator_tic(nose, a1, -20, 0.9)
-        self.draw_roll_indicator_tic(nose, a1, 20, 0.9)
-        self.draw_roll_indicator_tic(nose, a1, -10, 0.9)
-        self.draw_roll_indicator_tic(nose, a1, 10, 0.9)
+        self.draw_roll_indicator_tic(nose, a1, -60, a2)
+        self.draw_roll_indicator_tic(nose, a1, -30, a2)
+        self.draw_roll_indicator_tic(nose, a1, 30, a2)
+        self.draw_roll_indicator_tic(nose, a1, 60, a2)
+        self.draw_roll_indicator_tic(nose, a1, -45, a3)
+        self.draw_roll_indicator_tic(nose, a1, 45, a3)
+        self.draw_roll_indicator_tic(nose, a1, -20, a3)
+        self.draw_roll_indicator_tic(nose, a1, 20, a3)
+        self.draw_roll_indicator_tic(nose, a1, -10, a3)
+        self.draw_roll_indicator_tic(nose, a1, 10, a3)
 
         # center marker
         tmp = [ self.cam_helper(a1, 0),
-                self.cam_helper(a1+1.5, 0.66),
-                self.cam_helper(a1+1.5, -0.65) ]
+                self.cam_helper(a1+a2, 0.66),
+                self.cam_helper(a1+a2, -0.65) ]
         uv = self.rotate_pt(tmp, nose, -self.phi_rad)
         if uv != None:
             cv2.fillPoly(self.frame, np.array([uv]), white)
 
         # roll pointer
         tmp = [ self.cam_helper(a1, 0),
-                self.cam_helper(a1-1.5, 0.66),
-                self.cam_helper(a1-1.5, -0.65) ]
+                self.cam_helper(a1-a2, 0.66),
+                self.cam_helper(a1-a2, -0.65) ]
         uv = self.rotate_pt(tmp, nose, 0.0)
         if uv != None:
             cv2.fillPoly(self.frame, np.array([uv]), white)
