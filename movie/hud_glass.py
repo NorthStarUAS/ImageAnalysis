@@ -632,7 +632,7 @@ class HUD:
 
         # ground course indicator
         gs_mps = math.sqrt(self.filter_vn*self.filter_vn + self.filter_ve*self.filter_ve)
-        if gs_mps > 1.0:
+        if gs_mps > 0.5:
             self.gc_rad = math.atan2(self.filter_ve, self.filter_vn)
         self.gc_rot = self.gc_rad - self.psi_rad
         if self.gc_rot < -math.pi:
@@ -895,7 +895,7 @@ class HUD:
         m2sm = 0.000621371
         hdist_sm = hdist * m2sm
         if hdist_sm <= 10.0:
-            scale = 0.7 - (hdist_sm / 10.0) * 0.4
+            scale = 0.9 - (hdist_sm / 10.0) * 0.3
             if hdist_sm <= 7.5:
                 label += " (%.1f)" % hdist_sm
             # normalize, and draw relative to aircraft ned so that label
@@ -959,18 +959,18 @@ class HUD:
         self.draw_ned_point([self.ned[0] + sun_ned[0],
                              self.ned[1] + sun_ned[1],
                              self.ned[2] + sun_ned[2]],
-                            'Sun')
+                            'Sun', scale=1.1)
         # shadow (if sun above horizon)
         if sun_ned[2] < 0.0:
             self.draw_ned_point([self.ned[0] - sun_ned[0],
                                  self.ned[1] - sun_ned[1],
                                  self.ned[2] - sun_ned[2]],
-                                'shadow', scale=0.7)
+                                'Shadow', scale=0.9)
         # Moon
         self.draw_ned_point([self.ned[0] + moon_ned[0],
                              self.ned[1] + moon_ned[1],
                              self.ned[2] + moon_ned[2]],
-                            'Moon')
+                            'Moon', scale=1.1)
 
     def draw_airports(self):
         for apt in self.airports:
