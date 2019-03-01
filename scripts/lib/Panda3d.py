@@ -5,6 +5,7 @@ import cv2
 import math
 import numpy as np
 import os
+import scipy.spatial
 
 def make_textures(src_dir, project_dir, image_list, resolution=256):
     dst_dir = os.path.join(project_dir, 'models')
@@ -48,8 +49,8 @@ def make_textures_opencv(src_dir, project_dir, image_list, resolution=256):
             cv2.imwrite(dst, result)
             print("Texture %dx%d %s" % (resolution, resolution, dst))
             
-def generate(proj, group, ref_image=False, src_dir=".", project_dir=".",
-             resolution=512 ):
+def generate_from_grid(proj, group, ref_image=False, src_dir=".",
+                       project_dir=".", resolution=512 ):
     # make the textures if needed
     make_textures_opencv(src_dir, project_dir, proj.image_list, resolution)
     
@@ -115,3 +116,50 @@ def generate(proj, group, ref_image=False, src_dir=".", project_dir=".",
             # this image.  For now let's warn and delete the model
             print("Warning: no polygons fully on surface, removing:", name)
             os.remove(name)
+            
+def generate_from_fit(proj, group, ref_image=False, src_dir=".",
+                      project_dir=".", resolution=512 ):
+    # make the textures if needed
+    make_textures_opencv(src_dir, project_dir, proj.image_list, resolution)
+
+    for name in group:
+        image = proj.findImageByName(name)
+        if len(image.fit_xy) < 3:
+            continue
+            print("Warning: removing egg file, no polygons for:", name)
+            if os.path.exists(name):
+                os.remove(name)
+
+        root, ext = os.path.splitext(image.name)
+        name = os.path.join( project_dir, "models", root + ".egg" )
+        print("EGG file name:", name)
+
+        f = open(name, "w")
+        f.write("<CoordinateSystem> { Z-Up }\n\n")
+        f.write("<Texture> tex { \"" + image.name + ".JPG\" }\n\n")
+        f.write("<VertexPool> surface {\n")
+
+        width, height = image.get_size()
+        n = 1
+        for i in range(len(image.fit_xy)):
+            f.write("  <Vertex> %d {\n" % n)
+            f.write("    %.2f %.2f %.2f\n" % (image.fit_xy[i][0],
+                                              image.fit_xy[i][1],
+                                              image.fit_z[i]))
+            f.write("    <UV> { %.5f %.5f }\n" % (image.fit_uv[i][0]/float(width), 1.0-image.fit_uv[i][1]/float(height)))
+            f.write("  }\n")
+            n += 1
+        f.write("}\n\n")
+        
+        f.write("<Group> surface {\n")
+
+        tris = scipy.spatial.Delaunay(np.array(image.fit_xy))
+        for tri in tris.simplices:
+            f.write("  <Polygon> {\n")
+            f.write("   <TRef> { tex }\n")
+            f.write("   <Normal> { 0 0 1 }\n")
+            f.write("   <VertexRef> { %d %d %d <Ref> { surface } }\n" \
+                    % (tri[0]+1, tri[1]+1, tri[2]+1))
+            f.write("  }\n")
+        f.write("}\n")
+        f.close()
