@@ -9,6 +9,9 @@ from progress.bar import Bar
 import sys
 import time
 
+import tkinter as tk
+from tkinter import filedialog
+
 from props import getNode
 
 import math
@@ -46,13 +49,10 @@ if False:
     print(get_path('*.txt'))
     quit()
 
+tk_root = tk.Tk()
+tk_root.withdraw()
+
 if not args.project:
-    import tkinter as tk
-    from tkinter import filedialog
-
-    root = tk.Tk()
-    root.withdraw()
-
     # file_path = filedialog.askopenfilename()
     file_path = filedialog.askdirectory(title="Please open the project directory", mustexist=True)
     # print('selected:', type(file_path), len(file_path), file_path)
@@ -101,7 +101,7 @@ class MyApp(ShowBase):
 
         # modules
         self.annotations = annotations.Annotations(self.render, args.project,
-                                                   ned_ref)
+                                                   ned_ref, tk_root)
         self.reticle = reticle.Reticle(self.render)
 
         #self.messenger.toggleVerbose()
@@ -392,7 +392,7 @@ class MyApp(ShowBase):
                             rgb = cv2.resize(rgb, (w,h))
                             
                         # equalize
-                        if False:
+                        if True:
                             # equalize val (essentially gray scale level)
                             hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
                             hue, sat, val = cv2.split(hsv)
