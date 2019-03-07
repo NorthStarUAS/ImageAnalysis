@@ -11,6 +11,8 @@ from direct.gui.DirectGui import *
 
 from tkinter import *
 
+from . import surface
+
 class Annotations():
     def __init__(self, render, project_dir, ned_ref, tk_root):
         self.render = render
@@ -21,6 +23,7 @@ class Annotations():
         self.icon = loader.loadTexture('explore/marker-icon-2x.png')
         self.view_size = 100
         self.markers = []
+        self.surface = surface.Surface(project_dir)
         # generate some random markers for testing ...
         # for i in range(20):
         #     x = random.uniform(-100, 100)
@@ -30,10 +33,12 @@ class Annotations():
         self.load()
 
     def ned2lla(self, n, e, d):
+        print("types:", type(n), type(e), type(d))
         lla = navpy.ned2lla( [n, e, d],
                              self.ned_ref[0],
                              self.ned_ref[1],
                              self.ned_ref[2] )
+        print(n, e, d, lla)
         return lla
 
     def load(self):
@@ -51,6 +56,8 @@ class Annotations():
                 # print(lla, ned)
                 if len(lla) < 4:
                     self.markers.append( [ned[1], ned[0], "comment"] )
+                elif len(lla) < 5:
+                    self.markers.append( [ned[1], ned[0], ned[2], "comment"] )
                 else:
                     self.markers.append( [ned[1], ned[0], lla[3]] )
         else:
@@ -61,8 +68,8 @@ class Annotations():
         print('Saving annotations:', filename)
         lla_list = []
         for m in self.markers:
-            lla = list(self.ned2lla( m[1], m[0], 0.0 ))
-            lla.append(m[2])
+            lla = list(self.ned2lla( m[1], m[0], m[2] ))
+            lla.append(m[3])
             lla_list.append(lla)
         f = open(filename, 'w')
         json.dump(lla_list, f, indent=4)
@@ -71,16 +78,17 @@ class Annotations():
         # write simple csv version
         filename = os.path.join(self.project_dir, 'annotations.csv')
         with open(filename, 'w') as f:
-            fieldnames = ['lat_deg', 'lon_deg', 'comment']
+            fieldnames = ['lat_deg', 'lon_deg', 'alt_m', 'comment']
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             for lla in lla_list:
                 writer.writerow({'lat_deg': lla[0],
                                  'lon_deg': lla[1],
-                                 'comment': lla[2]})
+                                 'alt_m': lla[2],
+                                 'comment': lla[3]})
 
-    def edit(self, x, y, comment="", exists=False):
-        lla = self.ned2lla(y, x, 0.0)
+    def edit(self, x, y, z, comment="", exists=False):
+        lla = self.ned2lla(y, x, z)
         new = Toplevel(self.tk_root)
         self.edit_result = "cancel"
         e = None
@@ -99,13 +107,10 @@ class Annotations():
             new.quit()
             new.withdraw()
         new.protocol("WM_DELETE_WINDOW", on_cancel)
-        f = Frame(new)
-        f.pack(side=TOP, fill=X)
-        if exists:
-            w = Label(f, text="New marker")
+        if not exists:
+            new.title("New marker")
         else:
-            w = Label(f, text="Edit marker")
-        w.pack(side=LEFT)
+            new.title("Edit marker")
         f = Frame(new)
         f.pack(side=TOP, fill=X)
         w = Label(f, text="Lat: %.8f" % lla[0])
@@ -113,6 +118,10 @@ class Annotations():
         f = Frame(new)
         f.pack(side=TOP, fill=X)
         w = Label(f, text="Lon: %.8f" % lla[1])
+        w.pack(side=LEFT)
+        f = Frame(new)
+        f.pack(side=TOP, fill=X)
+        w = Label(f, text="Alt(m): %.1f" % lla[2])
         w.pack(side=LEFT)
         f = Frame(new)
         f.pack(side=TOP)
@@ -126,7 +135,7 @@ class Annotations():
         f.pack(fill=X)
         bok = Button(f, text="OK", command=on_ok)
         bok.pack(side=LEFT, fill=X)
-        if not exists:
+        if exists:
             bdel = Button(f, text="Delete", command=on_del)
             bdel.pack(side=LEFT, fill=X)
         bx = Button(f, text="Cancel", command=on_cancel)
@@ -149,6 +158,7 @@ class Annotations():
         mpos = mw.getMouse()
         x = cam_pos[0] + mpos[0] * self.view_size*0.5 * base.getAspectRatio()
         y = cam_pos[1] + mpos[1] * self.view_size*0.5
+        dirty = False
         # check if we clicked on an existing marker
         found = -1
         for i, m in enumerate(self.markers):
@@ -162,18 +172,25 @@ class Annotations():
             print("Found existing marker:", found)
             x = self.markers[found][0]
             y = self.markers[found][1]
-            result, comment = self.edit(x, y, comment=self.markers[found][2],
-                                        exists=False)
+            z = self.surface.get_elevation(y, x)
+            result, comment = self.edit(x, y, z,
+                                        comment=self.markers[found][3],
+                                        exists=True)
             if result == 'ok':
-                self.markers[found][2] = comment
+                self.markers[found][3] = comment
+                dirty = True
             elif result == 'delete':
                 del self.markers[found]
+                dirty = True
         else:
-            result, comment = self.edit(x, y, exists=True)
+            z = self.surface.get_elevation(y, x)
+            result, comment = self.edit(x, y, z, exists=False)
             if result == 'ok':
-                self.markers.append( [x, y, comment] )
-        self.rebuild(self.view_size)
-        self.save()
+                self.markers.append( [x, y, z, comment] )
+                dirty = True
+        if dirty:
+            self.rebuild(self.view_size)
+            self.save()
             
     def rebuild(self, view_size):
         self.view_size = view_size
