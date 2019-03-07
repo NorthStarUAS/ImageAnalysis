@@ -28,6 +28,7 @@ from direct.gui.DirectGui import YesNoDialog
 from lib import ProjectMgr
 from explore import annotations
 from explore import reticle
+from explore import surface
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', help='project directory')
@@ -100,9 +101,11 @@ class MyApp(ShowBase):
         self.top_image = 0
 
         # modules
-        self.annotations = annotations.Annotations(self.render, args.project,
+        self.surface = surface.Surface(args.project)
+        self.annotations = annotations.Annotations(self.render, self.surface,
+                                                   args.project,
                                                    ned_ref, tk_root)
-        self.reticle = reticle.Reticle(self.render)
+        self.reticle = reticle.Reticle(self.render, self.surface, ned_ref)
 
         #self.messenger.toggleVerbose()
 

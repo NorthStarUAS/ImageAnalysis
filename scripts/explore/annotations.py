@@ -11,11 +11,10 @@ from direct.gui.DirectGui import *
 
 from tkinter import *
 
-from . import surface
-
 class Annotations():
-    def __init__(self, render, project_dir, ned_ref, tk_root):
+    def __init__(self, render, surface, project_dir, ned_ref, tk_root):
         self.render = render
+        self.surface = surface
         self.project_dir = project_dir
         self.ned_ref = ned_ref
         self.tk_root = tk_root
@@ -23,7 +22,6 @@ class Annotations():
         self.icon = loader.loadTexture('explore/marker-icon-2x.png')
         self.view_size = 100
         self.markers = []
-        self.surface = surface.Surface(project_dir)
         # generate some random markers for testing ...
         # for i in range(20):
         #     x = random.uniform(-100, 100)
@@ -33,12 +31,11 @@ class Annotations():
         self.load()
 
     def ned2lla(self, n, e, d):
-        print("types:", type(n), type(e), type(d))
         lla = navpy.ned2lla( [n, e, d],
                              self.ned_ref[0],
                              self.ned_ref[1],
                              self.ned_ref[2] )
-        print(n, e, d, lla)
+        # print(n, e, d, lla)
         return lla
 
     def load(self):
@@ -156,6 +153,7 @@ class Annotations():
         vsize = 40 / pxm
 
         mpos = mw.getMouse()
+        print('mpos:', mpos)
         x = cam_pos[0] + mpos[0] * self.view_size*0.5 * base.getAspectRatio()
         y = cam_pos[1] + mpos[1] * self.view_size*0.5
         dirty = False
