@@ -89,6 +89,10 @@ for match in matches:
                 if z > image.max_z:
                     image.max_z = z
                     #print(max_z, match)
+# save the surface definition as a separate file
+surface = { 'points': raw_points,
+            'values': raw_values }
+pickle.dump(surface, open(os.path.join(args.project, 'models', 'surface.bin'), "wb"))
 
 print('Generating Delaunay mesh and interpolator ...')
 global_tri_list = scipy.spatial.Delaunay(np.array(raw_points))
@@ -230,8 +234,9 @@ if True:
 # generate the panda3d egg models
 dir_node = getNode('/config/directories', True)
 img_src_dir = dir_node.getString('images_source')
-Panda3d.generate(proj, groups[args.group], src_dir=img_src_dir,
-                 project_dir=args.project, resolution=args.texture_resolution)
+Panda3d.generate_from_grid(proj, groups[args.group], src_dir=img_src_dir,
+                            project_dir=args.project,
+                            resolution=args.texture_resolution)
 
 # call the ac3d generator
 # AC3D.generate(proj.image_list, groups[0], src_dir=img_src_dir,
