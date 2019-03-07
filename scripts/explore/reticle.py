@@ -24,7 +24,7 @@ class Reticle():
         y = props.getYSize()
         pxm = float(y) / view_size
         text_scale = 42 / y
-        print("y:", y, "view_size:", view_size, "pxm:", pxm)
+        # print("y:", y, "view_size:", view_size, "pxm:", pxm)
 
         # center reticle
         ls = LineSegs()
@@ -47,7 +47,7 @@ class Reticle():
         # measurement marker
         h_size = view_size * base.getAspectRatio()
         h = math.pow(2, int(round(math.log2(h_size/10.0))))
-        print("h_size:", h_size, h)
+        # print("h_size:", h_size, h)
         ls = LineSegs()
         ls.setThickness(2)
         ls.setColor(0.0, 1.0, 0.0, alpha)

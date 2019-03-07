@@ -16,6 +16,8 @@ class Surface():
             self.interp = None
 
     def get_elevation(self, n, e):
+        if not self.interp:
+            return 0.0
         tmp = self.interp(n, e)
         if np.isnan(tmp):
             return 0.0
