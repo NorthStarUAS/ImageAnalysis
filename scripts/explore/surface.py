@@ -15,10 +15,10 @@ class Surface():
         else:
             self.interp = None
 
-    def get_elevation(self, n, e):
+    def get_elevation(self, e, n):
         if not self.interp:
             return 0.0
-        tmp = self.interp(n, e)
+        tmp = self.interp(e, n)
         if np.isnan(tmp):
             return 0.0
         else:

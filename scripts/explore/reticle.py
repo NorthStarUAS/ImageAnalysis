@@ -76,7 +76,7 @@ class Reticle():
                                   align=TextNode.ALeft)
 
         # position display
-        z = self.surface.get_elevation(cam_pos[1], cam_pos[0])
+        z = self.surface.get_elevation(cam_pos[0], cam_pos[1])
         lla = navpy.ned2lla( [cam_pos[1], cam_pos[0], z],
                              self.ned_ref[0], self.ned_ref[1], self.ned_ref[2] )
         pos_str = "Lat: %.7f  Lon: %.7f  Alt(m): %.1f" % (lla[0], lla[1], lla[2])

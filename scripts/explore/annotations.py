@@ -51,12 +51,13 @@ class Annotations():
                                     self.ned_ref[1],
                                     self.ned_ref[2])
                 # print(lla, ned)
+                z = self.surface.get_elevation(ned[1], ned[0])
                 if len(lla) < 4:
-                    self.markers.append( [ned[1], ned[0], "comment"] )
+                    self.markers.append( [ned[1], ned[0], -z, "comment"] )
                 elif len(lla) < 5:
-                    self.markers.append( [ned[1], ned[0], ned[2], "comment"] )
+                    self.markers.append( [ned[1], ned[0], -z, "comment"] )
                 else:
-                    self.markers.append( [ned[1], ned[0], lla[3]] )
+                    self.markers.append( [ned[1], ned[0], -z] )
         else:
             print('No annotations file found.')
 
@@ -170,7 +171,7 @@ class Annotations():
             print("Found existing marker:", found)
             x = self.markers[found][0]
             y = self.markers[found][1]
-            z = self.surface.get_elevation(y, x)
+            z = self.surface.get_elevation(x, y)
             result, comment = self.edit(x, y, z,
                                         comment=self.markers[found][3],
                                         exists=True)
@@ -181,7 +182,7 @@ class Annotations():
                 del self.markers[found]
                 dirty = True
         else:
-            z = self.surface.get_elevation(y, x)
+            z = self.surface.get_elevation(x, y)
             result, comment = self.edit(x, y, z, exists=False)
             if result == 'ok':
                 self.markers.append( [x, y, z, comment] )
