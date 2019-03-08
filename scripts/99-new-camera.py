@@ -8,8 +8,7 @@ import sys
 from props import getNode       # from aura-props package
 import props_json               # from aura-props package
 
-sys.path.append('../lib')
-import Camera
+from lib import Camera
 
 parser = argparse.ArgumentParser(description='New camera configuration.')
 parser.add_argument('--config', default='../cameras', help='camera config directory')
