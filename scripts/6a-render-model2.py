@@ -214,7 +214,6 @@ if True:
                                                            image.z_avg,
                                                            proj_list)
         elif True:
-            # broke/fixme?
             # intersect with our polygon surface approximation
             pts_ned = intersect_vectors(ned, proj_list, -image.z_avg)
         elif False:
@@ -235,8 +234,8 @@ if True:
 dir_node = getNode('/config/directories', True)
 img_src_dir = dir_node.getString('images_source')
 Panda3d.generate_from_grid(proj, groups[args.group], src_dir=img_src_dir,
-                            project_dir=args.project,
-                            resolution=args.texture_resolution)
+                           project_dir=args.project,
+                           resolution=args.texture_resolution)
 
 # call the ac3d generator
 # AC3D.generate(proj.image_list, groups[0], src_dir=img_src_dir,
