@@ -60,8 +60,7 @@ class Annotations():
                                         self.ned_ref[1],
                                         self.ned_ref[2])
                     # print(m, ned)
-                    z = self.surface.get_elevation(ned[1], ned[0])
-                    ned[2] = -z
+                    ned[2] = self.surface.get_elevation(ned[1], ned[0])
                     if len(m) == 3:
                         self.add_marker( ned, "" )
                     else:
