@@ -22,11 +22,6 @@ class Annotations():
         self.icon = loader.loadTexture('explore/marker-icon-2x.png')
         self.view_size = 100
         self.markers = []
-        # generate some random markers for testing ...
-        # for i in range(20):
-        #     x = random.uniform(-100, 100)
-        #     y = random.uniform(-100, 100)
-        #     self.markers.append( [x, y] )
         self.nodes = []
         self.load()
 
@@ -38,6 +33,15 @@ class Annotations():
         # print(n, e, d, lla)
         return lla
 
+    def add_marker(self, ned, comment):
+        marker = { "ned": ned, "comment": comment }
+        self.markers.append(marker)
+        
+    def add_marker_dict(self, m):
+        ned = navpy.lla2ned(m['lat_deg'], m['lon_deg'], m['alt_m'],
+                            self.ned_ref[0], self.ned_ref[1], self.ned_ref[2])
+        self.add_marker(ned, m['comment'])
+        
     def load(self):
         file = os.path.join(self.project_dir, 'annotations.json')
         if os.path.exists(file):
@@ -45,19 +49,23 @@ class Annotations():
             f = open(file, 'r')
             lla_list = json.load(f)
             f.close()
-            for lla in lla_list:
-                ned = navpy.lla2ned(lla[0], lla[1], lla[2],
-                                    self.ned_ref[0],
-                                    self.ned_ref[1],
-                                    self.ned_ref[2])
-                # print(lla, ned)
-                z = self.surface.get_elevation(ned[1], ned[0])
-                if len(lla) < 4:
-                    self.markers.append( [ned[1], ned[0], -z, "comment"] )
-                elif len(lla) < 5:
-                    self.markers.append( [ned[1], ned[0], -z, "comment"] )
-                else:
-                    self.markers.append( [ned[1], ned[0], -z] )
+            for m in lla_list:
+                if type(m) is dict:
+                    print("m is dict")
+                    self.add_marker_dict( m )
+                elif type(m) is list:
+                    print("m is list")
+                    ned = navpy.lla2ned(m[0], m[1], m[2],
+                                        self.ned_ref[0],
+                                        self.ned_ref[1],
+                                        self.ned_ref[2])
+                    # print(m, ned)
+                    z = self.surface.get_elevation(ned[1], ned[0])
+                    ned[2] = -z
+                    if len(m) == 3:
+                        self.add_marker( ned, "" )
+                    else:
+                        self.add_marker( ned, m[3] )
         else:
             print('No annotations file found.')
 
@@ -66,9 +74,13 @@ class Annotations():
         print('Saving annotations:', filename)
         lla_list = []
         for m in self.markers:
-            lla = list(self.ned2lla( m[1], m[0], m[2] ))
-            lla.append(m[3])
-            lla_list.append(lla)
+            ned = m['ned']
+            lla = self.ned2lla( ned[0], ned[1], ned[2] )
+            jm = { 'lat_deg': lla[0],
+                   'lon_deg': lla[1],
+                   'alt_m': float("%.2f" % (lla[2])),
+                   'comment': m['comment'] }
+            lla_list.append(jm)
         f = open(filename, 'w')
         json.dump(lla_list, f, indent=4)
         f.close()
@@ -79,14 +91,11 @@ class Annotations():
             fieldnames = ['lat_deg', 'lon_deg', 'alt_m', 'comment']
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
-            for lla in lla_list:
-                writer.writerow({'lat_deg': lla[0],
-                                 'lon_deg': lla[1],
-                                 'alt_m': lla[2],
-                                 'comment': lla[3]})
+            for jm in lla_list:
+                writer.writerow(jm)
 
-    def edit(self, x, y, z, comment="", exists=False):
-        lla = self.ned2lla(y, x, z)
+    def edit(self, ned, comment="", exists=False):
+        lla = self.ned2lla(ned[0], ned[1], ned[2])
         new = Toplevel(self.tk_root)
         self.edit_result = "cancel"
         e = None
@@ -161,31 +170,29 @@ class Annotations():
         # check if we clicked on an existing marker
         found = -1
         for i, m in enumerate(self.markers):
-            dx = abs(x - m[0])
-            dy = y - m[1]
-            if dx <= (hsize*0.5)+1 and y >= m[1]-1 and y <= m[1]+vsize+1:
+            ned = m['ned']
+            dx = abs(x - ned[1])
+            dy = y - ned[0]
+            if dx <= (hsize*0.5)+1 and y >= ned[0]-1 and y <= ned[0]+vsize+1:
                 found = i
                 # del self.markers[i]
                 # break
         if found >= 0:
             print("Found existing marker:", found)
-            x = self.markers[found][0]
-            y = self.markers[found][1]
-            z = self.surface.get_elevation(x, y)
-            result, comment = self.edit(x, y, z,
-                                        comment=self.markers[found][3],
-                                        exists=True)
+            ned = self.markers[found]['ned']
+            comment = self.markers[found]['comment']
+            result, comment = self.edit(ned, comment, exists=True)
             if result == 'ok':
-                self.markers[found][3] = comment
+                self.markers[found]['comment'] = comment
                 dirty = True
             elif result == 'delete':
                 del self.markers[found]
                 dirty = True
         else:
             z = self.surface.get_elevation(x, y)
-            result, comment = self.edit(x, y, z, exists=False)
+            result, comment = self.edit( [y, x, z], exists=False)
             if result == 'ok':
-                self.markers.append( [x, y, z, comment] )
+                self.add_marker( [y, x, z], comment )
                 dirty = True
         if dirty:
             self.rebuild(self.view_size)
@@ -216,6 +223,7 @@ class Annotations():
             node.setDepthTest(False)
             node.setDepthWrite(False)
             node.setBin("unsorted", 1)
-            node.setPos(m[0], m[1], 0)
+            ned = m['ned']
+            node.setPos(ned[1], ned[0], 0)
             node.reparentTo(self.render)
             self.nodes.append(node)
