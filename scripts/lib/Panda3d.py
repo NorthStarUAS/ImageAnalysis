@@ -10,7 +10,7 @@ import scipy.spatial
 def make_textures(src_dir, project_dir, image_list, resolution=256):
     dst_dir = os.path.join(project_dir, 'models')
     if not os.path.exists(dst_dir):
-        print("Notice: creating texture directory =", dst_dir)
+        print("Notice: creating models directory =", dst_dir)
         os.makedirs(dst_dir)
     for image in image_list:
         src = os.path.join(src_dir, image.name)
@@ -141,6 +141,7 @@ def generate_from_fit(proj, group, ref_image=False, src_dir=".",
 
         width, height = image.get_size()
         n = 1
+        #print("uv len:", len(image.fit_uv))
         for i in range(len(image.fit_xy)):
             f.write("  <Vertex> %d {\n" % n)
             f.write("    %.2f %.2f %.2f\n" % (image.fit_xy[i][0],
