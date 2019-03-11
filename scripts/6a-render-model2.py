@@ -90,6 +90,10 @@ for match in matches:
                     image.max_z = z
                     #print(max_z, match)
 # save the surface definition as a separate file
+models_dir = os.path.join(args.project, 'models')
+if not os.path.exists(models_dir):
+    print("Notice: creating models directory =", models_dir)
+    os.makedirs(models_dir)
 surface = { 'points': raw_points,
             'values': raw_values }
 pickle.dump(surface, open(os.path.join(args.project, 'models', 'surface.bin'), "wb"))
