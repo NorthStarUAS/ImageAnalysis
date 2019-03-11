@@ -131,6 +131,9 @@ class MyApp(ShowBase):
         self.accept('7', self.image_select, [7])
         self.accept('8', self.image_select, [8])
         self.accept('9', self.image_select, [9])
+        self.accept('m', self.toggle_view_mode)
+        self.accept(',', self.update_sequential_num, [-1])
+        self.accept('.', self.update_sequential_num, [1])
         self.accept('escape', self.quit)
         self.accept('mouse3', self.annotations.toggle, [self.cam_pos])
 
@@ -142,6 +145,12 @@ class MyApp(ShowBase):
         # Add the tasks to the task manager.
         self.taskMgr.add(self.updateCameraTask, "updateCameraTask")
 
+        # Set default view mode
+        self.view_mode = 'best'
+        # self.view_mode = 'sequential'
+        self.sequential_num = 0
+        
+        # dump a summary of supposed card capabilities
         self.query_capabilities(display=True)
         
     def query_capabilities(self, display=True):
@@ -202,7 +211,7 @@ class MyApp(ShowBase):
                 
     def load(self, path):
         files = []
-        for file in os.listdir(path):
+        for file in sorted(os.listdir(path)):
             if fnmatch.fnmatch(file, '*.egg'):
                 # print('load:', file)
                 files.append(file)
@@ -233,7 +242,7 @@ class MyApp(ShowBase):
         #print('move:', x, y)
         self.cam_pos[0] += x * self.view_size * base.getAspectRatio()
         self.cam_pos[1] += y * self.view_size
-        if sort:
+        if self.view_mode == 'best' and sort:
             self.image_select(0)
             self.sortImages()
         
@@ -241,13 +250,56 @@ class MyApp(ShowBase):
         self.view_size /= f
         self.annotations.rebuild(self.view_size)
 
+    def cam_fit(self, model):
+        b = model.getTightBounds()
+        #print('tight', b)
+        if b:
+            center = [ (b[0][0] + b[1][0]) * 0.5,
+                       (b[0][1] + b[1][1]) * 0.5,
+                       (b[0][2] + b[1][2]) * 0.5 ]
+            self.cam_pos[0] = center[0]
+            self.cam_pos[1] = center[1]
+            vol = [ b[1][0] - b[0][0],
+                    b[1][1] - b[0][1],
+                    b[1][2] - b[0][2] ]
+            if vol[1] * base.getAspectRatio() > vol[0]:
+                # set by y axis
+                self.view_size = vol[1] * 1.05
+            else:
+                # set by x axis size
+                self.view_size = vol[0] * 1.05 / base.getAspectRatio()
+            print("view_size:", self.view_size)
+            self.annotations.rebuild(self.view_size)
+
+    def toggle_view_mode(self):
+        if self.view_mode == 'best':
+            self.view_mode = 'sequential'
+        else:
+            self.view_mode = 'best'
+        print("Setting view mode:", self.view_mode)
+        self.sortImages()
+
+    def update_sequential_num(self, inc):
+        if self.view_mode == 'sequential':
+            self.sequential_num += inc
+            if self.sequential_num < 0:
+                self.sequential_num = len(self.models) - 1
+            elif self.sequential_num >= len(self.models) - 1:
+                self.sequential_num = 0
+            print("Sequential image number:", self.sequential_num)
+            self.sortImages()
+ 
     def quit(self):
         raise SystemExit
 
     def image_select(self, level):
-        self.top_image = level
+        if self.view_mode == 'best':
+            self.top_image = level
+        elif self.view_mode == 'sequential':
+            max = len(self.models) - 1
+            self.sequential_num = int(round(float(level) * float(max) / 9.0))
         self.sortImages()
-        
+            
     # Define a procedure to move the camera.
     def updateCameraTask(self, task):
         self.camera.setPos(self.cam_pos[0], self.cam_pos[1], self.cam_pos[2])
@@ -289,31 +341,40 @@ class MyApp(ShowBase):
     def sortImages(self):
         # sort images by (hopefully) best covering view center
         result_list = []
-        for m in self.models:
+        for i, m in enumerate(self.models):
             b = m.getTightBounds()
             #print('tight', b)
             if b:
                 center = [ (b[0][0] + b[1][0]) * 0.5,
                            (b[0][1] + b[1][1]) * 0.5,
                            (b[0][2] + b[1][2]) * 0.5 ]
-                vol = [ b[0][0] - b[1][0],
-                        b[0][1] - b[1][1],
-                        b[0][2] - b[1][2] ]
+                vol = [ b[1][0] - b[0][0],
+                        b[1][1] - b[0][1],
+                        b[1][2] - b[0][2] ]
                 span = math.sqrt(vol[0]*vol[0] + vol[1]*vol[1] + vol[2]*vol[2])
                 dx = center[0] - self.cam_pos[0]
                 dy = center[1] - self.cam_pos[1]
                 dist = math.sqrt(dx*dx + dy*dy)
                 #print('center:', center, 'span:', span, 'dist:', dist)
-                metric = dist + (span * 0.1)
-                if not self.inbounds(b):
-                    metric += 1000
-                result_list.append( [metric, m] )
+                if self.view_mode == 'best':
+                    metric = dist + (span * 0.1)
+                    if not self.inbounds(b):
+                        metric += 1000
+                elif self.view_mode == 'sequential':
+                    metric = abs(i - self.sequential_num)
+                result_list.append( [metric, m, i] )
         result_list = sorted(result_list, key=lambda fields: fields[0],
                              reverse=True)
-        top = result_list[-1-self.top_image][1]
+        if self.view_mode == 'best':
+            top_entry = result_list[-1-self.top_image]
+        else:
+            top_entry = result_list[-1]
+        top = top_entry[1]
         top.setColor(1.0, 1.0, 1.0, 1.0)
         self.updateTexture(top)
-
+        if self.view_mode == 'sequential':
+            self.cam_fit(top)
+        
         for i, line in enumerate(result_list):
             m = line[1]
             if m == top:
