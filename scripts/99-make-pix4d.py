@@ -13,6 +13,7 @@ from auracore import wgs84      # github.com/AuraUAS/aura-core
 
 parser = argparse.ArgumentParser(description='Create a pix4d.csv file for a folder of geotagged images.')
 parser.add_argument('--images', required=True, help='Directory containing the images')
+parser.add_argument('--fudge-altitude-dji', default=0.0, type=float, help='Fudge altitude geotag for stupid dji(drone deploy?)')
 args = parser.parse_args()
 
 # load list of images
@@ -59,7 +60,7 @@ for file in files:
     elon = exif[GPS + 'Longitude'].value
     lon = dms_to_decimal(elon[0], elon[1], elon[2], exif[GPS + 'LongitudeRef'].value)
     ealt = exif[GPS + 'Altitude']
-    alt = float(ealt.value)
+    alt = float(ealt.value) + args.fudge_altitude_dji
     #exif[GPS + 'MapDatum'])
 
     # print exif.exif_keys
