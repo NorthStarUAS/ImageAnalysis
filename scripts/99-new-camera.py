@@ -27,7 +27,10 @@ if 'Exif.Photo.LensModel' in exif:
     lens_model = exif['Exif.Photo.LensModel'].value
 else:
     lens_model = 'unknown'
-focal_len_mm = exif['Exif.Photo.FocalLength'].value
+if 'Exif.Photo.FocalLength' in exif:
+    focal_len_mm = exif['Exif.Photo.FocalLength'].value
+else:
+    focal_len_mm = 4.0
 width = exif['Exif.Photo.PixelXDimension'].value
 height = exif['Exif.Photo.PixelYDimension'].value
 
