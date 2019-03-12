@@ -63,13 +63,14 @@ for file in files:
     #exif[GPS + 'MapDatum'])
 
     # print exif.exif_keys
-    strdate, strtime = str(exif['Exif.Image.DateTime'].value).split()
-    year, month, day = strdate.split('-')
-    hour, minute, second = strtime.split(':')
-    d = datetime.date(int(year), int(month), int(day))
-    t = datetime.time(int(hour), int(minute), int(second))
-    dt = datetime.datetime.combine(d, t) 
-    unixtime = float(dt.strftime('%s'))
+    if 'Exif.Image.DateTime' in exif:
+        strdate, strtime = str(exif['Exif.Image.DateTime'].value).split()
+        year, month, day = strdate.split('-')
+        hour, minute, second = strtime.split(':')
+        d = datetime.date(int(year), int(month), int(day))
+        t = datetime.time(int(hour), int(minute), int(second))
+        dt = datetime.datetime.combine(d, t) 
+        unixtime = float(dt.strftime('%s'))
     if last_lat and last_lon:
         (heading, rev_course, leg_dist) = \
             wgs84.geo_inverse( last_lat, last_lon, lat, lon )
