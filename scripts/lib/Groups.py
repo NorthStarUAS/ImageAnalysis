@@ -152,12 +152,12 @@ def groupByFeatureConnections(image_list, matches):
                         print()
             if add_count == 0:
                 # no more images could be connected
-                if len(group_images) > min_group:
+                if len(group_images) >= min_group:
                     group_list = []
                     for i in list(group_images):
                         group_list.append(image_list[i].name)
                     groups.append(group_list)
-                else:
+                if len(group_images) < 3:
                     done = True
                 break
             updateAvailableFeatures(group_images, matches, avail_features)
