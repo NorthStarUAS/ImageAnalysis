@@ -7,8 +7,7 @@ import cv2
 import fnmatch
 import os.path
 
-sys.path.append('../lib')
-import ProjectMgr
+from lib import ProjectMgr
 
 # for all the images in the project image_dir, detect features using the
 # specified method and parameters
