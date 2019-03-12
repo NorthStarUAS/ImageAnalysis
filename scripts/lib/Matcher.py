@@ -263,12 +263,12 @@ class Matcher():
         # all vs. all match between overlapping i1 keypoints and i2
         # keypoints (forward match)
         
-        # shape will be a zero length tuple if no features were detected
-        if len(i1.des_list.shape) == 0:
+        # sanity check
+        if len(i1.des_list.shape) == 0 or i1.des_list.shape[0] <= 1:
             return []
-        if len(i2.des_list.shape) == 0:
+        if len(i2.des_list.shape) == 0 or i2.des_list.shape[0] <= 1:
             return []
-        
+
         matches = self.matcher.knnMatch(np.array(i1.des_list),
                                         trainDescriptors=np.array(i2.des_list),
                                         k=2)
