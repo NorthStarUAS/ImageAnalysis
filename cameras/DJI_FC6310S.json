@@ -10,8 +10,8 @@
         0.0,
         1.0
     ],
-    "ccd_height_mm": 3.9375,
-    "ccd_width_mm": 5.25,
+    "ccd_height_mm": 8.8,
+    "ccd_width_mm": 13.2,
     "dist_coeffs": [
         0.014668747262878125,
         -0.25895904496565864,
