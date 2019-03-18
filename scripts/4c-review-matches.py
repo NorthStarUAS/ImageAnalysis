@@ -24,19 +24,21 @@ import match_culling as cull
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('--area', default='area-00', help='sub area directory')
 parser.add_argument('--stddev', type=float, default=5, help='how many stddevs above the mean for auto discarding features')
 
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_images_info()
+proj.load_area_info(args.area)
 proj.load_features()
 proj.undistort_keypoints()
 
 matcher = Matcher.Matcher()
 
 print("Loading match points (direct)...")
-matches = pickle.load( open( os.path.join(args.project, "matches_direct"), "rb" ) )
+area_dir = os.path.join(args.project, args.area)
+matches = pickle.load( open( os.path.join(area_dir, "matches_direct"), "rb" ) )
 
 print('num images:', len(proj.image_list))
 
@@ -61,8 +63,8 @@ for i in range(len(proj.image_list)):
     deltas.append( [None] * len(proj.image_list) )
     
 for match in matches:
-    for p1 in match[1:]:
-        for p2 in match[2:]:
+    for p1 in match[2:]:
+        for p2 in match[3:]:
             if p1[0] >= p2[0]:
                 # ignore the reciprocal matches
                 continue
