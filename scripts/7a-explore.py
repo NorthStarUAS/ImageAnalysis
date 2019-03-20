@@ -454,9 +454,14 @@ class MyApp(ShowBase):
                         if rescale:
                             print("Notice: rescaling texture to (%d,%d) to honor video card capability." % (w, h))
                             rgb = cv2.resize(rgb, (w,h))
-                            
-                        # equalize
-                        if True:
+
+                        # filter_by = 'equalize_value'
+                        # filter_by = 'equalize_rgb'
+                        # filter_by = 'equalize_blue'
+                        filter_by = 'equalize_green'
+                        # filter_by = 'equalize_blue'
+                        # filter_by = 'equalize_red'
+                        if filter_by == 'equalize_value':
                             # equalize val (essentially gray scale level)
                             hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
                             hue, sat, val = cv2.split(hsv)
@@ -465,13 +470,91 @@ class MyApp(ShowBase):
                             hsv = cv2.merge((hue,sat,aeq))
                             # convert back to rgb
                             result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-                        else:
+                        elif filter_by == 'equalize_rgb':
                             # equalize individual b, g, r channels
                             b, g, r = cv2.split(rgb)
                             b = clahe.apply(b)
                             g = clahe.apply(g)
                             r = clahe.apply(r)
                             result = cv2.merge((b,g,r))
+                        elif filter_by == 'equalize_blue':
+                            # equalize val (essentially gray scale level)
+                            hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
+                            hue, sat, val = cv2.split(hsv)
+                            # blue hue = 120
+                            
+                            # slide 120 -> 90 (center of 0-180 range
+                            # with mod() roll over)
+                            diff = np.mod(hue.astype('float64') - 30, 180)
+                            # move this center point to 0 (-90 to +90
+                            # range) and take absolute value
+                            # (distance)
+                            diff = np.abs(diff - 90)
+                            # scale to 0 to 1 (1 being the closest to
+                            # our target hue)
+                            diff = 1.0 - diff / 90
+                            print('hue:', np.amin(hue), np.amax(hue))
+                            print('sat:', np.amin(sat), np.amax(sat))
+                            print('diff:', np.amin(diff), np.amax(diff))
+                            #print(diff)
+                            #g = (256 - (256.0/90.0)*diff).astype('uint8')
+                            b = (diff * sat).astype('uint8')
+                            g = np.zeros(hue.shape, dtype='uint8')
+                            r = np.zeros(hue.shape, dtype='uint8')
+                            #g = clahe.apply(g)
+                            result = cv2.merge((b,g,r))
+                            print(result.shape, result.dtype)
+                        elif filter_by == 'equalize_green':
+                            # equalize val (essentially gray scale level)
+                            hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
+                            hue, sat, val = cv2.split(hsv)
+                            # green hue = 60
+                            
+                            # slide 60 -> 90 (center of 0-180 range
+                            # with mod() roll over)
+                            diff = np.mod(hue.astype('float64') + 30, 180)
+                            # move this center point to 0 (-90 to +90
+                            # range) and take absolute value
+                            # (distance)
+                            diff = np.abs(diff - 90)
+                            # scale to 0 to 1 (1 being the closest to
+                            # our target hue)
+                            diff = 1.0 - diff / 90
+                            print('hue:', np.amin(hue), np.amax(hue))
+                            print('sat:', np.amin(sat), np.amax(sat))
+                            print('diff:', np.amin(diff), np.amax(diff))
+                            #print(diff)
+                            b = np.zeros(hue.shape, dtype='uint8')
+                            g = (diff * sat).astype('uint8')
+                            r = np.zeros(hue.shape, dtype='uint8')
+                            #g = clahe.apply(g)
+                            result = cv2.merge((b,g,r))
+                            print(result.shape, result.dtype)
+                        elif filter_by == 'equalize_red':
+                            # equalize val (essentially gray scale level)
+                            hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
+                            hue, sat, val = cv2.split(hsv)
+                            # red hue = 0
+                            
+                            # slide 0 -> 90 (center of 0-180 range
+                            # with mod() roll over)
+                            diff = np.mod(hue.astype('float64') + 90, 180)
+                            # move this center point to 0 (-90 to +90
+                            # range) and take absolute value
+                            # (distance)
+                            diff = np.abs(diff - 90)
+                            # scale to 0 to 1 (1 being the closest to
+                            # our target hue)
+                            diff = 1.0 - diff / 90
+                            print('hue:', np.amin(hue), np.amax(hue))
+                            print('sat:', np.amin(sat), np.amax(sat))
+                            print('diff:', np.amin(diff), np.amax(diff))
+                            b = np.zeros(hue.shape, dtype='uint8')
+                            g = np.zeros(hue.shape, dtype='uint8')
+                            r = (diff * sat).astype('uint8')
+                            result = cv2.merge((b,g,r))
+                            print(result.shape, result.dtype)
+                            
                         fulltex = Texture(base)
                         fulltex.setCompression(Texture.CMOff)
                         fulltex.setup2dTexture(w, h, Texture.TUnsignedByte, Texture.FRgb)
