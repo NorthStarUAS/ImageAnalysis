@@ -458,9 +458,10 @@ class MyApp(ShowBase):
                         # filter_by = 'equalize_value'
                         # filter_by = 'equalize_rgb'
                         # filter_by = 'equalize_blue'
-                        filter_by = 'equalize_green'
+                        # filter_by = 'equalize_green'
                         # filter_by = 'equalize_blue'
                         # filter_by = 'equalize_red'
+                        filter_by = 'red/green'
                         if filter_by == 'equalize_value':
                             # equalize val (essentially gray scale level)
                             hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
@@ -552,6 +553,22 @@ class MyApp(ShowBase):
                             b = np.zeros(hue.shape, dtype='uint8')
                             g = np.zeros(hue.shape, dtype='uint8')
                             r = (diff * sat).astype('uint8')
+                            result = cv2.merge((b,g,r))
+                            print(result.shape, result.dtype)
+                        elif filter_by == 'red/green':
+                            # equalize val (essentially gray scale level)
+                            max = 4.0
+                            b, g, r = cv2.split(rgb)
+                            ratio = r / (g.astype('float64')+1.0)
+                            ratio = np.clip(ratio, 0, max)
+                            inv = g / (r.astype('float64')+1.0)
+                            inv = np.clip(inv, 0, max)
+                            max_ratio = np.amax(ratio)
+                            max_inv = np.amax(inv)
+                            print(max_ratio, max_inv)
+                            b[:] = 0
+                            g = (inv * (255/max)).astype('uint8')
+                            r = (ratio * (255/max)).astype('uint8')
                             result = cv2.merge((b,g,r))
                             print(result.shape, result.dtype)
                             
