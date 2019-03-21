@@ -15,9 +15,11 @@ void main() {
   // simple passthrough
   // out_color = color.bgra * colorV.bgra;
 
-  // Emphasize red/green objects
-  out_color.r = min(color.r / max(color.g, 0.01), cutoff) * scalar * colorV.r;
-  out_color.g = min(color.g / max(color.r, 0.01), cutoff) * scalar * colorV.g;
+  // Emphasize red/green differences between objects
+  float red = color.r / max(color.g, 0.01);
+  float green = color.g / max(color.r, 0.01);
+  out_color.r = min(red * red, cutoff) * scalar * colorV.r;
+  out_color.g = min(green * green, cutoff) * scalar * colorV.g;
   out_color.b = 0;
   out_color.a = color.a * colorV.a;
 
