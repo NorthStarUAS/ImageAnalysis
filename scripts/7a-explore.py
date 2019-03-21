@@ -24,6 +24,7 @@ from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
 from panda3d.core import LineSegs, NodePath, OrthographicLens, PNMImage, Texture, Filename
 from direct.gui.DirectGui import YesNoDialog
+from panda3d.core import Shader
 
 from lib import ProjectMgr
 from explore import annotations
@@ -152,6 +153,10 @@ class MyApp(ShowBase):
         
         # dump a summary of supposed card capabilities
         self.query_capabilities(display=True)
+
+        # test shader
+        # self.shader = Shader.load(Shader.SL_GLSL, vertex="explore/myshader.vert", fragment="explore/myshader.frag", geometry="explore/myshader.geom")
+        self.shader = Shader.load(Shader.SL_GLSL, vertex="explore/myshader.vert", fragment="explore/myshader.frag")
         
     def query_capabilities(self, display=True):
         gsg=base.win.getGsg()
@@ -220,6 +225,7 @@ class MyApp(ShowBase):
             # load and reparent each egg file
             pandafile = Filename.fromOsSpecific(os.path.join(path, file))
             model = self.loader.loadModel(pandafile)
+            model.set_shader(self.shader)
 
             # print(file)
             # self.pretty_print(model, '  ')
@@ -455,13 +461,13 @@ class MyApp(ShowBase):
                             print("Notice: rescaling texture to (%d,%d) to honor video card capability." % (w, h))
                             rgb = cv2.resize(rgb, (w,h))
 
-                        # filter_by = 'equalize_value'
+                        filter_by = 'equalize_value'
                         # filter_by = 'equalize_rgb'
                         # filter_by = 'equalize_blue'
                         # filter_by = 'equalize_green'
                         # filter_by = 'equalize_blue'
                         # filter_by = 'equalize_red'
-                        filter_by = 'red/green'
+                        # filter_by = 'red/green'
                         if filter_by == 'equalize_value':
                             # equalize val (essentially gray scale level)
                             hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
