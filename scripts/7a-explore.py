@@ -132,6 +132,7 @@ class MyApp(ShowBase):
         self.accept('7', self.image_select, [7])
         self.accept('8', self.image_select, [8])
         self.accept('9', self.image_select, [9])
+        self.accept('f', self.toggle_filter)
         self.accept('m', self.toggle_view_mode)
         self.accept(',', self.update_sequential_num, [-1])
         self.accept('.', self.update_sequential_num, [1])
@@ -146,6 +147,9 @@ class MyApp(ShowBase):
         # Add the tasks to the task manager.
         self.taskMgr.add(self.updateCameraTask, "updateCameraTask")
 
+        # Shader (aka filter?)
+        self.filter = 'none'
+        
         # Set default view mode
         self.view_mode = 'best'
         # self.view_mode = 'sequential'
@@ -225,7 +229,7 @@ class MyApp(ShowBase):
             # load and reparent each egg file
             pandafile = Filename.fromOsSpecific(os.path.join(path, file))
             model = self.loader.loadModel(pandafile)
-            model.set_shader(self.shader)
+            # model.set_shader(self.shader)
 
             # print(file)
             # self.pretty_print(model, '  ')
@@ -276,6 +280,17 @@ class MyApp(ShowBase):
                 self.view_size = vol[0] * 1.05 / base.getAspectRatio()
             print("view_size:", self.view_size)
             self.annotations.rebuild(self.view_size)
+
+    def toggle_filter(self):
+        if self.filter == 'shader':
+            self.filter = 'none'
+            for m in self.models:
+                m.clear_shader()
+        else:
+            self.filter = 'shader'
+            for m in self.models:
+                m.set_shader(self.shader)
+        # print("Setting filter:", self.filter)
 
     def toggle_view_mode(self):
         if self.view_mode == 'best':
