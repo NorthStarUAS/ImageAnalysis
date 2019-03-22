@@ -15,11 +15,22 @@ void main() {
   // simple passthrough
   // out_color = color.bgra * colorV.bgra;
 
-  // Emphasize red/green differences between objects
-  float red = color.r / max(color.g, 0.01);
+  // Emphasize dominant red vs. green extremes
+  // float red = color.r / max(color.g, 0.01);
+  // float green = color.g / max(color.r, 0.01);
+  // out_color.r = min(red * red, cutoff) * scalar * colorV.r;
+  // out_color.g = min(green * green, cutoff) * scalar * colorV.g;
+  // out_color.b = 0;
+  // out_color.a = color.a * colorV.a;
+
+  // Emphasize red extremes (v1)
+  float red = color.r / max(color.g, 0.01); // protect against divide-by-zero
   float green = color.g / max(color.r, 0.01);
-  out_color.r = min(red * red, cutoff) * scalar * colorV.r;
-  out_color.g = min(green * green, cutoff) * scalar * colorV.g;
+  float lum = 0.21*color.r + 0.72*color.g + 0.07*color.b; // std rgb->gray
+  float lum_factor = smoothstep(0.0, 0.2, lum); // knock out basement noise
+  
+  out_color.r = smoothstep(0.9, 3.0, red*lum_factor) * colorV.r;
+  out_color.g = smoothstep(0.5, 2.5, green) * colorV.g;
   out_color.b = 0;
   out_color.a = color.a * colorV.a;
 
