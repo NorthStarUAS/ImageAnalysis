@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import argparse
+import os
 
 from props import getNode
 
@@ -12,8 +13,8 @@ from lib import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Set the aircraft poses from flight data.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--meta', help='use the specified image-metadata.txt file (lat,lon,alt,yaw,pitch,roll)')
-parser.add_argument('--pix4d', help='use the specified pix4d csv file (lat,lon,alt,roll,pitch,yaw)')
+#parser.add_argument('--meta', help='use the specified image-metadata.txt file (lat,lon,alt,yaw,pitch,roll)')
+#parser.add_argument('--pix4d', help='use the specified pix4d csv file (lat,lon,alt,roll,pitch,yaw)')
 parser.add_argument('--max-angle', type=float, default=25.0, help='max pitch or roll angle for image inclusion')
 
 args = parser.parse_args()
@@ -22,17 +23,19 @@ proj = ProjectMgr.ProjectMgr(args.project)
 print("Loading image info...")
 proj.load_images_info()
 
-pose_set = False
-if args.meta != None:
-    Pose.setAircraftPoses(proj, args.meta, order='ypr', max_angle=args.max_angle)
-    pose_set = True
-elif args.pix4d != None:
-    Pose.setAircraftPoses(proj, args.pix4d, order='rpy', max_angle=args.max_angle)
-    pose_set = True
+dir_node = getNode('/config/directories', True)
+image_dir = os.path.normpath(dir_node.getStringEnum('image_sources', 0))
 
-if not pose_set:
-    print("Error: no flight data specified or problem with flight data")
-    print("No poses computed")
+pix4d_file = os.path.join(image_dir, 'pix4d.csv')
+meta_file = os.path.join(image_dir, 'image-metadata.txt')
+if os.path.exists(pix4d_file):
+    Pose.setAircraftPoses(proj, pix4d_file, order='rpy',
+                          max_angle=args.max_angle)
+elif os.path.exists(meta_file):
+    Pose.setAircraftPoses(proj, meta_file, order='ypr',
+                          max_angle=args.max_angle)
+else:
+    print("Error: no pose file found in image directory:", image_dir)
     quit()
 
 # compute the project's NED reference location (based on average of
