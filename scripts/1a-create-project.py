@@ -1,21 +1,25 @@
 #!/usr/bin/python3
 
 import argparse
+import os
 
 from lib import ProjectMgr
 
 # initialize a new project workspace
 
 parser = argparse.ArgumentParser(description='Create an empty project.')
-parser.add_argument('--project', required=True, help='project work directory')
-parser.add_argument('--image-dirs', required=True, nargs='+', help='image source directory')
+parser.add_argument('--project', required=True, help='Directory with a set of aerial images.')
 
 args = parser.parse_args()
-print(args)
+
+# test if images directory exists
+if not os.path.isdir(args.project):
+    print("Images directory doesn't exist:", args.project)
+    quit()
 
 # create an empty project
 proj = ProjectMgr.ProjectMgr(args.project, create=True)
-proj.set_image_sources(args.image_dirs)
+
+# and save what we have so far ...
 proj.save()
 
-proj.load_images_info()

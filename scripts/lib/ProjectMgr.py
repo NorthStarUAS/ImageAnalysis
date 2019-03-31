@@ -11,6 +11,7 @@ import numpy as np
 import os.path
 import pickle
 from progress.bar import Bar
+import pyexiv2                  # dnf install python3-exiv2 (py3exiv2)
 import scipy.interpolate
 import subprocess
 import sys
@@ -33,6 +34,7 @@ from . import transformations
 class ProjectMgr():
     def __init__(self, project_dir, create=False):
         self.project_dir = project_dir
+        self.analysis_dir = os.path.join(self.project_dir, "ImageAnalysis")
         self.cam = Camera.Camera()
         self.image_list = []
         self.matcher_params = { 'matcher': 'FLANN', # { FLANN or 'BF' }
@@ -51,17 +53,17 @@ class ProjectMgr():
         self.cam.set_defaults() # camera defaults
 
     # project_dir is a new folder for all derived files
-    def validate_project_dir(self, create_if_needed=True):
-        if not os.path.exists(self.project_dir):
+    def validate_project_dir(self, create_if_needed):
+        if not os.path.exists(self.analysis_dir):
             if create_if_needed:
-                print("Notice: creating project directory:", self.project_dir)
-                os.makedirs(self.project_dir)
+                print("Notice: creating analysis directory:", self.analysis_dir)
+                os.makedirs(self.analysis_dir)
             else:
-                print("Error: project dir doesn't exist: ", self.project_dir)
+                print("Error: analysis dir doesn't exist: ", self.analysis_dir)
                 return False
 
         # and make children directories
-        meta_dir = os.path.join(self.project_dir, 'meta')
+        meta_dir = os.path.join(self.analysis_dir, 'meta')
         if not os.path.exists(meta_dir):
             if create_if_needed:
                 print("Notice: creating meta directory:", meta_dir)
@@ -79,7 +81,7 @@ class ProjectMgr():
     # image set completely untouched.
     def set_image_sources(self, image_dirs):
         for i, dir in enumerate(image_dirs):
-            if dir == self.project_dir:
+            if dir == self.analysis_dir:
                 print("Error: image source and project dirs must be different.")
                 return
             if not os.path.exists(dir):
@@ -88,21 +90,21 @@ class ProjectMgr():
 
     def save(self):
         # create a project dictionary and write it out as json
-        if not os.path.exists(self.project_dir):
-            print("Error: project doesn't exist:", self.project_dir)
+        if not os.path.exists(self.analysis_dir):
+            print("Error: project doesn't exist:", self.analysis_dir)
             return
 
-        project_file = os.path.join(self.project_dir, "config.json")
+        project_file = os.path.join(self.analysis_dir, "config.json")
         config_node = getNode("/config", True)
         props_json.save(project_file, config_node)
 
     def load(self, create=True):
-        if not self.validate_project_dir():
+        if not self.validate_project_dir(create):
             return
 
         # load project configuration
         result = False
-        project_file = os.path.join(self.project_dir, "config.json")
+        project_file = os.path.join(self.analysis_dir, "config.json")
         config_node = getNode("/config", True)
         if os.path.isfile(project_file):
             if props_json.load(project_file, config_node):
@@ -122,12 +124,33 @@ class ProjectMgr():
             print("aborting...")
             quit()
 
+        if create:
+            self.set_image_sources( [self.project_dir] )
+            
         #root.pretty_print()
 
+    def detect_camera(self):
+        camera = ""
+        dir_node = getNode('/config/directories', True)
+        image_dir = os.path.normpath(dir_node.getStringEnum('image_sources', 0))
+        for file in os.listdir(image_dir):
+            if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
+                exif = pyexiv2.ImageMetadata(os.path.join(image_dir, file))
+                exif.read()
+                if 'Exif.Image.Make' in exif:
+                    camera = exif['Exif.Image.Make'].value
+                if 'Exif.Image.Model' in exif:
+                    camera += '_' + exif['Exif.Image.Model'].value
+                if 'Exif.Photo.LensModel' in exif:
+                    camera += '_' + exif['Exif.Photo.LensModel'].value
+                break
+        camera = camera.replace(' ', '_')
+        return camera
+        
     def load_images_info(self):
         # load image meta info
         result = False
-        meta_dir = os.path.join(self.project_dir, 'meta')
+        meta_dir = os.path.join(self.analysis_dir, 'meta')
         images_node = getNode("/images", True)
 
         for file in os.listdir(meta_dir):
@@ -149,10 +172,10 @@ class ProjectMgr():
     def load_area_info(self, area='area-00'):
         # load image meta info for specified sub area
         result = False
-        meta_dir = os.path.join(self.project_dir, 'meta')
+        meta_dir = os.path.join(self.analysis_dir, 'meta')
         images_node = getNode("/images", True)
 
-        area_file = os.path.join(self.project_dir, area, 'image_list')
+        area_file = os.path.join(self.analysis_dir, area, 'image_list')
         area_list = pickle.load( open(area_file, 'rb') )
         for name in area_list:
             meta_file = os.path.join(meta_dir, name + ".json")
@@ -235,11 +258,11 @@ class ProjectMgr():
                 
     def save_images_info(self):
         # create a project dictionary and write it out as json
-        if not os.path.exists(self.project_dir):
-            print("Error: project doesn't exist:", self.project_dir)
+        if not os.path.exists(self.analysis_dir):
+            print("Error: project doesn't exist:", self.analysis_dir)
             return
 
-        meta_dir = os.path.join(self.project_dir, 'meta')
+        meta_dir = os.path.join(self.analysis_dir, 'meta')
         images_node = getNode("/images", True)
         for name in images_node.getChildren():
             image_node = images_node.getChild(name, True)
