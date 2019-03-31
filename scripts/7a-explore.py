@@ -625,5 +625,5 @@ class MyApp(ShowBase):
             del tcache[oldest_name]
     
 app = MyApp()
-app.load( os.path.join(args.project, "models") )
+app.load( os.path.join(proj.analysis_dir, "models") )
 app.run()

@@ -22,7 +22,7 @@ proj.load_area_info(args.area)
 proj.load_features(descriptors=False)
 
 print("Loading match points (direct)...")
-area_dir = os.path.join(args.project, args.area)
+area_dir = os.path.join(proj.analysis_dir, args.area)
 matches_direct = pickle.load( open( os.path.join(area_dir, "matches_direct"), "rb" ) )
 
 # collect/group match chains that refer to the same keypoint

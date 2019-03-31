@@ -25,7 +25,7 @@ proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_area_info(args.area)
 proj.load_features(descriptors=False)
 #proj.undistort_keypoints()
-area_dir = os.path.join(args.project, args.area)
+area_dir = os.path.join(proj.analysis_dir, args.area)
 proj.load_match_pairs(extra_verbose=False)
 
 # compute keypoint usage map

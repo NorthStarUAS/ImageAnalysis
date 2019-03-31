@@ -53,7 +53,7 @@ ref = [ ref_node.getFloat('lat_deg'),
 # setup SRTM ground interpolator
 sss = SRTM.NEDGround( ref, 6000, 6000, 30 )
 
-area_dir = os.path.join(args.project, args.area)
+area_dir = os.path.join(proj.analysis_dir, args.area)
 
 print("Loading optimized match points ...")
 matches = pickle.load( open( os.path.join(area_dir, "matches_grouped"), "rb" ) )
@@ -90,13 +90,13 @@ for match in matches:
                     image.max_z = z
                     #print(max_z, match)
 # save the surface definition as a separate file
-models_dir = os.path.join(args.project, 'models')
+models_dir = os.path.join(proj.analysis_dir, 'models')
 if not os.path.exists(models_dir):
     print("Notice: creating models directory =", models_dir)
     os.makedirs(models_dir)
 surface = { 'points': raw_points,
             'values': raw_values }
-pickle.dump(surface, open(os.path.join(args.project, 'models', 'surface.bin'), "wb"))
+pickle.dump(surface, open(os.path.join(proj.analysis_dir, 'models', 'surface.bin'), "wb"))
 
 print('Generating Delaunay mesh and interpolator ...')
 global_tri_list = scipy.spatial.Delaunay(np.array(raw_points))
@@ -238,10 +238,10 @@ if True:
 dir_node = getNode('/config/directories', True)
 img_src_dir = dir_node.getString('images_source')
 Panda3d.generate_from_grid(proj, groups[args.group], src_dir=img_src_dir,
-                           project_dir=args.project,
+                           analysis_dir=proj.analysis_dir,
                            resolution=args.texture_resolution)
 
 # call the ac3d generator
 # AC3D.generate(proj.image_list, groups[0], src_dir=img_src_dir,
-#               project_dir=args.project, base_name='direct',
+#               analysis_dir=proj.analysis_dir, base_name='direct',
 #               version=1.0, trans=0.1, resolution=args.texture_resolution)

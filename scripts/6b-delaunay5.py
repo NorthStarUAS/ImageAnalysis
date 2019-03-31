@@ -57,7 +57,7 @@ def gen_ac3d_surface(name, points_group, values_group, tris_group):
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_area_info(args.area)
 
-area_dir = os.path.join(args.project, args.area)
+area_dir = os.path.join(proj.analysis_dir, args.area)
 
 print("Loading optimized points ...")
 matches = pickle.load( open( os.path.join(area_dir, "matches_grouped"), "rb" ) )

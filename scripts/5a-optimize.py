@@ -68,7 +68,7 @@ def transform_points( A, pts_list ):
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_area_info(args.area)
 
-area_dir = os.path.join(args.project, args.area)
+area_dir = os.path.join(proj.analysis_dir, args.area)
 
 source_file = os.path.join(area_dir, 'matches_grouped' )
 print('Match file:', source_file)
