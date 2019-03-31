@@ -164,12 +164,11 @@ class Image():
                                                       class_id) )
 
     def load_descriptors(self):
-        filename = self.des_file + ".npy"
-        if os.path.exists(filename):
+        if os.path.exists(self.des_file):
             if self.des_list is None:
-                #print "Loading " + filename
+                #print "Loading " + self.des_file
                 try:
-                    self.des_list = np.load(filename)
+                    self.des_list = np.load(self.des_file)
                     #print np.any(self.des_list)
                     #val = "%s" % self.des_list
                     #print
@@ -177,10 +176,10 @@ class Image():
                     #print val
                     #print
                 except:
-                    print(filename + ":\n" + "  desc load error: " \
+                    print(self.des_file + ":\n" + "  desc load error: " \
                         + str(sys.exc_info()[1]))
         else:
-            print("no file:", filename)
+            print("no file:", self.des_file)
             
     def load_matches(self):
         try:
@@ -209,14 +208,15 @@ class Image():
     def save_descriptors(self):
         # write descriptors as 'ppm image' format
         try:
-            result = np.save(self.des_file, self.des_list)
+            f = open(self.des_file, 'wb')
+            result = np.save(f, self.des_list)
         except:
             print(self.des_file + ": error saving file: " \
                 + str(sys.exc_info()[1]))
 
     def save_matches(self):
         try:
-            pickle.dump(self.match_list, open(self.match_file, "wb"))
+            pickle.dump(self.match_list, open(self.match_file, 'wb'))
         except IOError as e:
             print(self.match_file + ": error saving file: " \
                 + str(sys.exc_info()[1]))
