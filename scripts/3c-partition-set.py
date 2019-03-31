@@ -98,7 +98,7 @@ while not done:
                     images.append(image.name)
                     image.is_assigned = True
             print('  images in cell:', len(images))
-            dirname = os.path.join(args.project, 'area-%d%d' % (i, j))
+            dirname = os.path.join(proj.analysis_dir, 'area-%d%d' % (i, j))
             if not os.path.exists(dirname):
                 os.makedirs(dirname)
             pickle.dump(images, open(os.path.join(dirname, "image_list"), 'wb'))
