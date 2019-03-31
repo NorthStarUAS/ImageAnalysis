@@ -7,8 +7,8 @@ import numpy as np
 import os
 import scipy.spatial
 
-def make_textures(src_dir, project_dir, image_list, resolution=256):
-    dst_dir = os.path.join(project_dir, 'models')
+def make_textures(src_dir, analysis_dir, image_list, resolution=256):
+    dst_dir = os.path.join(analysis_dir, 'models')
     if not os.path.exists(dst_dir):
         print("Notice: creating models directory =", dst_dir)
         os.makedirs(dst_dir)
@@ -18,8 +18,8 @@ def make_textures(src_dir, project_dir, image_list, resolution=256):
         if not os.path.exists(dst):
             subprocess.run(['convert', '-resize', '%dx%d!' % (resolution, resolution), src, dst])
         
-def make_textures_opencv(src_dir, project_dir, image_list, resolution=256):
-    dst_dir = os.path.join(project_dir, 'models')
+def make_textures_opencv(src_dir, analysis_dir, image_list, resolution=256):
+    dst_dir = os.path.join(analysis_dir, 'models')
     if not os.path.exists(dst_dir):
         print("Notice: creating texture directory =", dst_dir)
         os.makedirs(dst_dir)
@@ -50,9 +50,9 @@ def make_textures_opencv(src_dir, project_dir, image_list, resolution=256):
             print("Texture %dx%d %s" % (resolution, resolution, dst))
             
 def generate_from_grid(proj, group, ref_image=False, src_dir=".",
-                       project_dir=".", resolution=512 ):
+                       analysis_dir=".", resolution=512 ):
     # make the textures if needed
-    make_textures_opencv(src_dir, project_dir, proj.image_list, resolution)
+    make_textures_opencv(src_dir, analysis_dir, proj.image_list, resolution)
     
     for name in group:
         image = proj.findImageByName(name)
@@ -60,7 +60,7 @@ def generate_from_grid(proj, group, ref_image=False, src_dir=".",
             continue
 
         root, ext = os.path.splitext(image.name)
-        name = os.path.join( project_dir, "models", root + ".egg" )
+        name = os.path.join( analysis_dir, "models", root + ".egg" )
         print("EGG file name:", name)
 
         f = open(name, "w")
@@ -118,9 +118,9 @@ def generate_from_grid(proj, group, ref_image=False, src_dir=".",
             os.remove(name)
             
 def generate_from_fit(proj, group, ref_image=False, src_dir=".",
-                      project_dir=".", resolution=512 ):
+                      analysis_dir=".", resolution=512 ):
     # make the textures if needed
-    make_textures_opencv(src_dir, project_dir, proj.image_list, resolution)
+    make_textures_opencv(src_dir, analysis_dir, proj.image_list, resolution)
 
     for name in group:
         image = proj.findImageByName(name)
@@ -131,7 +131,7 @@ def generate_from_fit(proj, group, ref_image=False, src_dir=".",
                 os.remove(name)
 
         root, ext = os.path.splitext(image.name)
-        name = os.path.join( project_dir, "models", root + ".egg" )
+        name = os.path.join( analysis_dir, "models", root + ".egg" )
         print("EGG file name:", name)
 
         f = open(name, "w")
