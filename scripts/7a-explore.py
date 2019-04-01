@@ -102,7 +102,7 @@ class MyApp(ShowBase):
         self.top_image = 0
 
         # modules
-        self.surface = surface.Surface(args.project)
+        self.surface = surface.Surface(proj.analysis_dir)
         self.annotations = annotations.Annotations(self.render, self.surface,
                                                    args.project,
                                                    ned_ref, tk_root)

@@ -4,8 +4,8 @@ import pickle
 import scipy.spatial
 
 class Surface():
-    def __init__(self, project_dir):
-        surface_file = os.path.join(project_dir, 'models', 'surface.bin')
+    def __init__(self, analysis_dir):
+        surface_file = os.path.join(analysis_dir, 'models', 'surface.bin')
         if os.path.exists(surface_file):
             print("Loading surface:", surface_file)
             raw = pickle.load(open(surface_file, "rb"))
