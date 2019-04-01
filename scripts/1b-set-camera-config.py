@@ -38,27 +38,35 @@ print("Camera:", camera_file)
 # project configuration
 cam_node = getNode('/config/camera', True)
 tmp_node = PropertyNode()
-props_json.load(camera_file, tmp_node)
-for child in tmp_node.getChildren(expand=False):
-    if tmp_node.isEnum(child):
-        # print(child, tmp_node.getLen(child))
-        for i in range(tmp_node.getLen(child)):
-            cam_node.setFloatEnum(child, i, tmp_node.getFloatEnum(child, i))
-    else:
-        # print(child, type(tmp_node.__dict__[child]))
-        child_type = type(tmp_node.__dict__[child])
-        if child_type is float:
-            cam_node.setFloat(child, tmp_node.getFloat(child))
-        elif child_type is int:
-            cam_node.setInt(child, tmp_node.getInt(child))
-        elif child_type is str:
-            cam_node.setString(child, tmp_node.getString(child))
+if props_json.load(camera_file, tmp_node):
+    for child in tmp_node.getChildren(expand=False):
+        if tmp_node.isEnum(child):
+            # print(child, tmp_node.getLen(child))
+            for i in range(tmp_node.getLen(child)):
+                cam_node.setFloatEnum(child, i, tmp_node.getFloatEnum(child, i))
         else:
-            print('Unknown child type:', child, child_type)
+            # print(child, type(tmp_node.__dict__[child]))
+            child_type = type(tmp_node.__dict__[child])
+            if child_type is float:
+                cam_node.setFloat(child, tmp_node.getFloat(child))
+            elif child_type is int:
+                cam_node.setInt(child, tmp_node.getInt(child))
+            elif child_type is str:
+                cam_node.setString(child, tmp_node.getString(child))
+            else:
+                print('Unknown child type:', child, child_type)
 
-proj.cam.set_mount_params(args.yaw_deg, args.pitch_deg, args.roll_deg)
+    proj.cam.set_mount_params(args.yaw_deg, args.pitch_deg, args.roll_deg)
 
-# note: dist_coeffs = array[5] = k1, k2, p1, p2, k3
+    # note: dist_coeffs = array[5] = k1, k2, p1, p2, k3
 
-# ... and save
-proj.save()
+    # ... and save
+    proj.save()
+else:
+    # failed to load camera config file
+    if not args.camera:
+        print("Camera autodetection failed.")
+        print("Consider running the new camera script to create a camera config")
+        print("and then try running this script again.")
+    else:
+        print("Provided camera config not found:", args.camera)
