@@ -430,10 +430,7 @@ class MyApp(ShowBase):
                     continue
                 base, ext = os.path.splitext(m.getName())
                 image_file = None
-                search = [ os.path.join(args.project, 'images') ]
-                for i in range( dir_node.getLen('image_sources') ):
-                    dir = dir_node.getStringEnum('image_sources', i)
-                    search.append(dir)
+                search = [ args.project, os.path.join(args.project, 'images') ]
                 for dir in search:
                     tmp1 = os.path.join(dir, base + '.JPG')
                     tmp2 = os.path.join(dir, base + '.jpg')
@@ -476,8 +473,8 @@ class MyApp(ShowBase):
                             print("Notice: rescaling texture to (%d,%d) to honor video card capability." % (w, h))
                             rgb = cv2.resize(rgb, (w,h))
 
-                        filter_by = 'none'
-                        # filter_by = 'equalize_value'
+                        # filter_by = 'none'
+                        filter_by = 'equalize_value'
                         # filter_by = 'equalize_rgb'
                         # filter_by = 'equalize_blue'
                         # filter_by = 'equalize_green'

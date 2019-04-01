@@ -27,8 +27,7 @@ proj = ProjectMgr.ProjectMgr(args.project)
 
 # load list of images
 files = []
-dir_node = getNode('/config/directories', True)
-image_dir = os.path.normpath(dir_node.getStringEnum('image_sources', 0))
+image_dir = args.project
 for file in os.listdir(image_dir):
     if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
         files.append(file)

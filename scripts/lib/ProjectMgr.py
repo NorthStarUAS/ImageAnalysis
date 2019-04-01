@@ -69,24 +69,11 @@ class ProjectMgr():
                 print("Notice: creating meta directory:", meta_dir)
                 os.makedirs(meta_dir)
             else:
-                print("Error: image dir doesn't exist:", meta_dir)
+                print("Error: meta dir doesn't exist:", meta_dir)
                 return False
             
         # all is good
         return True
-
-    # source_dir is the folder containing all the raw/original images.
-    # The expected work flow is that we will import/scale all the
-    # original images into our project folder leaving the original
-    # image set completely untouched.
-    def set_image_sources(self, image_dirs):
-        for i, dir in enumerate(image_dirs):
-            if dir == self.analysis_dir:
-                print("Error: image source and project dirs must be different.")
-                return
-            if not os.path.exists(dir):
-                print("Error: image source path does not exist:", dir)
-            self.dir_node.setStringEnum('image_sources', i, dir)
 
     def save(self):
         # create a project dictionary and write it out as json
@@ -124,15 +111,16 @@ class ProjectMgr():
             print("aborting...")
             quit()
 
-        if create:
-            self.set_image_sources( [self.project_dir] )
-            
+        # overwrite project_dir with current location (this will get
+        # saved out into the config.json, but projects could relocate
+        # and it's more important to have the actual current location)
+        self.dir_node.setString('project_dir', self.project_dir)
+
         #root.pretty_print()
 
     def detect_camera(self):
         camera = ""
-        dir_node = getNode('/config/directories', True)
-        image_dir = os.path.normpath(dir_node.getStringEnum('image_sources', 0))
+        image_dir = self.project_dir
         for file in os.listdir(image_dir):
             if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
                 exif = pyexiv2.ImageMetadata(os.path.join(image_dir, file))

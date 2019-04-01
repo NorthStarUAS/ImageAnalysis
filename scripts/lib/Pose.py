@@ -69,11 +69,7 @@ def setAircraftPoses(proj, posefile="", order='ypr', max_angle=25.0):
             flight_time = -1.0
 
         found_dir = ''
-        for i in range( proj.dir_node.getLen('image_sources') ):
-            dir = proj.dir_node.getStringEnum('image_sources', i)
-            if os.path.isfile( os.path.join(dir, name) ):
-                found_dir = dir
-        if not len(found_dir):
+        if not os.path.isfile( os.path.join(proj.project_dir, name) ):
             print('No image file:', name, 'skipping ...')
             continue
         if abs(roll_deg) > max_angle or abs(pitch_deg) > max_angle:

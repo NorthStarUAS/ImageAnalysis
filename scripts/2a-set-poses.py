@@ -23,9 +23,9 @@ proj = ProjectMgr.ProjectMgr(args.project)
 print("Loading image info...")
 proj.load_images_info()
 
-dir_node = getNode('/config/directories', True)
-image_dir = os.path.normpath(dir_node.getStringEnum('image_sources', 0))
-
+# simplifying assumption
+image_dir = args.project
+    
 pix4d_file = os.path.join(image_dir, 'pix4d.csv')
 meta_file = os.path.join(image_dir, 'image-metadata.txt')
 if os.path.exists(pix4d_file):
