@@ -24,17 +24,14 @@ d2r = math.pi / 180.0
 
 parser = argparse.ArgumentParser(description='Set the aircraft poses from flight data.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--area', default='area-00', help='sub area directory')
 
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 print("Loading image info...")
-proj.load_area_info()
+proj.load_images_info()
 
-area_dir = os.path.join(args.project, args.area)
-
-groups = Groups.load(area_dir)
+groups = Groups.load(proj.analysis_dir)
 
 # compute an average transform between original camera attitude estimate
 # and optimized camera attitude estimate

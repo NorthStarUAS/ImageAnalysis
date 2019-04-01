@@ -16,21 +16,19 @@ from lib import SRTM
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--area', default='area-00', help='sub area directory')
 parser.add_argument('--group', type=int, default=0, help='group number')
 parser.add_argument('--method', default='srtm', choices=['srtm', 'triangulate'])
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_area_info(args.area)
-area_dir = os.path.join(proj.analysis_dir, args.area)
+proj.load_images_info()
 
 source = 'matches_grouped'
 print("Loading source matches:", source)
-matches = pickle.load( open( os.path.join(area_dir, source), 'rb' ) )
+matches = pickle.load( open( os.path.join(proj.analysis_dir, source), 'rb' ) )
 
 # load the group connections within the image set
-groups = Groups.load(area_dir)
+groups = Groups.load(proj.analysis_dir)
 print('Group sizes:', end=" ")
 for group in groups:
     print(len(group), end=" ")
@@ -155,4 +153,4 @@ elif args.method == 'triangulate':
                 print(match[0])
     
 print("Writing:", source)
-pickle.dump(matches, open(os.path.join(area_dir, source), "wb"))
+pickle.dump(matches, open(os.path.join(proj.analysis_dir, source), "wb"))

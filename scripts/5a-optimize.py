@@ -21,7 +21,6 @@ r2d = 180.0 / math.pi
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--area', default='area-00', help='sub area directory')
 parser.add_argument('--group', type=int, default=0, help='group number')
 parser.add_argument('--refine', action='store_true', help='refine a previous optimization.')
 
@@ -66,17 +65,15 @@ def transform_points( A, pts_list ):
     return result
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_area_info(args.area)
+proj.load_images_info()
 
-area_dir = os.path.join(proj.analysis_dir, args.area)
-
-source_file = os.path.join(area_dir, 'matches_grouped' )
+source_file = os.path.join(proj.analysis_dir, 'matches_grouped' )
 print('Match file:', source_file)
 matches = pickle.load( open(source_file, "rb") )
 print('Match features:', len(matches))
 
 # load the group connections within the image set
-groups = Groups.load(area_dir)
+groups = Groups.load(proj.analysis_dir)
 # sort from smallest to largest: groups.sort(key=len)
 
 opt = Optimizer.Optimizer(args.project)
@@ -241,14 +238,14 @@ pickle.dump(matches_opt, open(source_file, 'wb'))
 #proj.save()
 
 # temp write out just the points so we can plot them with gnuplot
-f = open(os.path.join(area_dir, 'opt-plot.txt'), 'w')
+f = open(os.path.join(proj.analysis_dir, 'opt-plot.txt'), 'w')
 for m in matches_opt:
     f.write('%.2f %.2f %.2f\n' % (m[0][0], m[0][1], m[0][2]))
 f.close()
 
 # temp write out direct and optimized camera positions
-f1 = open(os.path.join(area_dir, 'cams-direct.txt'), 'w')
-f2 = open(os.path.join(area_dir, 'cams-opt.txt'), 'w')
+f1 = open(os.path.join(proj.analysis_dir, 'cams-direct.txt'), 'w')
+f2 = open(os.path.join(proj.analysis_dir, 'cams-opt.txt'), 'w')
 for name in groups[args.group]:
     image = proj.findImageByName(name)
     ned1, ypr1, quat1 = image.get_camera_pose()

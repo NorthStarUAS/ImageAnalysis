@@ -24,21 +24,19 @@ import match_culling as cull
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--area', default='area-00', help='sub area directory')
 parser.add_argument('--stddev', type=float, default=5, help='how many stddevs above the mean for auto discarding features')
 
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_area_info(args.area)
+proj.load_images_info()
 proj.load_features()
 proj.undistort_keypoints()
 
 matcher = Matcher.Matcher()
 
 print("Loading match points (direct)...")
-area_dir = os.path.join(args.project, args.area)
-matches = pickle.load( open( os.path.join(area_dir, "matches_direct"), "rb" ) )
+matches = pickle.load( open( os.path.join(proj.analysis_dir, "matches_direct"), "rb" ) )
 
 print('num images:', len(proj.image_list))
 

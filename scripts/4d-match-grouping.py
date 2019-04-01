@@ -13,17 +13,15 @@ from lib import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--area', default='area-00', help='sub area directory')
 
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_area_info(args.area)
+proj.load_images_info()
 proj.load_features(descriptors=False)
 
 print("Loading match points (direct)...")
-area_dir = os.path.join(proj.analysis_dir, args.area)
-matches_direct = pickle.load( open( os.path.join(area_dir, "matches_direct"), "rb" ) )
+matches_direct = pickle.load( open( os.path.join(proj.analysis_dir, "matches_direct"), "rb" ) )
 
 # collect/group match chains that refer to the same keypoint
 
@@ -121,7 +119,7 @@ if count >= 1:
     print("Max chain length =", max, ' @ index =', max_index)
 
 print("Writing full group chain match file ...")
-pickle.dump(matches_direct, open(os.path.join(area_dir, "matches_grouped"), "wb"))
+pickle.dump(matches_direct, open(os.path.join(proj.analysis_dir, "matches_grouped"), "wb"))
 
 #print "temp: writing ascii version..."
 #for match in matches_direct:

@@ -32,7 +32,6 @@ r2d = 180 / math.pi
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--area', default='area-00', help='sub area directory')
 parser.add_argument('--group', type=int, default=0, help='group index')
 parser.add_argument('--texture-resolution', type=int, default=512, help='texture resolution (should be 2**n, so numbers like 256, 512, 1024, etc.')
 parser.add_argument('--srtm', action='store_true', help='use srtm elevation')
@@ -42,7 +41,7 @@ parser.add_argument('--direct', action='store_true', help='use direct pose')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_area_info(args.area)
+proj.load_images_info()
 
 # lookup ned reference
 ref_node = getNode("/config/ned_reference", True)
@@ -53,13 +52,11 @@ ref = [ ref_node.getFloat('lat_deg'),
 # setup SRTM ground interpolator
 sss = SRTM.NEDGround( ref, 6000, 6000, 30 )
 
-area_dir = os.path.join(proj.analysis_dir, args.area)
-
 print("Loading optimized match points ...")
-matches = pickle.load( open( os.path.join(area_dir, "matches_grouped"), "rb" ) )
+matches = pickle.load( open( os.path.join(proj.analysis_dir, "matches_grouped"), "rb" ) )
 
 # load the group connections within the image set
-groups = Groups.load(area_dir)
+groups = Groups.load(proj.analysis_dir)
 
 # initialize temporary structures for vanity stats
 for image in proj.image_list:

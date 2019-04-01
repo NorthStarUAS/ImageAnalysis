@@ -17,7 +17,6 @@ from lib import SRTM
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--area', default='area-00', help='sub area directory')
 parser.add_argument('--matcher', default='FLANN',
                     choices=['FLANN', 'BF'])
 parser.add_argument('--match-ratio', default=0.75, type=float,
@@ -35,11 +34,10 @@ parser.add_argument('--filter', default='gms',
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_area_info(args.area)
+proj.load_images_info()
 proj.load_features(descriptors=False) # descriptors cached on the fly later
 proj.undistort_keypoints()
-area_dir = os.path.join(args.project, args.area)
-proj.load_match_pairs(area_dir)
+proj.load_match_pairs()
 
 matcher_node = getNode('/config/matcher', True)
 matcher_node.setString('matcher', args.matcher)

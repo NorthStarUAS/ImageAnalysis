@@ -7,32 +7,27 @@ import argparse
 import pickle
 import os
 
-import sys
-sys.path.append('../lib')
-import Groups
-import ProjectMgr
+from lib import Groups
+from lib import ProjectMgr
 
 import match_culling as cull
 
 parser = argparse.ArgumentParser(description='Remove all matches referencing the specific image.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--area', default='area-00', help='sub area directory')
 parser.add_argument('--group', type=int, default=0, help='group number')
 parser.add_argument('--indices', nargs='+', type=int, help='image index')
 parser.add_argument('--images', nargs='+', help='image names')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_area_info(args.area)
-
-area_dir = os.path.join(args.project, args.area)
+proj.load_images_info()
 
 print("Loading matches_grouped...")
-matches = pickle.load( open( os.path.join(area_dir, "matches_grouped"), "rb" ) )
+matches = pickle.load( open( os.path.join(proj.analysis_dir, "matches_grouped"), "rb" ) )
 print("  features:", len(matches))
 
 # load the group connections within the image set
-groups = Groups.load(area_dir)
+groups = Groups.load(proj.analysis_dir)
 
 def split_image_features(index, matches):
     # iterate through the match dictionary and mark any matches for
@@ -95,5 +90,5 @@ if count_split + count_added > 0:
       
         # write out the updated match dictionaries
         print("Writing: matches_grouped")
-        pickle.dump(matches, open(os.path.join(area_dir, "matches_grouped"), "wb"))
+        pickle.dump(matches, open(os.path.join(proj.analysis_dir, "matches_grouped"), "wb"))
 

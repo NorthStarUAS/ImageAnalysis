@@ -16,23 +16,21 @@ r2d = 180.0 / math.pi
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--area', default='area-00', help='sub area directory')
 parser.add_argument('--group', type=int, default=0, help='group index')
 parser.add_argument('--min-angle', type=float, default=1.0, help='max feature angle')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_area_info(args.area)
+proj.load_images_info()
 
-area_dir = os.path.join(args.project, args.area)
 #source = 'matches_direct'
 source = 'matches_grouped'
 print("Loading matches:", source)
-matches = pickle.load( open( os.path.join(area_dir, source), "rb" ) )
+matches = pickle.load( open( os.path.join(proj.analysis_dir, source), "rb" ) )
 print('Number of original features:', len(matches))
 
 # load the group connections within the image set
-groups = Groups.load(area_dir)
+groups = Groups.load(proj.analysis_dir)
 print('Group sizes:', end=" ")
 for group in groups:
     print(len(group), end=" ")
@@ -116,5 +114,5 @@ if mark_sum > 0:
         delete_marked_features(matches)
         # write out the updated match dictionaries
         print("Writing original matches:", source)
-        pickle.dump(matches, open(os.path.join(area_dir, source), "wb"))
+        pickle.dump(matches, open(os.path.join(proj.analysis_dir, source), "wb"))
 

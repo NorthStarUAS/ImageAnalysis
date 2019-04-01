@@ -16,16 +16,14 @@ from lib import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--area', default='area-00', help='sub area directory')
 args = parser.parse_args()
 
 m = Matcher.Matcher()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_area_info(args.area)
+proj.load_images_info()
 proj.load_features(descriptors=False)
 #proj.undistort_keypoints()
-area_dir = os.path.join(proj.analysis_dir, args.area)
 proj.load_match_pairs(extra_verbose=False)
 
 # compute keypoint usage map
@@ -228,5 +226,5 @@ if len(matches_direct):
     print("Keypoint average instances = %.1f (should be 2.0 here)" % (sum / len(matches_direct)))
 
 print("Writing match file ...")
-direct_file = os.path.join(area_dir, "matches_direct")
+direct_file = os.path.join(proj.analysis_dir, "matches_direct")
 pickle.dump(matches_direct, open(direct_file, "wb"))

@@ -12,16 +12,14 @@ from lib import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--area', default='area-00', help='sub area directory')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_area_info(args.area)
+proj.load_images_info()
 
-area_dir = os.path.join(proj.analysis_dir, args.area)
 source = 'matches_grouped'
 print("Loading source matches:", source)
-matches = pickle.load( open( os.path.join(area_dir, source), 'rb' ) )
+matches = pickle.load( open( os.path.join(proj.analysis_dir, source), 'rb' ) )
 
 print("features:", len(matches))
 
@@ -32,7 +30,7 @@ groups = Groups.groupByFeatureConnections(proj.image_list, matches)
 # groups = Groups.groupByImageConnections(proj)
 
 #groups.sort(key=len, reverse=True)
-Groups.save(area_dir, groups)
+Groups.save(proj.analysis_dir, groups)
 
 print('Total images:', len(proj.image_list))
 print('Group sizes:', end=" ")
@@ -49,12 +47,12 @@ for i, match in enumerate(matches):
 
 print("Writing:", source, "...")
 print("Features: %d/%d" % (count, len(matches)))
-pickle.dump(matches, open(os.path.join(area_dir, source), "wb"))
+pickle.dump(matches, open(os.path.join(proj.analysis_dir, source), "wb"))
 
 # this is extra (and I'll put it here for now for lack of a better
 # place), but for visualization's sake, create a gnuplot data file
 # that will show all the match connectivity in the set.
-# file = os.path.join(area_dir, 'connections.gnuplot')
+# file = os.path.join(proj.analysis_dir, 'connections.gnuplot')
 # f = open(file, 'w')
 # pair_dict = {}
 # for match in matches:

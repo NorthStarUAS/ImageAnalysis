@@ -9,7 +9,6 @@ from lib import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Compute Delauney triangulation of matches.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--area', default='area-00', help='sub area directory')
 parser.add_argument('--output', help='specify output /path/file')
 args = parser.parse_args()
 
@@ -23,7 +22,7 @@ if not os.path.isdir(args.project):
 
 # load the project
 proj = ProjectMgr.ProjectMgr(args.project)
-proj.load_area_info(args.area)
+proj.load_images_info()
 
 # project config file
 config_json = os.path.join(args.project, 'config.json')
