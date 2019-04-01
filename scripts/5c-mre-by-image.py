@@ -29,7 +29,7 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_area_info(args.area)
 
-area_dir = os.path.join(args.project, args.area)
+area_dir = os.path.join(proj.analysis_dir, args.area)
 source = 'matches_grouped'
 print("Loading matches:", source)
 matches = pickle.load( open( os.path.join(area_dir, source), "rb" ) )
