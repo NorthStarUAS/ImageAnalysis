@@ -4,6 +4,7 @@
 
 import pickle
 import cv2
+import gzip
 import json
 import math
 #from matplotlib import pyplot as plt
@@ -134,7 +135,9 @@ class Image():
         if len(self.kp_list) == 0 and os.path.exists(self.features_file):
             #print "Loading " + self.features_file
             try:
-                feature_list = pickle.load( open( self.features_file, "rb" ) )
+                fp = gzip.open(self.features_file, "rb")
+                feature_list = pickle.load(fp)
+                fp.close()
                 for point in feature_list:
                     kp = cv2.KeyPoint(x=point[0][0], y=point[0][1],
                                       _size=point[1], _angle=point[2],
@@ -142,34 +145,18 @@ class Image():
                                       _class_id=point[5])
                     self.kp_list.append(kp)
             except:
-                # unpickle failed, try old style json
-                try:
-                    f = open(self.features_file, 'r')
-                    feature_dict = json.load(f)
-                    f.close()
-                except:
-                    print(self.features_file + ":\n" + "  feature load error: " \
-                        + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1]))
-                    return
-
-                feature_list = feature_dict['features']
-                for i, kp_dict in enumerate(feature_list):
-                    angle = kp_dict['angle']
-                    class_id = kp_dict['class-id']
-                    octave = kp_dict['octave']
-                    pt = kp_dict['pt']
-                    response = kp_dict['response']
-                    size = kp_dict['size']
-                    self.kp_list.append( cv2.KeyPoint(pt[0], pt[1], size,
-                                                      angle, response, octave,
-                                                      class_id) )
+                print(self.features_file + ":\n" + "  feature load error: " \
+                      + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1]))
+                return
 
     def load_descriptors(self):
         if os.path.exists(self.des_file):
             if self.des_list is None:
                 #print "Loading " + self.des_file
                 try:
-                    self.des_list = np.load(self.des_file)
+                    fp = gzip.open(self.des_file, 'rb')
+                    self.des_list = np.load(fp)
+                    fp.close()
                     #print np.any(self.des_list)
                     #val = "%s" % self.des_list
                     #print
@@ -199,7 +186,9 @@ class Image():
                      kp.class_id)
             feature_list.append(point)
         try:
-            pickle.dump(feature_list, open(self.features_file, "wb"))
+            fp = gzip.open(self.features_file, 'wb')
+            pickle.dump(feature_list, fp)
+            fp.close()
         except IOError as e:
             print("save_features(): I/O error({0}): {1}".format(e.errno, e.strerror))
             return
@@ -209,8 +198,9 @@ class Image():
     def save_descriptors(self):
         # write descriptors as 'ppm image' format
         try:
-            f = open(self.des_file, 'wb')
-            result = np.save(f, self.des_list)
+            fp = gzip.open(self.des_file, 'wb')
+            result = np.save(fp, self.des_list)
+            fp.close()
         except:
             print(self.des_file + ": error saving file: " \
                 + str(sys.exc_info()[1]))
