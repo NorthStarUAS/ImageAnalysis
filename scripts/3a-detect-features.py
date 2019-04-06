@@ -81,46 +81,6 @@ elif args.detector == 'Star':
 # find features in the full image set
 proj.detect_features(scale=args.scale, show=args.show)
 
-# December 11, 2018: (fixme) Mjolnir's nadir camera shows the landing
-# gear and the time/date stamp around the fringes.  Conveniently if we
-# trim the undistorted features that fall outside the image range,
-# these artifacts go away.  So for Mjolnir, the following section is
-# helpful, but for general mapping, this probably shouldn't be used.
-
-# this should somehow be configurable, or a better solution for
-# filtering out near plane artifacts should be devised (or Mjolnir's
-# camera mount should be adjusted.)
-
-if False:
-    # should now be handled by proj.detect_features() automatically
-    # compute the undistorted mapping of the keypoints (features)
-    proj.undistort_keypoints()
-
-    # if any undistorted keypoints extend beyond the image bounds, remove them!
-    margin = args.reject_margin
-    print("Features that fall out of the image bounds after undistortion.")
-    bar = Bar('Filtering:', max = len(proj.image_list))
-    for image in proj.image_list:
-        # traverse the list in reverse so we can safely remove features if
-        # needed
-        dirty = False
-        width, height = image.get_size()
-        for i in reversed(range(len(image.uv_list))):
-            uv = image.uv_list[i]
-            if uv[0] < margin or uv[0] > width - margin \
-               or uv[1] < margin or uv[1] > height - margin:
-                dirty = True
-                #print ' ', i, uv
-                image.kp_list.pop(i)                             # python list
-                image.des_list = np.delete(image.des_list, i, 0) # np array
-
-        if dirty:
-            image.save_features()
-            image.save_descriptors()
-        #print image.name, len(image.kp_list), image.des_list.size
-        bar.next()
-    bar.finish()
-    
 feature_count = 0
 image_count = 0
 for image in proj.image_list:
