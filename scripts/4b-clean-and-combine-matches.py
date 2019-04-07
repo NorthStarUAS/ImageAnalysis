@@ -51,8 +51,8 @@ for image in proj.image_list:
                 #print(" ", image.coord_list[i], image.coord_list[image.kp_remap[key]])
                 pass
 
-    print(" features used:", used)
-    print(" unique by uv and used:", len(image.kp_remap))
+    #print(" features used:", used)
+    #print(" unique by uv and used:", len(image.kp_remap))
 
 # after feature matching we don't care about other attributes, just
 # the uv coordinate.
@@ -109,8 +109,8 @@ for i, i1 in enumerate(proj.image_list):
                                                               new_uv2[1]))
             # rewrite matches
             matches[k] = [new_idx1, new_idx2]
-        if count > 0:
-            print('Match:', i1.name, 'vs', i2.name, '%d/%d' % ( count, len(matches) ), 'rewrites')
+        #if count > 0:
+        #    print('Match:', i1.name, 'vs', i2.name, '%d/%d' % ( count, len(matches) ), 'rewrites')
 
 # enable the following code to visualize the matches after collapsing
 # identical uv coordinates
@@ -225,6 +225,90 @@ if len(matches_direct):
     print("Total unique features in image set:", len(matches_direct))
     print("Keypoint average instances = %.1f (should be 2.0 here)" % (sum / len(matches_direct)))
 
-print("Writing match file ...")
+print("Writing matches_direct file ...")
 direct_file = os.path.join(proj.analysis_dir, "matches_direct")
 pickle.dump(matches_direct, open(direct_file, "wb"))
+
+# collect/group match chains that refer to the same keypoint
+
+print("Linking common matches together into chains.")
+count = 0
+done = False
+while not done:
+    print("Iteration:", count)
+    count += 1
+    matches_new = []
+    matches_lookup = {}
+    for i, match in enumerate(matches_direct):
+        # scan if any of these match points have been previously seen
+        # and record the match index
+        index = -1
+        for p in match[2:]:
+            key = "%d-%d" % (p[0], p[1])
+            if key in matches_lookup:
+                index = matches_lookup[key]
+                break
+        if index < 0:
+            # not found, append to the new list
+            for p in match[2:]:
+                key = "%d-%d" % (p[0], p[1])
+                matches_lookup[key] = len(matches_new)
+            matches_new.append(list(match)) # shallow copy
+        else:
+            # found a previous reference, append these match items
+            existing = matches_new[index]
+            for p in match[2:]:
+                key = "%d-%d" % (p[0], p[1])
+                found = False
+                for e in existing[2:]:
+                    if p[0] == e[0]:
+                        found = True
+                        break
+                if not found:
+                    # add
+                    existing.append(list(p)) # shallow copy
+                    matches_lookup[key] = index
+            # no 3d location estimation yet
+            # # attempt to combine location equitably
+            # size1 = len(match[2:])
+            # size2 = len(existing[2:])
+            # ned1 = np.array(match[0])
+            # ned2 = np.array(existing[0])
+            # avg = (ned1 * size1 + ned2 * size2) / (size1 + size2)
+            # existing[0] = avg.tolist()
+            # # print(ned1, ned2, existing[0])
+            # # print "new:", existing
+            # # print
+    if len(matches_new) == len(matches_direct):
+        done = True
+    else:
+        matches_direct = list(matches_new) # shallow copy
+
+# replace the keypoint index in the matches file with the actual kp
+# values.  This will save time later and avoid needing to load the
+# full original feature files which are quite large.  This also will
+# reduce the in-memory footprint for many steps.
+print('Replace keypoint indices with uv coordinates.')
+for match in matches_direct:
+    for m in match[2:]:
+        kp = proj.image_list[m[0]].kp_list[m[1]].pt
+        m[1] = list(kp)
+    # print(match)
+
+sum = 0.0
+max = 0
+max_index = 0
+for i, match in enumerate(matches_direct):
+    refs = len(match[2:])
+    sum += refs
+    if refs > max:
+        max = refs
+        max_index = i
+        
+if count >= 1:
+    print("Total unique features in image set:", len(matches_direct))
+    print("Keypoint average instances:", "%.2f" % (sum / len(matches_direct)))
+    print("Max chain length =", max, ' @ index =', max_index)
+
+print("Writing full group chain matches_grouped file ...")
+pickle.dump(matches_direct, open(os.path.join(proj.analysis_dir, "matches_grouped"), "wb"))
