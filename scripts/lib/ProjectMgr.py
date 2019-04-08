@@ -267,6 +267,8 @@ class ProjectMgr():
             image.load_features()
             if len(image.kp_list) > 0:
                 print("skipping:", image.name)
+                if not show:
+                    bar.next()
                 continue
             #print "detecting features and computing descriptors: " + image.name
             rgb = image.load_rgb(equalize=True)
@@ -286,8 +288,11 @@ class ProjectMgr():
                     image.kp_list.pop(i)                             # python list
                     image.des_list = np.delete(image.des_list, i, 0) # np array
 
+            #print("save features")
             image.save_features()
+            #print("save descriptors")
             image.save_descriptors()
+            #print("finished image")
             # clear descriptor memory(?)
             image.des_list = None
             image.save_matches()
@@ -431,7 +436,7 @@ class ProjectMgr():
             for image in self.image_list:
                 image.kp_used = np.zeros(len(image.kp_list), np.bool_)
             for i1 in self.image_list:
-                print(i1.name, len(i1.match_list))
+                #print(i1.name, len(i1.match_list))
                 for key in i1.match_list:
                     matches = i1.match_list[key]
                     i2 = self.findImageByName(key)
