@@ -332,6 +332,11 @@ class Matcher():
         dim2 = i2.get_size()
         size1 = (dim1[0], dim1[1])
         size2 = (dim2[0], dim2[1])
+        if not size1[0] or not size1[1] or not size2[0] or not size2[1]:
+            print("Zero image sizes will crash matchGMS():", size1, size2)
+            print("Possibly the detect feature step was killed and restarted?")
+            print("Recommend removing all meta/*.feat and meta/*.desc and")
+            print("rerun the feature detection step.")
         matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, i1.kp_list, i2.kp_list, matches_thresh, withRotation=True, withScale=False)
         #matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, i1.uv_list, i2.uv_list, matches_thresh, withRotation=True, withScale=False)
         #print('matchesGMS:', matchesGMS)
