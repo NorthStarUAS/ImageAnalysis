@@ -64,16 +64,16 @@ if args.method == 'srtm':
     sss = SRTM.NEDGround( ref, 3000, 3000, 30 )
 
     # for each image lookup the SRTM elevation under the camera
-    print('Looking up SRTM base elevation for each image location...')
+    print("Looking up SRTM base elevation for each image location...")
     for image in proj.image_list:
         ned, ypr, quat = image.get_camera_pose()
         image.base_elev = sss.interp([ned[0], ned[1]])[0]
         #print(image.name, image.base_elev)
 
-    print('Estimating initial projection for each feature...')
+    print("Estimating initial projection for each feature...")
     bad_count = 0
     bad_indices = []
-    bar = Bar('Working:', max=100)
+    bar = Bar("Working:", max=100)
     step = int(len(matches) / 100)
     for i, match in enumerate(matches):
         sum = np.zeros(3)
