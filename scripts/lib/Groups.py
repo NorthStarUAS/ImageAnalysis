@@ -11,26 +11,26 @@ min_group = 10
 min_connections = 25
 max_wanted = 100
 
-# this builds a simple set structure that records if any image has any
-# connection to any other image
-def countFeatureConnections(image_list, matches):
-    for image in image_list:
-        image.connection_set = set()
-    for i, match in enumerate(matches):
-        for mi in match[2:]:
-            for mj in match[2:]:
-                if mi != mj:
-                    image_list[mi[0]].connection_set.add(mj[0])
-    for i, image in enumerate(image_list):
-        # print image.name
-        # for j in image.connection_set:
-        #     print '  pair len', j, len(image.match_list[j])
-        image.connection_count = len(image.connection_set)
-        # print image.name, i, image.connection_set
-        for j in range(len(image.match_list)):
-            size = len(image.match_list[j])
-            if size > 0 and not j in image.connection_set:
-                print('  matches, but no connection')
+# # this builds a simple set structure that records if any image has any
+# # connection to any other image
+# def countFeatureConnections(image_list, matches):
+#     for image in image_list:
+#         image.connection_set = set()
+#     for i, match in enumerate(matches):
+#         for mi in match[2:]:
+#             for mj in match[2:]:
+#                 if mi != mj:
+#                     image_list[mi[0]].connection_set.add(mj[0])
+#     for i, image in enumerate(image_list):
+#         # print image.name
+#         # for j in image.connection_set:
+#         #     print '  pair len', j, len(image.match_list[j])
+#         image.connection_count = len(image.connection_set)
+#         # print image.name, i, image.connection_set
+#         for j in range(len(image.match_list)):
+#             size = len(image.match_list[j])
+#             if size > 0 and not j in image.connection_set:
+#                print('  matches, but no connection')
 
 # for unallocated features, count the number of connections into the
 # current placed group
@@ -97,19 +97,29 @@ def groupByFeatureConnections(image_list, matches):
 
             # per image, per connection feature aggregator
             image_counter = [dict() for x in range(len(image_list))]
-
             # count up the placed feature references to each image,
             # binned by how many references to already placed images.
             for i, match in enumerate(matches):
                 # only proceed if this feature has been placed (i.e. it
                 # connects to two or more placed images)
                 num = avail_features[i]
-                if num >= 2:
+                if num >= 1:
                     for m in match[2:]:
                         if num in image_counter[m[0]]:
                             image_counter[m[0]][num].append(i)
                         else:
                             image_counter[m[0]][num] = [ i ]
+            # for each unconnected image, count connected images in
+            # the placed set
+            image_connections = [set() for x in range(len(image_list))]
+            for i in range(len(image_list)):
+                if not i in placed_images:
+                    for key in sorted(image_counter[i].keys(), reverse=True):
+                        for j in image_counter[i][key]:
+                            match = matches[j]
+                            for m in match[2:]:
+                                if m[0] != i and m[0] in placed_images:
+                                    image_connections[i].add(m[0])
             # add all unplaced images with more than min_connections to
             # the placed set
             print("Report:")
@@ -121,8 +131,8 @@ def groupByFeatureConnections(image_list, matches):
                     # total placed features for this image
                     for key in image_counter[i].keys():
                         total_avail += len(image_counter[i][key])
-                    if total_avail >= min_connections:
-                        print("%s:" % image_list[i].name, end=" ")
+                    if total_avail >= min_connections and len(image_connections[i]) > 1:
+                        print("%s(%d):" % (image_list[i].name, i), end=" ")
                         # use the most redundant first
                         for key in sorted(image_counter[i].keys(), reverse=True):
                             if total_found < max_wanted:
