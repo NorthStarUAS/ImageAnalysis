@@ -186,7 +186,7 @@ class Image():
                      kp.class_id)
             feature_list.append(point)
         try:
-            fp = gzip.open(self.features_file, 'wb')
+            fp = gzip.open(self.features_file, 'wb', compresslevel=6)
             pickle.dump(feature_list, fp)
             fp.close()
         except IOError as e:
@@ -198,7 +198,7 @@ class Image():
     def save_descriptors(self):
         # write descriptors as 'ppm image' format
         try:
-            fp = gzip.open(self.des_file, 'wb')
+            fp = gzip.open(self.des_file, 'wb', compresslevel=6)
             result = np.save(fp, self.des_list)
             fp.close()
         except:
