@@ -4,6 +4,7 @@ import argparse
 import pickle
 import numpy as np
 import os.path
+from progress.bar import Bar
 
 from props import getNode
 
@@ -34,8 +35,8 @@ proj.compute_kp_usage()
 # other attributes important during feature matching, yet ultimately
 # resolve to the same uv coordinate in an image.
 print("Indexing features by unique uv coordinates...")
+bar = Bar("Working:", max=len(proj.image_list))
 for image in proj.image_list:
-    print(image.name)
     # pass one, build a tmp structure of unique keypoints (by uv) and
     # the index of the first instance.
     image.kp_remap = {}
@@ -53,6 +54,8 @@ for image in proj.image_list:
 
     #print(" features used:", used)
     #print(" unique by uv and used:", len(image.kp_remap))
+    bar.next()
+bar.finish()
 
 # after feature matching we don't care about other attributes, just
 # the uv coordinate.
@@ -64,7 +67,8 @@ for image in proj.image_list:
 # duplicates could still exist.  This finds all the duplicates within
 # the entire match set and collapses them down to eliminate any
 # redundancy.
-print("Collapsing keypoints with duplicate uv coordinates...")
+print("Merging keypoints with duplicate uv coordinates...")
+bar = Bar("Working:", max=len(proj.image_list))
 for i, i1 in enumerate(proj.image_list):
     for key in i1.match_list:
         matches = i1.match_list[key]
@@ -111,6 +115,8 @@ for i, i1 in enumerate(proj.image_list):
             matches[k] = [new_idx1, new_idx2]
         #if count > 0:
         #    print('Match:', i1.name, 'vs', i2.name, '%d/%d' % ( count, len(matches) ), 'rewrites')
+    bar.next()
+bar.finish()
 
 # enable the following code to visualize the matches after collapsing
 # identical uv coordinates
@@ -288,7 +294,7 @@ while not done:
 # values.  This will save time later and avoid needing to load the
 # full original feature files which are quite large.  This also will
 # reduce the in-memory footprint for many steps.
-print('Replace keypoint indices with uv coordinates.')
+print('Replacing keypoint indices with uv coordinates.')
 for match in matches_direct:
     for m in match[2:]:
         kp = proj.image_list[m[0]].kp_list[m[1]].pt
