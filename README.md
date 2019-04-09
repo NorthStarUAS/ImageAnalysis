@@ -17,7 +17,7 @@ techniques to some loosely related, but interesting problems.
 
 The project goals remain:
 
-- develop a quality open-source image stitching an scene
+- develop a quality open-source image fitting (stitching) and scene
   reconstruction tool chain that is appropriate for examination
   (education) and modification (research use.)
 
@@ -85,37 +85,6 @@ Wish list items:
    be helpful.  (Or things that aren't commonly available
    system-wide.)
 
-## ils
-
-   This relates to systems that have an illumination sensor pointing
-   up at the sky.  When the drone pitches or rolls for turning or
-   forward motion, the sensor no longer points up.  This code
-   understands date, time, location, as well as the relative sun
-   location and angle.  It attempts to correct the illumination sensor
-   for attitude errors and thus produce more consistent results in the
-   output images.
-
-## movie
-
-   Some of these image analysis techniques can be applied to movies in
-   interesting ways.
-
-   - Use feature matching between consecutive movie frames to
-     accurately estimate a gyro axis (aligned with the camera center
-     of projection.)  Will also estimate the 2nd and 3rd gyro axes,
-     but with less quality.
-
-   - Track Aruco codes.  If you have control over your scene and can
-     place Aruco codes in strategic places, they are extremely
-     awesome.  The detection code is extremely fast, very reliable,
-     each marker has it's own code, and all 4 corners of the marker
-     are identified.
-
-   - Extract still shots (frames) from a movie and geotag them.
-
-   - Generate an augmented reality hud overlay on top of an in-flight
-     movie.
-
 ## scripts
 
    A series of front-end scripts that primarily pair with the lib
@@ -139,6 +108,35 @@ Wish list items:
 ## tests
 
    A random collection of scripts for testing different things.
+
+   - ils: This relates to systems that have an illumination sensor
+     pointing up at the sky.  When the drone pitches or rolls for
+     turning or forward motion, the sensor no longer points up.  This
+     code understands date, time, location, as well as the relative
+     sun location and angle.  It attempts to correct the illumination
+     sensor for attitude errors and thus produce more consistent
+     results in the output images.
+
+## video
+
+   Some of these image analysis techniques can be applied to movies in
+   interesting ways.
+
+   - Use feature matching between consecutive movie frames to
+     accurately estimate a gyro axis (aligned with the camera center
+     of projection.)  Will also estimate the 2nd and 3rd gyro axes,
+     but with less quality.
+
+   - Track Aruco codes.  If you have control over your scene and can
+     place Aruco codes in strategic places, they are extremely
+     awesome.  The detection code is extremely fast, very reliable,
+     each marker has it's own code, and all 4 corners of the marker
+     are identified.
+
+   - Extract still shots (frames) from a movie and geotag them.
+
+   - Generate an augmented reality hud overlay on top of an in-flight
+     movie.
 
 ## installation hints
 
