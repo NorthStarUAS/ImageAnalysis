@@ -157,29 +157,6 @@ class ProjectMgr():
         # make sure our matcher gets a copy of the image list
         self.render.setImageList(self.image_list)
 
-    def load_area_info(self, area='area-00'):
-        # load image meta info for specified sub area
-        result = False
-        meta_dir = os.path.join(self.analysis_dir, 'meta')
-        images_node = getNode("/images", True)
-
-        area_file = os.path.join(self.analysis_dir, area, 'image_list')
-        area_list = pickle.load( open(area_file, 'rb') )
-        for name in area_list:
-            meta_file = os.path.join(meta_dir, name + ".json")
-            image_node = images_node.getChild(name, True)
-            props_json.load(meta_file, image_node)
-        # images_node.pretty_print()
-                
-        # wipe image list (so we don't double load)
-        self.image_list = []
-        for name in images_node.getChildren():
-            image = Image.Image(meta_dir, name)
-            self.image_list.append( image )
-
-        # make sure our matcher gets a copy of the image list
-        self.render.setImageList(self.image_list)
-
     def load_features(self, descriptors=False):
         if descriptors:
             msg = 'Loading keypoints and descriptors:'
