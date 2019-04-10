@@ -83,8 +83,6 @@ class MyApp(ShowBase):
     def __init__(self):
         ShowBase.__init__(self)
  
-        # Load the environment model.
-        # self.scene1 = self.loader.loadModel("models/environment")
         self.models = []
         self.base_textures = []
 
@@ -240,11 +238,33 @@ class MyApp(ShowBase):
             if tex != None:
                 tex.setWrapU(Texture.WM_clamp)
                 tex.setWrapV(Texture.WM_clamp)
-            else:
-                print('Oops, no texture found for:', file)
             self.base_textures.append(tex)
             bar.next()
         bar.finish()
+        # I give up: panda3d's model loader sometimes randomly seems
+        # to just not load the texture.  My best guess is that it's
+        # some sort of timing, threading, out of sync situation and no
+        # error code seems to be reported.  So scan each model for
+        # ones that never got their texture loaded and load it
+        # manually. Ugh!
+        for i, model in enumerate(self.models):
+            if self.base_textures[i] == None:
+                print('Reloading base texture for:', model.getName())
+                base, ext = os.path.splitext(model.getName())
+                image_file = None
+                dir = os.path.join(proj.analysis_dir, 'models')
+                tmp1 = os.path.join(dir, base + '.JPG')
+                tmp2 = os.path.join(dir, base + '.jpg')
+                if os.path.isfile(tmp1):
+                    image_file = tmp1
+                elif os.path.isfile(tmp2):
+                    image_file = tmp2
+                #print("texture file:", image_file)
+                tex = self.loader.loadTexture(image_file)
+                tex.setWrapU(Texture.WM_clamp)
+                tex.setWrapV(Texture.WM_clamp)
+                model.setTexture(tex, 1)
+                self.base_textures[i] = tex
         self.sortImages()
         self.annotations.rebuild(self.view_size)
 
