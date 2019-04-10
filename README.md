@@ -32,9 +32,23 @@ The project goals remain:
   project.  (Such as: invasive species surveys, mapping, and ground
   truthing.)
 
-# Road Map
+# Current and Recent Development Focus
 
-Briefly, near term development goals include:
+This is likely to be out of date faster than I can write it, but here
+are a few things I have been working recently.
+
+- Improving and streamlining the project structure layout.  Now an
+  "ImageAnalysis" folder is added to each folder of raw images.
+
+- Improving the project setup flow and autodetecting camera/lens
+  config and image geotags when possible.
+
+- Streamlining support for DJI and Sentera camera systems.
+
+- Continuing visual presentation improvements
+
+- Continuing work on image connection grouping optimizations to
+  improve solver (optimizer) results and reduce artifacts.
 
 - [done] Renable/retool code to best fit optimized solution to original
   camera pose locations.  (This ensures the solution didn't walk off
@@ -44,10 +58,17 @@ Briefly, near term development goals include:
 
 - [done] Continued improvement of python3 support
 
+# Future Road Map
+
+Briefly, near term development goals include:
+
 - [first release available] A scene exploration tool that knows all
   the views covering any point, can geolocate any selected point in an
   image, can import/export shape files or feature databases for map
   creation or validation.
+
+- Continue work on real-time shader language techniques to highlight
+  different types of (color) features in the imagery.
 
 Medium term development goals include:
 
