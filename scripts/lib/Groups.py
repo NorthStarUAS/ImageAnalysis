@@ -11,8 +11,8 @@ min_group = 10
 min_connections = 25
 max_wanted = 100
 
-# # this builds a simple set structure that records if any image has any
-# # connection to any other image
+# this builds a simple set structure that records if any image has any
+# connection to any other image
 # def countFeatureConnections(image_list, matches):
 #     for image in image_list:
 #         image.connection_set = set()
@@ -30,7 +30,7 @@ max_wanted = 100
 #         for j in range(len(image.match_list)):
 #             size = len(image.match_list[j])
 #             if size > 0 and not j in image.connection_set:
-#                print('  matches, but no connection')
+#                 print('  matches, but no connection')
 
 # for unallocated features, count the number of connections into the
 # current placed group
@@ -45,7 +45,24 @@ def updateAvailableFeatures(group_images, matches, avail_features):
         else:
             avail_features[i] = 0
 
-# This is the current, best grouping function to use
+# This is the current, best grouping function to use.
+
+# A connection must have at least "min" number of features, and we
+# will use at most "max" features even if more are available.
+#
+# We create a lookaside data structure so we can use (prioritize) the
+# longest feature chains first.  This maximize redunancy and links all
+# the images together with the most and best connections possible.
+#
+# Single pair connections are a problem.  If an image only connects to
+# a single image in the placed set, there is not enough redundancy and
+# the new image (and anything that connects/hangs off that one image
+# through single pair connections can end up walking off to an
+# arbitrary other location relative to the main set.  We try to deal
+# with this by allowing single pair connections, but only if we use a
+# balanced set into multiple placed images.  This creates/requires
+# some extra accounting work.
+
 def groupByFeatureConnections(image_list, matches):
     # countFeatureConnections(image_list, matches)
     print("Start of top level grouping algorithm...")
@@ -121,7 +138,7 @@ def groupByFeatureConnections(image_list, matches):
                                 if m[0] != i and m[0] in placed_images:
                                     image_connections[i].add(m[0])
             # add all unplaced images with more than min_connections to
-            # the placed set
+            # the placed set.  Prioritize features with most connections to the placed set
             print("Report:")
             add_count = 0
             for i in range(len(image_counter)):
