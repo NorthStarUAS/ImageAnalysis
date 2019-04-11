@@ -34,16 +34,16 @@ max_wanted = 100
 
 # for unallocated features, count the number of connections into the
 # current placed group
-def updateAvailableFeatures(group_images, matches, avail_features):
+def updateAvailableFeatures(group_images, matches, avail_by_match):
     for i, match in enumerate(matches):
         if match[1] < 0:
             count = 0
             for m in match[2:]:
                 if m[0] in group_images:
                     count += 1
-            avail_features[i] = count
+            avail_by_match[i] = count
         else:
-            avail_features[i] = 0
+            avail_by_match[i] = 0
 
 # This is the current, best grouping function to use.
 
@@ -74,7 +74,7 @@ def groupByFeatureConnections(image_list, matches):
     # start with no placed images or features
     placed_images = set()
     groups = []
-    avail_features = [0] * len(matches)
+    avail_by_match = [0] * len(matches)
 
     done = False
     while not done:
@@ -106,7 +106,7 @@ def groupByFeatureConnections(image_list, matches):
             placed_images.add(m[0])
             print(image_list[m[0]].name, end=" ")
         print()
-        updateAvailableFeatures(group_images, matches, avail_features)
+        updateAvailableFeatures(group_images, matches, avail_by_match)
         
         while True:
             # find the unplaced images with sufficient connections
@@ -119,13 +119,19 @@ def groupByFeatureConnections(image_list, matches):
             for i, match in enumerate(matches):
                 # only proceed if this feature has been placed (i.e. it
                 # connects to two or more placed images)
-                num = avail_features[i]
+                num = avail_by_match[i]
                 if num >= 1:
+                    if num == 1:
+                        # this is weird, handling single connections, sorry.
+                        for m in match[2:]:
+                            if m[0] in group_images:
+                                num = -m[0]
                     for m in match[2:]:
                         if num in image_counter[m[0]]:
                             image_counter[m[0]][num].append(i)
                         else:
                             image_counter[m[0]][num] = [ i ]
+                        
             # for each unconnected image, count connected images in
             # the placed set
             image_connections = [set() for x in range(len(image_list))]
@@ -152,7 +158,7 @@ def groupByFeatureConnections(image_list, matches):
                         print("%s(%d):" % (image_list[i].name, i), end=" ")
                         # use the most redundant first
                         for key in sorted(image_counter[i].keys(), reverse=True):
-                            if total_found < max_wanted:
+                            if total_found < max_wanted and key > 0:
                                 print("%d:%d" % (key, len(image_counter[i][key])),
                                       end=" ")
                                 avail = len(image_counter[i][key])
@@ -162,7 +168,7 @@ def groupByFeatureConnections(image_list, matches):
                                 #      'avail:', avail)
                                 if avail <= want:
                                     # use the whole set
-                                    total_found += len(image_counter[i][key])
+                                    total_found += avail
                                     for j in image_counter[i][key]:
                                         matches[j][1] = group_level
                                 else:
@@ -172,6 +178,38 @@ def groupByFeatureConnections(image_list, matches):
                                         total_found += 1
                                         j = image_counter[i][key][k]
                                         matches[j][1] = group_level
+                        # add in single connections if needed
+                        if total_found < max_wanted:
+                            print()
+                            print("came up short with multiconnections.")
+                            want = max_wanted - total_found
+                            single_connections = 0
+                            for key in image_counter[i].keys():
+                                if key < 0:
+                                    single_connections += 1
+                            print("avail single connected images:",
+                                  single_connections)
+                            if single_connections > 0:
+                                want_per_image = 2 * int(want / single_connections) + 1
+                            else:
+                                want_per_image = 0
+                            print("want per image:", want_per_image)
+                            for key in image_counter[i].keys():
+                                if key < 0:
+                                    avail = len(image_counter[i][key])
+                                    print("1:%d:%d" % (-key, len(image_counter[i][key])), end=" ")
+                                    if avail <= want_per_image:
+                                        # use the whole set
+                                        total_found += avail
+                                        for j in image_counter[i][key]:
+                                            matches[j][1] = group_level
+                                    else:
+                                        # use what we need
+                                        for k in range(0, want_per_image):
+                                            #print(' using:', k)
+                                            total_found += 1
+                                            j = image_counter[i][key][k]
+                                            matches[j][1] = group_level
                         placed_images.add(i)
                         group_images.add(i)
                         add_count += 1
@@ -187,7 +225,7 @@ def groupByFeatureConnections(image_list, matches):
                 if len(group_images) < 3:
                     done = True
                 break
-            updateAvailableFeatures(group_images, matches, avail_features)
+            updateAvailableFeatures(group_images, matches, avail_by_match)
     return groups
 
 # return the number of connections into the placed set
