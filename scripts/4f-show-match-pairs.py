@@ -69,10 +69,12 @@ order = 'fewest-matches'
 if args.image:
     i1 = proj.findImageByName(args.image)
     if i1 != None:
-        for j, i2 in enumerate(proj.image_list):
-            if type(i1.match_list[j]) == list and len(i1.match_list[j]):
-                print("Showing %s vs %s (%d matches)" % (i1.name, i2.name, len(i1.match_list[j])))
-                status = m.showMatchOrient(i1, i2, i1.match_list[j],
+        for key in i1.match_list:
+            print(key, len(i1.match_list[key]))
+            if len(i1.match_list[key]):
+                i2 = proj.findImageByName(key)
+                print("Showing %s vs %s (%d matches)" % (i1.name, i2.name, len(i1.match_list[key])))
+                status = m.showMatchOrient(i1, i2, i1.match_list[key],
                                            orient=args.orient)
     else:
         print("Cannot locate:", args.image)
@@ -92,10 +94,11 @@ elif args.order == 'sequential':
             if i >= j:
                 # don't repeat reciprocal matches
                 continue
-            if type(i1.match_list[j]) is list and len(i1.match_list[j]):
-                print("Showing %s vs %s" % (i1.name, i2.name))
-                status = m.showMatchOrient(i1, i2, i1.match_list[j],
-                                           orient=args.orient)
+            if i2.name in i1.match_list:
+                if len(i1.match_list[i2.name]):
+                    print("Showing %s vs %s" % (i1.name, i2.name))
+                    status = m.showMatchOrient(i1, i2, i1.match_list[i2.name],
+                                               orient=args.orient)
 elif args.order == 'fewest-matches':
     match_list = []
     for i, i1 in enumerate(proj.image_list):
