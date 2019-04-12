@@ -179,7 +179,7 @@ def groupByFeatureConnections(image_list, matches):
                                         j = image_counter[i][key][k]
                                         matches[j][1] = group_level
                         # add in single connections if needed
-                        if total_found < max_wanted:
+                        if total_found < min_connections:
                             print()
                             print("came up short with multiconnections.")
                             want = max_wanted - total_found
