@@ -1,43 +1,45 @@
 # 1. Project Setup
 
+Your folder of aerial images (usually one folder per flight) is
+assumed to be the top level project.  This is called "the project
+folder."  All the processing files will be placed inside a subfolder
+called "ImageAnalysis" created inside the project folder.
+
+You can setup, process, refine, and view your project by running the
+scripts in numerical order as described below.
+
 ## 1a-create-project.py
 
-Create a project directory, setup config files, define source path of
-image set.
+Create the ImageAnalysis folder inside the project directory.
 
 ## 1b-set-camera-config.py
 
-Define camera calibration, lens distortion parameters, aircraft
-mounting offset.
+Autodetects the camera and sets up the appropriate calibration
+parameters.  You can specify your camera mounting offset relative to
+the airframe if needed.  If your camera is not already defined in the
+database, then there is a helper script that can mostly automate this
+task called: 99-new-camera.py
 
-## 1d-load-images.py
-
-Tests loading of image info, then ends.
-
-## 1e-show-images.py
-
-Show all the images.
-
-# 2. Set Initial Camera Poses
-
-## 2a-set-aircraft-poses.py
+## 2a-set-poses.py
 
 Specify a pix4d.csv (or sentera images-meta.txt) file to define the
 aircraft location and attitude at the time each picture is taken.
 
-## 2b-set-camera-poses.py
-
-Apply the camera mounting offset to estimate the actual camera pose
-for each image.
+Note: this project does not directly use the image gps metadata. It
+additionally needs an estimate of the camera pose when the image was
+taken.  There is a helper script which can automate this process:
+99-make-pix4d.py
 
 # 3. Feature Detection
 
+  ## 3a-detect-features.py
+  
   ## SIFT
 
   SIFT seems like the best quality detector (and feature descriptor)
   over all.  It seems to produce the most consistent overall results.
-  Recommend 10000-20000 sift features per image.  Generally more is
-  better here if your computer resources can support it.
+  Recommend 30000 sift features per image.  Generally more is better
+  here if your computer resources can support it.
 
   If you aren't getting as many features as you ask for, consider a
   larger scale factor.
@@ -69,7 +71,9 @@ for each image.
    
   ## SURF
 
-  SURF seems to perform less well than SIFT on all fronts.
+  SURF seems to perform less well than SIFT on all fronts.  (I wrote
+  this a long time ago and haven't circled back around to try this
+  again more recently.)
 
   ## Recommendations
 
@@ -102,108 +106,85 @@ for each image.
   features.  The exact amount of scaling probably depends on the
   camera, lens, altitude, and subject matter.
 
-  ## 3c-partition-set.py
-
-  As the number of images increase linearly, required resources and
-  processing time can increase exponentially.  This script partitions
-  an image set into smaller regional groups allowing each partition to
-  be processed individually.  This is a concession due to the lack of
-  infinite resources.
-
-  Note that image groups are intentionally created ot overlap
-  somewhat.
-  
 # 4. Feature Matching
 
   ## 4a-matching.py
 
   Run this script to find all the matching feature pairs in the image set.
 
-    ### GMS filter ###
+  ### GMS filter ###
 
-    This seems really useful: http://jwbian.net/gms
+  This seems really useful: http://jwbian.net/gms
 
-    It uses gridded motion statistics to find the valid match set and
-    seems to much more robust to noise and perform much better than
-    the traditional homography filter.  Often homography rejects many
-    good matches because of the amount of noise/outliers in the
-    potential match set.
+  It uses gridded motion statistics to find the valid match set and
+  seems to much more robust to noise and perform much better than
+  the traditional homography filter.  Often homography rejects many
+  good matches because of the amount of noise/outliers in the
+  potential match set.
 
-    Currently this is my favorite approach, it oftens seems to find
-    too many valid matches if that is possible.
+  Currently this is my favorite approach, it oftens seems to find
+  too many valid matches if that is possible.
 
-    Paired with the traditional sift distance ratio test <plus> a
-    first pass to discard matches with > average match distance <plus>
-    discarding any matches that don't exist in the reciprocal set ==
-    very few false matches, but still enough good matches.
+  Paired with the traditional sift distance ratio test <plus> a
+  first pass to discard matches with > average match distance <plus>
+  discarding any matches that don't exist in the reciprocal set ==
+  very few false matches, but still enough good matches.
     
-    ### Homography filter
+  ### Homography filter
 
-    Enforces a planer relationship between features matched in a pair
-    of images.  Features off that plane tend to be rejected.  This
-    seems to be the recommended filter relationship in all the
-    examples and literature.  This is the filter that tends to show up
-    in all the feature matching tutorials, however it doesn't perform
-    well if your features aren't planar (think trees, terrain,
-    structures, etc.)
+  Enforces a planer relationship between features matched in a pair
+  of images.  Features off that plane tend to be rejected.  This
+  seems to be the recommended filter relationship in all the
+  examples and literature.  This is the filter that tends to show up
+  in all the feature matching tutorials, however it doesn't perform
+  well if your features aren't planar (think trees, terrain,
+  structures, etc.)
 
-    ### Fundamental filter
+  ### Fundamental filter
 
-    The homography matrix can only map points on a plane in one image
-    to points on a plane in another images.  The fundamental filter is
-    more flexible with depth (but could pass more noise through, but
-    this noise might be more filterable as mean reprojection error?)
-    We know from epipolar geomtry that any feature in one image will
-    map onto some line in the second image.  The fundamental matrix
-    captures this relationship.  Bad matches can still slip through if
-    they lie on this line.
+  The homography matrix can only map points on a plane in one image
+  to points on a plane in another images.  The fundamental filter is
+  more flexible with depth (but could pass more noise through, but
+  this noise might be more filterable as mean reprojection error?)
+  We know from epipolar geomtry that any feature in one image will
+  map onto some line in the second image.  The fundamental matrix
+  captures this relationship.  Bad matches can still slip through if
+  they lie on this line.
     
-    ### Essential filter (*)
+  ### Essential filter (*)
 
-    Seems to better handle variations off plane while still being
-    pretty robust and rejecting false matches.  (Only available with
-    OpenCV3?)  The Essential matrix is a more recent discovery and
-    encapsulates the camera calibration matrices as well.  Thus it can
-    also be used to derive relative poses of the two images.  Results
-    in a few percent fewer matches, but fewer outlier matches.
-    Initial optimization may also be slightly tighter.  This is my
-    favorite filter right now.
+  Seems to better handle variations off plane while still being
+  pretty robust and rejecting false matches.  (Only available with
+  OpenCV3?)  The Essential matrix is a more recent discovery and
+  encapsulates the camera calibration matrices as well.  Thus it can
+  also be used to derive relative poses of the two images.  Results
+  in a few percent fewer matches, but fewer outlier matches.
+  Initial optimization may also be slightly tighter.  This is my
+  favorite filter right now.
 
-  ## 4b-clean-and-reset-matches.py
+  ## 4b-clean-and-combine-matches.py
 
   Start with the original pair-wise match set, then run several
   validation and consistency checks to remove some potential weird
-  things.  This should be run after the 4a-matching step, and can be
-  rerun later to reset the matches.
+  things.  The final step connects all match pairs that reference the
+  same feature into match chains that can reference many images.  This
+  should be run after the 4a-matching step, and can be rerun later to
+  reset the matches.
+
+  ## 4c-match-triangulation.py
+
+  Compute an initial 3d location estimate for every feature/match
   
-  ## 4c-review-matches.py
+  ## 4d-image-groups.py
 
-  This should be done on the original match pairs before full chain
-  grouping to hopefully avoid incorrectly linking chains due to a bad
-  match pair.
-
-  This is an interactive script that compares pair-wise matches and
-  presents the worst outliers (based on the homography or affine
-  relationship of the matches pairs) and allows the user to review and
-  accept or delete potential outliers.
-
-  Make sure to re-run 4d-match-grouping.py after 4c-review-matches.py
-  if you return and review more matches later.
-
-  ## 4d-match-grouping.py
-
-  Iterate through the matches_direct structure, locate and connect all
-  match chains.  Continues until no more chains can be connected.
-  
-  ## 4e-image-groups.py
-
-  Images are matches as pairs, but these pairs can be connected into
-  larger groups.  Ideally all images will connect with each other, but
-  this sadly is often not the case.  Connectivity can be increased by
-  detecting more features or experimenting with different detectors or
-  feature matching filters.  Ultimately, good connectivity is achieved
-  by ensuring your images overlap.  70% overlap with neighbors is the
-  industry recommendation.
+  Compute the connected groups in the image set.  Images are matched
+  as pairs, but these pairs can be connected into larger groups.
+  Ideally all the images will connect with each other in a giant mesh
+  network, but this sadly is often not the case.  Connectivity can be
+  increased by detecting more features or experimenting with different
+  detectors or feature matching filters.  Ultimately, good
+  connectivity is achieved by ensuring your images overlap.  70%
+  overlap with neighbors is the industry recommendation.
 
 # 5. Assemble Scene / Bundle Adjustment
 
@@ -217,19 +198,7 @@ for each image.
   clusters when they match in multiple pairs, but this seems to affect
   the optimizer's ability to find a robust solution.
 
-  Note 1: it seems productive to optimize the fully grouped (linked
-  group chains) version of the match file versus the pair-wise match
-  file.
-
-  Note 2: it seems productive to place bounds on feature and camera
-  locations.  This seems to improve convergence speed in the first few
-  steps, but slows convergence through the trailing steps.  It also
-  may increase the error in the final fit; however, the result is
-  probably more correct considering a better fit requires moving
-  points to impossible places.)
-
-
-  ## 5c-mre-by-feature.py
+  ## 5c-mre-by-image.py
 
   Compute the mre of the assembled scene (optionally delete worst
   outliers)
@@ -241,26 +210,18 @@ for each image.
   After this you will want to rerun the 4a-groups.py, then 5a-sba2.py
   script to reoptimize the fit.
 
+  ## 5c-colocated-feats.py
+
+  When the vectors from a feature back to the corresponding images are
+  nearly colinear, this can lead to stability and solver issues.  Very
+  small changes in camera poses or calibration can move the feature
+  disproportionally far distances.  The reverse is that the feature
+  has to move far distances to allow small improvements in camera
+  poses and this can overly constrain the solver and lead to artifacts
+  in the final result.  This script sniffs these out and removes them
+  if you wish.
 
 # 6. Render Results
-
-  ## 6a-render-model1.py
-
-  Bins the covered region into a grid.  Iterates through the fitted
-  features and sorts them into corresponding x,y bins.  Find the
-  average elevation per bin.  Then fill in the empty bins based on
-  average of neighbor bin elevations.
-
-  For each image, create an 8 by 8 grid model and project this grid
-  onto the binned surface.
-  
-  Optionally can project onto a flat plane or the SRTM surface, but
-  surface inaccuracies lead to edge mismatches.  This is where dense
-  mesh construction has an advantage, but the dense mesh may not be
-  the best tool for every application.
-
-  The quality of this result hinges on the accuracy of the surface
-  approximation versus the true surface.
 
   ## 6a-render-model2.py
 
@@ -289,8 +250,6 @@ for each image.
   current view at a high resolution while using lower resolution
   textures for surrounding areas.
 
-  The plan: add support for marking / labeling / saving features or
-  areas of interest.  I would like to be able to import/export shape
-  files.  I would like to be able to run various pre-filtering
-  algorithms on the images to help highlight points of interest (use
-  case dependent.)
+  You can right click on any point to create an annotation mark.  A
+  window will pop up and allow you to enter an optional comment/note.
+  Right click on an existing annotation to edit or delete it.
