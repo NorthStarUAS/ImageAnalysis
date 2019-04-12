@@ -52,23 +52,6 @@ taken.  There is a helper script which can automate this process:
   It is part of the core cv2 library so guaranteed to be available in
   all version of opencv.  Recommend 10000-20000 max features.
 
-  ## Star (CenSuRE)
-
-  Star is proposed to more consistently find features in natural
-  environments.  However, these features may not be 'better' as
-  defined in an end-to-end perspective for the whole pipeline.  At
-  least Star produces a more even distribution of features across an
-  image.  Typically trees next to a field suck up all the attention of
-  the feature detector where as the field is ultimate what we wish the
-  detector would focus on.
-
-  Possibly doesn't work as well with matching images taken at
-  different orientations?  I see group connectivity issues that imply
-  CenSuRE is orientation sensitive.  It might be good for outdoor SLAM
-  type applications.
-
-  No longer in the core cv2 library as of opencv 3.x
-   
   ## SURF
 
   SURF seems to perform less well than SIFT on all fronts.  (I wrote
