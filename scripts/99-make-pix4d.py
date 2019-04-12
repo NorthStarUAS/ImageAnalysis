@@ -47,6 +47,9 @@ def dms_to_decimal(degrees, minutes, seconds, sign=' '):
         float(seconds) / 3600
     )
 
+# save some work if true
+images_have_yaw = False
+
 images = []
 # read image exif timestamp (and convert to unix seconds)
 #bar = Bar('Scanning image dir:', max = len(files))
@@ -86,50 +89,64 @@ for file in files:
         line.append(alt)
     else:
         line.append(args.force_altitude)
+
+    # check for dji image heading tag
+    if 'Xmp.drone-dji.GimbalYawDegree' in exif:
+        images_have_yaw = True
+        yaw_deg = float(exif['Xmp.drone-dji.GimbalYawDegree'].value)
+        print(name, 'yaw:', yaw_deg)
+        line.append(0)          # assume zero pitch
+        line.append(0)          # assume zero roll
+        line.append(yaw_deg)
+    #for key in exif:
+    #    print(key, exif[key])
+        
     images.append(line)
     #bar.next()
 #bar.finish()
 
-for i in range(len(images)):
-    if i > 0:
-        prev = images[i-1]
-    else:
-        prev = None
-    cur = images[i]
-    if i < len(images)-1:
-        next = images[i+1]
-    else:
-        next = None
+if not images_have_yaw:
+    # do extra work to estimate yaw heading from gps ground track
+    for i in range(len(images)):
+        if i > 0:
+            prev = images[i-1]
+        else:
+            prev = None
+        cur = images[i]
+        if i < len(images)-1:
+            next = images[i+1]
+        else:
+            next = None
 
-    if not prev is None:
-        (prev_hdg, rev_course, prev_dist) = \
-            wgs84.geo_inverse( prev[1], prev[2], cur[1], cur[2] )
-    else:
-        prev_hdg = 0.0
-        prev_dist = 0.0
-    if not next is None:
-        (next_hdg, rev_course, next_dist) = \
-            wgs84.geo_inverse( cur[1], cur[2], next[1], next[2] )
-    else:
-        next_hdg = 0.0
-        next_dist = 0.0
-        
-    prev_hdgx = math.cos(prev_hdg*d2r)
-    prev_hdgy = math.sin(prev_hdg*d2r)
-    next_hdgx = math.cos(next_hdg*d2r)
-    next_hdgy = math.sin(next_hdg*d2r)
-    avg_hdgx = (prev_hdgx*prev_dist + next_hdgx*next_dist) / (prev_dist + next_dist)
-    avg_hdgy = (prev_hdgy*prev_dist + next_hdgy*next_dist) / (prev_dist + next_dist)
-    avg_hdg = math.atan2(avg_hdgy, avg_hdgx)*r2d
-    if avg_hdg < 0:
-        avg_hdg += 360.0
-    print("%d %.2f %.1f %.2f %.1f %.2f" % (i, prev_hdg, prev_dist, next_hdg, next_dist, avg_hdg))
-    images[i].append(0)
-    images[i].append(0)
-    if args.force_heading:
-        images[i].append(args.force_heading)
-    else:
-        images[i].append(avg_hdg)
+        if not prev is None:
+            (prev_hdg, rev_course, prev_dist) = \
+                wgs84.geo_inverse( prev[1], prev[2], cur[1], cur[2] )
+        else:
+            prev_hdg = 0.0
+            prev_dist = 0.0
+        if not next is None:
+            (next_hdg, rev_course, next_dist) = \
+                wgs84.geo_inverse( cur[1], cur[2], next[1], next[2] )
+        else:
+            next_hdg = 0.0
+            next_dist = 0.0
+
+        prev_hdgx = math.cos(prev_hdg*d2r)
+        prev_hdgy = math.sin(prev_hdg*d2r)
+        next_hdgx = math.cos(next_hdg*d2r)
+        next_hdgy = math.sin(next_hdg*d2r)
+        avg_hdgx = (prev_hdgx*prev_dist + next_hdgx*next_dist) / (prev_dist + next_dist)
+        avg_hdgy = (prev_hdgy*prev_dist + next_hdgy*next_dist) / (prev_dist + next_dist)
+        avg_hdg = math.atan2(avg_hdgy, avg_hdgx)*r2d
+        if avg_hdg < 0:
+            avg_hdg += 360.0
+        print("%d %.2f %.1f %.2f %.1f %.2f" % (i, prev_hdg, prev_dist, next_hdg, next_dist, avg_hdg))
+        images[i].append(0)
+        images[i].append(0)
+        if args.force_heading:
+            images[i].append(args.force_heading)
+        else:
+            images[i].append(avg_hdg)
 
 # traverse the image list and create output csv file
 output_file = os.path.join(image_dir, 'pix4d.csv')
