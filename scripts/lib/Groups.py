@@ -8,29 +8,9 @@ import os
 import sys
 
 min_group = 10
-min_connections = 25
+min_connections = 20
 max_wanted = 100
-
-# this builds a simple set structure that records if any image has any
-# connection to any other image
-# def countFeatureConnections(image_list, matches):
-#     for image in image_list:
-#         image.connection_set = set()
-#     for i, match in enumerate(matches):
-#         for mi in match[2:]:
-#             for mj in match[2:]:
-#                 if mi != mj:
-#                     image_list[mi[0]].connection_set.add(mj[0])
-#     for i, image in enumerate(image_list):
-#         # print image.name
-#         # for j in image.connection_set:
-#         #     print '  pair len', j, len(image.match_list[j])
-#         image.connection_count = len(image.connection_set)
-#         # print image.name, i, image.connection_set
-#         for j in range(len(image.match_list)):
-#             size = len(image.match_list[j])
-#             if size > 0 and not j in image.connection_set:
-#                 print('  matches, but no connection')
+use_single_pairs = False
 
 # for unallocated features, count the number of connections into the
 # current placed group
@@ -153,7 +133,8 @@ def groupByFeatureConnections(image_list, matches):
                     total_found = 0
                     # total placed features for this image
                     for key in image_counter[i].keys():
-                        total_avail += len(image_counter[i][key])
+                        if use_single_pairs or key > 1:
+                            total_avail += len(image_counter[i][key])
                     if total_avail >= min_connections and len(image_connections[i]) > 1:
                         print("%s(%d):" % (image_list[i].name, i), end=" ")
                         # use the most redundant first
@@ -179,7 +160,7 @@ def groupByFeatureConnections(image_list, matches):
                                         j = image_counter[i][key][k]
                                         matches[j][1] = group_level
                         # add in single connections if needed
-                        if total_found < min_connections:
+                        if use_single_pairs and total_found < min_connections:
                             print()
                             print("came up short with multiconnections.")
                             want = max_wanted - total_found
