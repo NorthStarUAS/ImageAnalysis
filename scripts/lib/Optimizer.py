@@ -30,9 +30,11 @@ class Optimizer():
         self.feat_map_rev = {}
         self.last_mre = None
         self.graph = None
-        self.graph_counter = 0
+        #self.graph_counter = 0
         #self.optimize_calib = 'global' # global camera optimization
         self.optimize_calib = 'none' # no camera calibration optimization
+        #self.ftol = 1e-3              # stop condition quicker
+        self.ftol = 1e-4              # stop condition better
         self.min_chain_length = 3
         self.with_bounds = False
         self.ncp = 6
@@ -379,16 +381,13 @@ class Optimizer():
         # plt.pause(0.01)
         
         t0 = time.time()
-        ftol = 0.01             # default is 1e-8
-        ftol = 1e-4             # we should use this I think
-        ftol = 1e-3
         # bounds=bounds,
         res = least_squares(self.fun, x0,
                             jac_sparsity=A,
                             verbose=2,
                             method='trf',
                             loss='linear',
-                            ftol=ftol,
+                            ftol=self.ftol,
                             x_scale='jac',
                             args=(self.n_cameras, self.n_points,
                                   self.by_camera_point_indices,
