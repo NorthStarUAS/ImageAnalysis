@@ -70,30 +70,13 @@ else:
         file_path = os.path.join(models_dir, file)
         append(file_path)
 
-# # create the images directory (of symbolic links to full res images) if needed
-# images_dir = os.path.join(args.project, 'images')
-# if not os.path.isdir(images_dir):
-#     print("Creating project images directory:", images_dir)
-#     os.makedirs(images_dir)
-
-# for image in proj.image_list:
-#     base_name = os.path.basename(image.image_file)
-#     image_file = os.path.join(images_dir, base_name)
-#     # print(base_name, image.image_file)
-#     if os.path.exists(image_file):
-#         if not os.path.islink(image_file):
-#             print("Warning:", image_file, "is not a symbolic link")
-#     else:
-#         print("Linking:", image.image_file, "->", image_file)
-#         os.symlink(image.image_file, image_file)
-
 for file in sorted(os.listdir(args.project)):
     if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
         file_path = os.path.join(args.project, file)
         append(file_path)
 
-for i in range(len(file_paths)):
-    print(file_paths[i], zip_paths[i])
+# for i in range(len(file_paths)):
+#     print(file_paths[i], zip_paths[i])
 
 # writing files to a zip file
 zipfile = args.output
