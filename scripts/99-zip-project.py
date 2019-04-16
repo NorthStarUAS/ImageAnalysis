@@ -25,6 +25,7 @@ proj.load_images_info()
 # zip base
 base = os.path.basename(args.output)
 zip_base, extension = os.path.splitext(base)
+print("zip_base:", zip_base)
 
 # list of files to include in zip archive
 file_paths = []
@@ -33,6 +34,8 @@ zip_paths = []
 def append(full_path):
     file_paths.append(full_path)
     zip_path = re.sub(args.project, '', full_path)
+    zip_path = zip_path.lstrip('/')
+    #print("zip:", zip_base, zip_path, 'full:', os.path.join(zip_base, zip_path))
     zip_paths.append(os.path.join(zip_base, zip_path))
     
 # project config file
@@ -87,5 +90,5 @@ print("Writing zip file:", zipfile)
 with ZipFile(zipfile, 'w') as zip:
     # writing each file one by one
     for i in range(len(file_paths)):
-        print("  adding:", file_paths[i])
+        print("  adding:", file_paths[i], "(zip)", zip_paths[i])
         zip.write(file_paths[i], arcname=zip_paths[i])
