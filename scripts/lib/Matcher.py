@@ -24,7 +24,7 @@ class Matcher():
         self.matcher_node = getNode('/config/matcher', True)
         self.image_list = []
         self.matcher = None
-        self.match_ratio = 0.75
+        self.match_ratio = 0.70
         self.min_pairs = 25
 
     def configure(self):
@@ -318,12 +318,12 @@ class Matcher():
                     matches_thresh.append(line[1])
             print('  quality matches:', len(matches_thresh))
             # fixme, make this a command line option or parameter?
-            mymax = 1000
+            mymax = 2000
             if len(matches_thresh) > mymax:
                 # clip list to n best rated matches
                 matches_thresh = matches_thresh[:mymax]
                 print('  clipping to:', mymax)
-                
+
         if len(matches_thresh) < self.min_pairs:
             # just quit now
             return []
@@ -337,7 +337,7 @@ class Matcher():
             print("Possibly the detect feature step was killed and restarted?")
             print("Recommend removing all meta/*.feat and meta/*.desc and")
             print("rerun the feature detection step.")
-        matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, i1.kp_list, i2.kp_list, matches_thresh, withRotation=True, withScale=False)
+        matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, i1.kp_list, i2.kp_list, matches_thresh, withRotation=True, withScale=False, thresholdFactor=5.0)
         #matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, i1.uv_list, i2.uv_list, matches_thresh, withRotation=True, withScale=False)
         #print('matchesGMS:', matchesGMS)
             
@@ -355,8 +355,9 @@ class Matcher():
         # check for duplicate matches (based on different scales or attributes)
         idx_pairs = self.filter_duplicates(i1, i2, idx_pairs)
 
-        # look for common feature angle difference
-        if len(idx_pairs):
+        # look for common feature angle difference (should we
+        # depricate this step?)
+        if False and len(idx_pairs):
             # do a quick test of relative feature angles
             offsets = []
             for pair in idx_pairs:
