@@ -79,7 +79,7 @@ def newGroupTest(image_list, matches):
             print("Iteration:", iteration)
             still_working = False
             for i, match in enumerate(matches):
-                if match[1] < 0:
+                if match[1] < 0 and (use_single_pairs or len(match[2:]) > 2):
                     # determine if we should add this feature
                     placed_count = 0
                     placed_need_count = 0
