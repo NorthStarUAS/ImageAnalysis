@@ -4,7 +4,13 @@ import argparse
 import cv2
 import math
 import numpy as np
+import os
+import pyexiv2                  # dnf install python3-exiv2 (py3exiv2)
 
+from props import root, getNode
+import props_json
+
+from lib import Camera
 from lib import Image
 
 parser = argparse.ArgumentParser(description='Align and combine sentera images.')
@@ -12,23 +18,75 @@ parser.add_argument('image1', help='image1 path')
 parser.add_argument('image2', help='image1 path')
 args = parser.parse_args()
 
+def detect_camera(image_path):
+    camera = ""
+    exif = pyexiv2.ImageMetadata(image_path)
+    exif.read()
+    if 'Exif.Image.Make' in exif:
+        camera = exif['Exif.Image.Make'].value
+    if 'Exif.Image.Model' in exif:
+        camera += '_' + exif['Exif.Image.Model'].value
+    if 'Exif.Photo.LensModel' in exif:
+        camera += '_' + exif['Exif.Photo.LensModel'].value
+    camera = camera.replace(' ', '_')
+    return camera
+
+cam1 = detect_camera(args.image1)
+cam2 = detect_camera(args.image2)
+print(cam1)
+print(cam2)
+
+cam1_node = getNode("/camera1", True)
+cam2_node = getNode("/camera2", True)
+
+if props_json.load(os.path.join("../cameras", cam1 + ".json"), cam1_node):
+    print("successfully loaded cam1 config")
+if props_json.load(os.path.join("../cameras", cam2 + ".json"), cam2_node):
+    print("successfully loaded cam2 config")
+
+tmp = []
+for i in range(9):
+    tmp.append( cam1_node.getFloatEnum('K', i) )
+K1 = np.copy(np.array(tmp)).reshape(3,3)
+print("K1:", K1)
+
+tmp = []
+for i in range(5):
+    tmp.append( cam1_node.getFloatEnum('dist_coeffs', i) )
+dist1 = np.array(tmp)
+print("dist1:", dist1)
+
+tmp = []
+for i in range(9):
+    tmp.append( cam2_node.getFloatEnum('K', i) )
+K2 = np.copy(np.array(tmp)).reshape(3,3)
+print("K2:", K2)
+
+tmp = []
+for i in range(5):
+    tmp.append( cam2_node.getFloatEnum('dist_coeffs', i) )
+dist2 = np.array(tmp)
+print("dist2:", dist2)
+
 i1 = cv2.imread(args.image1, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
 i2 = cv2.imread(args.image2, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
-
 if i1 is None:
     print("Error loading:", args.image1)
     quit()
 if i2 is None:
     print("Error loading:", args.image2)
     quit()
-    
+
+i1 = cv2.undistort(i1, K1, dist1)
+i2 = cv2.undistort(i2, K1, dist1)
+
 def imresize(src, height):
     ratio = src.shape[0] * 1.0/height
     width = int(src.shape[1] * 1.0/ratio)
     return cv2.resize(src, (width, height))
 
-i1 = imresize(i1, 640)
-i2 = imresize(i2, 640)
+i1 = imresize(i1, 768)
+i2 = imresize(i2, 768)
 
 detector = cv2.xfeatures2d.SURF_create()
 kp1 = detector.detect(i1)
@@ -52,13 +110,13 @@ print("Raw matches:", len(matches))
 # ratio test as per Lowe's paper
 filt_matches = []
 for i, m in enumerate(matches):
-    if m[0].distance < 0.7*m[1].distance:
+    if m[0].distance < 0.75*m[1].distance:
         filt_matches.append(m[0])
 sh1 = i1.shape
 sh2 = i2.shape
 size1 = (sh1[1], sh1[0])
 size2 = (sh2[1], sh2[0])
-matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, kp1, kp2, filt_matches, withRotation=False, withScale=False)
+matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, kp1, kp2, filt_matches, withRotation=False, withScale=False, thresholdFactor=5.0)
 print("GMS matches:", len(matchesGMS))
 
 src = []
@@ -94,7 +152,10 @@ def decomposeAffine(affine):
         return (rotate_deg, tx, ty, sx, sy)
 
 (rot, tx, ty, sx, sy) = decomposeAffine(affine)
-print(' ', rot, tx, ty, sx, sy)
+print("Affine:")
+print("Rotation (deg):", rot)
+print("Translation (pixels):", tx, ty)
+print("Skew:", sx, sy)
 
 def draw_inlier(src1, src2, kpt1, kpt2, inlier, drawing_type):
     height = max(src1.shape[0], src2.shape[0])
@@ -149,4 +210,14 @@ disparity = stereo.compute(i1g, i2g)
 print(disparity.dtype, disparity.shape, np.amax(disparity))
 scaled = disparity.astype('float64')*256/np.amax(disparity)
 cv2.imshow('disparity', scaled.astype('uint8'))
+cv2.waitKey()
+
+flow = cv2.calcOpticalFlowFarneback(i1g, i2g, None, 0.5, 5, 15, 3, 5, 1.2, 0)
+mag, ang = cv2.cartToPolar(flow[...,0], flow[...,1])
+hsv = np.zeros_like(i1)
+hsv[...,1] = 255
+hsv[...,0] = ang*180/np.pi/2
+hsv[...,2] = cv2.normalize(mag,None,0,255,cv2.NORM_MINMAX)
+bgr = cv2.cvtColor(hsv,cv2.COLOR_HSV2BGR)
+cv2.imshow('frame2',bgr)
 cv2.waitKey()
