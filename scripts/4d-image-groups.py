@@ -25,7 +25,8 @@ print("features:", len(matches))
 
 # compute the group connections within the image set.
 
-groups = Groups.groupByFeatureConnections(proj.image_list, matches)
+groups = Groups.newGroupTest(proj.image_list, matches)
+#groups = Groups.groupByFeatureConnections(proj.image_list, matches)
 # groups = Groups.groupByConnectedArea(proj.image_list, matches)
 # groups = Groups.groupByImageConnections(proj)
 
