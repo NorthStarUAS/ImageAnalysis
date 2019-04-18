@@ -72,6 +72,7 @@ raw_values = []
 for match in matches:
     if match[1] == args.group:  # used by current group
         ned = match[0]
+        # print("ned:", ned)
         raw_points.append( [ned[1], ned[0]] )
         raw_values.append( ned[2] )
         for m in match[2:]:
@@ -99,6 +100,7 @@ print('Generating Delaunay mesh and interpolator ...')
 global_tri_list = scipy.spatial.Delaunay(np.array(raw_points))
 interp = scipy.interpolate.LinearNDInterpolator(global_tri_list, raw_values)
 
+no_extrapolate = False
 def intersect2d(ned, v, avg_ground):
     p = ned[:] # copy
 
@@ -112,10 +114,10 @@ def intersect2d(ned, v, avg_ground):
     #print("vec:", v)
     #print("ned:", ned)
     tmp = interp([p[1], p[0]])[0]
-    if True or not np.isnan(tmp):
+    if no_extrapolate or not np.isnan(tmp):
         surface = tmp
     else:
-        surface = 0.0
+        surface = avg_ground
     error = abs(p[2] - surface)
     #print("p=%s surface=%s error=%s" % (p, surface, error))
     while error > eps and count < 25:
@@ -127,7 +129,7 @@ def intersect2d(ned, v, avg_ground):
         p = [ ned[0] + n_proj, ned[1] + e_proj, ned[2] + d_proj ]
         #print(" new p:", p)
         tmp = interp([p[1], p[0]])[0]
-        if True or not np.isnan(tmp):
+        if no_extrapolate or not np.isnan(tmp):
             surface = tmp
         error = abs(p[2] - surface)
         #print("  p=%s surface=%.2f error = %.3f" % (p, surface, error))
