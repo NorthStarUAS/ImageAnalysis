@@ -127,7 +127,10 @@ for m in matchesGMS:
 affine, status = \
     cv2.estimateAffinePartial2D(np.array([src]).astype(np.float32),
                                 np.array([dst]).astype(np.float32))
-
+H, status = cv2.findHomography(np.array([src]).astype(np.float32),
+                                        np.array([dst]).astype(np.float32),
+                                        cv2.LMEDS)
+print("Homography:", H)
 def decomposeAffine(affine):
         tx = affine[0][2]
         ty = affine[1][2]
@@ -188,7 +191,8 @@ def draw_inlier(src1, src2, kpt1, kpt2, inlier, drawing_type):
 
 draw_inlier(i1, i2, kp1, kp2, matchesGMS, 'ONLY_LINES')
 
-i1_new = cv2.warpAffine(i1, affine, (i1.shape[1], i1.shape[0]))
+#i1_new = cv2.warpAffine(i1, affine, (i1.shape[1], i1.shape[0]))
+i1_new = cv2.warpPerspective(i1, H, (i1.shape[1], i1.shape[0]))
 blend = cv2.addWeighted(i1_new, 0.5, i2, 0.5, 0)
 
 cv2.imshow('i1', i1)
