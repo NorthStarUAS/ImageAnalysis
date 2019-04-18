@@ -35,7 +35,7 @@ class Optimizer():
         self.optimize_calib = 'none' # no camera calibration optimization
         #self.ftol = 1e-3              # stop condition quicker
         self.ftol = 1e-4              # stop condition better
-        self.min_chain_length = 3
+        self.min_chain_length = 2
         self.with_bounds = False
         self.ncp = 6
 
