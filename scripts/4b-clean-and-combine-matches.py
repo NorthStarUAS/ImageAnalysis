@@ -301,20 +301,18 @@ for match in matches_direct:
         m[1] = list(kp)
     # print(match)
 
+# sort by longest match chains first
+print("Sorting matches by longest chain first.")
+matches_direct.sort(key=len, reverse=True)
+
 sum = 0.0
-max = 0
-max_index = 0
 for i, match in enumerate(matches_direct):
     refs = len(match[2:])
     sum += refs
-    if refs > max:
-        max = refs
-        max_index = i
         
 if count >= 1:
     print("Total unique features in image set:", len(matches_direct))
     print("Keypoint average instances:", "%.2f" % (sum / len(matches_direct)))
-    print("Max chain length =", max, ' @ index =', max_index)
 
 print("Writing full group chain matches_grouped file ...")
 pickle.dump(matches_direct, open(os.path.join(proj.analysis_dir, "matches_grouped"), "wb"))
