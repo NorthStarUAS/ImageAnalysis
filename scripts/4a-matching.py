@@ -29,6 +29,7 @@ parser.add_argument('--max-dist', default=75, type=float,
                     help='maximum 2d camera distance for pair comparison')
 parser.add_argument('--filter', default='gms',
                     choices=['gms', 'homography', 'fundamental', 'essential', 'none'])
+parser.add_argument('--min-chain-length', type=int, default=3, help='minimum match chain length (3 recommended)')
 #parser.add_argument('--ground', type=float, help='ground elevation in meters')
 
 args = parser.parse_args()
@@ -41,11 +42,12 @@ proj.load_match_pairs()
 
 matcher_node = getNode('/config/matcher', True)
 matcher_node.setString('matcher', args.matcher)
-matcher_node.setString('match_ratio', args.match_ratio)
+matcher_node.setFloat('match_ratio', args.match_ratio)
 matcher_node.setString('filter', args.filter)
-matcher_node.setString('min_pairs', args.min_pairs)
-matcher_node.setString('min_dist', args.min_dist)
-matcher_node.setString('max_dist', args.max_dist)
+matcher_node.setInt('min_pairs', args.min_pairs)
+matcher_node.setFloat('min_dist', args.min_dist)
+matcher_node.setFloat('max_dist', args.max_dist)
+matcher_node.setInt('min_chain_len', args.min_chain_length)
 
 # save any config changes
 proj.save()
