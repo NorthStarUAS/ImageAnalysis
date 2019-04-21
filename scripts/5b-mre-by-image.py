@@ -9,6 +9,8 @@ import math
 import numpy as np
 import os
 
+from props import getNode
+
 from lib import Groups
 from lib import Optimizer
 from lib import ProjectMgr
@@ -29,8 +31,9 @@ proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
 
 # a value of 2 let's pairs exist which can be trouble ...
-min_chain_len = 3
-print("Notice: min_chain_len is set to:", min_chain_len)
+matcher_node = getNode('/config/matcher', True)
+min_chain_len = matcher_node.getInt("min_chain_len")
+print("Notice: min_chain_len is:", min_chain_len)
 
 source = 'matches_grouped'
 print("Loading matches:", source)
@@ -141,24 +144,6 @@ def mark_outliers(error_list, trim_stddev):
             
     return mark_count
 
-# delete marked matches
-def delete_marked_features(matches):
-    print(" deleting marked items...")
-    for i in reversed(range(len(matches))):
-        match = matches[i]
-        has_bad_elem = False
-        for j in reversed(range(2, len(match))):
-            p = match[j]
-            if p == [-1, -1]:
-                has_bad_elem = True
-                match.pop(j)
-        if args.strong and has_bad_elem:
-            print("deleting entire match that contains a bad element")
-            matches.pop(i)
-        elif len(match[2:]) < min_chain_len:
-            print("deleting match that is now in less than %d images:" % min_chain_len, match)
-            matches.pop(i)
-
 if args.interactive:
     # interactively pick outliers
     mark_list = cull.show_outliers(error_list, matches, proj.image_list)
@@ -202,7 +187,7 @@ if mark_sum > 0:
     print('Outliers removed from match lists:', mark_sum)
     result = input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
-        delete_marked_features(matches)
+        cull.delete_marked_features(matches, min_chain_len, strong=args.strong)
         # write out the updated match dictionaries
         print("Writing:", source)
         pickle.dump(matches, open(os.path.join(proj.analysis_dir, source), "wb"))
