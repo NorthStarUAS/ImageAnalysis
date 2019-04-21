@@ -24,13 +24,7 @@ matches = pickle.load( open( os.path.join(proj.analysis_dir, source), 'rb' ) )
 print("features:", len(matches))
 
 # compute the group connections within the image set.
-
-groups = Groups.newGroupTest(proj.image_list, matches)
-#groups = Groups.groupByFeatureConnections(proj.image_list, matches)
-# groups = Groups.groupByConnectedArea(proj.image_list, matches)
-# groups = Groups.groupByImageConnections(proj)
-
-#groups.sort(key=len, reverse=True)
+groups = Groups.compute(proj.image_list, matches)
 Groups.save(proj.analysis_dir, groups)
 
 print('Total images:', len(proj.image_list))
