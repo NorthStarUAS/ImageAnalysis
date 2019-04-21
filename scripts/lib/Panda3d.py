@@ -72,6 +72,8 @@ def generate_from_grid(proj, group, ref_image=False, src_dir=".",
         # iteration in the same order that the original grid_list was
         # constucted so it works.
         width, height = image.get_size()
+        if not width or not height:
+            width, height = proj.cam.get_image_params()
         steps = int(math.sqrt(len(image.grid_list))) - 1
         n = 1
         nan_list = []
@@ -140,6 +142,8 @@ def generate_from_fit(proj, group, ref_image=False, src_dir=".",
         f.write("<VertexPool> surface {\n")
 
         width, height = image.get_size()
+        if not width or not height:
+            width, height = proj.cam.get_image_params()
         n = 1
         #print("uv len:", len(image.fit_uv))
         for i in range(len(image.fit_xy)):
