@@ -14,8 +14,7 @@ from props import getNode
 from lib import Groups
 from lib import Optimizer
 from lib import ProjectMgr
-
-import match_culling as cull
+from lib import match_culling as cull
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')

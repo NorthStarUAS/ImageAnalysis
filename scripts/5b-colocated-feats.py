@@ -11,8 +11,7 @@ from props import getNode
 
 from lib import Groups
 from lib import ProjectMgr
-
-import match_culling as cull
+from lib import match_culling as cull
 
 r2d = 180.0 / math.pi
 

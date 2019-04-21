@@ -9,8 +9,7 @@ import os
 
 from lib import Groups
 from lib import ProjectMgr
-
-import match_culling as cull
+from lib import match_culling as cull
 
 parser = argparse.ArgumentParser(description='Remove all matches referencing the specific image.')
 parser.add_argument('--project', required=True, help='project directory')
@@ -29,36 +28,18 @@ print("  features:", len(matches))
 # load the group connections within the image set
 groups = Groups.load(proj.analysis_dir)
 
-def split_image_features(index, matches):
+def mark_image_features(index, matches):
     # iterate through the match dictionary and mark any matches for
     # the specified image for deletion
     print("Marking feature matches for image:", index)
     count = 0
     new_matches = []
     for i, match in enumerate(matches):
-        found_index = False
-        found_group = False
         for j, p in enumerate(match[2:]):
             if p[0] == index:
-                found_index = True
-            elif proj.image_list[p[0]].name in groups[args.group]:
-                found_group = True
-        # split match if possible
-        if found_index and found_group:
-            count += 1
-            new_match = [ list(match[0]), -1 ]
-            for j, p in enumerate(match[2:]):
-                if proj.image_list[p[0]].name in groups[args.group]:
-                    if p[0] != index:
-                        cull.mark_feature(matches, i, j, 0)
-                        # print('p:', p)
-                        new_match.append(p)
-            if len(new_match) >= 4: # at least 2 images referenced
-                new_matches.append(new_match)
-    # add all the new match splits
-    for m in new_matches:
-        matches.append(m)
-    return count, len(new_matches)
+                cull.mark_feature(matches, i, j, 0)
+                count += 1
+    return count
 
 index = None
 count_split = 0
@@ -68,27 +49,25 @@ if not args.images is None:
         index = proj.findIndexByName(name)
         if index == None:
             print("Cannot locate by name:", args.images)
+        elif not name in groups[args.group]:
+            print(name, "not in selected group.")
         else:
-            s, a = split_image_features(index, matches)
-            count_split += s
-            count_added += a
+            count = mark_image_features(index, matches)
+            groups[args.group].remove(name)
 elif not args.indices is None:
     for index in args.indices:
-        if args.index >= len(proj.image_list):
-            print("Index greater than image list size:", args.index)
+        if index >= len(proj.image_list):
+            print("Index greater than image list size:", index)
         else:
-            s, a = split_image_features(index, matches)
-            count_split += s
-            count_added += a
+            count = mark_image_features(index, matches)
+            groups[args.group].remove(proj.image_list[index].name)
     
-if count_split + count_added > 0:
-    print('Features with group removed:', count_split)
-    print('New Features for group with target removed:', count_added)
-    result = input('Update these matches and save? (y/n):')
+if count > 0:
+    print('Image remvoed from %d features.' % count)
+    result = input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
         cull.delete_marked_features(matches)
-      
-        # write out the updated match dictionaries
+        print("Updating groups file")
+        Groups.save(proj.analysis_dir, groups)
         print("Writing: matches_grouped")
         pickle.dump(matches, open(os.path.join(proj.analysis_dir, "matches_grouped"), "wb"))
-
