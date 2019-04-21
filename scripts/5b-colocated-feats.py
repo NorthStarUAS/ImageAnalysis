@@ -7,6 +7,8 @@ import os.path
 from progress.bar import Bar
 import pickle
 
+from props import getNode
+
 from lib import Groups
 from lib import ProjectMgr
 
@@ -22,6 +24,11 @@ args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
+
+# a value of 2 let's pairs exist which can be trouble ...
+matcher_node = getNode('/config/matcher', True)
+min_chain_len = matcher_node.getInt("min_chain_len")
+print("Notice: min_chain_len is:", min_chain_len)
 
 #source = 'matches_direct'
 source = 'matches_grouped'
@@ -92,26 +99,12 @@ bar.finish()
 cull.mark_using_list(mark_list, matches)
 mark_sum = len(mark_list)
 
-def delete_marked_features(matches):
-    print(" deleting marked items...")
-    for i in reversed(range(len(matches))):
-        match = matches[i]
-        has_bad_elem = False
-        for j in reversed(range(1, len(match))):
-            p = match[j]
-            if p == [-1, -1]:
-                has_bad_elem = True
-                match.pop(j)
-        if len(match) < 3:
-            print("deleting match that is now in less than 2 images:", match)
-            matches.pop(i)
-
 mark_sum = len(mark_list)
 if mark_sum > 0:
     print('Outliers to remove from match lists:', mark_sum)
     result = input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
-        delete_marked_features(matches)
+        cull.delete_marked_features(matches, min_chain_len)
         # write out the updated match dictionaries
         print("Writing original matches:", source)
         pickle.dump(matches, open(os.path.join(proj.analysis_dir, source), "wb"))
