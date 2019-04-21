@@ -28,6 +28,10 @@ args = parser.parse_args()
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
 
+# a value of 2 let's pairs exist which can be trouble ...
+min_chain_len = 3
+print("Notice: min_chain_len is set to:", min_chain_len)
+
 source = 'matches_grouped'
 print("Loading matches:", source)
 matches = pickle.load( open( os.path.join(proj.analysis_dir, source), "rb" ) )
@@ -151,8 +155,8 @@ def delete_marked_features(matches):
         if args.strong and has_bad_elem:
             print("deleting entire match that contains a bad element")
             matches.pop(i)
-        elif len(match) < 4:
-            print("deleting match that is now in less than 2 images:", match)
+        elif len(match[2:]) < min_chain_len:
+            print("deleting match that is now in less than %d images:" % min_chain_len, match)
             matches.pop(i)
 
 if args.interactive:
