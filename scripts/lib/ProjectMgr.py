@@ -26,7 +26,6 @@ from . import Camera
 from . import Image
 
 from . import ImageList
-from . import Matcher
 from . import Render
 from . import transformations
 
