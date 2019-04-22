@@ -100,6 +100,11 @@ def dither(x):
     return i
     
 # generate the ideal vignette mask based on polynomial fit
+w, h = proj.cam.get_image_params()
+print("original shape:", h, w)
+
+cy = h/2
+cx = w/2
 for x in range(w):
     print(x)
     for y in range(h):
