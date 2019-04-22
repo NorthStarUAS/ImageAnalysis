@@ -7,6 +7,8 @@ import argparse
 import pickle
 import os
 
+from props import getNode
+
 from lib import Groups
 from lib import ProjectMgr
 from lib import match_culling as cull
@@ -27,6 +29,11 @@ print("  features:", len(matches))
 
 # load the group connections within the image set
 groups = Groups.load(proj.analysis_dir)
+
+# a value of 2 let's pairs exist which can be trouble ...
+matcher_node = getNode('/config/matcher', True)
+min_chain_len = matcher_node.getInt("min_chain_len")
+print("Notice: min_chain_len is:", min_chain_len)
 
 def mark_image_features(index, matches):
     # iterate through the match dictionary and mark any matches for
@@ -63,10 +70,10 @@ elif not args.indices is None:
             groups[args.group].remove(proj.image_list[index].name)
     
 if count > 0:
-    print('Image remvoed from %d features.' % count)
+    print('Image removed from %d features.' % count)
     result = input('Save these changes? (y/n):')
     if result == 'y' or result == 'Y':
-        cull.delete_marked_features(matches)
+        cull.delete_marked_features(matches, min_chain_len)
         print("Updating groups file")
         Groups.save(proj.analysis_dir, groups)
         print("Writing: matches_grouped")
