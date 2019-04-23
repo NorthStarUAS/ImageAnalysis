@@ -33,6 +33,8 @@ groups = Groups.load(proj.analysis_dir)
 # a value of 2 let's pairs exist which can be trouble ...
 matcher_node = getNode('/config/matcher', True)
 min_chain_len = matcher_node.getInt("min_chain_len")
+if min_chain_len == 0:
+    min_chain_len = 3
 print("Notice: min_chain_len is:", min_chain_len)
 
 def mark_image_features(index, matches):

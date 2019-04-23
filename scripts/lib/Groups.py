@@ -29,6 +29,8 @@ def compute(image_list, matches):
 
     matcher_node = getNode('/config/matcher', True)
     min_chain_len = matcher_node.getInt("min_chain_len")
+    if min_chain_len == 0:
+        min_chain_len = 3
     print("/config/matcher/min_chain_len:", min_chain_len)
     use_single_pairs = (min_chain_len == 2)
 
