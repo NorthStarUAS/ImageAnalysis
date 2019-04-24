@@ -100,7 +100,7 @@ print('Generating Delaunay mesh and interpolator ...')
 global_tri_list = scipy.spatial.Delaunay(np.array(raw_points))
 interp = scipy.interpolate.LinearNDInterpolator(global_tri_list, raw_values)
 
-no_extrapolate = False
+no_extrapolate = True
 def intersect2d(ned, v, avg_ground):
     p = ned[:] # copy
 
@@ -176,6 +176,8 @@ if True:
         image = proj.findImageByName(name)
         print(image.name, image.z_avg)
         width, height = image.get_size()
+        if not width or not height:
+            width, height = proj.cam.get_image_params()
         # scale the K matrix if we have scaled the images
         K = proj.cam.get_K(optimized=True)
         IK = np.linalg.inv(K)
