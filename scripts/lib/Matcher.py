@@ -26,6 +26,8 @@ class Matcher():
         self.matcher = None
         self.match_ratio = 0.70
         self.min_pairs = 25
+        # probably cleaner ways to do this...
+        self.camera_node = getNode('/config/camera', True)
 
     def configure(self):
         detector_str = self.detector_node.getString('detector')
@@ -328,18 +330,19 @@ class Matcher():
             # just quit now
             return []
 
-        size1 = i1.get_size()
-        size2 = i2.get_size()
-        if not size1[0] or not size1[1] or not size2[0] or not size2[1]:
-            print("Zero image sizes will crash matchGMS():", size1, size2)
+        w = self.camera_node.getInt('width_px')
+        h = self.camera_node.getInt('height_px')
+        if not w or not h:
+            print("Zero image sizes will crash matchGMS():", w, h)
             print("Possibly the detect feature step was killed and restarted?")
             print("Recommend removing all meta/*.feat and meta/*.desc and")
             print("rerun the feature detection step.")
             print("... or do some coding to add this information to the")
             print("ImageAnalysis/meta/<image_name>.json files")
             quit()
+        size = (w, h)
             
-        matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, i1.kp_list, i2.kp_list, matches_thresh, withRotation=True, withScale=False, thresholdFactor=5.0)
+        matchesGMS = cv2.xfeatures2d.matchGMS(size, size, i1.kp_list, i2.kp_list, matches_thresh, withRotation=True, withScale=False, thresholdFactor=5.0)
         #matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, i1.uv_list, i2.uv_list, matches_thresh, withRotation=True, withScale=False)
         #print('matchesGMS:', matchesGMS)
             
