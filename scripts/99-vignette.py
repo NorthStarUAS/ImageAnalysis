@@ -33,55 +33,60 @@ proj = ProjectMgr.ProjectMgr(args.project)
 # load existing images info which could include things like camera pose
 proj.load_images_info()
 
-# def imresize(src, height):
-#     ratio = src.shape[0] * 1.0/height
-#     width = int(src.shape[1] * 1.0/ratio)
-#     return cv2.resize(src, (width, height))
+# camera paramters
+K = proj.cam.get_K(optimized=True)
+cu = K[0,2]
+cv = K[1,2]
+print("Project cu = %.2f  cv = %.2f:" % (cu, cv) )
 
-vignette_file = os.path.join(proj.analysis_dir, 'vignette.jpg')
-if not os.path.exists(vignette_file):
+vignette_avg_file = os.path.join(proj.analysis_dir,
+                                 'models', 'vignette-avg.jpg')
+vignette_mask_file = os.path.join(proj.analysis_dir,
+                                  'models', 'vignette-mask.jpg')
+if not os.path.exists(vignette_avg_file):
     # compute the 'average' of all the images in the set (more images is better)
     sum = None
     vmask = None
     count = 0
     for image in proj.image_list:
         rgb = image.load_rgb()
-        gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
         if args.scale < 1.0:
-            gray = cv2.resize(gray, None, fx=args.scale, fy=args.scale)
+            rgb = cv2.resize(rgb, None, fx=args.scale, fy=args.scale)
         if sum is None:
-            sum = np.zeros(gray.shape, np.float32)
-        sum += gray
+            sum = np.zeros(rgb.shape, np.float32)
+        sum += rgb
         count += 1
-        vmask = (sum / count).astype('uint8')
-        cv2.imshow('vmask', vmask)
-        print(image.name, np.amin(vmask), '-', np.amax(vmask))
-        if 0xFF & cv2.waitKey(5) == 27:
-            break
+        #vmask = (sum / count).astype('uint8')
+        #cv2.imshow('vmask', vmask)
+        print("adding:", image.name)
     # save our work
-    cv2.imwrite(vignette_file, vmask)
+    vmask = (sum / count).astype('uint8')
+    cv2.imshow('vmask', vmask)
+    cv2.imwrite(vignette_avg_file, vmask)
 
-vmask = cv2.imread(vignette_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
+vmask = cv2.imread(vignette_avg_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
 cv2.imshow('vmask', vmask)
 
 h, w = vmask.shape[:2]
 print("shape:", h, w)
 
-cy = h/2
-cx = w/2
+cy = cv * args.scale
+cx = cu * args.scale
 vals = []
+bar = Bar("Sampling vignette average image:", max=w)
 for x in range(w):
-    print(x)
     for y in range(h):
         dx = x - cx
         dy = y - cy
-        r = math.sqrt(dx*dx + dy*dy) / args.scale
-        v = vmask[y,x]
-        vals.append( [r, v] )
+        rad = math.sqrt(dx*dx + dy*dy) / args.scale
+        b = vmask[y,x,0]
+        g = vmask[y,x,1]
+        r = vmask[y,x,2]
+        vals.append( [rad, b, g, r] )
+    bar.next()
+bar.finish()
 
 data = np.array(vals, dtype=np.float32)
-fit, res, _, _, _ = np.polyfit( data[:,1], data[:,0], 4, full=True )
-print(fit)
 
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
@@ -89,8 +94,20 @@ from scipy.optimize import curve_fit
 def f4(x, a, b, c):
     return a*x*x*x*x + b*x*x + c
 
-popt, pcov = curve_fit(f4, data[:,0], data[:,1])
-print("fit coefficients:", popt)
+bopt, pcov = curve_fit(f4, data[:,0], data[:,1])
+print("blue fit coefficients:", bopt)
+gopt, pcov = curve_fit(f4, data[:,0], data[:,2])
+print("green fit coefficients:", gopt)
+ropt, pcov = curve_fit(f4, data[:,0], data[:,3])
+print("red fit coefficients:", ropt)
+
+plt.plot(data[:,0], data[:,3], 'b-', label='data')
+plt.plot(data[:,0], f4(data[:,0], *ropt), 'r-',
+         label='fit: a=%f, b=%f, c=%f' % tuple(ropt))
+plt.xlabel('radius')
+plt.ylabel('value')
+plt.legend()
+plt.show()
 
 def dither(x):
     i = int(x)
@@ -102,23 +119,29 @@ def dither(x):
 # generate the ideal vignette mask based on polynomial fit
 w, h = proj.cam.get_image_params()
 print("original shape:", h, w)
+vmask = np.zeros((h, w, 3), np.uint8)
 
-cy = h/2
-cx = w/2
+bar = Bar("Generating best fit vignette mask:", max=w)
 for x in range(w):
-    print(x)
     for y in range(h):
-        dx = x - cx
-        dy = y - cy
-        r = math.sqrt(dx*dx + dy*dy) / args.scale
-        vmask[y,x] = dither(f4(r, *popt))
-cv2.imshow('vmask_fit', vmask)
-cv2.waitKey(0)
+        dx = x - cu
+        dy = y - cv
+        rad = math.sqrt(dx*dx + dy*dy)
+        vmask[y,x,0] = dither(f4(rad, *bopt))
+        vmask[y,x,1] = dither(f4(rad, *gopt))
+        vmask[y,x,2] = dither(f4(rad, *ropt))
+    bar.next()
+bar.finish()
 
-plt.plot(data[:,0], data[:,1], 'b-', label='data')
-plt.plot(data[:,0], f4(data[:,0], *popt), 'r-',
-         label='fit: a=%f, b=%f, c=%f' % tuple(popt))
-plt.xlabel('radius')
-plt.ylabel('value')
-plt.legend()
-plt.show()
+b, g, r = cv2.split(vmask)
+b = 255 - b
+g = 255 - g
+r = 255 - r
+b -= np.amin(b)
+g -= np.amin(g)
+r -= np.amin(r)
+vmask = cv2.merge((b, g, r))
+cv2.imwrite(vignette_mask_file, vmask)
+#cv2.imshow('vmask_fit', vmask)
+#cv2.waitKey(0)
+
