@@ -33,9 +33,10 @@ class Optimizer():
         #self.graph_counter = 0
         #self.optimize_calib = 'global' # global camera optimization
         self.optimize_calib = 'none' # no camera calibration optimization
+        #self.ftol = 1e-2              # stop condition extra course
         #self.ftol = 1e-3              # stop condition quicker
         self.ftol = 1e-4              # stop condition better
-        self.min_chain_length = 2
+        self.min_chain_len = 2        # use whatever matches are defind upstream
         self.with_bounds = False
         self.ncp = 6
 
@@ -247,7 +248,7 @@ class Optimizer():
                 for m in match[2:]:
                     if m[0] in placed_images:
                         count += 1
-                if count >= self.min_chain_length:
+                if count >= self.min_chain_len:
                     n_observations += count
                     self.n_points += 1
 
@@ -261,7 +262,7 @@ class Optimizer():
                 for m in match[2:]:
                     if m[0] in placed_images:
                         count += 1
-                if count >= self.min_chain_length:
+                if count >= self.min_chain_len:
                     self.feat_map_fwd[i] = feat_used
                     self.feat_map_rev[feat_used] = i
                     feat_used += 1
@@ -285,7 +286,7 @@ class Optimizer():
                 for m in match[2:]:
                     if m[0] in placed_images:
                         count += 1
-                if count >= self.min_chain_length:
+                if count >= self.min_chain_len:
                     for m in match[2:]:
                         if m[0] in placed_images:
                             cam_index = self.camera_map_rev[m[0]]
