@@ -217,6 +217,14 @@ class MyApp(ShowBase):
             print(indent, child)
                 
     def load(self, path):
+        # vignette mask
+        self.vignette_mask = None
+        self.vignette_mask_small = None
+        vfile = os.path.join(path, "vignette-mask.jpg")
+        if os.path.exists(vfile):
+            print("loading vignette correction mask:", vfile)
+            self.vignette_mask = cv2.imread(vfile, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
+            self.vignette_mask_small = cv2.resize(self.vignette_mask, (512, 512))
         files = []
         for file in sorted(os.listdir(path)):
             if fnmatch.fnmatch(file, '*.egg'):
@@ -241,30 +249,50 @@ class MyApp(ShowBase):
             self.base_textures.append(tex)
             bar.next()
         bar.finish()
-        # I give up: panda3d's model loader sometimes randomly seems
-        # to just not load the texture.  My best guess is that it's
-        # some sort of timing, threading, out of sync situation and no
-        # error code seems to be reported.  So scan each model for
-        # ones that never got their texture loaded and load it
-        # manually. Ugh!
+        # The egg model lists "dummy.jpg" as the texture model which
+        # doesn't exists.  Here we load the actual textures and
+        # possibly apply vignette correction and adaptive histogram
+        # equalization.
+        bar = Bar('Loading base textures:', max=len(files))
         for i, model in enumerate(self.models):
-            if self.base_textures[i] == None:
-                print('Reloading base texture for:', model.getName())
-                base, ext = os.path.splitext(model.getName())
-                image_file = None
-                dir = os.path.join(proj.analysis_dir, 'models')
-                tmp1 = os.path.join(dir, base + '.JPG')
-                tmp2 = os.path.join(dir, base + '.jpg')
-                if os.path.isfile(tmp1):
-                    image_file = tmp1
-                elif os.path.isfile(tmp2):
-                    image_file = tmp2
-                #print("texture file:", image_file)
+            base, ext = os.path.splitext(model.getName())
+            image_file = None
+            dir = os.path.join(proj.analysis_dir, 'models')
+            tmp1 = os.path.join(dir, base + '.JPG')
+            tmp2 = os.path.join(dir, base + '.jpg')
+            if os.path.isfile(tmp1):
+                image_file = tmp1
+            elif os.path.isfile(tmp2):
+                image_file = tmp2
+            #print("texture file:", image_file)
+            if False:
                 tex = self.loader.loadTexture(image_file)
-                tex.setWrapU(Texture.WM_clamp)
-                tex.setWrapV(Texture.WM_clamp)
-                model.setTexture(tex, 1)
-                self.base_textures[i] = tex
+            else:
+                rgb = cv2.imread(image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
+                rgb = np.flipud(rgb)
+                # vignette correction
+                if not self.vignette_mask_small is None:
+                    rgb = rgb.astype('uint16') + self.vignette_mask_small
+                    rgb = np.clip(rgb, 0, 255).astype('uint8')
+                # adaptive equalization
+                hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
+                hue, sat, val = cv2.split(hsv)
+                aeq = clahe.apply(val)
+                # recombine
+                hsv = cv2.merge((hue,sat,aeq))
+                # convert back to rgb
+                rgb = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+                tex = Texture(base)
+                tex.setCompression(Texture.CMOff)
+                tex.setup2dTexture(512, 512, Texture.TUnsignedByte,
+                                   Texture.FRgb)
+                tex.setRamImage(rgb)
+            tex.setWrapU(Texture.WM_clamp)
+            tex.setWrapV(Texture.WM_clamp)
+            model.setTexture(tex, 1)
+            self.base_textures[i] = tex
+            bar.next()
+        bar.finish()
         self.sortImages()
         self.annotations.rebuild(self.view_size)
 
@@ -428,7 +456,8 @@ class MyApp(ShowBase):
             m.setDepthTest(False)
             m.setDepthWrite(False)
             if m != top:
-                m.setColor(0.8, 0.8, 0.8, 1.0)
+                gray = 1.0
+                m.setColor(gray, gray, gray, 1.0)
 
     def updateTexture(self, main):
         dir_node = getNode('/config/directories', True)
@@ -463,14 +492,17 @@ class MyApp(ShowBase):
                 else:
                     if True:
                         # example of passing an opencv image as a
-                        # panda texture, except currently only works
-                        # for gray scale (need to find the proper
-                        # constant for rgb in setup2dTexture()
+                        # panda texture
                         print(base, image_file)
                         #image = proj.findImageByName(base)
                         #print(image)
                         rgb = cv2.imread(image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
                         rgb = np.flipud(rgb)
+                        # vignette correction
+                        if not self.vignette_mask is None:
+                            rgb = rgb.astype('uint16') + self.vignette_mask
+                            rgb = np.clip(rgb, 0, 255).astype('uint8')
+
                         h, w = rgb.shape[:2]
                         print('shape: (%d,%d)' % (w, h))
                         rescale = False
