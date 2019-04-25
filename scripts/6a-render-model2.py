@@ -175,9 +175,7 @@ if True:
     for name in group:
         image = proj.findImageByName(name)
         print(image.name, image.z_avg)
-        width, height = image.get_size()
-        if not width or not height:
-            width, height = proj.cam.get_image_params()
+        width, height = proj.cam.get_image_params()
         # scale the K matrix if we have scaled the images
         K = proj.cam.get_K(optimized=True)
         IK = np.linalg.inv(K)
