@@ -56,8 +56,9 @@ if not os.path.exists(vignette_avg_file):
             sum = np.zeros(rgb.shape, np.float32)
         sum += rgb
         count += 1
-        #vmask = (sum / count).astype('uint8')
-        #cv2.imshow('vmask', vmask)
+        vmask = (sum / count).astype('uint8')
+        cv2.imshow('vmask', vmask)
+        cv2.waitKey(1)
         print("adding:", image.name)
     # save our work
     vmask = (sum / count).astype('uint8')
