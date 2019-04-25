@@ -7,7 +7,7 @@ import numpy as np
 import os
 import scipy.spatial
 
-def make_textures(src_dir, analysis_dir, image_list, resolution=256):
+def make_textures(src_dir, analysis_dir, image_list, resolution=512):
     dst_dir = os.path.join(analysis_dir, 'models')
     if not os.path.exists(dst_dir):
         print("Notice: creating models directory =", dst_dir)
@@ -18,7 +18,7 @@ def make_textures(src_dir, analysis_dir, image_list, resolution=256):
         if not os.path.exists(dst):
             subprocess.run(['convert', '-resize', '%dx%d!' % (resolution, resolution), src, dst])
         
-def make_textures_opencv(src_dir, analysis_dir, image_list, resolution=256):
+def make_textures_opencv(src_dir, analysis_dir, image_list, resolution=512):
     dst_dir = os.path.join(analysis_dir, 'models')
     if not os.path.exists(dst_dir):
         print("Notice: creating texture directory =", dst_dir)
@@ -36,16 +36,20 @@ def make_textures_opencv(src_dir, analysis_dir, image_list, resolution=256):
                                fx=resolution/float(width),
                                fy=resolution/float(height),
                                interpolation=method)
-            # convert to hsv color space
-            hsv = cv2.cvtColor(scale, cv2.COLOR_BGR2HSV)
-            hue,sat,val = cv2.split(hsv)
-            # adaptive histogram equalization on 'value' channel
-            clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
-            aeq = clahe.apply(val)
-            # recombine
-            hsv = cv2.merge((hue,sat,aeq))
-            # convert back to rgb
-            result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+            do_equalize = False
+            if do_equalize:
+                # convert to hsv color space
+                hsv = cv2.cvtColor(scale, cv2.COLOR_BGR2HSV)
+                hue,sat,val = cv2.split(hsv)
+                # adaptive histogram equalization on 'value' channel
+                clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+                aeq = clahe.apply(val)
+                # recombine
+                hsv = cv2.merge((hue,sat,aeq))
+                # convert back to rgb
+                result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+            else:
+                result = scale
             cv2.imwrite(dst, result)
             print("Texture %dx%d %s" % (resolution, resolution, dst))
             
@@ -65,7 +69,8 @@ def generate_from_grid(proj, group, ref_image=False, src_dir=".",
 
         f = open(name, "w")
         f.write("<CoordinateSystem> { Z-Up }\n\n")
-        f.write("<Texture> tex { \"" + image.name + ".JPG\" }\n\n")
+        # f.write("<Texture> tex { \"" + image.name + ".JPG\" }\n\n")
+        f.write("<Texture> tex { \"dummy.jpg\" }\n\n")
         f.write("<VertexPool> surface {\n")
 
         # this is contructed in a weird way, but we generate the 2d
