@@ -75,6 +75,17 @@ for image in proj.image_list:
     image.max_z = -9999.0
     image.min_z = 9999.0
 
+# elevation stats
+print("Computing stats...")
+ned_list = []
+for match in matches:
+    if match[1] == args.group:  # used by current group
+        ned_list.append(match[0])
+avg = -np.mean(np.array(ned_list)[:,2])
+std = np.std(np.array(ned_list)[:,2])
+print("Average elevation: %.2f" % avg)
+print("Standard deviation: %.2f" % std)
+
 # sort through points
 print('Reading feature locations from optimized match points ...')
 global_raw_points = []
@@ -82,8 +93,12 @@ global_raw_values = []
 for match in matches:
     if match[1] == args.group:  # used by current group
         ned = match[0]
-        global_raw_points.append( [ned[1], ned[0]] )
-        global_raw_values.append( -ned[2] )
+        diff = abs(-ned[2] - avg)
+        if diff < 5*std:
+            global_raw_points.append( [ned[1], ned[0]] )
+            global_raw_values.append( -ned[2] )
+        else:
+            print("Discarding match with excessive altitude:", match)
 
 print('Generating Delaunay meshes ...')
 global_tri_list = scipy.spatial.Delaunay(np.array(global_raw_points))
