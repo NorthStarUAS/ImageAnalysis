@@ -15,6 +15,7 @@
 # elevation plane.
 
 import argparse
+import cv2
 import pickle
 import math
 import numpy as np
@@ -32,6 +33,7 @@ from lib import transformations
 
 mesh_steps = 8                  # 1 = corners only
 r2d = 180 / math.pi
+tolerance = 0.5
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('--project', required=True, help='project directory')
@@ -55,6 +57,8 @@ ref = [ ref_node.getFloat('lat_deg'),
 # setup SRTM ground interpolator
 sss = SRTM.NEDGround( ref, 6000, 6000, 30 )
 
+width, height = proj.cam.get_image_params()
+
 print("Loading optimized match points ...")
 matches = pickle.load( open( os.path.join(proj.analysis_dir, "matches_grouped"), "rb" ) )
 
@@ -73,6 +77,7 @@ for image in proj.image_list:
     image.fit_xy = []
     image.fit_z = []
     image.fit_uv = []
+    image.fit_edge = []
 
 # sort through points to build a global list of feature coordinates
 # and a per-image list of feature coordinates
@@ -80,7 +85,7 @@ print('Reading feature locations from optimized match points ...')
 raw_points = []
 raw_values = []
 for match in matches:
-    if match[1] == args.group:  # used by current group
+    if match[1] == args.group and len(match[2:]) > 2:  # used by current group
         ned = match[0]
         raw_points.append( [ned[1], ned[0]] )
         raw_values.append( ned[2] )
@@ -100,6 +105,25 @@ for match in matches:
                     image.max_z = z
                     #print(max_z, match)
 
+K = proj.cam.get_K(optimized=True)
+dist_coeffs = np.array(proj.cam.get_dist_coeffs(optimized=True))
+def undistort(uv_orig):
+    # convert the point into the proper format for opencv
+    uv_raw = np.zeros((1,1,2), dtype=np.float32)
+    uv_raw[0][0] = (uv_orig[0], uv_orig[1])
+    # do the actual undistort
+    uv_new = cv2.undistortPoints(uv_raw, K, dist_coeffs, P=K)
+    # print(uv_orig, type(uv_new), uv_new)
+    return uv_new[0][0]
+
+# cull points from the per-image pool that project outside the grid boundaries
+for image in proj.image_list:
+    size = len(image.pool_uv)
+    for i in reversed(range(len(image.pool_uv))): # iterate in reverse order
+        uv_new = undistort(image.pool_uv[i])
+        if uv_new[0] < 0 or uv_new[0] >= width or uv_new[1] < 0 or uv_new[1] >= height:
+            print("out of range")
+    
 print('Generating Delaunay mesh and interpolator ...')
 global_tri_list = scipy.spatial.Delaunay(np.array(raw_points))
 interp = scipy.interpolate.LinearNDInterpolator(global_tri_list, raw_values)
@@ -179,7 +203,6 @@ if True:
     for name in group:
         image = proj.findImageByName(name)
         print(image.name, image.z_avg)
-        width, height = image.get_size()
         # scale the K matrix if we have scaled the images
         K = proj.cam.get_K(optimized=True)
         IK = np.linalg.inv(K)
@@ -196,7 +219,9 @@ if True:
             grid_list.append( [0, v] )
             grid_list.append( [width, v] )
         #print('grid_list:', grid_list)
+        
         distorted_uv = proj.redistort(grid_list, optimized=True)
+        distorted_uv = grid_list
 
         if args.direct:
             proj_list = proj.projectVectors( IK, image.get_body2ned(),
@@ -226,8 +251,9 @@ if True:
         # convert ned to xyz and stash the result for each image
         image.grid_list = []
         for p in pts_ned:
-            image.fit_xy.append( [p[1], p[0]] )
-            image.fit_z.append( -p[2] )
+            image.fit_xy.append([p[1], p[0]])
+            image.fit_z.append(-p[2])
+            image.fit_edge.append(True)
         image.fit_uv = distorted_uv
         print('len:', len(image.fit_xy), len(image.fit_z), len(image.fit_uv))
 
@@ -252,11 +278,12 @@ for name in group:
                 if error > max_error:
                     max_error = error
                     next_index = i
-        if max_error > 0.2:
+        if max_error > tolerance:
             print("adding index:", next_index, "error:", max_error)
             image.fit_xy.append(image.pool_xy[next_index])
             image.fit_z.append(image.pool_z[next_index])
             image.fit_uv.append(image.pool_uv[next_index])
+            image.fit_edge.append(False)
             del image.pool_xy[next_index]
             del image.pool_z[next_index]
             del image.pool_uv[next_index]
@@ -270,6 +297,6 @@ for name in group:
 dir_node = getNode('/config/directories', True)
 img_src_dir = dir_node.getString('images_source')
 Panda3d.generate_from_fit(proj, groups[args.group], src_dir=img_src_dir,
-                          project_dir=args.project,
+                          analysis_dir=proj.analysis_dir,
                           resolution=args.texture_resolution)
 
