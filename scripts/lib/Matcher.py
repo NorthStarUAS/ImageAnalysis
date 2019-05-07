@@ -266,6 +266,8 @@ class Matcher():
         # keypoints (forward match)
         
         # sanity check
+        if i1.des_list is None or i2.des_list is None:
+            return []
         if len(i1.des_list.shape) == 0 or i1.des_list.shape[0] <= 1:
             return []
         if len(i2.des_list.shape) == 0 or i2.des_list.shape[0] <= 1:
