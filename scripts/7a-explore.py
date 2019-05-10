@@ -5,14 +5,14 @@ import argparse
 import cv2
 import fnmatch
 import os.path
-from progress.bar import Bar
+from progress.bar import Bar    # python3-progress
 import sys
 import time
 
-import tkinter as tk
+import tkinter as tk            # python3-tkinter
 from tkinter import filedialog
 
-from props import getNode
+from props import getNode       # aura-props
 
 import math
 import numpy as np
