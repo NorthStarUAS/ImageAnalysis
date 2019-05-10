@@ -34,7 +34,7 @@ def compute(image_list, matches):
     print("/config/matcher/min_chain_len:", min_chain_len)
     use_single_pairs = (min_chain_len == 2)
 
-    max_wanted = int(10000 / math.sqrt(len(image_list)))
+    max_wanted = int(8000 / math.sqrt(len(image_list)))
     if max_wanted < 100:
         max_wanted = 100
     print("max features desired per image:", max_wanted)
