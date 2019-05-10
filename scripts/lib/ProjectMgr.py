@@ -250,11 +250,20 @@ class ProjectMgr():
             rgb = image.load_rgb(equalize=True)
             image.detect_features(rgb, scale)
 
+            # sanity check
+            width, height = image.get_size()
+            cw, ch = self.cam.get_image_params()
+            if width != cw or height != ch:
+                print("WARNING!")
+                print("Image dimensions do not match camera dimensions!")
+                print("This could cause the matcher to crash later!")
+                print("You should figure out why the image meta data is lying")
+                print("and fix the problem before continuing!")
+                
             # Filter out of bound undistorted feature points.
             # Traverse the list in reverse so we can safely remove
             # features if needed
             self.undistort_image_keypoints(image)
-            width, height = image.get_size()
             margin = 0
             for i in reversed(range(len(image.uv_list))):
                 uv = image.uv_list[i]
