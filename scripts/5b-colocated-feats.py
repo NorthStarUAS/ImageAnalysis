@@ -4,7 +4,7 @@ import argparse
 import math
 import numpy as np
 import os.path
-from progress.bar import Bar
+from tqdm import tqdm
 import pickle
 
 from props import getNode
@@ -62,11 +62,9 @@ def compute_angle(ned1, ned2, ned3):
     else:
         return 0
 
-bar = Bar('Scanning match pair angles:', max=100)
-step = int(len(matches) / 100)
-#print("Scanning match pair angles...")
+print("Scanning match pair angles:")
 mark_list = []
-for k, match in enumerate(matches):
+for k, match in enumerate(tqdm(matches)):
     if match[1] == args.group:  # used by current group
         for i, m1 in enumerate(match[2:]):
             for j, m2 in enumerate(match[2:]):
@@ -87,9 +85,6 @@ for k, match in enumerate(matches):
                             angle_deg = compute_angle(ned1, ned2, match[0]) * r2d
                         if angle_deg < args.min_angle:
                             mark_list.append( [k, i] )
-    if (k+1) % step == 0:
-        bar.next()
-bar.finish()
 
 # Pairs with very small average angles between each feature and camera
 # location indicate closely located camera poses and these cause
