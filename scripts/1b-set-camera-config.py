@@ -30,7 +30,7 @@ if args.camera:
     camera_file = args.camera
 else:
     # auto detect camera from image meta data
-    camera = proj.detect_camera()
+    camera, make, model, lens_model = proj.detect_camera()
     camera_file = os.path.join("..", "cameras", camera + ".json")
 print("Camera:", camera_file)
 

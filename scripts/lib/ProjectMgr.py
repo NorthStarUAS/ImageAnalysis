@@ -125,14 +125,19 @@ class ProjectMgr():
                 exif = pyexiv2.ImageMetadata(os.path.join(image_dir, file))
                 exif.read()
                 if 'Exif.Image.Make' in exif:
-                    camera = exif['Exif.Image.Make'].value
+                    make = exif['Exif.Image.Make'].value
+                    camera = make
                 if 'Exif.Image.Model' in exif:
-                    camera += '_' + exif['Exif.Image.Model'].value
+                    model = exif['Exif.Image.Model'].value
+                    camera += '_' + model
                 if 'Exif.Photo.LensModel' in exif:
-                    camera += '_' + exif['Exif.Photo.LensModel'].value
+                    lens_model = exif['Exif.Photo.LensModel'].value
+                    camera += '_' + lens_model
+                else:
+                    lens_model = None
                 break
         camera = camera.replace(' ', '_')
-        return camera
+        return camera, make, model, lens_model
         
     def load_images_info(self):
         # load image meta info
