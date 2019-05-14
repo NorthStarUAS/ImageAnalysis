@@ -14,6 +14,7 @@ args = parser.parse_args()
 project_dir = args.project
 analysis_dir = os.path.join(project_dir, "ImageAnalysis")
 meta_dir = os.path.join(analysis_dir, "meta")
+models_dir = os.path.join(analysis_dir, "models")
 
 if not os.path.isdir(project_dir):
     os.makedirs(project_dir)
@@ -23,6 +24,9 @@ if not os.path.isdir(analysis_dir):
 
 if not os.path.isdir(meta_dir):
     os.makedirs(meta_dir)
+
+if not os.path.isdir(models_dir):
+    os.makedirs(models_dir)
 
 # quick input sanity check
 for p in args.source:
@@ -85,6 +89,19 @@ for p in args.source:
             src = os.path.join(meta_src, file)
             dest = os.path.join(meta_dir, file)
             shutil.copyfile(src, dest)
+
+# populate the models directory
+print("Populating the models directory with symbolic links.")
+for p in args.source:
+    models_src = os.path.join(p, "ImageAnalysis", "models")
+    for file in sorted(os.listdir(models_src)):
+        if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
+            src = os.path.join(mdoels_src, file)
+            dest = os.path.join(models_dir, file)
+            if os.path.exists(dest):
+                print("Warning, dest already exists:", dest)
+            else:
+                os.symlink(src, dest)
 
 print("Now run the 2a set poses script to create the image.json files, initial poses, and update the project NED reference point")
 
