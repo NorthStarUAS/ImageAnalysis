@@ -23,6 +23,7 @@ parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--group', type=int, default=0, help='group number')
 parser.add_argument('--refine', action='store_true', help='refine a previous optimization.')
+parser.add_argument('--cam-calibration', action='store_true', help='include camera calibration in the optimization.')
 
 args = parser.parse_args()
 
@@ -77,7 +78,8 @@ groups = Groups.load(proj.analysis_dir)
 # sort from smallest to largest: groups.sort(key=len)
 
 opt = Optimizer.Optimizer(args.project)
-opt.setup( proj, groups, args.group, matches, optimized=args.refine )
+opt.setup( proj, groups, args.group, matches, optimized=args.refine,
+           cam_calib=args.cam_calibration)
 cameras, features, cam_index_map, feat_index_map, fx_opt, fy_opt, cu_opt, cv_opt, distCoeffs_opt = opt.run()
 
 # mark all the optimized poses as invalid

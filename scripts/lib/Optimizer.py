@@ -201,8 +201,14 @@ class Optimizer():
 
     # assemble the structures and remapping indices required for
     # optimizing a group of images/features
-    def setup(self, proj, groups, group_index, matches_list, optimized=False):
+    def setup(self, proj, groups, group_index, matches_list, optimized=False,
+              cam_calib=False):
         print('Setting up optimizer data structures...')
+        if cam_calib:
+            self.optimize_calib = 'global' # global camera optimization
+        else:
+            self.optimize_calib = 'none' # no camera calibration optimization
+
         # if placed_images == None:
         #     placed_images = []
         #     # if no placed images specified, mark them all as placed
