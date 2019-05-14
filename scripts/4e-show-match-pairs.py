@@ -3,7 +3,6 @@
 import argparse
 import pickle
 import os.path
-from progress.bar import Bar
 
 from props import getNode
 
