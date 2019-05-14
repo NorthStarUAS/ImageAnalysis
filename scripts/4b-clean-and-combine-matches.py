@@ -138,6 +138,7 @@ if False:
 # be able to find any dups.  These should all get caught in the
 # original pair matching step.
 print("Checking for pair duplicates (there never should be any...)")
+bar = Bar("Working:", max=len(proj.image_list))
 for i, i1 in enumerate(proj.image_list):
     for key in i1.match_list:
         matches = i1.match_list[key]
@@ -157,8 +158,9 @@ for i, i1 in enumerate(proj.image_list):
                 count += 1
         if count > 0:
             print('Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count)
-      
         i1.match_list[key] = new_matches
+    bar.next()
+bar.finish()
         
 # enable the following code to visualize the matches after eliminating
 # duplicates (duplicates can happen after collapsing uv coordinates.)
@@ -179,6 +181,7 @@ if False:
 # the code that lets some through, or try to understand what larger
 # logic principle allows somne of these to still exist here.
 print("Testing for 1 vs. n keypoint duplicates (there never should be any...)")
+bar = Bar("Working:", max=len(proj.image_list))
 for i, i1 in enumerate(proj.image_list):
     for key in i1.match_list:
         matches = i1.match_list[key]
@@ -201,6 +204,8 @@ for i, i1 in enumerate(proj.image_list):
                 count += 1
         if count > 0:
             print('Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count)
+    bar.next()
+bar.finish()
 
 print("Constructing unified match structure...")
 # create an initial pair-wise match list
@@ -228,7 +233,7 @@ for match in matches_direct:
     sum += len(match[2:])
         
 if len(matches_direct):
-    print("Total unique features in image set:", len(matches_direct))
+    print("Total image pairs in image set:", len(matches_direct))
     print("Keypoint average instances = %.1f (should be 2.0 here)" % (sum / len(matches_direct)))
 
 print("Writing matches_direct file ...")
