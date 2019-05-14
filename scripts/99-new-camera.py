@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import argparse
+import cv2
 import fnmatch
 import os
 import pyexiv2                  # dnf install python3-exiv2 (py3exiv2)
@@ -40,13 +41,41 @@ print("Camera:", camera, camera_file)
 
 exif = pyexiv2.ImageMetadata(image_file)
 exif.read()
+#for key in exif:
+#    print(key)
 
 if 'Exif.Photo.FocalLength' in exif:
     focal_len_mm = exif['Exif.Photo.FocalLength'].value
 else:
     focal_len_mm = 4.0
-width = float(exif['Exif.Photo.PixelXDimension'].value)
-height = float(exif['Exif.Photo.PixelYDimension'].value)
+width = 0
+height = 0
+if 'Exif.Photo.PixelXDimension' in exif:
+    width = float(exif['Exif.Photo.PixelXDimension'].value)
+elif 'Exif.Image.ImageWidth' in exif:
+    width = float(exif['Exif.Image.ImageWidth'].value)
+if 'Exif.Photo.PixelYDimension' in exif:
+    height = float(exif['Exif.Photo.PixelYDimension'].value)
+elif 'Exif.Image.ImageLength' in exif:
+    height = float(exif['Exif.Image.ImageLength'].value)
+if not width or not height:
+    print("cannot determine image dimensions, aborting...")
+    quit()
+
+print(height, width)
+
+# sanity check against actual image size versus meta data size
+# test load the image
+img = cv2.imread(image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
+print("image shape:", img.shape[:2])
+
+if height != img.shape[0] or width != img.shape[1]:
+    print("disagreement between exif size and actual image size")
+    print("Using actual image size")
+    (height, width) = img.shape[:2]
+    
+base_name.replace(' ', '_')
+print('base:', base_name)
 
 aspect_ratio = width / height
 print('aspect ratio:', aspect_ratio)
