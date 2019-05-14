@@ -4,7 +4,7 @@ import argparse
 import pickle
 import numpy as np
 import os.path
-from progress.bar import Bar
+from tqdm import tqdm
 
 from props import getNode
 
@@ -35,8 +35,7 @@ proj.compute_kp_usage()
 # other attributes important during feature matching, yet ultimately
 # resolve to the same uv coordinate in an image.
 print("Indexing features by unique uv coordinates...")
-bar = Bar("Working:", max=len(proj.image_list))
-for image in proj.image_list:
+for image in tqdm(proj.image_list):
     # pass one, build a tmp structure of unique keypoints (by uv) and
     # the index of the first instance.
     image.kp_remap = {}
@@ -54,8 +53,6 @@ for image in proj.image_list:
 
     #print(" features used:", used)
     #print(" unique by uv and used:", len(image.kp_remap))
-    bar.next()
-bar.finish()
 
 # after feature matching we don't care about other attributes, just
 # the uv coordinate.
@@ -68,8 +65,7 @@ bar.finish()
 # the entire match set and collapses them down to eliminate any
 # redundancy.
 print("Merging keypoints with duplicate uv coordinates...")
-bar = Bar("Working:", max=len(proj.image_list))
-for i, i1 in enumerate(proj.image_list):
+for i, i1 in enumerate(tqdm(proj.image_list)):
     for key in i1.match_list:
         matches = i1.match_list[key]
         count = 0
@@ -115,8 +111,6 @@ for i, i1 in enumerate(proj.image_list):
             matches[k] = [new_idx1, new_idx2]
         #if count > 0:
         #    print('Match:', i1.name, 'vs', i2.name, '%d/%d' % ( count, len(matches) ), 'rewrites')
-    bar.next()
-bar.finish()
 
 # enable the following code to visualize the matches after collapsing
 # identical uv coordinates
@@ -138,8 +132,7 @@ if False:
 # be able to find any dups.  These should all get caught in the
 # original pair matching step.
 print("Checking for pair duplicates (there never should be any...)")
-bar = Bar("Working:", max=len(proj.image_list))
-for i, i1 in enumerate(proj.image_list):
+for i, i1 in enumerate(tqdm(proj.image_list)):
     for key in i1.match_list:
         matches = i1.match_list[key]
         i2 = proj.findImageByName(key)
@@ -159,8 +152,6 @@ for i, i1 in enumerate(proj.image_list):
         if count > 0:
             print('Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count)
         i1.match_list[key] = new_matches
-    bar.next()
-bar.finish()
         
 # enable the following code to visualize the matches after eliminating
 # duplicates (duplicates can happen after collapsing uv coordinates.)
@@ -181,8 +172,7 @@ if False:
 # the code that lets some through, or try to understand what larger
 # logic principle allows somne of these to still exist here.
 print("Testing for 1 vs. n keypoint duplicates (there never should be any...)")
-bar = Bar("Working:", max=len(proj.image_list))
-for i, i1 in enumerate(proj.image_list):
+for i, i1 in enumerate(tqdm(proj.image_list)):
     for key in i1.match_list:
         matches = i1.match_list[key]
         i2 = proj.findImageByName(key)
@@ -204,8 +194,6 @@ for i, i1 in enumerate(proj.image_list):
                 count += 1
         if count > 0:
             print('Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count)
-    bar.next()
-bar.finish()
 
 print("Constructing unified match structure...")
 # create an initial pair-wise match list

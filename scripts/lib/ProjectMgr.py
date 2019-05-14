@@ -10,12 +10,12 @@ from matplotlib import pyplot as plt
 import numpy as np
 import os.path
 import pickle
-from progress.bar import Bar
 import pyexiv2                  # dnf install python3-exiv2 (py3exiv2)
 import scipy.interpolate
 import subprocess
 import sys
 import time
+from tqdm import tqdm
 
 import geojson
 
@@ -163,16 +163,13 @@ class ProjectMgr():
 
     def load_features(self, descriptors=False):
         if descriptors:
-            msg = 'Loading keypoints and descriptors:'
+            print("Loading keypoints and descriptors:")
         else:
-            msg = 'Loading keypoints:'
-        bar = Bar(msg, max = len(self.image_list))
-        for image in self.image_list:
+            print("Loading keypoints:")
+        for image in tqdm(self.image_list):
             image.load_features()
             if descriptors:
                 image.load_descriptors()
-            bar.next()
-        bar.finish()
 
     def load_match_pairs(self, extra_verbose=True):
         if extra_verbose:
@@ -182,9 +179,8 @@ class ProjectMgr():
             print("resetting the match state of the system back to the original")
             print("set of found matches.")
             time.sleep(2)
-        bar = Bar('Loading keypoint (pair) matches:',
-                  max = len(self.image_list))
-        for image in self.image_list:
+        print("Loading keypoint (pair) matches:")
+        for image in tqdm(self.image_list):
             image.load_matches()
             wipe_list = []
             for name in image.match_list:
@@ -193,8 +189,6 @@ class ProjectMgr():
                     wipe_list.append(name)
             for name in wipe_list:
                 del image.match_list[name]
-            bar.next()
-        bar.finish()
 
     # generate a n x n structure of image vs. image pair matches and
     # return it
@@ -242,14 +236,11 @@ class ProjectMgr():
         self.matcher_params = mparams
         
     def detect_features(self, scale, show=False):
-        if not show:
-            bar = Bar('Detecting features:', max = len(self.image_list))
-        for image in self.image_list:
+        print("Detecting features:")
+        for image in tqdm(self.image_list):
             image.load_features()
             if len(image.kp_list) > 0:
                 print("skipping:", image.name)
-                if not show:
-                    bar.next()
                 continue
             #print "detecting features and computing descriptors: " + image.name
             rgb = image.load_rgb(equalize=True)
@@ -290,11 +281,6 @@ class ProjectMgr():
                 result = image.show_features()
                 if result == 27 or result == ord('q'):
                     break
-            if not show:
-                bar.next()
-        if not show:
-            bar.finish()
-
         self.save_images_info()
 
     def show_features_image(self, image):
@@ -376,11 +362,9 @@ class ProjectMgr():
     # for each feature in each image, compute the undistorted pixel
     # location (from the calibrated distortion parameters)
     def undistort_keypoints(self, optimized=False):
-        bar = Bar('Undistorting keypoints:', max = len(self.image_list))
-        for image in self.image_list:
+        print("Undistorting keypoints:")
+        for image in tqdm(self.image_list):
             self.undistort_image_keypoints(image, optimized)
-            bar.next()
-        bar.finish()
                 
     # for each uv in the provided uv list, apply the distortion
     # formula to compute the original distorted value.
@@ -530,11 +514,10 @@ class ProjectMgr():
     #    with origin uv vs. 3d location to build a table
     # 5. interpolate original uv coordinates to 3d locations
     def fastProjectKeypointsTo3d(self, sss):
-        bar = Bar('Projecting keypoints to 3d:',
-                  max = len(self.image_list))
+        print("Projecting keypoints to 3d:")
         K = self.cam.get_K()
         IK = np.linalg.inv(K)
-        for image in self.image_list:
+        for image in tqdm(self.image_list):
             # print(image.name)
             # build a regular grid of uv coordinates
             w, h = image.get_size()
@@ -621,13 +604,10 @@ class ProjectMgr():
                         image.coord_list.append(np.zeros(3))
                 else:
                     image.coord_list.append(np.zeros(3)*np.nan)
-            bar.next()
-        bar.finish()
         
     def fastProjectKeypointsToGround(self, ground_m, cam_dict=None):
-        bar = Bar('Projecting keypoints to 3d:',
-                  max = len(self.image_list))
-        for image in self.image_list:
+        print("Projecting keypoints to 3d:")
+        for image in tqdm(self.image_list):
             K = self.cam.get_K()
             IK = np.linalg.inv(K)
             
@@ -654,6 +634,3 @@ class ProjectMgr():
             pts_ned = self.intersectVectorsWithGroundPlane(pose['ned'],
                                                            ground_m, vec_list)
             image.coord_list = pts_ned
-            
-            bar.next()
-        bar.finish()
