@@ -15,7 +15,9 @@ a = Analysis(['7a-explore.py'],
              ],
              datas=[
                  ('C:\\Users\curt\Anaconda3\Lib\site-packages\panda3d\etc\*.prc', 'etc'),
-                 ('explore/*.png', 'explore')
+                 ('explore/*.png', 'explore'),
+                 ('explore/*.frag', 'explore'),
+                 ('explore/*.vert', 'explore')
              ],
              hiddenimports=[],
              hookspath=[],
