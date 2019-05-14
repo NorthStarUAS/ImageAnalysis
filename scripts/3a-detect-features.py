@@ -4,7 +4,6 @@ import argparse
 import fnmatch
 import numpy as np
 import os.path
-from progress.bar import Bar
 
 from props import getNode
 
