@@ -53,7 +53,6 @@ images_have_yaw = False
 
 images = []
 # read image exif timestamp (and convert to unix seconds)
-#bar = Bar('Scanning image dir:', max = len(files))
 for file in files:
     name = os.path.join(image_dir, file)
     #print(name)
@@ -103,8 +102,6 @@ for file in files:
     #    print(key, exif[key])
         
     images.append(line)
-    #bar.next()
-#bar.finish()
 
 if not images_have_yaw or args.yaw_from_groundtrack:
     # do extra work to estimate yaw heading from gps ground track
