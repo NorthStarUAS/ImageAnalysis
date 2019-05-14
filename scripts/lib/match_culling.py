@@ -127,7 +127,7 @@ def delete_marked_features(matches, min_chain_len, strong=False):
         if strong and has_bad_elem: # was 'if args.strong and ...'
             print("deleting entire match that contains a bad element", i)
             matches.pop(i)
-        elif len(match[2:]) < min_chain_len:
+        elif has_bad_elem and len(match[2:]) < min_chain_len:
             print("deleting match that is now in less than %d images:" % min_chain_len, match)
             matches.pop(i)
     print("final matches size:", len(matches))
