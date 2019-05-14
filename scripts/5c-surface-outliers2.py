@@ -19,7 +19,6 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 import os.path
-from progress.bar import Bar
 import scipy.spatial
 
 sys.path.append('../lib')
