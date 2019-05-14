@@ -8,7 +8,7 @@ from zipfile import ZipFile
 
 from lib import ProjectMgr
 
-parser = argparse.ArgumentParser(description='Compute Delauney triangulation of matches.')
+parser = argparse.ArgumentParser(description='Make a redistributable zip archive of a project.')
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--output', required=True, help='specify output /path/file')
 args = parser.parse_args()
@@ -75,6 +75,9 @@ else:
 
 for file in sorted(os.listdir(args.project)):
     if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
+        file_path = os.path.join(args.project, file)
+        append(file_path)
+    if file == 'pix4d.csv' or file == 'image-metadata.txt':
         file_path = os.path.join(args.project, file)
         append(file_path)
 
