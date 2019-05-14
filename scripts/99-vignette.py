@@ -5,7 +5,8 @@ import cv2
 import math
 import numpy as np
 import os.path
-from progress.bar import Bar
+from tqdm import tqdm
+import random
 
 from props import getNode
 
@@ -48,7 +49,9 @@ if not os.path.exists(vignette_avg_file):
     sum = None
     vmask = None
     count = 0
-    for image in proj.image_list:
+    il = list(proj.image_list)
+    random.shuffle(il)
+    for image in il:
         rgb = image.load_rgb()
         if args.scale < 1.0:
             rgb = cv2.resize(rgb, None, fx=args.scale, fy=args.scale)
@@ -74,8 +77,8 @@ print("shape:", h, w)
 cy = cv * args.scale
 cx = cu * args.scale
 vals = []
-bar = Bar("Sampling vignette average image:", max=w)
-for x in range(w):
+print("Sampling vignette average image:")
+for x in tqdm(range(w)):
     for y in range(h):
         dx = x - cx
         dy = y - cy
@@ -84,8 +87,6 @@ for x in range(w):
         g = vmask[y,x,1]
         r = vmask[y,x,2]
         vals.append( [rad, b, g, r] )
-    bar.next()
-bar.finish()
 
 data = np.array(vals, dtype=np.float32)
 
@@ -102,7 +103,7 @@ print("green fit coefficients:", gopt)
 ropt, pcov = curve_fit(f4, data[:,0], data[:,3])
 print("red fit coefficients:", ropt)
 
-plt.plot(data[:,0], data[:,3], 'b-', label='data')
+plt.plot(data[:,0], data[:,3], 'bx', label='data')
 plt.plot(data[:,0], f4(data[:,0], *ropt), 'r-',
          label='fit: a=%f, b=%f, c=%f' % tuple(ropt))
 plt.xlabel('radius')
@@ -122,8 +123,8 @@ w, h = proj.cam.get_image_params()
 print("original shape:", h, w)
 vmask = np.zeros((h, w, 3), np.uint8)
 
-bar = Bar("Generating best fit vignette mask:", max=w)
-for x in range(w):
+print("Generating best fit vignette mask:")
+for x in tqdm(range(w)):
     for y in range(h):
         dx = x - cu
         dy = y - cv
@@ -131,8 +132,6 @@ for x in range(w):
         vmask[y,x,0] = dither(f4(rad, *bopt))
         vmask[y,x,1] = dither(f4(rad, *gopt))
         vmask[y,x,2] = dither(f4(rad, *ropt))
-    bar.next()
-bar.finish()
 
 b, g, r = cv2.split(vmask)
 b = 255 - b

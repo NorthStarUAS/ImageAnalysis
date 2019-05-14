@@ -5,7 +5,7 @@ import argparse
 import cv2
 import fnmatch
 import os.path
-from progress.bar import Bar    # python3-progress
+from tqdm import tqdm
 import sys
 import time
 
@@ -230,8 +230,8 @@ class MyApp(ShowBase):
             if fnmatch.fnmatch(file, '*.egg'):
                 # print('load:', file)
                 files.append(file)
-        bar = Bar('Loading models:', max=len(files))
-        for file in files:
+        print('Loading models:')
+        for file in tqdm(files):
             # load and reparent each egg file
             pandafile = Filename.fromOsSpecific(os.path.join(path, file))
             model = self.loader.loadModel(pandafile)
@@ -247,14 +247,13 @@ class MyApp(ShowBase):
                 tex.setWrapU(Texture.WM_clamp)
                 tex.setWrapV(Texture.WM_clamp)
             self.base_textures.append(tex)
-            bar.next()
-        bar.finish()
+
         # The egg model lists "dummy.jpg" as the texture model which
         # doesn't exists.  Here we load the actual textures and
         # possibly apply vignette correction and adaptive histogram
         # equalization.
-        bar = Bar('Loading base textures:', max=len(files))
-        for i, model in enumerate(self.models):
+        print('Loading base textures:')
+        for i, model in enumerate(tqdm(self.models)):
             base, ext = os.path.splitext(model.getName())
             image_file = None
             dir = os.path.join(proj.analysis_dir, 'models')
@@ -291,8 +290,6 @@ class MyApp(ShowBase):
             tex.setWrapV(Texture.WM_clamp)
             model.setTexture(tex, 1)
             self.base_textures[i] = tex
-            bar.next()
-        bar.finish()
         self.sortImages()
         self.annotations.rebuild(self.view_size)
 
