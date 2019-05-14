@@ -4,7 +4,6 @@ import argparse
 import pickle
 import numpy as np
 import os
-from progress.bar import Bar
 
 from props import getNode
 
