@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import os
 import pickle
-from progress.bar import Bar
+from tqdm import tqdm
 
 from props import getNode
 
@@ -73,9 +73,7 @@ if args.method == 'srtm':
     print("Estimating initial projection for each feature...")
     bad_count = 0
     bad_indices = []
-    bar = Bar("Working:", max=100)
-    step = int(len(matches) / 100)
-    for i, match in enumerate(matches):
+    for i, match in enumerate(tqdm(matches)):
         sum = np.zeros(3)
         array = []              # fixme: temp/debug
         for m in match[2:]:
@@ -113,9 +111,6 @@ if args.method == 'srtm':
                 for p in array:
                     dist = np.linalg.norm(np.array(match[0]) - np.array(p))
                     print(' ', dist, p)
-        if (i+1) % step == 0:
-            bar.next()
-    bar.finish()
     if do_sanity_check:
         print('bad count:', bad_count)
         print('deleting bad matches...')
