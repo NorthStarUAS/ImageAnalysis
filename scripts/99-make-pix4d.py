@@ -21,6 +21,7 @@ parser = argparse.ArgumentParser(description='Create a pix4d.csv file for a fold
 parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--force-heading', type=float, help='Force heading for every image')
 parser.add_argument('--force-altitude', type=float, help='Fudge altitude geotag for stupid dji phantom 4 pro v2.0')
+parser.add_argument('--yaw-from-groundtrack', action='store_true', help='estimate yaw angle from ground track')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
@@ -105,7 +106,7 @@ for file in files:
     #bar.next()
 #bar.finish()
 
-if not images_have_yaw:
+if not images_have_yaw or args.yaw_from_groundtrack:
     # do extra work to estimate yaw heading from gps ground track
     for i in range(len(images)):
         if i > 0:
@@ -148,8 +149,13 @@ if not images_have_yaw:
         else:
             images[i].append(avg_hdg)
 
-# traverse the image list and create output csv file
+# sanity check
 output_file = os.path.join(image_dir, 'pix4d.csv')
+if os.path.exists(output_file):
+    print(output_file, "exists, please rename it and rerun this script.")
+    quit()
+
+# traverse the image list and create output csv file
 with open(output_file, 'w') as csvfile:
     writer = csv.DictWriter( csvfile,
                              fieldnames=['File Name',
