@@ -34,7 +34,7 @@ proj.compute_kp_usage()
 # uv coordinates.  These duplicates may have different scaling or
 # other attributes important during feature matching, yet ultimately
 # resolve to the same uv coordinate in an image.
-print("Indexing features by unique uv coordinates...")
+print("Indexing features by unique uv coordinates:")
 for image in tqdm(proj.image_list):
     # pass one, build a tmp structure of unique keypoints (by uv) and
     # the index of the first instance.
@@ -64,7 +64,7 @@ for image in tqdm(proj.image_list):
 # duplicates could still exist.  This finds all the duplicates within
 # the entire match set and collapses them down to eliminate any
 # redundancy.
-print("Merging keypoints with duplicate uv coordinates...")
+print("Merging keypoints with duplicate uv coordinates:")
 for i, i1 in enumerate(tqdm(proj.image_list)):
     for key in i1.match_list:
         matches = i1.match_list[key]
@@ -131,7 +131,7 @@ if False:
 # notes: this really shouldn't (!) (by my best current understanding)
 # be able to find any dups.  These should all get caught in the
 # original pair matching step.
-print("Checking for pair duplicates (there never should be any...)")
+print("Checking for pair duplicates (there never should be any):")
 for i, i1 in enumerate(tqdm(proj.image_list)):
     for key in i1.match_list:
         matches = i1.match_list[key]
@@ -171,7 +171,7 @@ if False:
 # we start finding these here, I should hunt for the reason earlier in
 # the code that lets some through, or try to understand what larger
 # logic principle allows somne of these to still exist here.
-print("Testing for 1 vs. n keypoint duplicates (there never should be any...)")
+print("Testing for 1 vs. n keypoint duplicates (there never should be any):")
 for i, i1 in enumerate(tqdm(proj.image_list)):
     for key in i1.match_list:
         matches = i1.match_list[key]
@@ -195,10 +195,10 @@ for i, i1 in enumerate(tqdm(proj.image_list)):
         if count > 0:
             print('Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count)
 
-print("Constructing unified match structure...")
+print("Constructing unified match structure:")
 # create an initial pair-wise match list
 matches_direct = []
-for i, img in enumerate(proj.image_list):
+for i, img in enumerate(tqdm(proj.image_list)):
     # print img.name
     for key in img.match_list:
         j = proj.findIndexByName(key)
@@ -224,21 +224,24 @@ if len(matches_direct):
     print("Total image pairs in image set:", len(matches_direct))
     print("Keypoint average instances = %.1f (should be 2.0 here)" % (sum / len(matches_direct)))
 
-print("Writing matches_direct file ...")
-direct_file = os.path.join(proj.analysis_dir, "matches_direct")
-pickle.dump(matches_direct, open(direct_file, "wb"))
+# Note to self: I don't think we need the matches_direct file any more
+# (except for debugging possibly in the future.)
+#
+#print("Writing matches_direct file ...")
+#direct_file = os.path.join(proj.analysis_dir, "matches_direct")
+#pickle.dump(matches_direct, open(direct_file, "wb"))
 
 # collect/group match chains that refer to the same keypoint
 
-print("Linking common matches together into chains.")
+print("Linking common matches together into chains:")
 count = 0
 done = False
 while not done:
-    print("Iteration:", count)
+    print("Iteration %d:" % count)
     count += 1
     matches_new = []
     matches_lookup = {}
-    for i, match in enumerate(matches_direct):
+    for i, match in enumerate(tqdm(matches_direct)):
         # scan if any of these match points have been previously seen
         # and record the match index
         index = -1
@@ -287,8 +290,8 @@ while not done:
 # values.  This will save time later and avoid needing to load the
 # full original feature files which are quite large.  This also will
 # reduce the in-memory footprint for many steps.
-print('Replacing keypoint indices with uv coordinates.')
-for match in matches_direct:
+print('Replacing keypoint indices with uv coordinates:')
+for match in tqdm(matches_direct):
     for m in match[2:]:
         kp = proj.image_list[m[0]].kp_list[m[1]].pt
         m[1] = list(kp)
