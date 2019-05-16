@@ -11,6 +11,7 @@ import math
 from matplotlib import pyplot as plt
 import numpy as np
 import time
+from tqdm import tqdm
 
 from props import getNode
 
@@ -495,7 +496,7 @@ class Matcher():
         # physical camera separation, then sort by distance and matche
         # closest first
         work_list = []
-        for i, i1 in enumerate(image_list):
+        for i, i1 in enumerate(tqdm(image_list)):
             #shouldn't need to allocate space now that it's a dict
             #if len(i1.match_list) == 0:
             #    i1.match_list = {}

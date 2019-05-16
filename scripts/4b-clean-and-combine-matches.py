@@ -25,7 +25,7 @@ proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()
 proj.load_features(descriptors=False)
 #proj.undistort_keypoints()
-proj.load_match_pairs(extra_verbose=False)
+proj.load_match_pairs()
 
 # compute keypoint usage map
 proj.compute_kp_usage()

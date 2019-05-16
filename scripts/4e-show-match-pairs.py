@@ -53,7 +53,7 @@ if args.direct:
     #         print(i, j, len(proj.image_list[i].match_list[j]),
     #               proj.image_list[i].match_list[j])
 else:
-    proj.load_match_pairs(extra_verbose=False)
+    proj.load_match_pairs()
 
 # lookup ned reference
 ref_node = getNode("/config/ned_reference", True)
