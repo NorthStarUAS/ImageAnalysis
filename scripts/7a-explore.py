@@ -5,6 +5,7 @@ import argparse
 import cv2
 import fnmatch
 import os.path
+import pathlib
 from tqdm import tqdm
 import sys
 import time
@@ -22,9 +23,8 @@ import numpy as np
 
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
-from panda3d.core import LineSegs, NodePath, OrthographicLens, PNMImage, Texture, Filename
+from panda3d.core import LineSegs, NodePath, OrthographicLens, PNMImage, Texture, Filename, Shader, WindowProperties
 from direct.gui.DirectGui import YesNoDialog
-from panda3d.core import Shader
 
 from lib import ProjectMgr
 from explore import annotations
@@ -85,6 +85,11 @@ class MyApp(ShowBase):
  
         self.models = []
         self.base_textures = []
+
+        # window title
+        props = WindowProperties( )
+        props.setTitle( pathlib.Path(args.project).name )
+        base.win.requestProperties( props )
 
         # we would like an orthographic lens
         self.lens = OrthographicLens()
