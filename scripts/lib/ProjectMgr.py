@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import os.path
 import pickle
-import pyexiv2                  # dnf install python3-exiv2 (py3exiv2)
+import piexif
 import scipy.interpolate
 import subprocess
 import sys
@@ -122,16 +122,15 @@ class ProjectMgr():
         image_dir = self.project_dir
         for file in os.listdir(image_dir):
             if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
-                exif = pyexiv2.ImageMetadata(os.path.join(image_dir, file))
-                exif.read()
-                if 'Exif.Image.Make' in exif:
-                    make = exif['Exif.Image.Make'].value
+                exif_dict = piexif.load(os.path.join(image_dir, file))
+                if piexif.ImageIFD.Make in exif_dict['0th']:
+                    make = exif_dict['0th'][piexif.ImageIFD.Make].decode('utf-8').rstrip('\x00')
                     camera = make
-                if 'Exif.Image.Model' in exif:
-                    model = exif['Exif.Image.Model'].value
+                if piexif.ImageIFD.Model in exif_dict['0th']:
+                    model = exif_dict['0th'][piexif.ImageIFD.Model].decode('utf-8').rstrip('\x00')
                     camera += '_' + model
-                if 'Exif.Photo.LensModel' in exif:
-                    lens_model = exif['Exif.Photo.LensModel'].value
+                if piexif.ExifIFD.LensModel in exif_dict['Exif']:
+                    lens_model = exif_dict['Exif'][piexif.ExifIFD.LensModel].decode('utf-8').rstrip('\x00')
                     camera += '_' + lens_model
                 else:
                     lens_model = None
