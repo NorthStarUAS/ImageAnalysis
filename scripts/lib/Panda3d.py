@@ -52,6 +52,23 @@ def make_textures_opencv(src_dir, analysis_dir, image_list, resolution=512):
                 result = scale
             cv2.imwrite(dst, result)
             print("Texture %dx%d %s" % (resolution, resolution, dst))
+    # make the dummy.jpg image from the first texture
+    src = os.path.join(dst_dir, image_list[0].image_file)
+    dst = os.path.join(dst_dir, "dummy.jpg")
+    print("Dummy:", src, dst)
+    if not os.path.exists(dst):
+        src = cv2.imread(src, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
+        height, width = src.shape[:2]
+        # downscale image first
+        method = cv2.INTER_AREA  # cv2.INTER_AREA
+        resolution = 64
+        dummy = cv2.resize(src, (0,0),
+                           fx=resolution/float(width),
+                           fy=resolution/float(height),
+                           interpolation=method)
+        cv2.imwrite(dst, dummy)
+        print("Texture %dx%d %s" % (resolution, resolution, dst))
+    
             
 def generate_from_grid(proj, group, ref_image=False, src_dir=".",
                        analysis_dir=".", resolution=512 ):
