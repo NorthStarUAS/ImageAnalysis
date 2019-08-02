@@ -15,6 +15,8 @@ from import_proxy import create_project, set_camera_config, \
         explore
 
 def standard_project(project_dir, camera, max_camera_angle, detection_options, matching_options, match_trig_options, optmize_options, mre_options, colocated_options, render_options, delaunay_group):
+        # TODO: Find every part of the script that creates a popup or requires interaction, and make into a feature flag that can be turned off for a standard run.
+
         # 1a-create-project.py
         print("         Creating the standard Project")
         create_project.new_project(project_dir)
@@ -132,8 +134,6 @@ if __name__ == "__main__":
         parser.add_argument('--direct', action='store_true', help='use direct pose')
         # delaunay options:
         parser.add_argument('--delaunay-group', type=int, default=0, help='group index')
-
-
 
         args = parser.parse_args()
 

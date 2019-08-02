@@ -32,6 +32,7 @@ def detect(project_dir, detection_options):
     detector_node = getNode('/config/detector', True)
     detector_node.setString('detector', detector)
     detector_node.setString('scale', scale)
+    # TODO: Use concurrency, a que to decrease the processing time:
     if detector == 'SIFT':
         detector_node.setInt('sift_max_features', sift_max_features)
     elif detector == 'SURF':
