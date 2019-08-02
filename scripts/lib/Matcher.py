@@ -629,6 +629,7 @@ class Matcher():
 
         dist_stats = np.array(dist_stats)
         plt.plot(dist_stats[:,0], dist_stats[:,1], 'ro')
+        # TODO: Make a feature switch to stop showing when using the project runner.
         plt.show()
 
     # remove any match sets shorter than self.min_pairs (this shouldn't

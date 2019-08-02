@@ -34,11 +34,18 @@ class SRTM():
     def __init__(self, lat, lon, dict_path):
         self.lat, self.lon = lla_ll_corner(lat, lon)
         self.srtm_dict = {}
-        self.srtm_cache_dir = '/var/tmp' # unless set otherwise
+        self.srtm_cache_dir = os.path.join(os.path.dirname(__file__), "tmp") # unless set otherwise
+        self.check_cache_dir()
         self.srtm_z = None
         self.i = None
         self.load_srtm_dict(dict_path)
-        
+
+    def check_cache_dir(self):
+        if os.path.isdir(self.srtm_cache_dir):
+            pass
+        else:
+            os.makedirs(self.srtm_cache_dir)
+
     # load the directory download dictionary (mapping a desired file
     # to a download path.)
     def load_srtm_dict(self, dict_path):
