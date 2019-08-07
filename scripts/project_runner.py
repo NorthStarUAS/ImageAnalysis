@@ -75,16 +75,17 @@ def standard_project(project_dir, camera, max_camera_angle, detection_options, m
 
 if __name__ == "__main__":
         parser = argparse.ArgumentParser(description='Create an empty project.')
-        # parser.add_argument('--project', required=True, help='Directory with a set of aerial images.')
-        parser.add_argument('--project', default = "D:\\test Project", help='project directory')
-        # parser.add_argument('--camera', help='camera config file path')
-        parser.add_argument('--camera', default = "C:\\Users\\Skywalker\\OneDrive - InFarm\\Repos\\ImageAnalysis\\cameras\\DJI_FC330.json", help='camera config file path')
+        # Required parameters:
+        parser.add_argument('--project', required=True, help='Directory with a set of aerial images.')
+        parser.add_argument('--camera', required=True, help='camera config file path')
+        parser.add_argument('--pix4d', required=True, help='use the specified pix4d csv file (lat,lon,alt,roll,pitch,yaw)')
+        #
+        # All other parameters are optional and will use the default provided:
+        #
         parser.add_argument('--yaw-deg', type=float, default=0.0, help='camera yaw mounting offset from aircraft')
         parser.add_argument('--pitch-deg', type=float, default=-90.0, help='camera pitch mounting offset from aircraft')
         parser.add_argument('--roll-deg', type=float, default=0.0, help='camera roll mounting offset from aircraft')
         parser.add_argument('--meta', help='use the specified image-metadata.txt file (lat,lon,alt,yaw,pitch,roll)')
-        # parser.add_argument('--pix4d', help='use the specified pix4d csv file (lat,lon,alt,roll,pitch,yaw)')
-        parser.add_argument('--pix4d', default = "D:\\test Project\\pix4d.csv", help='use the specified pix4d csv file (lat,lon,alt,roll,pitch,yaw)')
         parser.add_argument('--max-angle', type=float, default=25.0, help='max pitch or roll angle for image inclusion')
         parser.add_argument('--scale', type=float, default=0.5, help='scale images before detecting features, this acts much like a noise filter')
         # detection options:
