@@ -272,13 +272,16 @@ class Optimizer():
                     self.feat_map_fwd[i] = feat_used
                     self.feat_map_rev[feat_used] = i
                     feat_used += 1
-                    ned = np.array(match[0])
-                    if np.any(np.isnan(ned)):
-                        print(i, ned)
-                    self.points_3d[point_idx] = ned[0]
-                    self.points_3d[point_idx+1] = ned[1]
-                    self.points_3d[point_idx+2] = ned[2]
-                    point_idx += 3
+                    try:
+                        ned = np.array(match[0])
+                        if np.any(np.isnan(ned)):
+                            print(i, ned)
+                        self.points_3d[point_idx] = ned[0]
+                        self.points_3d[point_idx+1] = ned[1]
+                        self.points_3d[point_idx+2] = ned[2]
+                        point_idx += 3
+                    except:
+                        pass
                 
         # assemble observations (image index, feature index, u, v)
         self.by_camera_point_indices = [ [] for i in range(self.n_cameras) ]

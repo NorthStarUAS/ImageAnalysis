@@ -1,0 +1,28 @@
+{
+    "K": [
+        3666.666504,
+        0.0,
+        2432.0,
+        0.0,
+        3666.666504,
+        1824.0,
+        0.0,
+        0.0,
+        1.0
+    ],
+    "ccd_height_mm": 4.72,
+    "ccd_width_mm": 6.30,
+    "dist_coeffs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+    ],
+    "focal_len_mm": 4,
+    "height_px": 3000,
+    "lens_model": "unknown",
+    "make": "DJI",
+    "model": "FC330",
+    "width_px": 4000
+}
