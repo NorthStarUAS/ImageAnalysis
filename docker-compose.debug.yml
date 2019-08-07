@@ -1,0 +1,8 @@
+version: '2.1'
+
+services:
+  imageanalysis:
+    image: imageanalysis
+    build:
+      context: .
+      dockerfile: Dockerfile

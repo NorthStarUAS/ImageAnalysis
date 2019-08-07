@@ -163,3 +163,21 @@ Wish list items:
 
   - sudo pip3 install opencv-contrib-python
   - sudo pip3 install --pre --extra-index-url https://archive.panda3d.org/ panda3d
+
+## Run with Docker
+
+When you clone the repo, you can then build the docker image and run from inside of the docker image with the following commands:
+
+````{.shell}
+docker run -d --name imageanalysis -v location/on/your/computer:/data imageanalysis
+docker exec -it imageanalysis /bin/bash
+````
+
+Ensure that you change ```location/on/your/computer``` to a location that holds all of your images, and the pix4d.csv file
+
+When in the container, you can navigate to the project runner dir and run with the following:
+
+````{.shell}
+cd scripts
+python project_runner.py --project /data --camera /app/cameras/DJI_FC330.json --pix4d /data/pix4d.csv
+````

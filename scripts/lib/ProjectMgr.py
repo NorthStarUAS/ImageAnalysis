@@ -119,6 +119,9 @@ class ProjectMgr():
 
     def detect_camera(self):
         camera = ""
+        make = ""
+        model = ""
+        lens_model = ""
         image_dir = self.project_dir
         for file in os.listdir(image_dir):
             if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
