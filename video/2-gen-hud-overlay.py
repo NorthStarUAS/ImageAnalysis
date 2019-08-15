@@ -14,7 +14,7 @@ import sys
 from props import PropertyNode
 import props_json
 
-from aurauas.flightdata import flight_loader, flight_interp
+from aurauas_flightdata import flight_loader, flight_interp
 
 sys.path.append('../scripts')
 from lib import transformations
@@ -121,11 +121,7 @@ K[2,2] = 1.0
 if args.correction:
     correction.load(args.correction)
     
-if 'recalibrate' in args:
-    recal_file = args.recalibrate
-else:
-    recal_file = None
-data, flight_format = flight_loader.load(args.flight, recal_file)
+data, flight_format = flight_loader.load(args.flight)
 print("imu records:", len(data['imu']))
 print("gps records:", len(data['gps']))
 if 'air' in data:
@@ -139,20 +135,20 @@ if len(data['imu']) == 0 and len(data['gps']) == 0:
     print("not enough data loaded to continue.")
     quit()
 
-interp = flight_interp.FlightInterpolate()
-interp.build(data)
-
+interp = flight_interp.InterpolationGroup(data)
 time_shift, flight_min, flight_max = \
     correlate.sync_clocks(data, interp, movie_log, hz=args.resample_hz,
                           cam_mount=args.cam_mount,
                           force_time_shift=args.time_shift, plot=args.plot)
 
+
 # quick estimate ground elevation
 sum = 0.0
 count = 0
 for f in data['filter']:
-    if interp.air_speed(f.time) < 5.0:
-        sum += f.alt
+    air = interp.query(f['time'], 'air')
+    if air['airspeed'] < 5.0:
+        sum += f['alt']
         count += 1
 if count > 0:
     ground_m = sum / float(count)
@@ -171,9 +167,9 @@ ned2proj = np.linalg.inv(proj2ned)
 
 #cam_ypr = [-3.0, -12.0, -3.0] # yaw, pitch, roll
 #ref = [44.7260320000, -93.0771072000, 0]
-ref = [ data['gps'][0].lat, data['gps'][0].lon, 0.0 ]
-hud1.set_ned_ref(data['gps'][0].lat, data['gps'][0].lon)
-hud2.set_ned_ref(data['gps'][0].lat, data['gps'][0].lon)
+ref = [ data['gps'][0]['lat'], data['gps'][0]['lon'], 0.0 ]
+hud1.set_ned_ref(data['gps'][0]['lat'], data['gps'][0]['lon'])
+hud2.set_ned_ref(data['gps'][0]['lat'], data['gps'][0]['lon'])
 print('ned ref:', ref)
 
 print('temporarily disabling airport loading')
@@ -251,13 +247,16 @@ if time_shift > 0:
     # set.
     print('seeding flight track ...')
     for time in np.arange(flight_min, time_shift, 1.0 / float(fps)):
-        lat_deg = float(interp.filter_lat(time))*r2d
-        lon_deg = float(interp.filter_lon(time))*r2d
-        #altitude_m = float(interp.air_true_alt(time))
-        altitude_m = float(interp.filter_alt(time))
+        filt = interp.query(time, 'filter')
+        air = interp.query(time, 'air')
+        gps = interp.query(time, 'gps')
+        lat_deg = filt['lat']*r2d
+        lon_deg = filt['lon']*r2d
+        #altitude_m = air['alt_true']
+        altitude_m = filt['alt']
         ned = navpy.lla2ned( lat_deg, lon_deg, altitude_m,
                              ref[0], ref[1], ref[2] )
-        hud1.update_time(time, interp.gps_unixtime(time))
+        hud1.update_time(time, gps['unix_sec'])
         hud1.update_ned(ned, args.flight_track_seconds)
 
 shift_mod_hack = False
@@ -273,63 +272,67 @@ for frame in reader.nextFrame():
     counter += 1
     if args.start_time and time < args.start_time:
         continue
-    vn = interp.filter_vn(time)
-    ve = interp.filter_ve(time)
-    vd = interp.filter_vd(time)
-    #yaw_rad = interp.filter_yaw(time)*d2r 
-    psix = interp.filter_psix(time)
-    psiy = interp.filter_psiy(time)
+    filt = interp.query(time, 'filter')
+    air = interp.query(time, 'air')
+    ap = interp.query(time, 'ap')
+    pilot = interp.query(time, 'pilot')
+    act = interp.query(time, 'act')
+    vn = filt['vn']
+    ve = filt['ve']
+    vd = filt['vd']
+    psix = filt['psix']
+    psiy = filt['psiy']
     yaw_rad = math.atan2(psiy, psix)
-    pitch_rad = interp.filter_the(time)
-    roll_rad = interp.filter_phi(time)
+    pitch_rad = filt['the']
+    roll_rad = filt['phi']
     if args.correction:
         yaw_rad += correction.yaw_interp(time)
         pitch_rad += correction.pitch_interp(time)
         roll_rad += correction.roll_interp(time)
-    lat_deg = interp.filter_lat(time)*r2d
-    lon_deg = interp.filter_lon(time)*r2d
-    #altitude_m = float(interp.air_true_alt(time))
-    altitude_m = interp.filter_alt(time)
+    lat_deg = filt['lat']*r2d
+    lon_deg = filt['lon']*r2d
+    #altitude_m = air['alt_true']
+    altitude_m = filt['alt']
     if filt_alt == None:
         filt_alt = altitude_m
     else:
         filt_alt = 0.95 * filt_alt + 0.05 * altitude_m
-    if interp.air_speed:
-        airspeed_kt = interp.air_speed(time)
+    if 'airspeed' in air:
+        airspeed_kt = air['airspeed']
     else:
         airspeed_kt = 0.0
-    if interp.air_wind_dir:
-        wind_deg = interp.air_wind_dir(time)
-        wind_kt = interp.air_wind_speed(time)
-    if interp.air_alpha and interp.air_beta:
-        alpha_rad = float(interp.air_alpha(time))*d2r
-        beta_rad = float(interp.air_beta(time))*d2r
+    if 'wind_dir' in air:
+        wind_deg = air['wind_dir']
+        wind_kt = air['wind_speed']
+    if 'alpha' in air and 'beta' in air:
+        alpha_rad = air['alpha']*d2r
+        beta_rad = air['beta']*d2r
         #print alpha_rad, beta_rad
     else:
         alpha_rad = None
         beta_rad = None
         #print 'no alpha/beta'
-    if interp.ap_hdgx:
-        ap_hdgx = float(interp.ap_hdgx(time))
-        ap_hdgy = float(interp.ap_hdgy(time))
+    if 'hdgx' in ap:
+        ap_hdgx = ap['hdgx']
+        ap_hdgy = ap['hdgy']
         ap_hdg = math.atan2(ap_hdgy, ap_hdgx)*r2d
-        ap_roll = float(interp.ap_roll(time))
-        ap_pitch = float(interp.ap_pitch(time))
-        ap_speed = float(interp.ap_speed(time))
-        ap_alt_ft = float(interp.ap_alt(time))
-    if interp.pilot_ail:
-        pilot_ail = float(interp.pilot_ail(time)) * args.aileron_scale
-        pilot_ele = float(interp.pilot_ele(time)) * args.elevator_scale
-        pilot_thr = float(interp.pilot_thr(time))
-        pilot_rud = float(interp.pilot_rud(time)) * args.rudder_scale
-        auto_switch = float(interp.pilot_auto(time))
+        ap_roll = ap['roll']
+        ap_pitch = ap['pitch']
+        ap_speed = ap['speed']
+        ap_alt_ft = ap['alt']
+    if 'aileron' in pilot:
+        pilot_ail = pilot['aileron'] * args.aileron_scale
+        pilot_ele = pilot['elevator'] * args.elevator_scale
+        pilot_thr = pilot['throttle']
+        pilot_rud = pilot['rudder'] * args.rudder_scale
+        auto_switch = pilot['auto_manual']
     else:
         auto_switch = 0
-    if interp.act_ail:
-        act_ail = float(interp.act_ail(time)) * args.aileron_scale
-        act_ele = float(interp.act_ele(time)) * args.elevator_scale
-        act_thr = float(interp.act_thr(time))
-        act_rud = float(interp.act_rud(time)) * args.rudder_scale
+    if 'aileron' in act:
+        act_ail = act['aileron'] * args.aileron_scale
+        act_ele = act['elevator'] * args.elevator_scale
+        act_thr = act['throttle']
+        act_rud = act['rudder'] * args.rudder_scale
 
     if args.auto_switch == 'none':
         flight_mode = 'manual'
@@ -340,9 +343,9 @@ for frame in reader.nextFrame():
     else:
         flight_mode = 'auto'            
 
-    if interp.excite_mode:
-        excite_mode = float(interp.excite_mode(time))
-        test_index = float(interp.test_index(time))        
+    if 'mission' in data:
+        excite_mode = mission['excite']
+        test_index = mission['test_index']
 
     body2cam = transformations.quaternion_from_euler( cam_yaw * d2r,
                                                       cam_pitch * d2r,
@@ -394,10 +397,10 @@ for frame in reader.nextFrame():
     else:
         hud1_frame = np.zeros((frame_undist.shape), np.uint8)
 
-    hud1.update_time(time, interp.gps_unixtime(time))
+    hud1.update_time(time, gps['unix_sec'])
     if 'event' in data:
         hud1.update_events(data['event'])
-    if interp.excite_mode:
+    if 'mission' in data:
         hud1.update_test_index(excite_mode, test_index)
     hud1.update_proj(PROJ)
     hud1.update_cam_att(cam_yaw, cam_pitch, cam_roll)
@@ -405,18 +408,18 @@ for frame in reader.nextFrame():
     hud1.update_lla([lat_deg, lon_deg, altitude_m])
     hud1.update_vel(vn, ve, vd)
     hud1.update_att_rad(roll_rad, pitch_rad, yaw_rad)
-    if interp.air_wind_dir:
+    if 'wind_dir' in air:
         hud1.update_airdata(airspeed_kt, altitude_m, wind_deg, wind_kt, alpha_rad, beta_rad)
     else:
         hud1.update_airdata(airspeed_kt, altitude_m)
-    if interp.ap_hdgx:
+    if 'hdgx' in ap:
         hud1.update_ap(flight_mode, ap_roll, ap_pitch, ap_hdg,
                        ap_speed, ap_alt_ft)
     else:
         hud1.update_ap(flight_mode, 0.0, 0.0, 0.0, 0.0, 0.0)
-    if interp.pilot_ail:
+    if 'aileron' in pilot:
         hud1.update_pilot(pilot_ail, pilot_ele, pilot_thr, pilot_rud)
-    if interp.act_ail:
+    if 'aileron' in act:
         hud1.update_act(act_ail, act_ele, act_thr, act_rud)
     if time >= flight_min and time <= flight_max:
         # only draw hud for time range when we have actual flight data

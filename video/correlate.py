@@ -12,9 +12,8 @@ r2d = 180.0 / math.pi
 
 def sync_clocks(data, interp, movie_log, hz=60, cam_mount='forward',
                 force_time_shift=None, plot=True):
-    x = interp.imu_time
-    flight_min = x.min()
-    flight_max = x.max()
+    flight_min = data['imu'][0]['time']
+    flight_max = data['imu'][-1]['time']
     print("flight range = %.3f - %.3f (%.3f)" % (flight_min, flight_max, flight_max-flight_min))
 
     # load movie log
@@ -50,9 +49,9 @@ def sync_clocks(data, interp, movie_log, hz=60, cam_mount='forward',
     # resample flight data
     flight_interp = []
     if cam_mount == 'forward' or cam_mount == 'rear':
-        y_spline = interp.imu_p     # forward/rear facing camera
+        y_spline = interp.group['imu'].interp['p'] # forward/rear facing camera
     else:
-        y_spline = interp.imu_r     # down facing camera
+        y_spline = interp.group['imu'].interp['r'] # down facing camera
 
     time = flight_max - flight_min
     for x in np.linspace(flight_min, flight_max, time*hz):
@@ -110,8 +109,9 @@ def sync_clocks(data, interp, movie_log, hz=60, cam_mount='forward',
     for x in np.linspace(tmin, tmax, (tmax-tmin)*hz):
         mqsum += abs(movie_spl_pitch(x-time_shift))
         mrsum += abs(movie_spl_yaw(x-time_shift))
-        fqsum += abs(interp.imu_q(x))
-        frsum += abs(interp.imu_r(x))
+        imu = interp.query(x, 'imu')
+        fqsum += abs(imu['q'])
+        frsum += abs(imu['r'])
     if fqsum > 0.001:
         qratio = mqsum / fqsum
     if mrsum > 0.001:
@@ -128,7 +128,7 @@ def sync_clocks(data, interp, movie_log, hz=60, cam_mount='forward',
         # reformat the data
         flight_imu = []
         for imu in data['imu']:
-            flight_imu.append([ imu.time, imu.p, imu.q, imu.r ])
+            flight_imu.append([ imu['time'], imu['p'], imu['q'], imu['r'] ])
         flight_imu = np.array(flight_imu)
 
         # plot the data ...

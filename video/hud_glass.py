@@ -224,42 +224,42 @@ class HUD:
         if self.next_event_index < 0:
             # find starting index
             i = 0
-            while i < len(events) and events[i].time < self.time:
+            while i < len(events) and events[i]['time'] < self.time:
                 i += 1
             print('events starting index:', i)
             self.next_event_index = i
         else:
             i = self.next_event_index
-        while i < len(events) and events[i].time <= self.time:
+        while i < len(events) and events[i]['time'] <= self.time:
             # trim potential enclosing double quotes from message
-            if events[i].message[0] == '"':
-                events[i].message = events[i].message[1:]
-            if events[i].message[-1] == '"':
-                events[i].message = events[i].message[:-1]
+            if events[i]['message'][0] == '"':
+                events[i]['message'] = events[i]['message'][1:]
+            if events[i]['message'][-1] == '"':
+                events[i]['message'] = events[i]['message'][:-1]
             
-            if re.match('camera:', events[i].message):
-                print('ignoring:', events[i].message)
+            if re.match('camera:', events[i]['message']):
+                print('ignoring:', events[i]['message'])
             elif re.match('remote command: executed: \(\d+\) ',
-                        events[i].message):
+                        events[i]['message']):
                 result = re.split('remote command: executed: \(\d+\) ',
-                                  events[i].message)
+                                  events[i]['message'])
                 if len(result) > 1:
                     if result[1] == 'hb':
                         # ignore heartbeat events
                         pass
                     else:
                         # the events system uses ',' as a delimeter
-                        events[i].message = re.sub(',', ' ', result[1])
+                        events[i]['message'] = re.sub(',', ' ', result[1])
                         self.active_events.append(events[i])
                 else:
-                    print('problem interpreting event:', events[i].message)
+                    print('problem interpreting event:', events[i]['message'])
             else:           
                 self.active_events.append(events[i])
             i += 1
         self.next_event_index = i
         print('active events:')
         for e in self.active_events:
-            print(' ', e.time, e.message)        
+            print(' ', e['time'], e['message'])        
             
     def compute_sun_moon_ned(self, lon_deg, lat_deg, alt_m, timestamp):
         d = datetime.datetime.utcfromtimestamp(timestamp)
@@ -1242,8 +1242,8 @@ class HUD:
         ref = 2
         maxw = 0
         for e in self.active_events:
-            time = e.time
-            label = "%.1f %s" % (e.time, e.message)
+            time = e['time']
+            label = "%.1f %s" % (e['time'], e['message'])
             size = cv2.getTextSize(label, self.font, 0.7, self.line_width)
             if size[0][0] > maxw:
                 maxw = size[0][0]
