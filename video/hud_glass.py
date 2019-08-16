@@ -99,7 +99,12 @@ class HUD:
         self.shaded_areas = {}
         self.next_event_index = -1
         self.active_events = []
-
+        self.task_id = ''
+        self.target_waypoint_idx = 0
+        self.route = []
+        self.home = {'lon': 0.0, 'lat': 0.0}
+        self.circle = {'lon': 0.0, 'lat': 0.0, 'radius': 100}
+        
     def set_render_size(self, w, h):
         self.render_w = w
         self.render_h = h
@@ -212,6 +217,34 @@ class HUD:
         self.act_thr = throttle
         self.act_rud = rudder
 
+    def update_task(self, record):
+        if 'ap' in record:
+            route_size = record['ap']['route_size']
+            if route_size < len(self.route):
+                print("Trimming route to size:", route_size)
+                self.route = self.route[:route_size]
+            elif route_size > len(self.route):
+                print("Expanding route to size:", route_size)
+                while route_size > len(self.route):
+                    self.route.append({'lon': 0.0, 'lat': 0.0})
+            wp_index = record['ap']['wpt_index']
+            if wp_index < route_size:
+                self.target_waypoint_idx = record['ap']['target_waypoint_idx']
+                self.route[wp_index]['lon'] = record['ap']['wpt_longitude_deg']
+                self.route[wp_index]['lat'] = record['ap']['wpt_latitude_deg']
+            elif wp_index == 65534:
+                self.circle['lon'] = record['ap']['wpt_longitude_deg']
+                self.circle['lat'] = record['ap']['wpt_latitude_deg']
+                radius = record['ap']['task_attrib'] / 10.0
+                if ( radius > 1.0 ):
+                    self.circle['radius'] = radius
+                else:
+                    self.circle['radius'] = 100.0
+            elif wp_index == 65535:
+                self.home['lon'] = record['ap']['wpt_longitude_deg']
+                self.home['lat'] = record['ap']['wpt_latitude_deg']
+            self.task_id = record['ap']['current_task_id']
+    
     def update_events(self, events):
         # expire active events
         event_timer = 15
@@ -883,26 +916,35 @@ class HUD:
             if uv != None:
                 self.draw_label(label, uv, scale, self.line_width, vert=vert)
 
-    def draw_lla_point(self, lla, label):
+    def draw_lla_point(self, lla, label, draw_dist='sm'):
         pt_ned = navpy.lla2ned( lla[0], lla[1], lla[2],
                                 self.ref[0], self.ref[1], self.ref[2] )
         rel_ned = [ pt_ned[0] - self.ned[0],
                     pt_ned[1] - self.ned[1],
                     pt_ned[2] - self.ned[2] ]
-        hdist = math.sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1])
-        dist = math.sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1]
-                         + rel_ned[2]*rel_ned[2])
-        m2sm = 0.000621371
-        hdist_sm = hdist * m2sm
-        if hdist_sm <= 10.0:
-            scale = 0.9 - (hdist_sm / 10.0) * 0.3
-            if hdist_sm <= 7.5:
-                label += " (%.1f)" % hdist_sm
-            # normalize, and draw relative to aircraft ned so that label
-            # separation works better
-            rel_ned[0] /= dist
-            rel_ned[1] /= dist
-            rel_ned[2] /= dist
+        if draw_dist:
+            hdist = math.sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1])
+            dist = math.sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1]
+                             + rel_ned[2]*rel_ned[2])
+            m2sm = 0.000621371
+            hdist_sm = hdist * m2sm
+            if hdist_sm <= 10.0:
+                scale = 0.9 - (hdist_sm / 10.0) * 0.3
+                if hdist_sm <= 7.5:
+                    if draw_dist == 'm':
+                        label += " (%.0f)" % hdist
+                    else:
+                        label += " (%.1f)" % hdist_sm
+                # normalize, and draw relative to aircraft ned so that label
+                # separation works better
+                rel_ned[0] /= dist
+                rel_ned[1] /= dist
+                rel_ned[2] /= dist
+                self.draw_ned_point([self.ned[0] + rel_ned[0],
+                                     self.ned[1] + rel_ned[1],
+                                     self.ned[2] + rel_ned[2]],
+                                    label, scale=scale, vert='below')
+        else:
             self.draw_ned_point([self.ned[0] + rel_ned[0],
                                  self.ned[1] + rel_ned[1],
                                  self.ned[2] + rel_ned[2]],
@@ -975,6 +1017,15 @@ class HUD:
     def draw_airports(self):
         for apt in self.airports:
             self.draw_lla_point([ apt[1], apt[2], apt[3] ], apt[0])
+
+    def draw_task(self):
+        print(self.task_id)
+        if self.task_id == "route":
+            if self.target_waypoint_idx < len(self.route):
+                i = self.target_waypoint_idx
+                wpt = self.route[i]
+                alt = self.ap_altitude_ft * ft2m
+                self.draw_lla_point([ wpt['lat'], wpt['lon'], alt ], "Wpt %d" % i, draw_dist='m')
 
     def draw_nose(self):
         # center point
@@ -1363,6 +1414,7 @@ class HUD:
         self.draw_astro()
         # midrange things
         self.draw_airports()
+        self.draw_task()
         self.draw_track()
         self.draw_features()
         # cockpit things

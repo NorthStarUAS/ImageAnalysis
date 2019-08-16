@@ -136,6 +136,7 @@ if len(data['imu']) == 0 and len(data['gps']) == 0:
     quit()
 
 interp = flight_interp.InterpolationGroup(data)
+iter = flight_interp.IterateGroup(data)
 time_shift, flight_min, flight_max = \
     correlate.sync_clocks(data, interp, movie_log, hz=args.resample_hz,
                           cam_mount=args.cam_mount,
@@ -173,7 +174,7 @@ hud2.set_ned_ref(data['gps'][0]['lat'], data['gps'][0]['lon'])
 print('ned ref:', ref)
 
 print('temporarily disabling airport loading')
-hud1.load_airports()
+#hud1.load_airports()
 
 hud1.set_ground_m(ground_m)
 hud2.set_ground_m(ground_m)
@@ -241,14 +242,14 @@ hud2.set_units( args.airspeed_units, args.altitude_units)
 
 filt_alt = None
 
-if time_shift > 0:
+if False and time_shift > 0:
     # catch up the flight path history (in case the movie starts
     # mid-flight.)  Note: flight_min is the starting time of the filter data
     # set.
     print('seeding flight track ...')
     for time in np.arange(flight_min, time_shift, 1.0 / float(fps)):
         filt = interp.query(time, 'filter')
-        air = interp.query(time, 'air')
+        #air = interp.query(time, 'air')
         gps = interp.query(time, 'gps')
         lat_deg = filt['lat']*r2d
         lon_deg = filt['lon']*r2d
@@ -273,6 +274,7 @@ for frame in reader.nextFrame():
     if args.start_time and time < args.start_time:
         continue
     filt = interp.query(time, 'filter')
+    gps = interp.query(time, 'gps')
     air = interp.query(time, 'air')
     ap = interp.query(time, 'ap')
     pilot = interp.query(time, 'pilot')
@@ -347,6 +349,12 @@ for frame in reader.nextFrame():
         excite_mode = mission['excite']
         test_index = mission['test_index']
 
+    record = iter.next()
+    hud1.update_task(record)
+    while record['imu']['time'] < time:
+        record = iter.next()
+        hud1.update_task(record)
+    
     body2cam = transformations.quaternion_from_euler( cam_yaw * d2r,
                                                       cam_pitch * d2r,
                                                       cam_roll * d2r,
