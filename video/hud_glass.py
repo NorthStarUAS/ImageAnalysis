@@ -922,29 +922,23 @@ class HUD:
         rel_ned = [ pt_ned[0] - self.ned[0],
                     pt_ned[1] - self.ned[1],
                     pt_ned[2] - self.ned[2] ]
-        if draw_dist:
-            hdist = math.sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1])
-            dist = math.sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1]
-                             + rel_ned[2]*rel_ned[2])
-            m2sm = 0.000621371
-            hdist_sm = hdist * m2sm
-            if hdist_sm <= 10.0:
-                scale = 0.9 - (hdist_sm / 10.0) * 0.3
-                if hdist_sm <= 7.5:
-                    if draw_dist == 'm':
-                        label += " (%.0f)" % hdist
-                    else:
-                        label += " (%.1f)" % hdist_sm
-                # normalize, and draw relative to aircraft ned so that label
-                # separation works better
-                rel_ned[0] /= dist
-                rel_ned[1] /= dist
-                rel_ned[2] /= dist
-                self.draw_ned_point([self.ned[0] + rel_ned[0],
-                                     self.ned[1] + rel_ned[1],
-                                     self.ned[2] + rel_ned[2]],
-                                    label, scale=scale, vert='below')
-        else:
+        hdist = math.sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1])
+        dist = math.sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1]
+                         + rel_ned[2]*rel_ned[2])
+        m2sm = 0.000621371
+        hdist_sm = hdist * m2sm
+        if hdist_sm <= 10.0:
+            scale = 0.9 - (hdist_sm / 10.0) * 0.3
+            if hdist_sm <= 7.5:
+                if draw_dist == 'm':
+                    label += " (%.0f)" % hdist
+                elif draw_dist == 'sm':
+                    label += " (%.1f)" % hdist_sm
+            # normalize, and draw relative to aircraft ned so that label
+            # separation works better
+            rel_ned[0] /= dist
+            rel_ned[1] /= dist
+            rel_ned[2] /= dist
             self.draw_ned_point([self.ned[0] + rel_ned[0],
                                  self.ned[1] + rel_ned[1],
                                  self.ned[2] + rel_ned[2]],
@@ -1019,13 +1013,55 @@ class HUD:
             self.draw_lla_point([ apt[1], apt[2], apt[3] ], apt[0])
 
     def draw_task(self):
-        print(self.task_id)
-        if self.task_id == "route":
-            if self.target_waypoint_idx < len(self.route):
-                i = self.target_waypoint_idx
-                wpt = self.route[i]
-                alt = self.ap_altitude_ft * ft2m
-                self.draw_lla_point([ wpt['lat'], wpt['lon'], alt ], "Wpt %d" % i, draw_dist='m')
+        # home
+        self.draw_lla_point([ self.home['lat'], self.home['lon'], self.ground_m ], "Home", draw_dist='')
+        if self.task_id == "route" and  self.target_waypoint_idx < len(self.route):
+            size = 5
+            i = self.target_waypoint_idx
+            next = self.route[i]
+            if i > 0:
+                prev = self.route[i-1]
+            else:
+                prev = self.route[-1]
+            alt = self.ap_altitude_ft * ft2m
+            # draw target
+            self.draw_lla_point([ next['lat'], next['lon'], alt ], "Wpt %d" % i, draw_dist='m')
+            # draw boxes
+            next_ned = navpy.lla2ned( next['lat'], next['lon'], alt,
+                                      self.ref[0], self.ref[1], self.ref[2] )
+            prev_ned = navpy.lla2ned( prev['lat'], prev['lon'], alt,
+                                      self.ref[0], self.ref[1], self.ref[2] )
+            distn = next_ned[0] - prev_ned[0]
+            diste = next_ned[1] - prev_ned[1]
+            dist = math.sqrt(distn*distn + diste*diste)
+            if abs(dist) < 0.0001:
+                return
+            vn = distn / dist
+            ve = diste / dist
+            uv_list = []
+            d = 0
+            while d < dist:
+                pn = next_ned[0] - d*vn
+                pe = next_ned[1] - d*ve
+                pd = next_ned[2]
+                ln = pn + size*ve
+                le = pe - size*vn
+                rn = pn - size*ve
+                re = pe + size*vn
+                uv1 = self.project_ned([ln, le, pd+size])
+                uv2 = self.project_ned([ln, le, pd-size])
+                uv3 = self.project_ned([rn, re, pd-size])
+                uv4 = self.project_ned([rn, re, pd+size])
+                if uv1 != None and uv2 != None and uv3 != None and uv4 != None:
+                    cv2.line(self.frame, uv1, uv2, white, self.line_width,
+                             cv2.LINE_AA)
+                    cv2.line(self.frame, uv2, uv3, white, self.line_width,
+                             cv2.LINE_AA)
+                    cv2.line(self.frame, uv3, uv4, white, self.line_width,
+                             cv2.LINE_AA)
+                    cv2.line(self.frame, uv4, uv1, white, self.line_width,
+                             cv2.LINE_AA)
+                d += 30
 
     def draw_nose(self):
         # center point
