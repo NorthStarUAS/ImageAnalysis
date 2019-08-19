@@ -291,9 +291,10 @@ class HUD:
                 self.active_events.append(events[i])
             i += 1
         self.next_event_index = i
-        print('active events:')
-        for e in self.active_events:
-            print(' ', e['time'], e['message'])        
+        if len(self.active_events):
+            print('active events:')
+            for e in self.active_events:
+                print(' ', e['time'], e['message'])
             
     def compute_sun_moon_ned(self, lon_deg, lat_deg, alt_m, timestamp):
         d = datetime.datetime.utcfromtimestamp(timestamp)
