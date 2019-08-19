@@ -147,6 +147,7 @@ class HUD:
     def update_time(self, time, unixtime):
         self.time = time
         self.unixtime = unixtime
+        print('unix:', unixtime)
 
     def update_test_index(self, mode, index):
         self.excite_mode = mode
@@ -1015,15 +1016,40 @@ class HUD:
     def draw_task(self):
         # home
         self.draw_lla_point([ self.home['lat'], self.home['lon'], self.ground_m ], "Home", draw_dist='')
-        if self.task_id == "route" and  self.target_waypoint_idx < len(self.route):
-            size = 5
+        size = 5
+        alt = self.ap_altitude_ft * ft2m
+        if self.task_id == "circle":
+            center_ned = navpy.lla2ned( self.circle['lat'], self.circle['lon'],
+                                        alt,
+                                        self.ref[0], self.ref[1], self.ref[2] )
+            r = self.circle['radius']
+            perim = r * math.pi
+            step = round(r * math.pi / 15)
+            for a in np.linspace(0, 2*math.pi, step, endpoint=False):
+                in_e = center_ned[1] + math.sin(a)*(r-size)
+                in_n = center_ned[0] + math.cos(a)*(r-size)
+                out_e = center_ned[1] + math.sin(a)*(r+size)
+                out_n = center_ned[0] + math.cos(a)*(r+size)
+                uv1 = self.project_ned([in_n, in_e, center_ned[2]-size])
+                uv2 = self.project_ned([out_n, out_e, center_ned[2]-size])
+                uv3 = self.project_ned([out_n, out_e, center_ned[2]+size])
+                uv4 = self.project_ned([in_n, in_e, center_ned[2]+size])
+                if uv1 != None and uv2 != None and uv3 != None and uv4 != None:
+                    cv2.line(self.frame, uv1, uv2, white, self.line_width,
+                             cv2.LINE_AA)
+                    cv2.line(self.frame, uv2, uv3, white, self.line_width,
+                             cv2.LINE_AA)
+                    cv2.line(self.frame, uv3, uv4, white, self.line_width,
+                             cv2.LINE_AA)
+                    cv2.line(self.frame, uv4, uv1, white, self.line_width,
+                             cv2.LINE_AA)
+        elif self.task_id == "route" and  self.target_waypoint_idx < len(self.route):
             i = self.target_waypoint_idx
             next = self.route[i]
             if i > 0:
                 prev = self.route[i-1]
             else:
                 prev = self.route[-1]
-            alt = self.ap_altitude_ft * ft2m
             # draw target
             self.draw_lla_point([ next['lat'], next['lon'], alt ], "Wpt %d" % i, draw_dist='m')
             # draw boxes
@@ -1040,6 +1066,9 @@ class HUD:
             ve = diste / dist
             uv_list = []
             d = 0
+            if dist > 10000:
+                # sanity check
+                return
             while d < dist:
                 pn = next_ned[0] - d*vn
                 pe = next_ned[1] - d*ve
