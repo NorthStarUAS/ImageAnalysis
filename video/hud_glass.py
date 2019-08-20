@@ -228,7 +228,7 @@ class HUD:
                 print("Expanding route to size:", route_size)
                 while route_size > len(self.route):
                     self.route.append({'lon': 0.0, 'lat': 0.0})
-            wp_index = record['ap']['wpt_index']
+            wp_index = int(record['ap']['wpt_index'])
             if wp_index < route_size:
                 self.target_waypoint_idx = record['ap']['target_waypoint_idx']
                 self.route[wp_index]['lon'] = record['ap']['wpt_longitude_deg']
@@ -250,7 +250,7 @@ class HUD:
         # expire active events
         event_timer = 15
         while len(self.active_events):
-            if self.active_events[0].time < self.time - event_timer:
+            if self.active_events[0]['time'] < self.time - event_timer:
                 del self.active_events[0]
             else:
                 break
