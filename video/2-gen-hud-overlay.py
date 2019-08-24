@@ -351,7 +351,7 @@ for frame in reader.nextFrame():
 
     record = iter.next()
     hud1.update_task(record)
-    while record['imu']['time'] < time:
+    while 'imu' in record and record['imu']['time'] < time:
         record = iter.next()
         hud1.update_task(record)
     

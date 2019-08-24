@@ -1,3 +1,4 @@
+import cv2
 import datetime
 import ephem                    # dnf install python3-pyephem
 import math
@@ -7,6 +8,7 @@ import re
 
 from auracore import wgs84
 
+import sys
 sys.path.append('../scripts')
 from lib import transformations
 
@@ -102,7 +104,7 @@ class HUD:
         self.home = {'lon': 0.0, 'lat': 0.0}
         self.circle = {'lon': 0.0, 'lat': 0.0, 'radius': 100}
         self.land = {'heading_deg': 0, 'side': -1, 'turn_radius_m': 75,
-                     'extend_final_leg_m': 150 }
+                     'extend_final_leg_m': 150, 'glideslope_rad': 0.1 }
         
     def set_render_size(self, w, h):
         self.render_w = w
@@ -227,7 +229,11 @@ class HUD:
                 print("Expanding route to size:", route_size)
                 while route_size > len(self.route):
                     self.route.append({'lon': 0.0, 'lat': 0.0})
-            wp_index = int(record['ap']['wpt_index'])
+            #print(record['ap']['wpt_index'])
+            if not math.isnan(record['ap']['wpt_index']):
+                wp_index = int(record['ap']['wpt_index'])
+            else:
+                wp_index = 0
             if wp_index < route_size:
                 self.target_waypoint_idx = record['ap']['target_waypoint_idx']
                 self.route[wp_index]['lon'] = record['ap']['wpt_longitude_deg']
@@ -295,7 +301,7 @@ class HUD:
                             elif tokens[1] == '/task/land/turn_radius_m':
                                 self.land['turn_radius_m'] = float(tokens[2])
                             elif tokens[1] == '/task/land/glideslope_deg':
-                                self.land['glideslope_deg'] = float(tokens[2])
+                                self.land['glideslope_rad'] = float(tokens[2]) * d2r
                             elif tokens[1] == '/task/land/extend_final_leg_m':
                                 self.land['extend_final_leg_m'] = float(tokens[2])
                             elif tokens[0] == 'task' and tokens[1] == 'land':
@@ -1030,14 +1036,22 @@ class HUD:
         for apt in self.airports:
             self.draw_lla_point([ apt[1], apt[2], apt[3] ], apt[0])
 
-    def cart2polar(self, x, y):
-        # fixme: if display_on:
-        #    printf("approach %0f %0f\n", x, y);
-        dist = math.sqrt(x*x + y*y)
-        deg = math.atan2(x, y) * r2d
-        return (dist, deg)
-
-     def draw_task(self):
+    def draw_gate(self, ned1, ned2, ned3, ned4):
+        uv1 = self.project_ned(ned1)
+        uv2 = self.project_ned(ned2)
+        uv3 = self.project_ned(ned3)
+        uv4 = self.project_ned(ned4)
+        if uv1 != None and uv2 != None and uv3 != None and uv4 != None:
+            cv2.line(self.frame, uv1, uv2, white, self.line_width,
+                     cv2.LINE_AA)
+            cv2.line(self.frame, uv2, uv3, white, self.line_width,
+                     cv2.LINE_AA)
+            cv2.line(self.frame, uv3, uv4, white, self.line_width,
+                     cv2.LINE_AA)
+            cv2.line(self.frame, uv4, uv1, white, self.line_width,
+                     cv2.LINE_AA)
+        
+    def draw_task(self):
         # home
         self.draw_lla_point([ self.home['lat'], self.home['lon'], self.ground_m ], "Home", draw_dist='')
         size = 5
@@ -1048,25 +1062,16 @@ class HUD:
                                         self.ref[0], self.ref[1], self.ref[2] )
             r = self.circle['radius']
             perim = r * math.pi
-            step = round(r * math.pi / 15)
+            step = round(2 * r * math.pi / 30)
             for a in np.linspace(0, 2*math.pi, step, endpoint=False):
-                in_e = center_ned[1] + math.sin(a)*(r-size)
-                in_n = center_ned[0] + math.cos(a)*(r-size)
-                out_e = center_ned[1] + math.sin(a)*(r+size)
-                out_n = center_ned[0] + math.cos(a)*(r+size)
-                uv1 = self.project_ned([in_n, in_e, center_ned[2]-size])
-                uv2 = self.project_ned([out_n, out_e, center_ned[2]-size])
-                uv3 = self.project_ned([out_n, out_e, center_ned[2]+size])
-                uv4 = self.project_ned([in_n, in_e, center_ned[2]+size])
-                if uv1 != None and uv2 != None and uv3 != None and uv4 != None:
-                    cv2.line(self.frame, uv1, uv2, white, self.line_width,
-                             cv2.LINE_AA)
-                    cv2.line(self.frame, uv2, uv3, white, self.line_width,
-                             cv2.LINE_AA)
-                    cv2.line(self.frame, uv3, uv4, white, self.line_width,
-                             cv2.LINE_AA)
-                    cv2.line(self.frame, uv4, uv1, white, self.line_width,
-                             cv2.LINE_AA)
+                in_e = center_ned[1] + math.cos(a)*(r-size)
+                in_n = center_ned[0] + math.sin(a)*(r-size)
+                out_e = center_ned[1] + math.cos(a)*(r+size)
+                out_n = center_ned[0] + math.sin(a)*(r+size)
+                self.draw_gate( [in_n, in_e, center_ned[2]-size],
+                                [out_n, out_e, center_ned[2]-size],
+                                [out_n, out_e, center_ned[2]+size],
+                                [in_n, in_e, center_ned[2]+size] )
         elif self.task_id == "route" and  self.target_waypoint_idx < len(self.route):
             i = self.target_waypoint_idx
             next = self.route[i]
@@ -1084,15 +1089,12 @@ class HUD:
             distn = next_ned[0] - prev_ned[0]
             diste = next_ned[1] - prev_ned[1]
             dist = math.sqrt(distn*distn + diste*diste)
-            if abs(dist) < 0.0001:
+            if abs(dist) < 0.0001 or dist > 10000:
                 return
             vn = distn / dist
             ve = diste / dist
             uv_list = []
             d = 0
-            if dist > 10000:
-                # sanity check
-                return
             while d < dist:
                 pn = next_ned[0] - d*vn
                 pe = next_ned[1] - d*ve
@@ -1101,39 +1103,78 @@ class HUD:
                 le = pe - size*vn
                 rn = pn - size*ve
                 re = pe + size*vn
-                uv1 = self.project_ned([ln, le, pd+size])
-                uv2 = self.project_ned([ln, le, pd-size])
-                uv3 = self.project_ned([rn, re, pd-size])
-                uv4 = self.project_ned([rn, re, pd+size])
-                if uv1 != None and uv2 != None and uv3 != None and uv4 != None:
-                    cv2.line(self.frame, uv1, uv2, white, self.line_width,
-                             cv2.LINE_AA)
-                    cv2.line(self.frame, uv2, uv3, white, self.line_width,
-                             cv2.LINE_AA)
-                    cv2.line(self.frame, uv3, uv4, white, self.line_width,
-                             cv2.LINE_AA)
-                    cv2.line(self.frame, uv4, uv1, white, self.line_width,
-                             cv2.LINE_AA)
+                self.draw_gate( [ln, le, pd+size], [ln, le, pd-size],
+                                [rn, re, pd-size], [rn, re, pd+size] )
                 d += 30
         elif self.task_id == "land":
-            home_ned = navpy.lla2ned( self.home['lat'], self.home['lon'],
-                                      self.ground_m,
-                                      self.ref[0], self.ref[1], self.ref[2] )
+            # target point
+            tgt_ned = navpy.lla2ned( self.home['lat'], self.home['lon'],
+                                     self.ground_m,
+                                     self.ref[0], self.ref[1], self.ref[2] )
+
+            # tangent point
+            hdg = (self.land['heading_deg'] + 180) % 360
             final_leg_m = 2.0 * self.land['turn_radius_m'] + self.land['extend_final_leg_m']
-            # compute center of decending circle
-            x = self.land['turn_radius_m'] * self.land['side']
-            y = 2.0 * self.land['turn_radius_m'] + self.land['extend_final_leg_m']
-            (offset_dist, offset_deg) = self.cart2polar(x, -y)
-            circle_offset_deg = self.final_heading_deg + offset_deg
-            if circle_offset_deg < 0.0:
-                circle_offset_deg += 360.0
-            if circle_offset_deg > 360.0:
-                circle_offset_deg -= 360.0
-            #print "circle_offset_deg:", circle_offset_deg
+            (tan_lat, tan_lon, az2) = \
+                wgs84.geo_direct( self.home['lat'], self.home['lon'], hdg, final_leg_m )
+            tan_alt = self.ground_m + final_leg_m * math.tan(self.land['glideslope_rad'])
+            tan_ned = navpy.lla2ned( tan_lat, tan_lon, tan_alt,
+                                     self.ref[0], self.ref[1], self.ref[2] )
+                        
+            # final approach gates
+            distn = tgt_ned[0] - tan_ned[0]
+            diste = tgt_ned[1] - tan_ned[1]
+            distd = tgt_ned[2] - tan_ned[2]
+            dist = math.sqrt(distn*distn + diste*diste + distd*distd)
+            if abs(dist) < 0.0001:
+                return
+            vn = distn / dist
+            ve = diste / dist
+            vd = distd / dist
+            uv_list = []
+            if dist > 10000:
+                # sanity check
+                return
+            step = int(dist / 30) + 1
+            for d in np.linspace(0, dist, step, endpoint=True):
+                pn = tgt_ned[0] - d*vn
+                pe = tgt_ned[1] - d*ve
+                pd = tgt_ned[2] - d*vd
+                ln = pn + size*ve
+                le = pe - size*vn
+                rn = pn - size*ve
+                re = pe + size*vn
+                self.draw_gate( [ln, le, pd+size], [ln, le, pd-size],
+                                [rn, re, pd-size], [rn, re, pd+size] )
+                d += 30
+
+            # circle center
+            hdg = (self.land['heading_deg'] + self.land['side'] * 90) % 360
             (cc_lat, cc_lon, az2) = \
-                wgs84.geo_direct( self.home_node.getFloat("latitude_deg"),
-                                  self.home_node.getFloat("longitude_deg"),
-                                  circle_offset_deg, offset_dist )
+                wgs84.geo_direct( tan_lat, tan_lon, hdg, self.land['turn_radius_m'] )
+            center_ned = navpy.lla2ned( cc_lat, cc_lon, tan_alt,
+                                        self.ref[0], self.ref[1], self.ref[2] )
+
+            # circle gates
+            r = self.land['turn_radius_m']
+            perim = 2 * r * math.pi
+            ha = (90 - self.land['heading_deg']) * d2r
+            sa = ha + 0.5 * math.pi * self.land['side']
+            ea = sa + math.pi * self.land['side']
+            step = round(r * math.pi / 30)
+            for a in np.linspace(sa, ea, -self.land['side'] * step,
+                                 endpoint=True):
+                d = abs(a - sa)
+                alt = self.ground_m + (final_leg_m + d*r) * math.tan(self.land['glideslope_rad'])
+                #print('d:', d*r, tan_alt, alt)
+                in_e = center_ned[1] + math.cos(a)*(r-size)
+                in_n = center_ned[0] + math.sin(a)*(r-size)
+                out_e = center_ned[1] + math.cos(a)*(r+size)
+                out_n = center_ned[0] + math.sin(a)*(r+size)
+                self.draw_gate( [in_n, in_e, -alt-size],
+                                [out_n, out_e, -alt-size],
+                                [out_n, out_e, -alt+size],
+                                [in_n, in_e, -alt+size] )
 
     def draw_nose(self):
         # center point
