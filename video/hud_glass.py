@@ -5,10 +5,7 @@ import navpy
 import numpy as np
 import re
 
-# find our custom built opencv first
-import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
-import cv2
+from auracore import wgs84
 
 sys.path.append('../scripts')
 from lib import transformations
@@ -104,6 +101,8 @@ class HUD:
         self.route = []
         self.home = {'lon': 0.0, 'lat': 0.0}
         self.circle = {'lon': 0.0, 'lat': 0.0, 'radius': 100}
+        self.land = {'heading_deg': 0, 'side': -1, 'turn_radius_m': 75,
+                     'extend_final_leg_m': 150 }
         
     def set_render_size(self, w, h):
         self.render_w = w
@@ -285,6 +284,23 @@ class HUD:
                         # the events system uses ',' as a delimeter
                         events[i]['message'] = re.sub(',', ' ', result[1])
                         self.active_events.append(events[i])
+                        # decode landing setup events
+                        tokens = re.split(' ', events[i]['message'])
+                        if tokens[0] == 'set':
+                            if tokens[1] == '/task/land/direction':
+                                if tokens[2] == 'left':
+                                    self.land['side'] = -1.0
+                                elif tokens[2] == 'right':
+                                    self.land['side'] = 1.0
+                            elif tokens[1] == '/task/land/turn_radius_m':
+                                self.land['turn_radius_m'] = float(tokens[2])
+                            elif tokens[1] == '/task/land/glideslope_deg':
+                                self.land['glideslope_deg'] = float(tokens[2])
+                            elif tokens[1] == '/task/land/extend_final_leg_m':
+                                self.land['extend_final_leg_m'] = float(tokens[2])
+                            elif tokens[0] == 'task' and tokens[1] == 'land':
+                                self.land['heading_deg'] = float(tokens[2])
+                
                 else:
                     print('problem interpreting event:', events[i]['message'])
             else:           
@@ -1014,7 +1030,14 @@ class HUD:
         for apt in self.airports:
             self.draw_lla_point([ apt[1], apt[2], apt[3] ], apt[0])
 
-    def draw_task(self):
+    def cart2polar(self, x, y):
+        # fixme: if display_on:
+        #    printf("approach %0f %0f\n", x, y);
+        dist = math.sqrt(x*x + y*y)
+        deg = math.atan2(x, y) * r2d
+        return (dist, deg)
+
+     def draw_task(self):
         # home
         self.draw_lla_point([ self.home['lat'], self.home['lon'], self.ground_m ], "Home", draw_dist='')
         size = 5
@@ -1092,6 +1115,25 @@ class HUD:
                     cv2.line(self.frame, uv4, uv1, white, self.line_width,
                              cv2.LINE_AA)
                 d += 30
+        elif self.task_id == "land":
+            home_ned = navpy.lla2ned( self.home['lat'], self.home['lon'],
+                                      self.ground_m,
+                                      self.ref[0], self.ref[1], self.ref[2] )
+            final_leg_m = 2.0 * self.land['turn_radius_m'] + self.land['extend_final_leg_m']
+            # compute center of decending circle
+            x = self.land['turn_radius_m'] * self.land['side']
+            y = 2.0 * self.land['turn_radius_m'] + self.land['extend_final_leg_m']
+            (offset_dist, offset_deg) = self.cart2polar(x, -y)
+            circle_offset_deg = self.final_heading_deg + offset_deg
+            if circle_offset_deg < 0.0:
+                circle_offset_deg += 360.0
+            if circle_offset_deg > 360.0:
+                circle_offset_deg -= 360.0
+            #print "circle_offset_deg:", circle_offset_deg
+            (cc_lat, cc_lon, az2) = \
+                wgs84.geo_direct( self.home_node.getFloat("latitude_deg"),
+                                  self.home_node.getFloat("longitude_deg"),
+                                  circle_offset_deg, offset_dist )
 
     def draw_nose(self):
         # center point
