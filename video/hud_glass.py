@@ -1160,11 +1160,16 @@ class HUD:
             perim = 2 * r * math.pi
             ha = (90 - self.land['heading_deg']) * d2r
             sa = ha + 0.5 * math.pi * self.land['side']
-            ea = sa + math.pi * self.land['side']
+            aa = sa + 1.0 * math.pi * self.land['side']
+            ea = sa + 1.25 * math.pi * self.land['side']
             step = round(r * math.pi / 30)
             for a in np.linspace(sa, ea, -self.land['side'] * step,
                                  endpoint=True):
                 d = abs(a - sa)
+                if d > abs(aa - sa):
+                    # glide slope only extends up for the first half
+                    # of the circle
+                    d = abs(aa - sa)
                 alt = self.ground_m + (final_leg_m + d*r) * math.tan(self.land['glideslope_rad'])
                 #print('d:', d*r, tan_alt, alt)
                 in_e = center_ned[1] + math.cos(a)*(r-size)
