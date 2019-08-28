@@ -26,8 +26,8 @@ parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--scale', type=float, default=0.5, help='scale images before detecting features, this acts much like a noise filter')
 parser.add_argument('--detector', default='SIFT',
                     choices=['SIFT', 'SURF', 'ORB', 'Star'])
-parser.add_argument('--sift-max-features', default=30000,
-                    help='maximum SIFT features')
+#parser.add_argument('--sift-max-features', default=30000,
+#                    help='maximum SIFT features')
 parser.add_argument('--surf-hessian-threshold', default=600,
                     help='hessian threshold for surf method')
 parser.add_argument('--surf-noctaves', default=4,
@@ -59,7 +59,8 @@ detector_node = getNode('/config/detector', True)
 detector_node.setString('detector', args.detector)
 detector_node.setString('scale', args.scale)
 if args.detector == 'SIFT':
-    detector_node.setInt('sift_max_features', args.sift_max_features)
+    #detector_node.setInt('sift_max_features', args.sift_max_features)
+    pass
 elif args.detector == 'SURF':
     detector_node.setInt('surf_hessian_threshold', args.surf_hessian_threshold)
     detector_node.setInt('surf_noctaves', args.surf_noctaves)
@@ -78,7 +79,7 @@ elif args.detector == 'Star':
                          args.star_suppress_nonmax_size)
 
 # find features in the full image set
-proj.detect_features(scale=args.scale, show=args.show)
+proj.detect_features(scale=args.scale, force=True, show=args.show)
 
 feature_count = 0
 image_count = 0

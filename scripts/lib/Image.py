@@ -220,7 +220,8 @@ class Image():
         detector = None
         if detector_node.getString('detector') == 'SIFT':
             max_features = detector_node.getInt('sift_max_features')
-            detector = cv2.xfeatures2d.SIFT_create(nfeatures=max_features)
+            #detector = cv2.xfeatures2d.SIFT_create(nfeatures=max_features)
+            detector = cv2.xfeatures2d.SIFT_create()
         elif detector_node.getString('detector') == 'SURF':
             threshold = detector_node.getFloat('surf_hessian_threshold')
             nOctaves = detector_node.getInt('surf_noctaves')

@@ -234,11 +234,11 @@ class ProjectMgr():
     def set_matcher_params(self, mparams):
         self.matcher_params = mparams
         
-    def detect_features(self, scale, show=False):
+    def detect_features(self, scale, force=False, show=False):
         print("Detecting features:")
         for image in tqdm(self.image_list):
             image.load_features()
-            if len(image.kp_list) > 0:
+            if len(image.kp_list) > 0 and not force:
                 print("skipping:", image.name)
                 continue
             #print "detecting features and computing descriptors: " + image.name
