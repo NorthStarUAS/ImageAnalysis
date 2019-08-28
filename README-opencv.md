@@ -17,7 +17,7 @@ Fedora installation tips
 
   - dnf install libpng-devel libjpeg-turbo-devel jasper-devel openexr-devel libtiff-devel libwebp-devel
   - dnf install tbb-devel eigen3-devel doxygen openblas-devel hdf5-devel gflags-devel glog-devel vtk-devel
-  - dnf install python3-numpy python3-scipy ccache
+  - dnf install python3-numpy python3-scipy ccache python3-matplotlib python3-piexif python3-tqdm python3-geojson python3-xmp-toolkit
 
 # download the latest stable .zip from here:
 
