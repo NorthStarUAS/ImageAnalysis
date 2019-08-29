@@ -96,8 +96,9 @@ def imresize(src, height):
     width = int(src.shape[1] * 1.0/ratio)
     return cv2.resize(src, (width, height))
 
-i1 = imresize(i1, 768)
-i2 = imresize(i2, 768)
+# 50% = 1824
+i1 = imresize(i1, 1460)
+i2 = imresize(i2, 1460)
 
 detector = cv2.xfeatures2d.SIFT_create()
 kp1 = detector.detect(i1)
@@ -240,7 +241,7 @@ while True:
             # Surf: use a min_value of maybe 0.75
             # Sift: use a min_value of maybe 2000
             
-            if (first_iteration and min_value < 500) or (not first_iteration and min_value < 6000):
+            if (first_iteration and min_value < 750) or (not first_iteration and min_value < 7500):
                 #print('dist:', m[min_index].distance)
                 filt_matches.append(m[min_index])
     print("Filtered matches:", len(filt_matches))
