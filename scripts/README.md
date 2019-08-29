@@ -38,10 +38,12 @@ taken.  There is a helper script which can automate this process:
 
   SIFT seems like the best quality detector (and feature descriptor)
   over all.  It seems to produce the most consistent overall results.
-  Recommend 30000 sift features per image.  Generally more is better
-  here if your computer resources can support it.
+  Recommend controlling number of features by scaling the image.  For
+  a DJI Phantom 4 camera, 40-50% scaling is a good starting point.
+  Generally more features are better here if your computer resources
+  can support it.
 
-  If you aren't getting as many features as you ask for, consider a
+  If you aren't getting as many features as you like, consider a
   larger scale factor.
 
   ## ORB
