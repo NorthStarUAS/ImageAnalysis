@@ -221,7 +221,7 @@ for match in matches_direct:
     sum += len(match[2:])
         
 if len(matches_direct):
-    print("Total image pairs in image set:", len(matches_direct))
+    print("Total feature pairs in image set:", len(matches_direct))
     print("Keypoint average instances = %.1f (should be 2.0 here)" % (sum / len(matches_direct)))
 
 # Note to self: I don't think we need the matches_direct file any more
