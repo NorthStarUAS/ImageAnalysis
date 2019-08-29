@@ -483,7 +483,6 @@ class Matcher():
                            filter="fundamental", review=False):
         min_dist = self.matcher_node.getFloat('min_dist')
         max_dist = self.matcher_node.getFloat('max_dist')
-        print('Generating work list for range:', min_dist, '-', max_dist)
         
         n = len(image_list) - 1
         n_work = float(n*(n+1)/2)
@@ -492,19 +491,12 @@ class Matcher():
         # camera separation vs. matches stats
         dist_stats = []
 
-        # pass 1, make a list of all the match pairs with their
-        # physical camera separation, then sort by distance and matche
-        # closest first
+        print('Generating work list for range:', min_dist, '-', max_dist)
         work_list = []
         for i, i1 in enumerate(tqdm(image_list)):
-            #shouldn't need to allocate space now that it's a dict
-            #if len(i1.match_list) == 0:
-            #    i1.match_list = {}
-
             for j, i2 in enumerate(image_list):
                 if j <= i:
                     continue
-                
                 # camera pose distance check
                 ned1, ypr1, q1 = i1.get_camera_pose()
                 ned2, ypr2, q2 = i2.get_camera_pose()
@@ -528,7 +520,7 @@ class Matcher():
         # things not recently used should help our memory foot print
         # at hopefully not too much of a performance expense.
         
-        # proces the work list
+        # process the work list
         n_count = 0
         save_time = time.time()
         save_interval = 120     # seconds
@@ -568,10 +560,6 @@ class Matcher():
             i1.load_descriptors()
             i2.load_descriptors()
 
-            #shouldn't need to do this
-            #if len(i2.match_list) == 0:
-            #    # create if needed
-            #    i2.match_list = [[]] * len(image_list)
             i1.match_list[i2.name], i2.match_list[i1.name] \
                 = self.bidirectional_matches(image_list, i, j, review)
 
