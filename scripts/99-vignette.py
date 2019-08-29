@@ -51,7 +51,7 @@ if not os.path.exists(vignette_avg_file):
     count = 0
     il = list(proj.image_list)
     random.shuffle(il)
-    for image in il:
+    for image in tqdm(il):
         rgb = image.load_rgb()
         if args.scale < 1.0:
             rgb = cv2.resize(rgb, None, fx=args.scale, fy=args.scale)
@@ -62,7 +62,6 @@ if not os.path.exists(vignette_avg_file):
         vmask = (sum / count).astype('uint8')
         cv2.imshow('vmask', vmask)
         cv2.waitKey(1)
-        print("adding:", image.name)
     # save our work
     vmask = (sum / count).astype('uint8')
     cv2.imshow('vmask', vmask)
