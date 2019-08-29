@@ -6,7 +6,6 @@ import fnmatch
 import fractions
 import json
 import math
-from matplotlib import pyplot as plt
 import numpy as np
 import os.path
 import pickle
@@ -170,7 +169,7 @@ class ProjectMgr():
             if descriptors:
                 image.load_descriptors()
 
-    def load_match_pairs(self, extra_verbose=True):
+    def load_match_pairs(self, extra_verbose=False):
         if extra_verbose:
             print("")
             print("ProjectMgr.load_match_pairs():")
