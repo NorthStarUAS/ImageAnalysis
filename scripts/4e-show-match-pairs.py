@@ -80,10 +80,12 @@ if args.image:
 elif args.index:
     i1 = proj.image_list[args.index]
     if i1 != None:
-        for j, i2 in enumerate(proj.image_list):
-            if len(i1.match_list[j]):
+        for key in i1.match_list:
+            print(key, len(i1.match_list[key]))
+            if len(i1.match_list[key]):
+                i2 = proj.findImageByName(key)
                 print("Showing %s vs %s" % (i1.name, i2.name))
-                status = m.showMatchOrient(i1, i2, i1.match_list[j],
+                status = m.showMatchOrient(i1, i2, i1.match_list[key],
                                            orient=args.orient)
     else:
         print("Cannot locate:", args.index)

@@ -125,6 +125,7 @@ for image in proj.image_list:
             print("out of range")
     
 print('Generating Delaunay mesh and interpolator ...')
+print(len(raw_points))
 global_tri_list = scipy.spatial.Delaunay(np.array(raw_points))
 interp = scipy.interpolate.LinearNDInterpolator(global_tri_list, raw_values)
 
@@ -265,6 +266,7 @@ for name in group:
     image = proj.findImageByName(name)
     print(image.name, image.z_avg)
     done = False
+    dist_uv = []
     while not done:
         tri_list = scipy.spatial.Delaunay(np.array(image.fit_xy))
         interp = scipy.interpolate.LinearNDInterpolator(tri_list, image.fit_z)
@@ -290,6 +292,8 @@ for name in group:
         else:
             print("finished")
             done = True
+    image.fit_uv.extend(proj.undistort_uvlist(image, dist_uv))
+    
     print(name, 'len:', len(image.fit_xy), len(image.fit_z), len(image.fit_uv))
 
 

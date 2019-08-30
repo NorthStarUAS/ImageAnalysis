@@ -184,6 +184,7 @@ def decomposeAffine(affine):
         return (rotate_deg, tx, ty, sx, sy)
 
 angle_bins = [0] * 91
+dist_bins = [0] * (int(math.sqrt(w*w+h*h)/10.0)+1)
 
 H = np.identity(3);
 first_iteration = True
@@ -194,27 +195,73 @@ while True:
     src_pts = cv2.perspectiveTransform(src_pts, H)
     #print('src:', src_pts)
     #print('dst:', dst_pts)
+    print("collect stats...")
+    match_stats = []
+    for i, m in enumerate(tqdm(matches)):
+        best_index = 0
+        best_value = 99999999999999999999999.9
+        best_angle = 0
+        best_size = 0
+        best_dist = 0
+        for j in range(len(m)):
+            p1 = src_pts[m[j].queryIdx]
+            p2 = dst_pts[m[j].trainIdx]
+            #print(p1, p2)
+            raw_dist = np.linalg.norm(p1-p2)
+            if first_iteration:
+                # first iteration don't use distance
+                px_dist = 1
+            else: 
+                px_dist = 1 + raw_dist*raw_dist
+            a1 = np.array(kp1[m[j].queryIdx].angle)
+            a2 = np.array(kp2[m[j].trainIdx].angle)
+            # angle difference mapped to +/- 180
+            # angle = (a1-a2+180) % 360 - 180
+            # angle difference mapped to +/- 90
+            angle = (a1-a2+90) % 180 - 90
+            #angle = 1
+            #print(a1, a2, angle)
+            angle_dist = abs(angle) + 1
+            s1 = np.array(kp1[m[j].queryIdx].size)
+            s2 = np.array(kp2[m[j].trainIdx].size)
+            size_diff = abs(s1 - s2) + 1
+            metric = (px_dist * angle_dist * size_diff) / ratio
+            #print(" ", j, m[j].distance, px_dist, abs(1 + angle), size_diff, metric)
+            if metric < best_value:
+                best_value = metric
+                best_index = j
+                best_angle = abs(1 + angle)
+                best_size = size_diff
+                best_dist = raw_dist
+        print(i, best_index, m[best_index].distance, best_angle, best_size, best_value)
+        match_stats.append( [ m[best_index], best_value, best_angle,
+                              best_size, best_dist ] )
+        dist_bins[int(best_dist/10.0)] += 1
+        angle_bins[int(round(abs(angle)))] += 1
+        
     filt_matches = []
     for i, m in enumerate(tqdm(matches)):
-        if m[0].distance < 0.70*m[1].distance:
+        ratio = m[0].distance / m[1].distance
+        if ratio < 0.60:
             # passes ratio test as per Lowe's paper
             filt_matches.append(m[0])
         else:
             # let's look a little deeper
-            min_index = 0
-            min_value = 99999999999999999999999.9
-            min_angle = 0
-            min_size = 0
+            best_index = 0
+            best_value = 99999999999999999999999.9
+            best_angle = 0
+            best_size = 0
+            best_dist = 0
             for j in range(len(m)):
+                p1 = src_pts[m[j].queryIdx]
+                p2 = dst_pts[m[j].trainIdx]
+                #print(p1, p2)
+                raw_dist = np.linalg.norm(p1-p2)
                 if first_iteration:
                     # first iteration don't use distance
                     px_dist = 1
                 else: 
-                    p1 = src_pts[m[j].queryIdx]
-                    p2 = dst_pts[m[j].trainIdx]
-                    #print(p1, p2)
-                    d = np.linalg.norm(p1-p2)
-                    px_dist = 1 + d*d
+                    px_dist = 1 + raw_dist*raw_dist
                 a1 = np.array(kp1[m[j].queryIdx].angle)
                 a2 = np.array(kp2[m[j].trainIdx].angle)
                 # angle difference mapped to +/- 180
@@ -228,30 +275,60 @@ while True:
                 s1 = np.array(kp1[m[j].queryIdx].size)
                 s2 = np.array(kp2[m[j].trainIdx].size)
                 size_diff = abs(s1 - s2) + 1
-                metric = m[j].distance * px_dist * angle_dist * size_diff
+                metric = (px_dist * angle_dist * size_diff) / ratio
                 #print(" ", j, m[j].distance, px_dist, abs(1 + angle), size_diff, metric)
-                if metric < min_value:
-                    min_value = metric
-                    min_index = j
-                    min_angle = abs(1 + angle)
-                    min_size = size_diff
-            #print(i, min_index, kp1[m[min_index].queryIdx].pt, kp2[m[min_index].trainIdx].pt, min_value)
-            print(i, min_index, m[min_index].distance, min_angle, min_size, min_value)
-            # Surf: use a min_value of maybe 0.75
-            # Sift: use a min_value of maybe 2000
-            
-            if (first_iteration and min_value < 750) or (not first_iteration and min_value < 7500):
-                #print('dist:', m[min_index].distance)
-                filt_matches.append(m[min_index])
+                if metric < best_value:
+                    best_value = metric
+                    best_index = j
+                    best_angle = abs(1 + angle)
+                    best_size = size_diff
+                    best_dist = raw_dist
+            #print(i, best_index, kp1[m[best_index].queryIdx].pt, kp2[m[best_index].trainIdx].pt, best_value)
+            print(i, best_index, m[best_index].distance, best_angle, best_size, best_value)
+            dist_bins[int(best_dist/10.0)] += 1
+            # Surf: use a best_value of maybe 0.75
+            # Sift: use a best_value of maybe 2000
+
+            if abs(best_dist - target_dist) > 30:
+                continue
+            if best_angle > 20:
+                continue
+            elif best_size > 2:
+                continue
+            elif (first_iteration and best_value < 4) or (not first_iteration and best_value < 7500):
+                #print('dist:', m[best_index].distance)
+                filt_matches.append(m[best_index])
     print("Filtered matches:", len(filt_matches))
     first_iteration = False
+
+    target_dist = np.argmax(dist_bins)*10
+    print(np.argmax(dist_bins), np.max(dist_bins))
     
+    # dist histogram
+    plt.figure()
+    y_pos = np.arange(len(dist_bins))
+    plt.bar(y_pos, dist_bins, align='center', alpha=0.5)
+    plt.xticks(y_pos, range(len(dist_bins)))
+    plt.ylabel('count')
+    plt.title('total distance histogram')
+
+    # angle histogram
+    plt.figure()
     y_pos = np.arange(len(angle_bins))
     plt.bar(y_pos, angle_bins, align='center', alpha=0.5)
     plt.xticks(y_pos, range(len(angle_bins)))
     plt.ylabel('count')
     plt.title('angle histogram')
+    
     plt.show()
+
+    if False:
+        sh1 = i1.shape
+        sh2 = i2.shape
+        size1 = (sh1[1], sh1[0])
+        size2 = (sh2[1], sh2[0])
+        matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, kp1, kp2, filt_matches, withRotation=False, withScale=False, thresholdFactor=5.0)
+        print("GMS matches:", len(matchesGMS))
     
     if True:
         print("Filtering by findHomography")

@@ -26,7 +26,8 @@ from lib import ProjectMgr
 
 parser = argparse.ArgumentParser(description='I want to vignette.')
 parser.add_argument('--project', required=True, help='project directory')
-parser.add_argument('--scale', type=float, default=0.2, help='working scale')
+parser.add_argument('--scale', type=float, default=0.2, help='preview scale')
+parser.add_argument('--nofit', action='store_true', help='skip fitting the ideal function and just process the averate as the mask')
 args = parser.parse_args()
 
 proj = ProjectMgr.ProjectMgr(args.project)
@@ -54,14 +55,17 @@ if not os.path.exists(vignette_avg_file):
     for image in tqdm(il):
         rgb = image.load_rgb()
         if args.scale < 1.0:
-            rgb = cv2.resize(rgb, None, fx=args.scale, fy=args.scale)
+            #rgb = cv2.resize(rgb, None, fx=args.scale, fy=args.scale)
+            pass
         if sum is None:
             sum = np.zeros(rgb.shape, np.float32)
         sum += rgb
         count += 1
         vmask = (sum / count).astype('uint8')
-        cv2.imshow('vmask', vmask)
-        cv2.waitKey(1)
+        preview = cv2.resize(vmask, None, fx=args.scale, fy=args.scale)
+        cv2.imshow('vmask', preview)
+        cv2.waitKey(5)
+        #print("blending:", image.name)
     # save our work
     vmask = (sum / count).astype('uint8')
     cv2.imshow('vmask', vmask)
@@ -73,64 +77,67 @@ cv2.imshow('vmask', vmask)
 h, w = vmask.shape[:2]
 print("shape:", h, w)
 
-cy = cv * args.scale
-cx = cu * args.scale
-vals = []
-print("Sampling vignette average image:")
-for x in tqdm(range(w)):
-    for y in range(h):
-        dx = x - cx
-        dy = y - cy
-        rad = math.sqrt(dx*dx + dy*dy) / args.scale
-        b = vmask[y,x,0]
-        g = vmask[y,x,1]
-        r = vmask[y,x,2]
-        vals.append( [rad, b, g, r] )
+if not args.nofit:
+    scale = 1.0
+    #scale = args.scale
+    cy = cv * scale
+    cx = cu * scale
+    vals = []
+    print("Sampling vignette average image:")
+    for x in tqdm(range(w)):
+        for y in range(h):
+            dx = x - cx
+            dy = y - cy
+            rad = math.sqrt(dx*dx + dy*dy) / scale
+            b = vmask[y,x,0]
+            g = vmask[y,x,1]
+            r = vmask[y,x,2]
+            vals.append( [rad, b, g, r] )
 
-data = np.array(vals, dtype=np.float32)
+    data = np.array(vals, dtype=np.float32)
 
-import matplotlib.pyplot as plt
-from scipy.optimize import curve_fit
+    import matplotlib.pyplot as plt
+    from scipy.optimize import curve_fit
 
-def f4(x, a, b, c):
-    return a*x*x*x*x + b*x*x + c
+    def f4(x, a, b, c):
+        return a*x*x*x*x + b*x*x + c
 
-bopt, pcov = curve_fit(f4, data[:,0], data[:,1])
-print("blue fit coefficients:", bopt)
-gopt, pcov = curve_fit(f4, data[:,0], data[:,2])
-print("green fit coefficients:", gopt)
-ropt, pcov = curve_fit(f4, data[:,0], data[:,3])
-print("red fit coefficients:", ropt)
+    bopt, pcov = curve_fit(f4, data[:,0], data[:,1])
+    print("blue fit coefficients:", bopt)
+    gopt, pcov = curve_fit(f4, data[:,0], data[:,2])
+    print("green fit coefficients:", gopt)
+    ropt, pcov = curve_fit(f4, data[:,0], data[:,3])
+    print("red fit coefficients:", ropt)
 
-plt.plot(data[:,0], data[:,3], 'bx', label='data')
-plt.plot(data[:,0], f4(data[:,0], *ropt), 'r-',
-         label='fit: a=%f, b=%f, c=%f' % tuple(ropt))
-plt.xlabel('radius')
-plt.ylabel('value')
-plt.legend()
-plt.show()
+    plt.plot(data[:,0], data[:,3], 'bx', label='data')
+    plt.plot(data[:,0], f4(data[:,0], *ropt), 'r-',
+             label='fit: a=%f, b=%f, c=%f' % tuple(ropt))
+    plt.xlabel('radius')
+    plt.ylabel('value')
+    plt.legend()
+    plt.show()
 
-def dither(x):
-    i = int(x)
-    r = x - int(x)
-    if np.random.rand() < r:
-        i += 1
-    return i
-    
-# generate the ideal vignette mask based on polynomial fit
-w, h = proj.cam.get_image_params()
-print("original shape:", h, w)
-vmask = np.zeros((h, w, 3), np.uint8)
+    def dither(x):
+        i = int(x)
+        r = x - int(x)
+        if np.random.rand() < r:
+            i += 1
+        return i
 
-print("Generating best fit vignette mask:")
-for x in tqdm(range(w)):
-    for y in range(h):
-        dx = x - cu
-        dy = y - cv
-        rad = math.sqrt(dx*dx + dy*dy)
-        vmask[y,x,0] = dither(f4(rad, *bopt))
-        vmask[y,x,1] = dither(f4(rad, *gopt))
-        vmask[y,x,2] = dither(f4(rad, *ropt))
+    # generate the ideal vignette mask based on polynomial fit
+    w, h = proj.cam.get_image_params()
+    print("original shape:", h, w)
+    vmask = np.zeros((h, w, 3), np.uint8)
+
+    print("Generating best fit vignette mask:")
+    for x in tqdm(range(w)):
+        for y in range(h):
+            dx = x - cu
+            dy = y - cv
+            rad = math.sqrt(dx*dx + dy*dy)
+            vmask[y,x,0] = dither(f4(rad, *bopt))
+            vmask[y,x,1] = dither(f4(rad, *gopt))
+            vmask[y,x,2] = dither(f4(rad, *ropt))
 
 b, g, r = cv2.split(vmask)
 b = 255 - b

@@ -115,7 +115,7 @@ print('Generating Delaunay mesh and interpolator ...')
 global_tri_list = scipy.spatial.Delaunay(np.array(raw_points))
 interp = scipy.interpolate.LinearNDInterpolator(global_tri_list, raw_values)
 
-no_extrapolate = True
+no_extrapolate = False
 def intersect2d(ned, v, avg_ground):
     p = ned[:] # copy
 

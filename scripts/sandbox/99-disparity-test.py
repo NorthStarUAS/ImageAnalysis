@@ -27,8 +27,8 @@ def imresize(src, height):
     width = int(src.shape[1] * 1.0/ratio)
     return cv2.resize(src, (width, height))
 
-i1 = imresize(i1, 640)
-i2 = imresize(i2, 640)
+i1 = imresize(i1, 1000)
+i2 = imresize(i2, 1000)
 
 detector = cv2.xfeatures2d.SURF_create()
 kp1 = detector.detect(i1)

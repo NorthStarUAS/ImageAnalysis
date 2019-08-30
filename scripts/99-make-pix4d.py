@@ -160,6 +160,7 @@ if not images_have_yaw or args.yaw_from_groundtrack:
 # sanity check
 output_file = os.path.join(image_dir, 'pix4d.csv')
 if os.path.exists(output_file):
+    print()
     print(output_file, "exists, please rename it and rerun this script.")
     quit()
 

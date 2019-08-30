@@ -98,7 +98,7 @@ def imresize(src, height):
 i1 = imresize(i1, 768)
 i2 = imresize(i2, 768)
 
-detector = cv2.xfeatures2d.SURF_create()
+detector = cv2.xfeatures2d.SIFT_create()
 kp1 = detector.detect(i1)
 kp2 = detector.detect(i2)
 print("Keypoints:", len(kp1), len(kp2))
@@ -112,7 +112,8 @@ flann_params = {
     'algorithm': FLANN_INDEX_KDTREE,
     'trees': 5
 }
-search_params = dict(checks=50)
+#search_params = dict(checks=50)
+search_params = dict()
 matcher = cv2.FlannBasedMatcher(flann_params, search_params)
 matches = matcher.knnMatch(des1,des2,k=5)
 print("Raw matches:", len(matches))
@@ -125,6 +126,7 @@ for i, m in enumerate(tqdm(matches)):
         p1 = np.array(kp1[m[j].queryIdx].pt)
         p2 = np.array(kp2[m[j].trainIdx].pt)
         px_dist = np.linalg.norm(p1-p2)
+        px_dist = 1
         a1 = np.array(kp1[m[j].queryIdx].angle)
         a2 = np.array(kp2[m[j].trainIdx].angle)
         angle = (a1-a2+180) % 360 - 180
@@ -139,7 +141,7 @@ for i, m in enumerate(tqdm(matches)):
     #if m[0].distance < 0.75*m[1].distance:
     #    filt_matches.append(m[0])
     
-    if min_value < 5000:
+    if min_value < 850:
         print('dist:', m[min_index].distance)
         filt_matches.append(m[min_index])
 print("Filtered matches:", len(filt_matches))
