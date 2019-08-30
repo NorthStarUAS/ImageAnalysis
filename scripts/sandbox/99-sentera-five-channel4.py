@@ -195,6 +195,7 @@ while True:
     src_pts = cv2.perspectiveTransform(src_pts, H)
     #print('src:', src_pts)
     #print('dst:', dst_pts)
+    
     print("collect stats...")
     match_stats = []
     for i, m in enumerate(tqdm(matches)):
@@ -203,6 +204,7 @@ while True:
         best_angle = 0
         best_size = 0
         best_dist = 0
+        ratio = m[0].distance / m[1].distance
         for j in range(len(m)):
             p1 = src_pts[m[j].queryIdx]
             p2 = dst_pts[m[j].trainIdx]
@@ -230,80 +232,48 @@ while True:
             if metric < best_value:
                 best_value = metric
                 best_index = j
-                best_angle = abs(1 + angle)
+                best_angle = abs(angle)
                 best_size = size_diff
                 best_dist = raw_dist
-        print(i, best_index, m[best_index].distance, best_angle, best_size, best_value)
-        match_stats.append( [ m[best_index], best_value, best_angle,
+        #print(i, best_index, m[best_index].distance, best_angle, best_size, best_value)
+        match_stats.append( [ m[best_index], ratio, best_value, best_angle,
                               best_size, best_dist ] )
         dist_bins[int(best_dist/10.0)] += 1
-        angle_bins[int(round(abs(angle)))] += 1
+        angle_bins[int(round(abs(best_angle)))] += 1
         
+    target_dist = np.argmax(dist_bins)*10
+    print("target dist:", target_dist)
+    
+    target_angle = np.argmax(angle_bins)
+    print("target angle:", target_angle)
+
+    # select the best subset of matches
     filt_matches = []
-    for i, m in enumerate(tqdm(matches)):
-        ratio = m[0].distance / m[1].distance
+    for i, line in enumerate(tqdm(match_stats)):
+        match = line[0]
+        ratio = line[1]
+        best_value = line[2]
+        best_angle = line[3]
+        best_size = line[4]
+        best_dist = line[5]
         if ratio < 0.60:
             # passes ratio test as per Lowe's paper
-            filt_matches.append(m[0])
+            filt_matches.append(match)
         else:
-            # let's look a little deeper
-            best_index = 0
-            best_value = 99999999999999999999999.9
-            best_angle = 0
-            best_size = 0
-            best_dist = 0
-            for j in range(len(m)):
-                p1 = src_pts[m[j].queryIdx]
-                p2 = dst_pts[m[j].trainIdx]
-                #print(p1, p2)
-                raw_dist = np.linalg.norm(p1-p2)
-                if first_iteration:
-                    # first iteration don't use distance
-                    px_dist = 1
-                else: 
-                    px_dist = 1 + raw_dist*raw_dist
-                a1 = np.array(kp1[m[j].queryIdx].angle)
-                a2 = np.array(kp2[m[j].trainIdx].angle)
-                # angle difference mapped to +/- 180
-                # angle = (a1-a2+180) % 360 - 180
-                # angle difference mapped to +/- 90
-                angle = (a1-a2+90) % 180 - 90
-                angle_bins[int(round(abs(angle)))] += 1
-                #angle = 1
-                #print(a1, a2, angle)
-                angle_dist = abs(angle) + 1
-                s1 = np.array(kp1[m[j].queryIdx].size)
-                s2 = np.array(kp2[m[j].trainIdx].size)
-                size_diff = abs(s1 - s2) + 1
-                metric = (px_dist * angle_dist * size_diff) / ratio
-                #print(" ", j, m[j].distance, px_dist, abs(1 + angle), size_diff, metric)
-                if metric < best_value:
-                    best_value = metric
-                    best_index = j
-                    best_angle = abs(1 + angle)
-                    best_size = size_diff
-                    best_dist = raw_dist
-            #print(i, best_index, kp1[m[best_index].queryIdx].pt, kp2[m[best_index].trainIdx].pt, best_value)
-            print(i, best_index, m[best_index].distance, best_angle, best_size, best_value)
-            dist_bins[int(best_dist/10.0)] += 1
-            # Surf: use a best_value of maybe 0.75
-            # Sift: use a best_value of maybe 2000
-
             if abs(best_dist - target_dist) > 30:
                 continue
-            if best_angle > 20:
+            if abs(best_angle - target_angle) > 5:
                 continue
             elif best_size > 2:
                 continue
             elif (first_iteration and best_value < 4) or (not first_iteration and best_value < 7500):
-                #print('dist:', m[best_index].distance)
-                filt_matches.append(m[best_index])
+                print(i, best_index, match.distance, best_angle, best_size, best_value)
+
+                filt_matches.append(match)
     print("Filtered matches:", len(filt_matches))
     first_iteration = False
 
-    target_dist = np.argmax(dist_bins)*10
-    print(np.argmax(dist_bins), np.max(dist_bins))
-    
+   
     # dist histogram
     plt.figure()
     y_pos = np.arange(len(dist_bins))
