@@ -240,8 +240,11 @@ while True:
                               best_size, best_dist ] )
         dist_bins[int(best_dist/10.0)] += 1
         angle_bins[int(round(abs(best_angle)))] += 1
-        
-    target_dist = np.argmax(dist_bins)*10
+
+    if first_iteration:
+        target_dist = np.argmax(dist_bins)*10
+    else:
+        target_dist = 0.0
     print("target dist:", target_dist)
     
     target_angle = np.argmax(angle_bins)
@@ -266,31 +269,31 @@ while True:
                 continue
             elif best_size > 2:
                 continue
-            elif (first_iteration and best_value < 4) or (not first_iteration and best_value < 7500):
+            elif (first_iteration and best_value < 5) or (not first_iteration and best_value < 500):
                 print(i, best_index, match.distance, best_angle, best_size, best_value)
 
                 filt_matches.append(match)
     print("Filtered matches:", len(filt_matches))
     first_iteration = False
 
-   
-    # dist histogram
-    plt.figure()
-    y_pos = np.arange(len(dist_bins))
-    plt.bar(y_pos, dist_bins, align='center', alpha=0.5)
-    plt.xticks(y_pos, range(len(dist_bins)))
-    plt.ylabel('count')
-    plt.title('total distance histogram')
+    if False:
+        # dist histogram
+        plt.figure()
+        y_pos = np.arange(len(dist_bins))
+        plt.bar(y_pos, dist_bins, align='center', alpha=0.5)
+        plt.xticks(y_pos, range(len(dist_bins)))
+        plt.ylabel('count')
+        plt.title('total distance histogram')
 
-    # angle histogram
-    plt.figure()
-    y_pos = np.arange(len(angle_bins))
-    plt.bar(y_pos, angle_bins, align='center', alpha=0.5)
-    plt.xticks(y_pos, range(len(angle_bins)))
-    plt.ylabel('count')
-    plt.title('angle histogram')
-    
-    plt.show()
+        # angle histogram
+        plt.figure()
+        y_pos = np.arange(len(angle_bins))
+        plt.bar(y_pos, angle_bins, align='center', alpha=0.5)
+        plt.xticks(y_pos, range(len(angle_bins)))
+        plt.ylabel('count')
+        plt.title('angle histogram')
+
+        plt.show()
 
     if False:
         sh1 = i1.shape
@@ -320,17 +323,23 @@ while True:
     print("Fitted matches:", len(matches_fit))
     draw_inlier(i1, i2, kp1, kp2, matches_fit, 'ONLY_LINES')
 
-    # src = []
-    # dst = []
-    # for m in matches_fit:
-    #     src.append( kp1[m.queryIdx].pt )
-    #     dst.append( kp2[m.trainIdx].pt )
-    # affine, status = \
-    #     cv2.estimateAffinePartial2D(np.array([src]).astype(np.float32),
-    #                                 np.array([dst]).astype(np.float32))
-    # H, status = cv2.findHomography(np.array([src]).astype(np.float32),
-    #                                         np.array([dst]).astype(np.float32),
-    #                                         cv2.LMEDS)
+    if True:
+        src = []
+        dst = []
+        for m in matches_fit:
+            src.append( kp1[m.queryIdx].pt )
+            dst.append( kp2[m.trainIdx].pt )
+        affine, status = \
+            cv2.estimateAffinePartial2D(np.array([src]).astype(np.float32),
+                                        np.array([dst]).astype(np.float32))
+        (rot, tx, ty, sx, sy) = decomposeAffine(affine)
+        print("Affine:")
+        print("Rotation (deg):", rot)
+        print("Translation (pixels):", tx, ty)
+        print("Skew:", sx, sy)
+        # H, status = cv2.findHomography(np.array([src]).astype(np.float32),
+        #                                         np.array([dst]).astype(np.float32),
+        #                                         cv2.LMEDS)
 
     print("Homography:", H)
     # (rot, tx, ty, sx, sy) = decomposeAffine(affine)
