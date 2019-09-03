@@ -183,6 +183,36 @@ def decomposeAffine(affine):
             rotate_deg -= 360.0
         return (rotate_deg, tx, ty, sx, sy)
 
+def make_lut_u():
+    return np.array([[[i,255-i,0] for i in range(256)]],dtype=np.uint8)
+
+def make_lut_v():
+    return np.array([[[0,255-i,i] for i in range(256)]],dtype=np.uint8)    
+
+def ndre_helper(lut, a, b, c1, c2):
+    print('range:', a, b)
+    db = c2[0] - c1[0]
+    dg = c2[1] - c1[1]
+    dr = c2[2] - c1[2]
+    for i in range(a, b + 1):
+        percent = (i - a) / (b - a)
+        lut[0][i][0] = int(c1[0] + db * percent)
+        lut[0][i][1] = int(c1[1] + dg * percent)
+        lut[0][i][2] = int(c1[2] + dr * percent)
+        print(' ', i, percent, lut[0][i])
+        
+def make_lut_ndre(cutoffs, colors):
+    lut = np.zeros( (1, 256, 3) ).astype('uint8')
+    for i in range(len(cutoffs)-1):
+        ndre_helper(lut, cutoffs[i], cutoffs[i+1], colors[i], colors[i+1])
+    return lut
+
+def normalize(img):
+    min = np.min(img)
+    max = np.max(img)
+    img_norm = (img - min) / (max - min)
+    return img_norm
+    
 angle_bins = [0] * 91
 dist_bins = [0] * (int(math.sqrt(w*w+h*h)/10.0)+1)
 
@@ -358,12 +388,115 @@ while True:
     cv2.imshow('i2', i2)
     cv2.imshow('blend', blend)
 
+    if True:
+        # NDRE test
+        ndvi_lut = cv2.imread("NDVI_Scale_LDP.png", flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
+        ndvi_lut = np.reshape(ndvi_lut, (1, 256, 3))
+        print(ndvi_lut.shape, ndvi_lut.dtype)
+        #print(make_lut_ndre().shape, make_lut_ndre().dtype)
+        nir, garbage, re = cv2.split(i1_new)
+        g, b, r = cv2.split(i2)
+        cv2.imshow('ndre nir', nir)
+        #cv2.imshow('ndre garbage', garbage)
+        cv2.imshow('ndre re', re)
+        #nir = nir / 256.0
+        #re = re / 256.0
+        if False:
+            # sentera formala for ndre
+            #((-0.341*nir_red + 2.426*nir_blue)- (1.0*nir_red - 0.956*nir_blue))/ ( (-0.341*nir_red + 2.426*nir_blue)+(1.0*nir_red - 0.956*nir_blue))
+            vnir = normalize(-0.341*re + 2.426*nir)
+            vre = normalize(1.0*re - 0.956*nir)
+        if False:
+            # using the inversion of re as a proxy for red
+            vnir = normalize(nir)
+            vre = normalize(255-re)
+        if True:
+            # using nir and r for ndvi
+            vnir = normalize(nir)
+            vre = normalize(r)
+        vndre = (vnir - vre) / (vnir + vre)
+        print('vnir', vnir.shape, np.min(vnir), np.max(vnir))
+        print('vre', vre.shape, np.min(vre), np.max(vre))
+        print('vndre', vndre.shape, np.min(vndre), np.max(vndre))
+        vndre = 255 - (vndre * 128 + 127).astype('uint8')
+
+        colors = [ (0x1e, 0xb8, 0x30),
+                   (0x3f, 0xff, 0x6f),
+                   (0x60, 0xff, 0xdf),
+                   (0x0b, 0xde, 0xff),
+                   (0x00, 0x7b, 0xff),
+                   (0x17, 0x36, 0xff) ]
+        
+        hist,bins = np.histogram(vndre.flatten(),256,[0,256])
+        hist[255] = 0
+        cdf = hist[1:].cumsum()
+        print('cdf:', cdf, cdf.size)
+        if False:
+            # equal area histogram coloring for NDRE
+            cutoffs = [0]
+            step = cdf.max() / 5
+            for i in range(0, cdf.size):
+                print(i, cdf[i])
+                if cdf[i] > len(cutoffs) * step:
+                    cutoffs.append(i)
+            cutoffs.append(255)
+            print(cutoffs)
+        else:
+            # fixed cutoffs for NDVI
+            cutoffs = [ 0, 72, 128, 148, 196, 255 ]
+            
+        ndre_color = cv2.cvtColor(vndre, cv2.COLOR_GRAY2BGR)
+        #ndre_mapped = cv2.LUT(255-ndre_color, ndvi_lut)
+        ndre_mapped = cv2.LUT(ndre_color, make_lut_ndre(cutoffs, colors))
+        cv2.imshow('ndre', vndre)
+        cv2.imshow('ndre_lut', ndre_mapped)
+        cdf_normalized = cdf * hist.max()/ cdf.max()
+        
+        plt.plot(cdf * hist.max() / cdf.max(), color = 'b')
+        plt.hist(vndre.flatten(),256,[0,256], color = 'r')
+        plt.xlim([0,256])
+        plt.legend(('cdf','histogram'), loc = 'upper left')
+        plt.show()
+
+    if False:
+        # RGB test
+        b, g, r = cv2.split(i2)
+        cv2.imshow('rgb b', b)
+        cv2.imshow('rgb g', g)
+        cv2.imshow('rgb r', r)
+
+    if False:
+        # YUV test
+        img_yuv = cv2.cvtColor(i2, cv2.COLOR_BGR2YUV)
+        y, u, v = cv2.split(img_yuv)
+        lut_u, lut_v = make_lut_u(), make_lut_v()
+        # Convert back to BGR so we can apply the LUT
+        u = cv2.cvtColor(u, cv2.COLOR_GRAY2BGR)
+        v = cv2.cvtColor(v, cv2.COLOR_GRAY2BGR)
+        u_mapped = cv2.LUT(u, lut_u)
+        v_mapped = cv2.LUT(v, lut_v)
+        cv2.imshow('u_mapped', u_mapped)
+        cv2.imshow('v_mapped', v_mapped)
+
+    if False:
+        # HSV test
+        img_hsv = cv2.cvtColor(i2, cv2.COLOR_BGR2HSV)
+        h, s, v = cv2.split(img_hsv)
+        lut_u, lut_v = make_lut_u(), make_lut_v()
+        # Convert back to BGR so we can apply the LUT
+        h = cv2.cvtColor(h, cv2.COLOR_GRAY2BGR)
+        s = cv2.cvtColor(s, cv2.COLOR_GRAY2BGR)
+        h_mapped = cv2.LUT(h, lut_u)
+        s_mapped = cv2.LUT(s, lut_v)
+        cv2.imshow('h_mapped', h_mapped)
+        cv2.imshow('s_mapped', s_mapped)
+
     cv2.waitKey()
 
-i1g = cv2.cvtColor(i1_new, cv2.COLOR_BGR2GRAY)
-i2g = cv2.cvtColor(i2, cv2.COLOR_BGR2GRAY)
-
 if False:
+    i1g = cv2.cvtColor(i1_new, cv2.COLOR_BGR2GRAY)
+    i2g = cv2.cvtColor(i2, cv2.COLOR_BGR2GRAY)
+
     print(i1g.dtype, i2g.dtype)
     print(i1.shape, i2.shape)
     print(i1g.shape, i2g.shape)
