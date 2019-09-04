@@ -203,8 +203,11 @@ def ndre_helper(lut, a, b, c1, c2):
         
 def make_lut_ndre(cutoffs, colors):
     lut = np.zeros( (1, 256, 3) ).astype('uint8')
-    for i in range(len(cutoffs)-1):
+    ndre_helper(lut, 0, cutoffs[0], colors[0], colors[0])
+    size = len(cutoffs)
+    for i in range(0, size-1):
         ndre_helper(lut, cutoffs[i], cutoffs[i+1], colors[i], colors[i+1])
+    ndre_helper(lut, cutoffs[size-1], 255, colors[size-1], colors[size-1])
     return lut
 
 def normalize(img):
@@ -399,36 +402,60 @@ while True:
         cv2.imshow('ndre nir', nir)
         #cv2.imshow('ndre garbage', garbage)
         cv2.imshow('ndre re', re)
-        #nir = nir / 256.0
-        #re = re / 256.0
-        if False:
+        cutoffs = []
+        if True:
             # sentera formala for ndre
             #((-0.341*nir_red + 2.426*nir_blue)- (1.0*nir_red - 0.956*nir_blue))/ ( (-0.341*nir_red + 2.426*nir_blue)+(1.0*nir_red - 0.956*nir_blue))
-            vnir = normalize(-0.341*re + 2.426*nir)
-            vre = normalize(1.0*re - 0.956*nir)
-        if False:
-            # using the inversion of re as a proxy for red
-            vnir = normalize(nir)
-            vre = normalize(255-re)
-        if True:
-            # using nir and r for ndvi
-            vnir = normalize(nir)
-            vre = normalize(r)
-        vndre = (vnir - vre) / (vnir + vre)
-        print('vnir', vnir.shape, np.min(vnir), np.max(vnir))
-        print('vre', vre.shape, np.min(vre), np.max(vre))
-        print('vndre', vndre.shape, np.min(vndre), np.max(vndre))
-        vndre = 255 - (vndre * 128 + 127).astype('uint8')
+            nnir = normalize(-0.341*re + 2.426*nir)
+            nnir[nnir==0] = 1
+            nre = normalize(1.0*re - 0.956*nir)
+            nindex = (nnir - nre) / (nnir + nre)
+            cutoffs = [ 32, 60, 80, 110, 168 ]
+            print('nir', nnir.shape, np.min(nnir), np.max(nnir))
+            print('re', nre.shape, np.min(nre), np.max(nre))
+            print('ndvi', nindex.shape, np.min(nindex), np.max(nindex))
+        elif False:
+            # using the inversion of re as a proxy for red (modified NDRE)
+            nnir = nir/255.0
+            nre = 1.0 - re/255.0
+            nindex = (nnir - nre) / (nnir + nre)
+            cutoffs = [ 32, 60, 80, 110, 168 ]
+            print('nir', nnir.shape, np.min(nnir), np.max(nnir))
+            print('re', nre.shape, np.min(nre), np.max(nre))
+            print('ndvi', nindex.shape, np.min(nindex), np.max(nindex))
+        elif False:
+            # using nir and r for traditional ndvi
+            nir[nir==0] = 1
+            nnir = nir/255.0
+            nre = r/255.0
+            nindex = (nnir - nre) / (nnir + nre)
+            cutoffs = [ 42, 70, 90, 110, 168 ]
+            print('nir', nnir.shape, np.min(nnir), np.max(nnir))
+            print('re', nre.shape, np.min(nre), np.max(nre))
+            print('ndvi', nindex.shape, np.min(nindex), np.max(nindex))
+        elif False:
+            print("RE + 1-R")
+            # using nir and 1-r to highlight healthy plants with red
+            vnir = re/255.0
+            g[g==0] = 1
+            vre = 0.5 * (g/r)
+            vre[vre>1] = 1
+            cutoffs = [ 48, 60, 88, 128, 200 ]   # 0.5
+            # cutoffs = [ 0, 32, 42, 64, 96, 255 ]   # 0.3
+            # cutoffs = [ 0, 11, 15, 22, 40, 255 ]   # 0.1
+        index = ((0.5 * nindex + 0.5) * 255).astype('uint8')
 
-        colors = [ (0x1e, 0xb8, 0x30),
-                   (0x3f, 0xff, 0x6f),
-                   (0x60, 0xff, 0xdf),
-                   (0x0b, 0xde, 0xff),
-                   (0x00, 0x7b, 0xff),
-                   (0x17, 0x36, 0xff) ]
+        colors = [
+            (0x17, 0x36, 0xff),
+            (0x00, 0x7b, 0xff),
+            (0x0b, 0xde, 0xff),
+            (0x60, 0xff, 0xdf),
+            (0x3f, 0xff, 0x6f),
+            (0x1e, 0xb8, 0x30)
+        ]
         
-        hist,bins = np.histogram(vndre.flatten(),256,[0,256])
-        hist[255] = 0
+        hist,bins = np.histogram(index.flatten(),256,[0,256])
+        #hist[255] = 0
         cdf = hist[1:].cumsum()
         print('cdf:', cdf, cdf.size)
         if False:
@@ -441,19 +468,18 @@ while True:
                     cutoffs.append(i)
             cutoffs.append(255)
             print(cutoffs)
-        else:
-            # fixed cutoffs for NDVI
-            cutoffs = [ 0, 72, 128, 148, 196, 255 ]
             
-        ndre_color = cv2.cvtColor(vndre, cv2.COLOR_GRAY2BGR)
+        ndre_color = cv2.cvtColor(index, cv2.COLOR_GRAY2BGR)
         #ndre_mapped = cv2.LUT(255-ndre_color, ndvi_lut)
         ndre_mapped = cv2.LUT(ndre_color, make_lut_ndre(cutoffs, colors))
-        cv2.imshow('ndre', vndre)
-        cv2.imshow('ndre_lut', ndre_mapped)
+        cv2.imshow('normalized index', index)
+        cv2.imshow('index color mapped', ndre_mapped)
         cdf_normalized = cdf * hist.max()/ cdf.max()
         
+        cv2.waitKey()
+        
         plt.plot(cdf * hist.max() / cdf.max(), color = 'b')
-        plt.hist(vndre.flatten(),256,[0,256], color = 'r')
+        plt.hist(index.flatten(),256,[0,256], color = 'r')
         plt.xlim([0,256])
         plt.legend(('cdf','histogram'), loc = 'upper left')
         plt.show()
@@ -490,8 +516,6 @@ while True:
         s_mapped = cv2.LUT(s, lut_v)
         cv2.imshow('h_mapped', h_mapped)
         cv2.imshow('s_mapped', s_mapped)
-
-    cv2.waitKey()
 
 if False:
     i1g = cv2.cvtColor(i1_new, cv2.COLOR_BGR2GRAY)
