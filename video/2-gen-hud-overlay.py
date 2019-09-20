@@ -59,7 +59,7 @@ parser.add_argument('--altitude-units', choices=['ft', 'm'], default='ft', help=
 parser.add_argument('--aileron-scale', type=float, default=1.0, help='useful for reversing aileron in display')
 parser.add_argument('--elevator-scale', type=float, default=1.0, help='useful for reversing elevator in display')
 parser.add_argument('--rudder-scale', type=float, default=1.0, help='useful for reversing rudder in display')
-parser.add_argument('--flight-track-seconds', type=float, default=600.0, help='how many seconds of flight track to draw')
+parser.add_argument('--flight-track-seconds', type=float, default=300.0, help='how many seconds of flight track to draw')
 parser.add_argument('--keep-tmp-movie', action='store_true', help='Keep the temp movie')
 parser.add_argument('--correction', help='correction table')
 parser.add_argument('--features', help='feature database')
@@ -242,7 +242,7 @@ hud2.set_units( args.airspeed_units, args.altitude_units)
 
 filt_alt = None
 
-if False and time_shift > 0:
+if True and time_shift > 0:
     # catch up the flight path history (in case the movie starts
     # mid-flight.)  Note: flight_min is the starting time of the filter data
     # set.
