@@ -259,6 +259,7 @@ if True and time_shift > 0:
                              ref[0], ref[1], ref[2] )
         hud1.update_time(time, gps['unix_sec'])
         hud1.update_ned(ned, args.flight_track_seconds)
+        hud1.update_events(data['event'])
 
 shift_mod_hack = False
 for frame in reader.nextFrame():
