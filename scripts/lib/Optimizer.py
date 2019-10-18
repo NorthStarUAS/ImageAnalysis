@@ -33,9 +33,9 @@ class Optimizer():
         #self.graph_counter = 0
         #self.optimize_calib = 'global' # global camera optimization
         self.optimize_calib = 'none' # no camera calibration optimization
-        #self.ftol = 1e-2              # stop condition extra course
-        #self.ftol = 1e-3              # stop condition quicker
-        self.ftol = 1e-4              # stop condition better
+        #self.ftol = 1e-2              # stop condition - extra coarse
+        #self.ftol = 1e-3              # stop condition - quicker
+        self.ftol = 1e-4              # stop condition - better
         self.min_chain_len = 2        # use whatever matches are defind upstream
         self.with_bounds = False
         self.ncp = 6

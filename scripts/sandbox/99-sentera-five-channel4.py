@@ -354,7 +354,7 @@ while True:
                 matches_fit.append(m)
 
     print("Fitted matches:", len(matches_fit))
-    draw_inlier(i1, i2, kp1, kp2, matches_fit, 'ONLY_LINES')
+    # draw_inlier(i1, i2, kp1, kp2, matches_fit, 'ONLY_LINES')
 
     if True:
         src = []
@@ -386,10 +386,11 @@ while True:
     i1_new = cv2.warpPerspective(i1, H, (i1.shape[1], i1.shape[0]))
     blend = cv2.addWeighted(i1_new, 0.5, i2, 0.5, 0)
 
-    cv2.imshow('i1', i1)
-    cv2.imshow('i1_new', i1_new)
-    cv2.imshow('i2', i2)
-    cv2.imshow('blend', blend)
+    if False:
+        cv2.imshow('i1', i1)
+        cv2.imshow('i1_new', i1_new)
+        cv2.imshow('i2', i2)
+        cv2.imshow('blend', blend)
 
     if True:
         # NDRE test
@@ -399,9 +400,9 @@ while True:
         #print(make_lut_ndre().shape, make_lut_ndre().dtype)
         nir, garbage, re = cv2.split(i1_new)
         g, b, r = cv2.split(i2)
-        cv2.imshow('ndre nir', nir)
-        #cv2.imshow('ndre garbage', garbage)
-        cv2.imshow('ndre re', re)
+        if False:
+            cv2.imshow('index nir', nir)
+            cv2.imshow('index re', re)
         cutoffs = []
         if False:
             # sentera formala for ndre
@@ -451,7 +452,7 @@ while True:
             (0x0b, 0xde, 0xff),
             (0x60, 0xff, 0xdf),
             (0x3f, 0xff, 0x6f),
-            (0x1e, 0xb8, 0x30)
+            (0x10, 0x80, 0x05)
         ]
         
         hist,bins = np.histogram(index.flatten(),256,[0,256])
@@ -473,39 +474,41 @@ while True:
         ndre_mapped = cv2.LUT(ndre_color, make_lut_ndre(cutoffs, colors))
         cv2.imshow('normalized index', index)
         cv2.imshow('index color mapped', ndre_mapped)
+        cv2.imshow('blended', (0.5 * cv2.merge((index, index, index)) + 0.5 * ndre_mapped).astype('uint8'))
         cdf_normalized = cdf * hist.max()/ cdf.max()
 
-        # Blob test
-        params = cv2.SimpleBlobDetector_Params()
-        params.minThreshold = 127
-        params.maxThreshold = 255
-        params.thresholdStep = 128
-        # Filter by Area.
-        params.filterByArea = True
-        params.minArea = 25
-        params.maxArea = 200
-        # Filter by Circularity
-        #params.filterByCircularity = True
-        #params.minCircularity = 0.1
-        # Filter by Convexity
-        #params.filterByConvexity = True
-        #params.minConvexity = 0.87
-        # Filter by Inertia
-        params.filterByInertia = True
-        params.minInertiaRatio = 0.0
-        params.maxInertiaRatio = 0.5
-        detector = cv2.SimpleBlobDetector_create(params)
-        index_inv = 255 - index
-        keypoints = detector.detect(index_inv)
-        cv2.imshow('index inverted', index_inv)
-        
-        img2 = ndre_color
-        for marker in keypoints:
-            m = tuple(int(i) for i in marker.pt)
-            print('blob:', m)
-            img2 = cv2.circle(img2, m, int(marker.size), (0, 238, 0), 1, cv2.LINE_AA)
-        #img2 = cv2.drawMarker(img2, m, color=(0, 255, 0))
-        cv2.imshow("Blobs", img2)
+        if False:
+            # Blob test
+            params = cv2.SimpleBlobDetector_Params()
+            params.minThreshold = 127
+            params.maxThreshold = 255
+            params.thresholdStep = 128
+            # Filter by Area.
+            params.filterByArea = True
+            params.minArea = 25
+            params.maxArea = 200
+            # Filter by Circularity
+            #params.filterByCircularity = True
+            #params.minCircularity = 0.1
+            # Filter by Convexity
+            #params.filterByConvexity = True
+            #params.minConvexity = 0.87
+            # Filter by Inertia
+            params.filterByInertia = True
+            params.minInertiaRatio = 0.0
+            params.maxInertiaRatio = 0.5
+            detector = cv2.SimpleBlobDetector_create(params)
+            index_inv = 255 - index
+            keypoints = detector.detect(index_inv)
+            cv2.imshow('index inverted', index_inv)
+
+            img2 = ndre_color
+            for marker in keypoints:
+                m = tuple(int(i) for i in marker.pt)
+                print('blob:', m)
+                img2 = cv2.circle(img2, m, int(marker.size), (0, 238, 0), 1, cv2.LINE_AA)
+            #img2 = cv2.drawMarker(img2, m, color=(0, 255, 0))
+            cv2.imshow("Blobs", img2)
 
         cv2.waitKey()
         

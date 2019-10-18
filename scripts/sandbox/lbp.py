@@ -2,13 +2,15 @@
 
 import argparse
 import cv2
+import math
 import random
 from skimage import feature        # pip3 install scikit-image
 from sklearn.svm import LinearSVC  # pip3 install scikit-learn
 import numpy as np
 import matplotlib.pyplot as plt
 
-texture_and_color = False
+texture_and_color = True
+goal_step = 160                      # this is a tuning dial
 
 def describe(gray, eps=1e-7):
     radius = 4
@@ -47,18 +49,23 @@ args = parser.parse_args()
 
 rgb = cv2.imread(args.image, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
 (h, w) = rgb.shape[:2]
+hcells = int(h / goal_step)
+wcells = int(w / goal_step)
+print(hcells, wcells)
+
 gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
-if False:
+if True:
     hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
     hue, sat, val = cv2.split(hsv)
     # cv2 hue range: 0 - 179
     target_hue_value = 0          # red = 0
     t1 = np.mod((hue.astype('float') + 90), 180) - 90
     print('t1:', np.min(t1), np.max(t1))
-    cv2.imshow('t1', cv2.resize(t1, (int(w*args.scale), int(h*args.scale))))
+    #cv2.imshow('t1', cv2.resize(t1, (int(w*args.scale), int(h*args.scale))))
     dist = np.abs(target_hue_value - t1)
     print('dist:', np.min(dist), np.max(dist))
     gray = (255 - dist * 256 / 90).astype('uint8')
+    index = hue
 elif True:
     g, b, r = cv2.split(rgb)
     g[g==0] = 1
@@ -69,7 +76,7 @@ elif True:
     print("range:", np.min(index), np.max(index))
     #index[index<0.25] = -1.0
     index = ((0.5 * index + 0.5) * 255).astype('uint8')
-    cv2.imshow('index', cv2.resize(index, (int(w*args.scale), int(h*args.scale))))
+cv2.imshow('index', cv2.resize(index, (int(w*args.scale), int(h*args.scale))))
 
 radius = 3                      # this is a tuning dial
 numPoints = 8 * radius
@@ -82,19 +89,19 @@ lbp = feature.local_binary_pattern(gray, numPoints, radius, method="uniform")
 scale = cv2.resize(rgb, (int(w*args.scale), int(h*args.scale)))
 gscale = cv2.resize(gray, (int(w*args.scale), int(h*args.scale)))
 
-def draw(image, col, row, step, color, width):
+def draw(image, r1, r2, c1, c2, color, width):
     cv2.rectangle(image,
-                  (int(col*args.scale), int(row*args.scale)),
-                  (int((col+step)*args.scale)-1, int((row+step)*args.scale)-1),
+                  (int(c1*args.scale), int(r1*args.scale)),
+                  (int((c2)*args.scale)-1, int((r2)*args.scale)-1),
                   color=color, thickness=width)
 
-def gen_classifier(lbp, index, row, col, step):
-    lbp_region = lbp[row:row+step,col:col+step]
+def gen_classifier(lbp, index, r1, r2, c1, c2):
+    lbp_region = lbp[r1:r2,c1:c2]
     (hist, _) = np.histogram(lbp_region.ravel(),
                              bins=np.arange(0, numPoints + 3),
                              range=(0, numPoints + 2))
     if texture_and_color:
-        index_region = index[row:row+step,col:col+step]
+        index_region = index[r1:r2,c1:c2]
         (index_hist, _) = np.histogram(index_region.ravel(),
                                        bins=64,
                                        range=(0, 255))
@@ -102,20 +109,19 @@ def gen_classifier(lbp, index, row, col, step):
         hist = np.concatenate((hist, index_hist), axis=None)
     return hist
  
-def update_guess(image, step, scale, model):
-    row = 0
-    (h, w) = image.shape[:2]
-    while row + step < h:
-        col = 0
-        while col + step < w:
-            hist = gen_classifier(lbp, index, row, col, step)
+def update_guess(image, rows, cols, scale, model):
+    for j in range(len(rows)-1):
+        for i in range(len(cols)-1):
+            r1 = rows[j]
+            r2 = rows[j+1]
+            c1 = cols[i]
+            c2 = cols[i+1]
+            hist = gen_classifier(lbp, index, r1, r2, c1, c2)
             prediction = model.predict(hist.reshape(1, -1))
             if prediction == 'no':
-                draw(scale, col, row, step, (0,255,0), 1)
+                draw(scale, r1, r2, c1, c2, (0,255,0), 1)
             elif prediction == 'yes':
-                draw(scale, col, row, step, (0,0,255), 1)
-            col += step
-        row += step
+                draw(scale, r1, r2, c1, c2, (0,0,255), 1)
 
 labels = []
 data = []
@@ -123,24 +129,20 @@ data = []
 #model = LinearSVC(C=100.0, random_state=42)
 model = LinearSVC(max_iter=5000000)
 
-(h, w) = gray.shape[:2]
-print(h, w)
-row = 0
-step = 192                      # this is a tuning dial
 work_list = []
-while row + step < h:
-    col = 0
-    while col + step < w:
-        work_list.append( (row, col) )
-        col += step
-    row += step
+rows = np.linspace(0, h, hcells).astype('int')
+cols = np.linspace(0, w, wcells).astype('int')
+for j in range(len(rows)-1):
+    for i in range(len(cols)-1):
+        work_list.append( (int(rows[j]), int(rows[j+1]),
+                           int(cols[i]), int(cols[i+1])) )
 random.shuffle(work_list)
 
 count = 0
-for (row, col) in work_list:
-    print(row, col)
-    rgb_region = rgb[row:row+step,col:col+step]
-    hist = gen_classifier(lbp, index, row, col, step)
+for (r1, r2, c1, c2) in work_list:
+    print(r1, r2, c1, c2)
+    rgb_region = rgb[r1:r2,c1:c2]
+    hist = gen_classifier(lbp, index, r1, r2, c1, c2)
     if False:
         # dist histogram
         plt.figure()
@@ -151,10 +153,10 @@ for (row, col) in work_list:
         plt.title('classifier')
         plt.show()
     scale_copy = scale.copy()
-    draw(scale_copy, col, row, step, (255,255,255), 2)
+    draw(scale_copy, r1, r2, c1, c2, (255,255,255), 2)
     cv2.imshow('gray', gscale)
     cv2.imshow('scale', scale_copy)
-    cv2.imshow('region', cv2.resize(rgb_region, (step*2, step*2)))
+    cv2.imshow('region', cv2.resize(rgb_region, ( (r2-r1)*3, (c2-c1)*3) ))
     key = cv2.waitKey()
     if key == ord('y') or key == ord('Y'):
         labels.append('yes')
@@ -166,7 +168,7 @@ for (row, col) in work_list:
     if count % 10 == 0:
         if len(set(labels)) >= 2:
             model.fit(data, labels)
-            update_guess(gray, step, scale, model)
+            update_guess(gray, rows, cols, scale, model)
     
 # get the histogram of LBP descriptors
 hist = describe(gray)
