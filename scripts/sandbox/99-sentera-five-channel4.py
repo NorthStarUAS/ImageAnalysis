@@ -435,15 +435,21 @@ while True:
             print('re', nre.shape, np.min(nre), np.max(nre))
             print('ndvi', nindex.shape, np.min(nindex), np.max(nindex))
         elif False:
-            print("RE + 1-R")
-            # using nir and 1-r to highlight healthy plants with red
-            vnir = re/255.0
+            print("NIR + G/R")
+            # using nir and g/r ratio to highlight healthy plants with
+            # redder color
+            nir[nir==0] = 1
+            nnir = nir/255.0
             g[g==0] = 1
-            vre = 0.5 * (g/r)
-            vre[vre>1] = 1
-            cutoffs = [ 48, 60, 88, 128, 200 ]   # 0.5
+            nre = 0.5 * (g/r)
+            nre[nre>1] = 1
+            nindex = (nnir - nre) / (nnir + nre)
+            cutoffs = [ 60, 80, 100, 120, 140 ]   # 0.5
             # cutoffs = [ 0, 32, 42, 64, 96, 255 ]   # 0.3
             # cutoffs = [ 0, 11, 15, 22, 40, 255 ]   # 0.1
+            print('nir', nnir.shape, np.min(nnir), np.max(nnir))
+            print('re', nre.shape, np.min(nre), np.max(nre))
+            print('ndvi', nindex.shape, np.min(nindex), np.max(nindex))
         index = ((0.5 * nindex + 0.5) * 255).astype('uint8')
 
         colors = [
