@@ -116,8 +116,10 @@ def draw(image, r1, r2, c1, c2, color, width):
                   (int((c2)*args.scale)-1, int((r2)*args.scale)-1),
                   color=color, thickness=width)
 
-def draw_prediction(image, cell_list, selected_cell, show_grid, alpha=0.5):
-    colors_hex = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+def draw_prediction(image, cell_list, selected_cell, show_grid, alpha=0.25):
+    #colors_hex = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+    #              '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+    colors_hex = ['#2ca02c', '#ff6f0e', '#9467bd', '#1f77b4', '#d62728', 
                   '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
     colors = []
     for c in colors_hex:
@@ -125,7 +127,6 @@ def draw_prediction(image, cell_list, selected_cell, show_grid, alpha=0.5):
         g = int(c[3:5], 16)
         b = int(c[5:7], 16)
         colors.append( (r, g, b) )
-    print("colors:", colors)
     overlay = image.copy()
     for key in cell_list:
         cell = cell_list[key]
@@ -134,10 +135,19 @@ def draw_prediction(image, cell_list, selected_cell, show_grid, alpha=0.5):
             color = colors[ord(cell["user"]) - ord('0')]
             draw(overlay, r1, r2, c1, c2, color, cv2.FILLED)
         elif show_grid == "prediction" and cell["prediction"] != None:
-            #print(cell["prediction"])
             color = colors[ord(cell["prediction"][0]) - ord('0')]
             draw(overlay, r1, r2, c1, c2, color, cv2.FILLED)
     result = cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
+    if show_grid == "prediction":
+        overlay = result.copy()
+        for key in cell_list:
+            cell = cell_list[key]
+            (r1, r2, c1, c2) = cell["region"]
+            if cell["user"] != None:
+                color = colors[ord(cell["user"]) - ord('0')]
+                draw(overlay, r1, r2, c1, c2, color, 2)
+    result = cv2.addWeighted(overlay, alpha, result, 1 - alpha, 0)
+
     if selected_cell != None:
         (r1, r2, c1, c2) = cell_list[selected_cell]["region"]
         draw(result, r1, r2, c1, c2, (255,255,255), 2)
