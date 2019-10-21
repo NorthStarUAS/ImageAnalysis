@@ -188,6 +188,18 @@ cv2.imshow(win, scale)
 def onmouse(event, x, y, flags, param):
     global selected_cell
     if event == cv2.EVENT_LBUTTONDOWN:
+        # show region detail
+        i = np.searchsorted(cols, int(x/args.scale), side='right') - 1
+        j = np.searchsorted(rows, int(y/args.scale), side='right') - 1
+        key = "%d,%d,%d,%d" % (int(rows[j]), int(rows[j+1]),
+                               int(cols[i]), int(cols[i+1]))
+        selected_cell = key
+        (r1, r2, c1, c2) = cell_list[key]["region"]
+        rgb_region = rgb[r1:r2,c1:c2]
+        cv2.imshow('region', cv2.resize(rgb_region, ( (r2-r1)*3, (c2-c1)*3) ))
+        scale = draw_prediction(scale_orig, cell_list, selected_cell, show_grid)
+        cv2.imshow(win, scale)
+    elif event == cv2.EVENT_RBUTTONDOWN:
         i = np.searchsorted(cols, int(x/args.scale), side='right') - 1
         j = np.searchsorted(rows, int(y/args.scale), side='right') - 1
         # print("  cell:", (int(rows[j]), int(rows[j+1]), int(cols[i]), int(cols[i+1])))
@@ -199,18 +211,6 @@ def onmouse(event, x, y, flags, param):
         #    cell_list[key]["user"] = "no"
         #else:
         #    cell_list[key]["user"] = None
-        scale = draw_prediction(scale_orig, cell_list, selected_cell, show_grid)
-        cv2.imshow(win, scale)
-    elif event == cv2.EVENT_RBUTTONDOWN:
-        # show region detail
-        i = np.searchsorted(cols, int(x/args.scale), side='right') - 1
-        j = np.searchsorted(rows, int(y/args.scale), side='right') - 1
-        key = "%d,%d,%d,%d" % (int(rows[j]), int(rows[j+1]),
-                               int(cols[i]), int(cols[i+1]))
-        selected_cell = key
-        (r1, r2, c1, c2) = cell_list[key]["region"]
-        rgb_region = rgb[r1:r2,c1:c2]
-        cv2.imshow('region', cv2.resize(rgb_region, ( (r2-r1)*3, (c2-c1)*3) ))
         scale = draw_prediction(scale_orig, cell_list, selected_cell, show_grid)
         cv2.imshow(win, scale)
 
@@ -234,7 +234,8 @@ while index < len(work_list):
     keyb = cv2.waitKey()
     if keyb >= ord('0') and keyb <= ord('9'):
         cell_list[selected_cell]["user"] = chr(keyb)
-        index += 1
+        if key == selected_cell:
+            index += 1
     elif keyb == ord(' '):
         # pass this cell
         index += 1
