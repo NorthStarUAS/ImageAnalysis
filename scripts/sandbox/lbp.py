@@ -116,19 +116,27 @@ def draw(image, r1, r2, c1, c2, color, width):
                   (int((c2)*args.scale)-1, int((r2)*args.scale)-1),
                   color=color, thickness=width)
 
-def draw_prediction(image, cell_list, selected_cell, show_grid, alpha=0.25):
+def draw_prediction(image, cell_list, selected_cell, show_grid, alpha=0.5):
+    colors_hex = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+                  '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+    colors = []
+    for c in colors_hex:
+        r = int(c[1:3], 16)
+        g = int(c[3:5], 16)
+        b = int(c[5:7], 16)
+        colors.append( (r, g, b) )
+    print("colors:", colors)
     overlay = image.copy()
     for key in cell_list:
         cell = cell_list[key]
         (r1, r2, c1, c2) = cell["region"]
-        if cell["user"] == "no":
-            draw(overlay, r1, r2, c1, c2, (0,255,0), cv2.FILLED)
-        elif cell["user"] == "yes":
-            draw(overlay, r1, r2, c1, c2, (0,0,255), cv2.FILLED)
-        elif cell["prediction"] == "no" and show_grid:
-            draw(overlay, r1, r2, c1, c2, (0,255,0), 2)
-        elif cell["prediction"] == "yes" and show_grid:
-            draw(overlay, r1, r2, c1, c2, (0,0,255), 2)
+        if show_grid == "user" and cell["user"] != None:
+            color = colors[ord(cell["user"]) - ord('0')]
+            draw(overlay, r1, r2, c1, c2, color, cv2.FILLED)
+        elif show_grid == "prediction" and cell["prediction"] != None:
+            #print(cell["prediction"])
+            color = colors[ord(cell["prediction"][0]) - ord('0')]
+            draw(overlay, r1, r2, c1, c2, color, cv2.FILLED)
     result = cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
     if selected_cell != None:
         (r1, r2, c1, c2) = cell_list[selected_cell]["region"]
@@ -152,7 +160,7 @@ for j in range(len(rows)-1):
                                       int(cols[i]), int(cols[i+1])),
                            "classifier": None,
                            "user": None,
-                           "prediction": "no" }
+                           "prediction": [ '0' ] }
 
 # compute the classifier
 for key in cell_list.keys():
@@ -160,7 +168,7 @@ for key in cell_list.keys():
     cell_list[key]["classifier"] = gen_classifier(lbp, index, r1, r2, c1, c2)
 
 selected_cell = None
-show_grid = True
+show_grid = "user"
 
 scale = draw_prediction(scale_orig, cell_list, selected_cell, show_grid)
 
@@ -175,12 +183,12 @@ def onmouse(event, x, y, flags, param):
         # print("  cell:", (int(rows[j]), int(rows[j+1]), int(cols[i]), int(cols[i+1])))
         key = "%d,%d,%d,%d" % (int(rows[j]), int(rows[j+1]),
                                int(cols[i]), int(cols[i+1])) 
-        if cell_list[key]["user"] == None:
-            cell_list[key]["user"] = "yes"
-        elif cell_list[key]["user"] == "yes":
-            cell_list[key]["user"] = "no"
-        else:
-            cell_list[key]["user"] = None
+        #if cell_list[key]["user"] == None:
+        #    cell_list[key]["user"] = "yes"
+        #elif cell_list[key]["user"] == "yes":
+        #    cell_list[key]["user"] = "no"
+        #else:
+        #    cell_list[key]["user"] = None
         scale = draw_prediction(scale_orig, cell_list, selected_cell, show_grid)
         cv2.imshow(win, scale)
     elif event == cv2.EVENT_RBUTTONDOWN:
@@ -214,21 +222,19 @@ while index < len(work_list):
     cv2.imshow('scale', scale)
     cv2.imshow('region', cv2.resize(rgb_region, ( (r2-r1)*3, (c2-c1)*3) ))
     keyb = cv2.waitKey()
-    if keyb == ord('y') or keyb == ord('Y'):
-        cell_list[key]["user"] = "yes"
+    if keyb >= ord('0') and keyb <= ord('9'):
+        cell_list[selected_cell]["user"] = chr(keyb)
         index += 1
-        #labels.append('yes')
-        #data.append(hist)
-    elif keyb == ord('n') or keyb == ord('N'):
-        cell_list[key]["user"] = "no"
-        index += 1
-        #labels.append('no')
-        #data.append(hist)
     elif keyb == ord(' '):
         # pass this cell
         index += 1
     elif keyb == ord('g'):
-        show_grid = not show_grid
+        if show_grid == "user":
+            show_grid = "prediction"
+        elif show_grid == "prediction":
+            show_grid = "none"
+        elif show_grid == "none":
+            show_grid = "user"
     elif keyb == ord('f'):
         update_model(cell_list, model)
         update_prediction(cell_list, model)
