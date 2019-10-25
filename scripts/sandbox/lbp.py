@@ -1,15 +1,18 @@
 #!/usr/bin/python3
 
 import argparse
+import pickle
 import cv2
 import math
+import os
 import random
 from skimage import feature        # pip3 install scikit-image
 from sklearn.svm import LinearSVC  # pip3 install scikit-learn
+#import joblib
 import numpy as np
 import matplotlib.pyplot as plt
 
-texture_and_color = True
+texture_and_color = False
 goal_step = 160                      # this is a tuning dial
 
 # def normalize(img):
@@ -22,6 +25,7 @@ goal_step = 160                      # this is a tuning dial
 parser = argparse.ArgumentParser(description='local binary patterns test.')
 parser.add_argument('--image', required=True, help='image name')
 parser.add_argument('--scale', type=float, default=0.4, help='scale image before processing')
+parser.add_argument('--model', help='saved learning model name')
 args = parser.parse_args()
 
 rgb = cv2.imread(args.image, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
@@ -31,19 +35,38 @@ wcells = int(w / goal_step)
 print(hcells, wcells)
 
 gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
-if True:
+if False:
+    lab = cv2.cvtColor(rgb, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+    # cv2 hue range: 0 - 179
+    # target_hue_value = 0          # red = 0
+    # t1 = np.mod((hue.astype('float') + 90), 180)
+    # print('t1:', np.min(t1), np.max(t1))
+    # #cv2.imshow('t1', cv2.resize(t1, (int(w*args.scale), int(h*args.scale))))
+    # dist = np.abs(90 - t1)
+    # print('dist:', np.min(dist), np.max(dist))
+    # t2 = 255 - (dist*dist) * (255 / 90)
+    # t2[t2<0] = 0
+    # weight = (hue.astype('float')/255) * (sat.astype('float')/255)
+    # index = (t2 * weight).astype('uint8')
+    index = a
+elif False:
     hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
     hue, sat, val = cv2.split(hsv)
     # cv2 hue range: 0 - 179
     target_hue_value = 0          # red = 0
-    t1 = np.mod((hue.astype('float') + 90), 180) - 90
+    t1 = np.mod((hue.astype('float') + 90), 180)
     print('t1:', np.min(t1), np.max(t1))
     #cv2.imshow('t1', cv2.resize(t1, (int(w*args.scale), int(h*args.scale))))
-    dist = np.abs(target_hue_value - t1)
+    dist = np.abs(90 - t1)
     print('dist:', np.min(dist), np.max(dist))
-    #gray = (255 - dist * 256 / 90).astype('uint8')
-    index = hue
+    t2 = 255 - (dist*dist) * (255 / 90)
+    t2[t2<0] = 0
+    weight = (hue.astype('float')/255) * (sat.astype('float')/255)
+    index = (t2 * weight).astype('uint8')
+    #index = hue
 elif False:
+    # very dark pixels can map out noisily
     g, b, r = cv2.split(rgb)
     g[g==0] = 1
     r[r==0] = 1
@@ -51,13 +74,28 @@ elif False:
     nr = r.astype('float') / 255.0
     index = (nr - ng) / (nr + ng)
     print("range:", np.min(index), np.max(index))
-    #index[index<0.25] = -1.0
+    #index[index<0.5] = -1.0
     index = ((0.5 * index + 0.5) * 255).astype('uint8')
+elif True:
+    # very dark pixels can map out noisily
+    g, b, r = cv2.split(rgb)
+    g[g==0] = 1                 # protect against divide by zero
+    ratio = (r / g).astype('float') * 0.25
+    # knock out the low end
+    lum = gray.astype('float') / 255
+    lumf = lum / 0.15
+    lumf[lumf>1] = 1
+    ratio *= lumf
+    #ratio[ratio<0.5] = 0
+    ratio[ratio>1] = 1
+    gray = (ratio*255).astype('uint8')
+    index = gray
+    print("range:", np.min(index), np.max(index))
 cv2.imshow('index', cv2.resize(index, (int(w*args.scale), int(h*args.scale))))
 
 radius = 3                      # this is a tuning dial
 numPoints = 8 * radius
-    
+
 # compute the Local Binary Pattern representation
 # of the image, and then use the LBP representation
 # to build the histogram of patterns
@@ -66,6 +104,10 @@ lbp = feature.local_binary_pattern(gray, numPoints, radius, method="uniform")
 scale_orig = cv2.resize(rgb, (int(w*args.scale), int(h*args.scale)))
 scale = scale_orig.copy()
 gscale = cv2.resize(gray, (int(w*args.scale), int(h*args.scale)))
+
+# fit model input
+saved_labels = []
+saved_data = []
 
 def gen_classifier(lbp, index, r1, r2, c1, c2):
     lbp_region = lbp[r1:r2,c1:c2]
@@ -91,16 +133,18 @@ def gen_classifier(lbp, index, r1, r2, c1, c2):
     return hist
 
 def update_model(cell_list, model):
-    labels = []
-    data = []
+    labels = list(saved_labels)
+    data = list(saved_data)
     for key in cell_list:
         cell = cell_list[key]
         if cell["user"] != None:
             labels.append(cell["user"])
             data.append(cell["classifier"])
     if len(set(labels)) >= 2:
-        print("Updating model fit...")
+        print("Updating model fit, training points:", len(data))
         model.fit(data, labels)
+        pickle.dump( (labels, data), open(args.model + ".data", "wb"))
+        pickle.dump(model, open(args.model + ".fit", "wb"))
         print("Done.")
  
 def update_prediction(cell_list, model):
@@ -153,9 +197,6 @@ def draw_prediction(image, cell_list, selected_cell, show_grid, alpha=0.25):
         draw(result, r1, r2, c1, c2, (255,255,255), 2)
     return result
 
-# train a Linear SVM on the data
-model = LinearSVC(max_iter=5000000)
-
 # generate grid
 rows = np.linspace(0, h, hcells).astype('int')
 cols = np.linspace(0, w, wcells).astype('int')
@@ -179,6 +220,19 @@ for key in cell_list.keys():
 
 selected_cell = None
 show_grid = "user"
+
+# train a Linear SVM on the data
+if args.model and os.path.isfile(args.model + ".data"):
+    (saved_labels, saved_data) = pickle.load( open(args.model + ".data", "rb"))
+else:
+    saved_labels = []
+    saved_data = []
+
+if args.model and os.path.isfile(args.model + ".fit"):
+    model = pickle.load(open(args.model + ".fit", "rb"))
+    update_prediction(cell_list, model)
+else:
+    model = LinearSVC(max_iter=5000000)
 
 scale = draw_prediction(scale_orig, cell_list, selected_cell, show_grid)
 
@@ -249,6 +303,8 @@ while index < len(work_list):
     elif keyb == ord('f'):
         update_model(cell_list, model)
         update_prediction(cell_list, model)
+    elif keyb == ord('q'):
+        quit()
 
 if False:
     # dist histogram
