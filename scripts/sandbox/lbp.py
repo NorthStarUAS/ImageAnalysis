@@ -1,26 +1,17 @@
 #!/usr/bin/python3
 
 import argparse
-import pickle
 import cv2
 import math
 import os
 import random
-from skimage import feature        # pip3 install scikit-image
-from sklearn.svm import LinearSVC  # pip3 install scikit-learn
-#import joblib
 import numpy as np
 import matplotlib.pyplot as plt
 
-texture_and_color = False
-goal_step = 160                      # this is a tuning dial
+import classifier
 
-# def normalize(img):
-#     min = np.min(img)
-#     max = np.max(img)
-#     print(min, max)
-#     img_norm = (img.astype('float') - min) / (max - min)
-#     return img_norm
+texture_and_color = False
+# goal_step = 160                      # this is a tuning dial
 
 parser = argparse.ArgumentParser(description='local binary patterns test.')
 parser.add_argument('--image', required=True, help='image name')
@@ -29,130 +20,101 @@ parser.add_argument('--model', help='saved learning model name')
 args = parser.parse_args()
 
 rgb = cv2.imread(args.image, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
-(h, w) = rgb.shape[:2]
-hcells = int(h / goal_step)
-wcells = int(w / goal_step)
-print(hcells, wcells)
 
-gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
-if False:
-    lab = cv2.cvtColor(rgb, cv2.COLOR_BGR2LAB)
-    l, a, b = cv2.split(lab)
-    # cv2 hue range: 0 - 179
-    # target_hue_value = 0          # red = 0
-    # t1 = np.mod((hue.astype('float') + 90), 180)
-    # print('t1:', np.min(t1), np.max(t1))
-    # #cv2.imshow('t1', cv2.resize(t1, (int(w*args.scale), int(h*args.scale))))
-    # dist = np.abs(90 - t1)
-    # print('dist:', np.min(dist), np.max(dist))
-    # t2 = 255 - (dist*dist) * (255 / 90)
-    # t2[t2<0] = 0
-    # weight = (hue.astype('float')/255) * (sat.astype('float')/255)
-    # index = (t2 * weight).astype('uint8')
-    index = a
-elif False:
-    hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
-    hue, sat, val = cv2.split(hsv)
-    # cv2 hue range: 0 - 179
-    target_hue_value = 0          # red = 0
-    t1 = np.mod((hue.astype('float') + 90), 180)
-    print('t1:', np.min(t1), np.max(t1))
-    #cv2.imshow('t1', cv2.resize(t1, (int(w*args.scale), int(h*args.scale))))
-    dist = np.abs(90 - t1)
-    print('dist:', np.min(dist), np.max(dist))
-    t2 = 255 - (dist*dist) * (255 / 90)
-    t2[t2<0] = 0
-    weight = (hue.astype('float')/255) * (sat.astype('float')/255)
-    index = (t2 * weight).astype('uint8')
-    #index = hue
-elif False:
-    # very dark pixels can map out noisily
-    g, b, r = cv2.split(rgb)
-    g[g==0] = 1
-    r[r==0] = 1
-    ng = g.astype('float') / 255.0
-    nr = r.astype('float') / 255.0
-    index = (nr - ng) / (nr + ng)
-    print("range:", np.min(index), np.max(index))
-    #index[index<0.5] = -1.0
-    index = ((0.5 * index + 0.5) * 255).astype('uint8')
-elif True:
-    # very dark pixels can map out noisily
-    g, b, r = cv2.split(rgb)
-    g[g==0] = 1                 # protect against divide by zero
-    ratio = (r / g).astype('float') * 0.25
-    # knock out the low end
-    lum = gray.astype('float') / 255
-    lumf = lum / 0.15
-    lumf[lumf>1] = 1
-    ratio *= lumf
-    #ratio[ratio<0.5] = 0
-    ratio[ratio>1] = 1
-    gray = (ratio*255).astype('uint8')
-    index = gray
-    print("range:", np.min(index), np.max(index))
-cv2.imshow('index', cv2.resize(index, (int(w*args.scale), int(h*args.scale))))
+tmodel = classifier.Classifier()
+if args.model:
+    tmodel.init_model(args.model + ".fit", args.model + ".data")
+else:
+    texture_mode = init_model()
+tmodel.compute_lbp(rgb)
+tmodel.compute_grid()
 
-radius = 3                      # this is a tuning dial
-numPoints = 8 * radius
+# gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
+# if False:
+#     lab = cv2.cvtColor(rgb, cv2.COLOR_BGR2LAB)
+#     l, a, b = cv2.split(lab)
+#     # cv2 hue range: 0 - 179
+#     # target_hue_value = 0          # red = 0
+#     # t1 = np.mod((hue.astype('float') + 90), 180)
+#     # print('t1:', np.min(t1), np.max(t1))
+#     # #cv2.imshow('t1', cv2.resize(t1, (int(w*args.scale), int(h*args.scale))))
+#     # dist = np.abs(90 - t1)
+#     # print('dist:', np.min(dist), np.max(dist))
+#     # t2 = 255 - (dist*dist) * (255 / 90)
+#     # t2[t2<0] = 0
+#     # weight = (hue.astype('float')/255) * (sat.astype('float')/255)
+#     # index = (t2 * weight).astype('uint8')
+#     index = a
+# elif False:
+#     hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
+#     hue, sat, val = cv2.split(hsv)
+#     # cv2 hue range: 0 - 179
+#     target_hue_value = 0          # red = 0
+#     t1 = np.mod((hue.astype('float') + 90), 180)
+#     print('t1:', np.min(t1), np.max(t1))
+#     #cv2.imshow('t1', cv2.resize(t1, (int(w*args.scale), int(h*args.scale))))
+#     dist = np.abs(90 - t1)
+#     print('dist:', np.min(dist), np.max(dist))
+#     t2 = 255 - (dist*dist) * (255 / 90)
+#     t2[t2<0] = 0
+#     weight = (hue.astype('float')/255) * (sat.astype('float')/255)
+#     index = (t2 * weight).astype('uint8')
+#     #index = hue
+# elif False:
+#     # very dark pixels can map out noisily
+#     g, b, r = cv2.split(rgb)
+#     g[g==0] = 1
+#     r[r==0] = 1
+#     ng = g.astype('float') / 255.0
+#     nr = r.astype('float') / 255.0
+#     index = (nr - ng) / (nr + ng)
+#     print("range:", np.min(index), np.max(index))
+#     #index[index<0.5] = -1.0
+#     index = ((0.5 * index + 0.5) * 255).astype('uint8')
+# elif True:
+#     # very dark pixels can map out noisily
+#     g, b, r = cv2.split(rgb)
+#     g[g==0] = 1                 # protect against divide by zero
+#     ratio = (r / g).astype('float') * 0.25
+#     # knock out the low end
+#     lum = gray.astype('float') / 255
+#     lumf = lum / 0.15
+#     lumf[lumf>1] = 1
+#     ratio *= lumf
+#     #ratio[ratio<0.5] = 0
+#     ratio[ratio>1] = 1
+#     gray = (ratio*255).astype('uint8')
+#     index = gray
+#     print("range:", np.min(index), np.max(index))
 
-# compute the Local Binary Pattern representation
-# of the image, and then use the LBP representation
-# to build the histogram of patterns
-lbp = feature.local_binary_pattern(gray, numPoints, radius, method="uniform")
-
+(h, w) = tmodel.index.shape[:2]
+# cv2.imshow('index', cv2.resize(tmodel.index, (int(w*args.scale), int(h*args.scale))))
 scale_orig = cv2.resize(rgb, (int(w*args.scale), int(h*args.scale)))
 scale = scale_orig.copy()
-gscale = cv2.resize(gray, (int(w*args.scale), int(h*args.scale)))
+gscale = cv2.cvtColor(scale, cv2.COLOR_BGR2GRAY)
 
-# fit model input
-saved_labels = []
-saved_data = []
-
-def gen_classifier(lbp, index, r1, r2, c1, c2):
-    lbp_region = lbp[r1:r2,c1:c2]
-    (hist, _) = np.histogram(lbp_region.ravel(),
-                             bins=np.arange(0, numPoints + 3),
-                             range=(0, numPoints + 2))
-    if texture_and_color:
-        index_region = index[r1:r2,c1:c2]
-        (index_hist, _) = np.histogram(index_region.ravel(),
-                                       bins=64,
-                                       range=(0, 255))
-        #index_hist[0] = 0
-        hist = np.concatenate((hist, index_hist), axis=None)
-    if False:
-        # dist histogram
-        plt.figure()
-        y_pos = np.arange(len(hist))
-        plt.bar(y_pos, hist, align='center', alpha=0.5)
-        plt.xticks(y_pos, range(len(hist)))
-        plt.ylabel('count')
-        plt.title('classifier')
-        plt.show()
-    return hist
-
-def update_model(cell_list, model):
-    labels = list(saved_labels)
-    data = list(saved_data)
-    for key in cell_list:
-        cell = cell_list[key]
-        if cell["user"] != None:
-            labels.append(cell["user"])
-            data.append(cell["classifier"])
-    if len(set(labels)) >= 2:
-        print("Updating model fit, training points:", len(data))
-        model.fit(data, labels)
-        pickle.dump( (labels, data), open(args.model + ".data", "wb"))
-        pickle.dump(model, open(args.model + ".fit", "wb"))
-        print("Done.")
- 
-def update_prediction(cell_list, model):
-    for key in cell_list:
-        cell = cell_list[key]
-        #(r1, r2, c1, c2) = cell["region"]
-        #hist = gen_classifier(lbp, index, r1, r2, c1, c2)
-        cell["prediction"] = model.predict(cell["classifier"].reshape(1, -1))
+# def gen_classifier(lbp, index, r1, r2, c1, c2):
+#     lbp_region = lbp[r1:r2,c1:c2]
+#     (hist, _) = np.histogram(lbp_region.ravel(),
+#                              bins=np.arange(0, numPoints + 3),
+#                              range=(0, numPoints + 2))
+#     if texture_and_color:
+#         index_region = index[r1:r2,c1:c2]
+#         (index_hist, _) = np.histogram(index_region.ravel(),
+#                                        bins=64,
+#                                        range=(0, 255))
+#         #index_hist[0] = 0
+#         hist = np.concatenate((hist, index_hist), axis=None)
+#     if False:
+#         # dist histogram
+#         plt.figure()
+#         y_pos = np.arange(len(hist))
+#         plt.bar(y_pos, hist, align='center', alpha=0.5)
+#         plt.xticks(y_pos, range(len(hist)))
+#         plt.ylabel('count')
+#         plt.title('classifier')
+#         plt.show()
+#     return hist
 
 def draw(image, r1, r2, c1, c2, color, width):
     cv2.rectangle(image,
@@ -197,44 +159,10 @@ def draw_prediction(image, cell_list, selected_cell, show_grid, alpha=0.25):
         draw(result, r1, r2, c1, c2, (255,255,255), 2)
     return result
 
-# generate grid
-rows = np.linspace(0, h, hcells).astype('int')
-cols = np.linspace(0, w, wcells).astype('int')
-
-# cell list
-cell_list = {}
-for j in range(len(rows)-1):
-    for i in range(len(cols)-1):
-        key = "%d,%d,%d,%d" % (int(rows[j]), int(rows[j+1]),
-                               int(cols[i]), int(cols[i+1])) 
-        cell_list[key] = { "region": (int(rows[j]), int(rows[j+1]),
-                                      int(cols[i]), int(cols[i+1])),
-                           "classifier": None,
-                           "user": None,
-                           "prediction": [ '0' ] }
-
-# compute the classifier
-for key in cell_list.keys():
-    (r1, r2, c1, c2) = cell_list[key]["region"]
-    cell_list[key]["classifier"] = gen_classifier(lbp, index, r1, r2, c1, c2)
-
 selected_cell = None
 show_grid = "user"
 
-# train a Linear SVM on the data
-if args.model and os.path.isfile(args.model + ".data"):
-    (saved_labels, saved_data) = pickle.load( open(args.model + ".data", "rb"))
-else:
-    saved_labels = []
-    saved_data = []
-
-if args.model and os.path.isfile(args.model + ".fit"):
-    model = pickle.load(open(args.model + ".fit", "rb"))
-    update_prediction(cell_list, model)
-else:
-    model = LinearSVC(max_iter=5000000)
-
-scale = draw_prediction(scale_orig, cell_list, selected_cell, show_grid)
+scale = draw_prediction(scale_orig, tmodel.cells, selected_cell, show_grid)
 
 win = 'scale'
 cv2.imshow(win, scale)
@@ -243,15 +171,12 @@ def onmouse(event, x, y, flags, param):
     global selected_cell
     if event == cv2.EVENT_LBUTTONDOWN:
         # show region detail
-        i = np.searchsorted(cols, int(x/args.scale), side='right') - 1
-        j = np.searchsorted(rows, int(y/args.scale), side='right') - 1
-        key = "%d,%d,%d,%d" % (int(rows[j]), int(rows[j+1]),
-                               int(cols[i]), int(cols[i+1]))
+        key = tmodel.find_key(int(x/args.scale), int(y/args.scale))
         selected_cell = key
-        (r1, r2, c1, c2) = cell_list[key]["region"]
+        (r1, r2, c1, c2) = tmodel.cells[key]["region"]
         rgb_region = rgb[r1:r2,c1:c2]
         cv2.imshow('region', cv2.resize(rgb_region, ( (r2-r1)*3, (c2-c1)*3) ))
-        scale = draw_prediction(scale_orig, cell_list, selected_cell, show_grid)
+        scale = draw_prediction(scale_orig, tmodel.cells, selected_cell, show_grid)
         cv2.imshow(win, scale)
     elif event == cv2.EVENT_RBUTTONDOWN:
         i = np.searchsorted(cols, int(x/args.scale), side='right') - 1
@@ -265,21 +190,21 @@ def onmouse(event, x, y, flags, param):
         #    cell_list[key]["user"] = "no"
         #else:
         #    cell_list[key]["user"] = None
-        scale = draw_prediction(scale_orig, cell_list, selected_cell, show_grid)
+        scale = draw_prediction(scale_orig, tmodel.cells, selected_cell, show_grid)
         cv2.imshow(win, scale)
 
 cv2.setMouseCallback(win, onmouse)
 
 # work list
-work_list = list(cell_list.keys())
+work_list = list(tmodel.cells.keys())
 random.shuffle(work_list)
 
 index = 0
 while index < len(work_list):
     key = work_list[index]
     selected_cell = key
-    scale = draw_prediction(scale_orig, cell_list, selected_cell, show_grid)
-    (r1, r2, c1, c2) = cell_list[key]["region"]
+    scale = draw_prediction(scale_orig, tmodel.cells, selected_cell, show_grid)
+    (r1, r2, c1, c2) = tmodel.cells[key]["region"]
     print(r1, r2, c1, c2)
     rgb_region = rgb[r1:r2,c1:c2]
     cv2.imshow('gray', gscale)
@@ -287,7 +212,7 @@ while index < len(work_list):
     cv2.imshow('region', cv2.resize(rgb_region, ( (r2-r1)*3, (c2-c1)*3) ))
     keyb = cv2.waitKey()
     if keyb >= ord('0') and keyb <= ord('9'):
-        cell_list[selected_cell]["user"] = chr(keyb)
+        tmodel.cells[selected_cell]["user"] = chr(keyb)
         if key == selected_cell:
             index += 1
     elif keyb == ord(' '):
@@ -301,18 +226,18 @@ while index < len(work_list):
         elif show_grid == "none":
             show_grid = "user"
     elif keyb == ord('f'):
-        update_model(cell_list, model)
-        update_prediction(cell_list, model)
+        tmodel.update_model()
+        tmodel.update_prediction()
     elif keyb == ord('q'):
         quit()
 
-if False:
-    # dist histogram
-    plt.figure()
-    y_pos = np.arange(len(hist))
-    plt.bar(y_pos, hist, align='center', alpha=0.5)
-    plt.xticks(y_pos, range(len(hist)))
-    plt.ylabel('count')
-    plt.title('total distance histogram')
+# if False:
+#     # dist histogram
+#     plt.figure()
+#     y_pos = np.arange(len(hist))
+#     plt.bar(y_pos, hist, align='center', alpha=0.5)
+#     plt.xticks(y_pos, range(len(hist)))
+#     plt.ylabel('count')
+#     plt.title('total distance histogram')
 
-    plt.show()
+#     plt.show()
