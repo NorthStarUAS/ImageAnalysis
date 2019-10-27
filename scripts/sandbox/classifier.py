@@ -1,41 +1,52 @@
 #!/usr/bin/python3
 
-# Machine learning module built with Linear Support Vectors
+# Machine learning (classification) module built with Linear Support
+# Vectors
 
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pickle
-import skimage                    # pip3 install scikit-image
-import sklearn.svm                # pip3 install scikit-learn
+import skimage.feature          # pip3 install scikit-image
+import sklearn.svm              # pip3 install scikit-learn
+#import sklearn.linear_model              # pip3 install scikit-learn
 
-class Learn():
+class Classifier():
 
     index = None
     model = None
     cells = {}
+    base = None
     saved_labels = []
     saved_data = []
+    mode = None                 # LBP, red, ...
 
     def __init__(self):
         pass
 
-    def init_model(self, fitname=None, dataname=None):
-        if fitname and os.path.isfile(fitname):
+    def init_model(self, basename):
+        if basename:
+            fitname = basename + ".fit"
+            dataname = basename + ".data"
+        if basename and os.path.isfile(fitname):
             print("Loading LinearSVC model from:", fitname)
             self.model = pickle.load(open(fitname, "rb"))
             #update_prediction(cell_list, model)
         else:
-            print("Initializing  a new LinearSVC model")
-            self.model = LinearSVC(max_iter=5000000)
-        if dataname and os.path.isfile(dataname):
+            print("Initializing a new LinearSVC model")
+            self.model = sklearn.svm.LinearSVC(max_iter=5000000)
+            #self.model = sklearn.linear_model.SGDClassifier(warm_start=True, loss="modified_huber", max_iter=5000000)
+        if basename and os.path.isfile(dataname):
             print("Loading saved model data from:", dataname)
             (self.saved_labels, self.saved_data) = \
                 pickle.load( open(dataname, "rb"))
+        self.basename = basename
 
     # compute the Local Binary Pattern representation of the image
     def compute_lbp(self, image, radius=3):
         print("Computing LBP")
+        self.mode = "LBP"
         self.radius = radius
         self.numPoints = radius * 8
         if len(image.shape) == 3:
@@ -47,29 +58,47 @@ class Learn():
                                                           self.radius,
                                                           method="uniform")
 
+    # compute the "redness" of an image
+    def compute_redness(self, rgb):
+        print("Computing redness")
+        self.mode = "red"
+        # very dark pixels can map out noisily
+        g, b, r = cv2.split(rgb)
+        gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
+        g[g==0] = 1                 # protect against divide by zero
+        ratio = (r / g).astype('float') * 0.25
+        # knock out the low end
+        lum = gray.astype('float') / 255
+        lumf = lum / 0.15
+        lumf[lumf>1] = 1
+        ratio *= lumf
+        ratio[ratio>1] = 1
+        self.index = (ratio*255).astype('uint8')
+        
     # and then use the index representation (i.e. LBP) to build the
     # histogram of values
     def gen_classifier(self, r1, r2, c1, c2):
         region = self.index[r1:r2,c1:c2]
-        (hist, _) = np.histogram(region.ravel(),
-                                 bins=np.arange(0, self.numPoints + 3),
-                                 range=(0, self.numPoints + 2))
-        # if texture_and_color:
-        #     index_region = index[r1:r2,c1:c2]
-        #     (index_hist, _) = np.histogram(index_region.ravel(),
-        #                                    bins=64,
-        #                                    range=(0, 255))
-        #     #index_hist[0] = 0
-        #     hist = np.concatenate((hist, index_hist), axis=None)
-        # if False:
-        #     # dist histogram
-        #     plt.figure()
-        #     y_pos = np.arange(len(hist))
-        #     plt.bar(y_pos, hist, align='center', alpha=0.5)
-        #     plt.xticks(y_pos, range(len(hist)))
-        #     plt.ylabel('count')
-        #     plt.title('classifier')
-        #     plt.show()
+        if self.mode == "LBP":
+            (hist, _) = np.histogram(region.ravel(),
+                                     bins=np.arange(0, self.numPoints + 3),
+                                     range=(0, self.numPoints + 2))
+        elif self.mode == "red":
+            (hist, _) = np.histogram(region.ravel(),
+                                     bins=64,
+                                     range=(0, 255))
+        else:
+            print("Unknown mode:", self.mode, "in gen_classifier()")
+        # hist = hist.astype('float') / region.size # normalize
+        if False:
+            # dist histogram
+            plt.figure()
+            y_pos = np.arange(len(hist))
+            plt.bar(y_pos, hist, align='center', alpha=0.5)
+            plt.xticks(y_pos, range(len(hist)))
+            plt.ylabel('count')
+            plt.title('classifier')
+            plt.show()
         return hist
 
     # compute the grid layout and classifier
@@ -88,14 +117,15 @@ class Learn():
                 self.cells[key] = { "region": (r1, r2, c1, c2),
                                     "classifier": None,
                                     "user": None,
-                                    "prediction": [ '0' ] }
+                                    "prediction": [ '0' ],
+                                    "score": [ 0 ] }
                                     
         for key in self.cells:
             (r1, r2, c1, c2) = self.cells[key]["region"]
             self.cells[key]["classifier"] = self.gen_classifier(r1, r2, c1, c2)
 
     # do the model fit
-    def update_model(self, fitname=None, dataname=None):
+    def update_model(self):
         labels = list(self.saved_labels)
         data = list(self.saved_data)
         for key in self.cells:
@@ -106,10 +136,11 @@ class Learn():
         if len(set(labels)) >= 2:
             print("Updating model fit, training points:", len(data))
             self.model.fit(data, labels)
-            if dataname:
+            if self.basename:
+                dataname = self.basename + ".data"
+                fitname = self.basename + ".fit"
                 print("Saving data:", dataname)
                 pickle.dump( (labels, data), open(dataname, "wb"))
-            if fitname:
                 print("Saving model:", fitname)
                 pickle.dump(self.model, open(fitname, "wb"))
             print("Done.")
@@ -122,6 +153,8 @@ class Learn():
             cell = self.cells[key]
             cell["prediction"] = \
                 self.model.predict(cell["classifier"].reshape(1, -1))
+            cell["score"] = \
+                self.model.decision_function(cell["classifier"].reshape(1, -1))
 
     # return the key of the cell containing the give x, y pixel coordinate
     def find_key(self, x, y):
