@@ -162,9 +162,8 @@ def draw_prediction(image, cell_list, selected_cell, show_grid, alpha=0.25):
 selected_cell = None
 show_grid = "user"
 
-scale = draw_prediction(scale_orig, tmodel.cells, selected_cell, show_grid)
-
 win = 'scale'
+scale = draw_prediction(scale_orig, tmodel.cells, selected_cell, show_grid)
 cv2.imshow(win, scale)
 
 def onmouse(event, x, y, flags, param):
@@ -179,11 +178,7 @@ def onmouse(event, x, y, flags, param):
         scale = draw_prediction(scale_orig, tmodel.cells, selected_cell, show_grid)
         cv2.imshow(win, scale)
     elif event == cv2.EVENT_RBUTTONDOWN:
-        i = np.searchsorted(cols, int(x/args.scale), side='right') - 1
-        j = np.searchsorted(rows, int(y/args.scale), side='right') - 1
-        # print("  cell:", (int(rows[j]), int(rows[j+1]), int(cols[i]), int(cols[i+1])))
-        key = "%d,%d,%d,%d" % (int(rows[j]), int(rows[j+1]),
-                               int(cols[i]), int(cols[i+1])) 
+        key = tmodel.find_key(int(x/args.scale), int(y/args.scale))
         #if cell_list[key]["user"] == None:
         #    cell_list[key]["user"] = "yes"
         #elif cell_list[key]["user"] == "yes":

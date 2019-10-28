@@ -8,7 +8,7 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 
-import classifier
+import clustering
 
 texture_and_color = False
 # goal_step = 160                      # this is a tuning dial
@@ -22,14 +22,14 @@ args = parser.parse_args()
 rgb = cv2.imread(args.image, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
 
 # texture based classifier
-tmodel = classifier.Classifier()
+tmodel = clustering.Cluster()
 tmodel.init_model(basename="ob-tex")
 tmodel.compute_lbp(rgb)
 tmodel.compute_grid()
 #tmodel.update_prediction()
 
 # color based classifier
-cmodel = classifier.Classifier()
+cmodel = clustering.Cluster()
 cmodel.init_model(basename="ob-col")
 cmodel.compute_redness(rgb)
 cmodel.compute_grid()
@@ -126,20 +126,20 @@ def draw_prediction(image, tex_cells, col_cells, selected_cell, show_mode, alpha
             color = colors[ord(tex_cell["user"]) - ord('0')]
             draw(overlay, r1, r2, c1, c2, color, cv2.FILLED)
         elif show_mode == "tmodel" and tex_cell["prediction"] != None:
-            index = ord(tex_cell["prediction"][0]) - ord('0')
-            if index >= 0 and abs(tex_cell["score"][0]) > cutoff:
+            index = tex_cell["prediction"]
+            if index >= 0 and abs(tex_cell["score"]) >= cutoff:
                 color = colors[index]
                 draw(overlay, r1, r2, c1, c2, color, cv2.FILLED)
         elif show_mode == "cmodel" and col_cell["prediction"] != None:
-            index = ord(col_cell["prediction"][0]) - ord('0')
-            if index >= 0 and abs(col_cell["score"][0]) > cutoff:
+            index = col_cell["prediction"]
+            if index >= 0 and abs(col_cell["score"]) >= cutoff:
                 color = colors[index]
                 draw(overlay, r1, r2, c1, c2, color, cv2.FILLED)
         elif show_mode == "combined":
-            tindex = ord(tex_cell["prediction"][0]) - ord('0')
-            cindex = ord(col_cell["prediction"][0]) - ord('0')
+            tindex = tex_cell["prediction"]
+            cindex = col_cell["prediction"]
             if tindex == cindex:
-                if abs(tex_cell["score"][0]) > cutoff and abs(col_cell["score"][0]) > cutoff:
+                if abs(tex_cell["score"]) > cutoff and abs(col_cell["score"]) > cutoff:
                     draw(overlay, r1, r2, c1, c2, colors[tindex], cv2.FILLED)
     result = cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
     if show_mode != "none" and show_mode != "user":
