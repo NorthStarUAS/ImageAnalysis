@@ -133,8 +133,8 @@ class Cluster():
                 data.append(cell["classifier"])
         if len(data) >= 2:
             print("Updating model fit, training points:", len(data))
-            bandwidth = estimate_bandwidth(data, quantile=0.2)
-            self.model = MeanShift(bandwidth=bandwidth, bin_seeding=False)
+            bandwidth = estimate_bandwidth(data, quantile=0.05)
+            self.model = MeanShift(bandwidth=bandwidth, bin_seeding=True)
             self.model.fit(data)
             print("labels:", self.model.labels_)
             print("centers:", self.model.cluster_centers_)

@@ -30,11 +30,11 @@ class Classifier():
             fitname = basename + ".fit"
             dataname = basename + ".data"
         if basename and os.path.isfile(fitname):
-            print("Loading LinearSVC model from:", fitname)
+            print("Loading SVC model from:", fitname)
             self.model = pickle.load(open(fitname, "rb"))
             #update_prediction(cell_list, model)
         else:
-            print("Initializing a new LinearSVC model")
+            print("Initializing a new SVC model")
             self.model = sklearn.svm.LinearSVC(max_iter=5000000)
             #self.model = sklearn.linear_model.SGDClassifier(warm_start=True, loss="modified_huber", max_iter=5000000)
         if basename and os.path.isfile(dataname):
@@ -89,7 +89,7 @@ class Classifier():
                                      range=(0, 255))
         else:
             print("Unknown mode:", self.mode, "in gen_classifier()")
-        # hist = hist.astype('float') / region.size # normalize
+        hist = hist.astype('float') / region.size # normalize
         if False:
             # dist histogram
             plt.figure()
@@ -117,8 +117,8 @@ class Classifier():
                 self.cells[key] = { "region": (r1, r2, c1, c2),
                                     "classifier": None,
                                     "user": None,
-                                    "prediction": [ '0' ],
-                                    "score": [ 0 ] }
+                                    "prediction": 0,
+                                    "score": 0 }
                                     
         for key in self.cells:
             (r1, r2, c1, c2) = self.cells[key]["region"]
@@ -152,9 +152,9 @@ class Classifier():
         for key in self.cells:
             cell = self.cells[key]
             cell["prediction"] = \
-                self.model.predict(cell["classifier"].reshape(1, -1))
+                self.model.predict(cell["classifier"].reshape(1, -1))[0]
             cell["score"] = \
-                self.model.decision_function(cell["classifier"].reshape(1, -1))
+                self.model.decision_function(cell["classifier"].reshape(1, -1))[0]
 
     # return the key of the cell containing the give x, y pixel coordinate
     def find_key(self, x, y):

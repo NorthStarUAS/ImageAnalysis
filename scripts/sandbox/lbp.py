@@ -138,11 +138,14 @@ def draw_prediction(image, cell_list, selected_cell, show_grid, alpha=0.25):
         cell = cell_list[key]
         (r1, r2, c1, c2) = cell["region"]
         if show_grid == "user" and cell["user"] != None:
-            color = colors[ord(cell["user"]) - ord('0')]
+            index = ord(cell["user"]) - ord('0')
+            color = colors[index]
             draw(overlay, r1, r2, c1, c2, color, cv2.FILLED)
         elif show_grid == "prediction" and cell["prediction"] != None:
-            color = colors[ord(cell["prediction"][0]) - ord('0')]
-            draw(overlay, r1, r2, c1, c2, color, cv2.FILLED)
+            index = ord(cell["prediction"][0]) - ord('0')
+            if index > 0 and abs(cell["score"][0]) > 0.25:
+                color = colors[index]
+                draw(overlay, r1, r2, c1, c2, color, cv2.FILLED)
     result = cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
     if show_grid == "prediction":
         overlay = result.copy()

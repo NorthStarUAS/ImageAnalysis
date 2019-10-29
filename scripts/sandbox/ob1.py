@@ -20,19 +20,22 @@ parser.add_argument('--scale', type=float, default=0.4, help='scale image before
 args = parser.parse_args()
 
 rgb = cv2.imread(args.image, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
+(h, w) = rgb.shape[:2]
 
 # texture based classifier
 tmodel = clustering.Cluster()
 tmodel.init_model(basename="ob-tex")
-tmodel.compute_lbp(rgb)
-tmodel.compute_grid()
+tmodel.compute_lbp(rgb, radius=3)
+tmodel.compute_grid(grid_size=128)
+cv2.imshow('tmodel', cv2.resize(tmodel.index.astype('uint8'), (int(w*args.scale), int(h*args.scale))))
 #tmodel.update_prediction()
 
 # color based classifier
 cmodel = clustering.Cluster()
 cmodel.init_model(basename="ob-col")
 cmodel.compute_redness(rgb)
-cmodel.compute_grid()
+cmodel.compute_grid(grid_size=128)
+cv2.imshow('cmodel', cv2.resize(cmodel.index.astype('uint8'), (int(w*args.scale), int(h*args.scale))))
 #cmodel.update_prediction()
 
 # gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
@@ -93,7 +96,6 @@ cmodel.compute_grid()
 #     index = gray
 #     print("range:", np.min(index), np.max(index))
 
-(h, w) = rgb.shape[:2]
 # cv2.imshow('index', cv2.resize(tmodel.index, (int(w*args.scale), int(h*args.scale))))
 scale_orig = cv2.resize(rgb, (int(w*args.scale), int(h*args.scale)))
 scale = scale_orig.copy()
