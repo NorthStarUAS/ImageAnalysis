@@ -22,79 +22,13 @@ args = parser.parse_args()
 rgb = cv2.imread(args.image, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
 (h, w) = rgb.shape[:2]
 
-# texture based classifier
-tmodel = clustering.Cluster()
-tmodel.init_model(basename="ob-tex")
-tmodel.compute_lbp(rgb, radius=3)
-tmodel.compute_grid(grid_size=128)
-cv2.imshow('tmodel', cv2.resize(tmodel.index.astype('uint8'), (int(w*args.scale), int(h*args.scale))))
-#tmodel.update_prediction()
-
-# color based classifier
-cmodel = clustering.Cluster()
-cmodel.init_model(basename="ob-col")
-cmodel.compute_redness(rgb)
-cmodel.compute_grid(grid_size=128)
-cv2.imshow('cmodel', cv2.resize(cmodel.index.astype('uint8'), (int(w*args.scale), int(h*args.scale))))
-#cmodel.update_prediction()
-
-# gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
-# if False:
-#     lab = cv2.cvtColor(rgb, cv2.COLOR_BGR2LAB)
-#     l, a, b = cv2.split(lab)
-#     # cv2 hue range: 0 - 179
-#     # target_hue_value = 0          # red = 0
-#     # t1 = np.mod((hue.astype('float') + 90), 180)
-#     # print('t1:', np.min(t1), np.max(t1))
-#     # #cv2.imshow('t1', cv2.resize(t1, (int(w*args.scale), int(h*args.scale))))
-#     # dist = np.abs(90 - t1)
-#     # print('dist:', np.min(dist), np.max(dist))
-#     # t2 = 255 - (dist*dist) * (255 / 90)
-#     # t2[t2<0] = 0
-#     # weight = (hue.astype('float')/255) * (sat.astype('float')/255)
-#     # index = (t2 * weight).astype('uint8')
-#     index = a
-# elif False:
-#     hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
-#     hue, sat, val = cv2.split(hsv)
-#     # cv2 hue range: 0 - 179
-#     target_hue_value = 0          # red = 0
-#     t1 = np.mod((hue.astype('float') + 90), 180)
-#     print('t1:', np.min(t1), np.max(t1))
-#     #cv2.imshow('t1', cv2.resize(t1, (int(w*args.scale), int(h*args.scale))))
-#     dist = np.abs(90 - t1)
-#     print('dist:', np.min(dist), np.max(dist))
-#     t2 = 255 - (dist*dist) * (255 / 90)
-#     t2[t2<0] = 0
-#     weight = (hue.astype('float')/255) * (sat.astype('float')/255)
-#     index = (t2 * weight).astype('uint8')
-#     #index = hue
-# elif False:
-#     # very dark pixels can map out noisily
-#     g, b, r = cv2.split(rgb)
-#     g[g==0] = 1
-#     r[r==0] = 1
-#     ng = g.astype('float') / 255.0
-#     nr = r.astype('float') / 255.0
-#     index = (nr - ng) / (nr + ng)
-#     print("range:", np.min(index), np.max(index))
-#     #index[index<0.5] = -1.0
-#     index = ((0.5 * index + 0.5) * 255).astype('uint8')
-# elif True:
-#     # very dark pixels can map out noisily
-#     g, b, r = cv2.split(rgb)
-#     g[g==0] = 1                 # protect against divide by zero
-#     ratio = (r / g).astype('float') * 0.25
-#     # knock out the low end
-#     lum = gray.astype('float') / 255
-#     lumf = lum / 0.15
-#     lumf[lumf>1] = 1
-#     ratio *= lumf
-#     #ratio[ratio<0.5] = 0
-#     ratio[ratio>1] = 1
-#     gray = (ratio*255).astype('uint8')
-#     index = gray
-#     print("range:", np.min(index), np.max(index))
+# cluster
+model = clustering.Cluster()
+model.init_model(basename="ob1")
+model.compute_redness(rgb)
+model.compute_grid(grid_size=128)
+cv2.imshow('model', cv2.resize(model.index.astype('uint8'), (int(w*args.scale), int(h*args.scale))))
+#model.update_prediction()
 
 # cv2.imshow('index', cv2.resize(tmodel.index, (int(w*args.scale), int(h*args.scale))))
 scale_orig = cv2.resize(rgb, (int(w*args.scale), int(h*args.scale)))
@@ -107,7 +41,7 @@ def draw(image, r1, r2, c1, c2, color, width):
                   (int((c2)*args.scale)-1, int((r2)*args.scale)-1),
                   color=color, thickness=width)
 
-def draw_prediction(image, tex_cells, col_cells, selected_cell, show_mode, alpha=0.25):
+def draw_prediction(image, cells, selected_cell, show_mode, alpha=0.25):
     cutoff = 0.0
     #colors_hex = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
     #              '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
@@ -120,115 +54,99 @@ def draw_prediction(image, tex_cells, col_cells, selected_cell, show_mode, alpha
         b = int(c[5:7], 16)
         colors.append( (r, g, b) )
     overlay = image.copy()
-    for key in tex_cells:
-        tex_cell = tex_cells[key]
-        col_cell = col_cells[key]
-        (r1, r2, c1, c2) = tex_cell["region"]
-        if show_mode == "user" and tex_cell["user"] != None:
-            color = colors[ord(tex_cell["user"]) - ord('0')]
+    for key in cells:
+        cell = cells[key]
+        (r1, r2, c1, c2) = cell["region"]
+        if show_mode == "user" and cell["user"] != None:
+            color = colors[ord(cell["user"])]
             draw(overlay, r1, r2, c1, c2, color, cv2.FILLED)
-        elif show_mode == "tmodel" and tex_cell["prediction"] != None:
-            index = tex_cell["prediction"]
-            if index >= 0 and abs(tex_cell["score"]) >= cutoff:
+        elif show_mode == "model" and cell["prediction"] != None:
+            index = cell["prediction"]
+            print(index)
+            if index >= 0 and abs(cell["score"]) >= cutoff:
                 color = colors[index]
                 draw(overlay, r1, r2, c1, c2, color, cv2.FILLED)
-        elif show_mode == "cmodel" and col_cell["prediction"] != None:
-            index = col_cell["prediction"]
-            if index >= 0 and abs(col_cell["score"]) >= cutoff:
-                color = colors[index]
-                draw(overlay, r1, r2, c1, c2, color, cv2.FILLED)
-        elif show_mode == "combined":
-            tindex = tex_cell["prediction"]
-            cindex = col_cell["prediction"]
-            if tindex == cindex:
-                if abs(tex_cell["score"]) > cutoff and abs(col_cell["score"]) > cutoff:
-                    draw(overlay, r1, r2, c1, c2, colors[tindex], cv2.FILLED)
     result = cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
     if show_mode != "none" and show_mode != "user":
         overlay = result.copy()
-        for key in tex_cells:
-            tex_cell = tex_cells[key]
-            (r1, r2, c1, c2) = tex_cell["region"]
-            if tex_cell["user"] != None:
-                color = colors[ord(tex_cell["user"]) - ord('0')]
+        for key in cells:
+            cell = cells[key]
+            (r1, r2, c1, c2) = cell["region"]
+            if cell["user"] != None:
+                color = colors[ord(cell["user"])]
                 draw(overlay, r1, r2, c1, c2, color, 2)
         result = cv2.addWeighted(overlay, alpha, result, 1 - alpha, 0)
 
     if selected_cell != None:
-        (r1, r2, c1, c2) = tex_cells[selected_cell]["region"]
+        (r1, r2, c1, c2) = cells[selected_cell]["region"]
         draw(result, r1, r2, c1, c2, (255,255,255), 2)
     return result
 
 selected_cell = None
-show_modes = ["none", "user", "tmodel", "cmodel", "combined"]
+show_modes = ["none", "model"]
 show_mode = "none"
 show_index = 0
 
 win = 'scale'
-scale = draw_prediction(scale_orig, tmodel.cells, cmodel.cells,
-                        selected_cell, show_mode)
+scale = draw_prediction(scale_orig, model.cells, selected_cell, show_mode)
 cv2.imshow(win, scale)
 
 def onmouse(event, x, y, flags, param):
     global selected_cell
     if event == cv2.EVENT_LBUTTONDOWN:
         # show region detail
-        key = tmodel.find_key(int(x/args.scale), int(y/args.scale))
+        key = model.find_key(int(x/args.scale), int(y/args.scale))
         selected_cell = key
-        (r1, r2, c1, c2) = tmodel.cells[key]["region"]
+        (r1, r2, c1, c2) = model.cells[key]["region"]
         rgb_region = rgb[r1:r2,c1:c2]
         cv2.imshow('region', cv2.resize(rgb_region, ( (r2-r1)*3, (c2-c1)*3) ))
-        scale = draw_prediction(scale_orig, tmodel.cells, cmodel.cells,
+        scale = draw_prediction(scale_orig, model.cells,
                                 selected_cell, show_mode)
         cv2.imshow(win, scale)
     elif event == cv2.EVENT_RBUTTONDOWN:
-        key = tmodel.find_key(int(x/args.scale), int(y/args.scale))
+        key = model.find_key(int(x/args.scale), int(y/args.scale))
         #if cells[key]["user"] == None:
         #    cells[key]["user"] = "yes"
         #elif cells[key]["user"] == "yes":
         #    cells[key]["user"] = "no"
         #else:
         #    cells[key]["user"] = None
-        scale = draw_prediction(scale_orig, tmodel.cells, cmodel.cells,
+        scale = draw_prediction(scale_orig, model.cells,
                                 selected_cell, show_mode)
         cv2.imshow(win, scale)
 
 cv2.setMouseCallback(win, onmouse)
 
 # work list
-work_list = list(tmodel.cells.keys())
+work_list = list(model.cells.keys())
 random.shuffle(work_list)
 
 index = 0
 while index < len(work_list):
     key = work_list[index]
     selected_cell = key
-    scale = draw_prediction(scale_orig, tmodel.cells, cmodel.cells,
-                            selected_cell, show_mode)
-    (r1, r2, c1, c2) = tmodel.cells[key]["region"]
+    scale = draw_prediction(scale_orig, model.cells, selected_cell, show_mode)
+    (r1, r2, c1, c2) = model.cells[key]["region"]
     print(r1, r2, c1, c2)
     rgb_region = rgb[r1:r2,c1:c2]
-    cv2.imshow('gray', gscale)
+    # cv2.imshow('gray', gscale)
     cv2.imshow('scale', scale)
     cv2.imshow('region', cv2.resize(rgb_region, ( (r2-r1)*3, (c2-c1)*3) ))
     keyb = cv2.waitKey()
     if keyb >= ord('0') and keyb <= ord('9'):
-        tmodel.cells[selected_cell]["user"] = chr(keyb)
-        cmodel.cells[selected_cell]["user"] = chr(keyb)
+        model.cells[selected_cell]["user"] = keyb - ord('0')
         if key == selected_cell:
             index += 1
     elif keyb == ord(' '):
         # pass this cell
         index += 1
     elif keyb == ord('g'):
-        show_index = (show_index + 1) % 5
+        show_index = (show_index + 1) % len(show_modes)
         show_mode = show_modes[show_index]
         print("Show:", show_mode)
     elif keyb == ord('f'):
-        tmodel.update_model()
-        tmodel.update_prediction()
-        cmodel.update_model()
-        cmodel.update_prediction()
+        model.update_model()
+        model.update_prediction()
     elif keyb == ord('q'):
         quit()
 

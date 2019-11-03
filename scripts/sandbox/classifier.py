@@ -49,10 +49,11 @@ class Classifier():
         self.mode = "LBP"
         self.radius = radius
         self.numPoints = radius * 8
+        smooth = cv2.GaussianBlur(image, (5,5), 4)
         if len(image.shape) == 3:
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            gray = cv2.cvtColor(smooth, cv2.COLOR_BGR2GRAY)
         else:
-            gray = image
+            gray = smooth
         self.index = skimage.feature.local_binary_pattern(gray,
                                                           self.numPoints,
                                                           self.radius,
@@ -63,8 +64,9 @@ class Classifier():
         print("Computing redness")
         self.mode = "red"
         # very dark pixels can map out noisily
-        g, b, r = cv2.split(rgb)
-        gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
+        smooth = cv2.GaussianBlur(rgb, (7,7), 5)
+        g, b, r = cv2.split(smooth)
+        gray = cv2.cvtColor(smooth, cv2.COLOR_BGR2GRAY)
         g[g==0] = 1                 # protect against divide by zero
         ratio = (r / g).astype('float') * 0.25
         # knock out the low end

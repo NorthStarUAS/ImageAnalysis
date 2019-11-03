@@ -10,6 +10,7 @@ import os
 import pickle
 import skimage.feature          # pip3 install scikit-image
 from sklearn.cluster import MeanShift, estimate_bandwidth
+from sklearn.cluster import KMeans
 
 class Cluster():
 
@@ -29,16 +30,20 @@ class Cluster():
             fitname = basename + ".fit"
             dataname = basename + ".data"
         if basename and os.path.isfile(fitname):
-            print("Loading LinearSVC model from:", fitname)
-            self.model = pickle.load(open(fitname, "rb"))
+            #print("Loading LinearSVC model from:", fitname)
+            #self.model = pickle.load(open(fitname, "rb"))
             #update_prediction(cell_list, model)
+            pass
         else:
-            print("Initializing a new MeanShift model")
-            self.model = MeanShift(bin_seeding=True)
+            #print("Initializing a new MeanShift model")
+            #self.model = MeanShift(bin_seeding=True)
+            #self.model = KMeans(n_clusters=9)
+            self.model = None
         if basename and os.path.isfile(dataname):
-            print("Loading saved model data from:", dataname)
-            (self.saved_labels, self.saved_data) = \
-                pickle.load( open(dataname, "rb"))
+            #print("Loading saved model data from:", dataname)
+            #(self.saved_labels, self.saved_data) = \
+            #    pickle.load( open(dataname, "rb"))
+            pass
         self.basename = basename
 
     # compute the Local Binary Pattern representation of the image
@@ -61,8 +66,9 @@ class Cluster():
         print("Computing redness")
         self.mode = "red"
         # very dark pixels can map out noisily
-        g, b, r = cv2.split(rgb)
-        gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
+        smooth = cv2.GaussianBlur(rgb, (7,7), 5)
+        g, b, r = cv2.split(smooth)
+        gray = cv2.cvtColor(smooth, cv2.COLOR_BGR2GRAY)
         g[g==0] = 1                 # protect against divide by zero
         ratio = (r / g).astype('float') * 0.25
         # knock out the low end
@@ -87,7 +93,7 @@ class Cluster():
                                      range=(0, 255))
         else:
             print("Unknown mode:", self.mode, "in gen_classifier()")
-        # hist = hist.astype('float') / region.size # normalize
+        hist = hist.astype('float') / region.size # normalize
         if False:
             # dist histogram
             plt.figure()
@@ -133,18 +139,20 @@ class Cluster():
                 data.append(cell["classifier"])
         if len(data) >= 2:
             print("Updating model fit, training points:", len(data))
-            bandwidth = estimate_bandwidth(data, quantile=0.05)
-            self.model = MeanShift(bandwidth=bandwidth, bin_seeding=True)
+            #bandwidth = estimate_bandwidth(data, quantile=0.05)
+            #self.model = MeanShift(bandwidth=bandwidth, bin_seeding=True)
+            self.model = KMeans(n_clusters=5)
             self.model.fit(data)
             print("labels:", self.model.labels_)
             print("centers:", self.model.cluster_centers_)
             if self.basename:
-                dataname = self.basename + ".data"
-                fitname = self.basename + ".fit"
-                print("Saving data:", dataname)
-                pickle.dump( ([], data), open(dataname, "wb"))
-                print("Saving model:", fitname)
-                pickle.dump(self.model, open(fitname, "wb"))
+                #dataname = self.basename + ".data"
+                #fitname = self.basename + ".fit"
+                #print("Saving data:", dataname)
+                #pickle.dump( ([], data), open(dataname, "wb"))
+                #print("Saving model:", fitname)
+                #pickle.dump(self.model, open(fitname, "wb"))
+                pass
             print("Done.")
  
     def update_prediction(self):

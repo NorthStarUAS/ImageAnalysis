@@ -67,7 +67,8 @@ def main():
 
     if args['image']:
         image = cv2.imread(args['image'])
-
+        image = cv2.GaussianBlur(image, (5,5), 4)
+        
         if range_filter == 'RGB':
             frame_to_thresh = image.copy()
         elif range_filter == 'HSV':
