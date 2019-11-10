@@ -74,8 +74,8 @@ if height != img.shape[0] or width != img.shape[1]:
     print("Using actual image size")
     (height, width) = img.shape[:2]
     
-base_name.replace(' ', '_')
-print('base:', base_name)
+#base_name.replace(' ', '_')
+#print('base:', base_name)
 
 aspect_ratio = width / height
 print('aspect ratio:', aspect_ratio)
