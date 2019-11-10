@@ -1,0 +1,28 @@
+{
+    "K": [
+        2804,
+        0.0,
+        1920.0,
+        0.0,
+        2804,
+        1080.0,
+        0.0,
+        0.0,
+        1.0
+    ],
+    "ccd_height_mm": 8.799999999999999,
+    "ccd_width_mm": 13.2,
+    "dist_coeffs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+    ],
+    "focal_len_mm": 10.26,
+    "height_px": 2160,
+    "lens_model": "video mode",
+    "make": "Hasselblad",
+    "model": "L1D-20c",
+    "width_px": 3840
+}
