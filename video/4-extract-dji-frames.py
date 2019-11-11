@@ -23,7 +23,7 @@ from auracore import wgs84
 from aurauas_flightdata import flight_loader, flight_interp
 
 parser = argparse.ArgumentParser(description='extract and geotag dji movie frames.')
-parser.add_argument('--movie', required=True, help='input movied')
+parser.add_argument('--video', required=True, help='input video')
 parser.add_argument('--cam-mount', choices=['forward', 'down', 'rear'],
                     default='down',
                     help='approximate camera mounting orientation')
@@ -79,7 +79,7 @@ def decimal_to_dms(decimal):
     return [Fraction(n) for n in (degrees, minutes, remainder * 60)]
 
 # pathname work
-abspath = os.path.abspath(args.movie)
+abspath = os.path.abspath(args.video)
 basename, ext = os.path.splitext(abspath)
 srtname = basename + ".srt"
 dirname = basename + "_frames"
@@ -88,18 +88,23 @@ print("srtname:", srtname)
 print("dirname:", dirname)
 
 # check for required input files
-if not os.path.isfile(args.movie):
-    print("%s doesn't exist, aborting ..." % args.movie)
+if not os.path.isfile(args.video):
+    print("%s doesn't exist, aborting ..." % args.video)
     quit()
     
-if not os.path.isfile(srtname):
-    print("%s doesn't exist, aborting ..." % srtname)
+if os.path.isfile(basename + ".srt"):
+    srtname = basename + ".srt"
+elif os.path.isfile(basename + ".SRT"):
+    srtname = basename + ".SRT"
+else:
+    print("SRT (caption) file doesn't exist, aborting ...")
     quit()
 
 # output directory
 os.makedirs(dirname, exist_ok=True)
 
 # read and parse srt file, setup data interpolator
+need_interpolate = False
 times = []
 lats = []
 lons = []
@@ -121,47 +126,76 @@ with open(srtname, 'r') as f:
             time_range = line.rstrip()
             (start, end) = time_range.split(' --> ')
             (shr, smin, ssec_txt) = start.split(':')
-            (ssec, junk) = ssec_txt.split(',')
-            if junk != "000":
-                print("partial second not zero, code not written to handle this")
-                quit()
+            (ssec, ssubsec) = ssec_txt.split(',')
             (ehr, emin, esec_txt) = end.split(':')
-            (esec, junk) = esec_txt.split(',')
-            if junk != "000":
-                print("partial second not zero, code not written to handle this")
-                quit()
-            ts = int(shr)*3600 + int(smin)*60 + int(ssec)
-            te = int(ehr)*3600 + int(emin)*60 + int(esec)
-            # print(ts, te)
+            (esec, esubsec) = esec_txt.split(',')
+            ts = int(shr)*3600 + int(smin)*60 + int(ssec) + int(ssubsec)/1000
+            te = int(ehr)*3600 + int(emin)*60 + int(esec) + int(esubsec)/1000
+            print(ts, te)
             state += 1
         elif state == 2:
+            # check for phantom (old) versus mavic2 (new) record
             data_line = line.rstrip()
-            m = re.search('(?<=GPS \()(.+)\)', data_line)
-            (lon_txt, lat_txt, alt) = m.group(0).split(', ')
-            m = re.search('(?<=, H )([\d\.]+)', data_line)
-            if lat_txt != 'n/a':
-                lat = float(lat_txt)
-            if lon_txt != 'n/a':
-                lon = float(lon_txt)
-            height = float(m.group(0))
-            # print('gps:', lat, lon, height)
-            times.append(ts)
+            if re.search('\<font.*\>', data_line):
+                # mavic 2
+                state += 1
+            else:
+                # phantom
+                need_interpolate = True
+                m = re.search('(?<=GPS \()(.+)\)', data_line)
+                (lon_txt, lat_txt, alt) = m.group(0).split(', ')
+                m = re.search('(?<=, H )([\d\.]+)', data_line)
+                if lat_txt != 'n/a':
+                    lat = float(lat_txt)
+                if lon_txt != 'n/a':
+                    lon = float(lon_txt)
+                height = float(m.group(0))
+                # print('gps:', lat, lon, height)
+                times.append(ts)
+                lats.append(lat)
+                lons.append(lon)
+                heights.append(height)
+                state = 0
+        elif state == 3:
+            # mavic 2 datetimem line
+            datetime = line.rstrip()
+            state += 1
+        elif state == 4:
+            # mavic 2 big data line
+            data_line = line.rstrip()
+            m = re.search('latitude : ([+-]?\d*\.\d*)', data_line)
+            if m:
+                lat = float(m.group(1))
+            else:
+                lat = None
+            m = re.search('longt?itude : ([+-]?\d*\.\d*)', data_line)
+            if m:
+                lon = float(m.group(1))
+            else:
+                lon = None
+            m = re.search('altitude.*: ([+-]?\d*\.\d*)', data_line)
+            if m:
+                alt = float(m.group(1))
+            else:
+                alt = None
+            times.append(datetime)
             lats.append(lat)
             lons.append(lon)
-            heights.append(height)
-            state = 0
+            heights.append(alt)
         else:
             pass
-print('setting up interpolators')
-interp_lats = interpolate.interp1d(times, lats,
-                                   bounds_error=False, fill_value=0.0)
-interp_lons = interpolate.interp1d(times, lons,
-                                   bounds_error=False, fill_value=0.0)
-interp_heights = interpolate.interp1d(times, heights,
-                                   bounds_error=False, fill_value=0.0)
+
+if need_interpolate:
+    print('setting up interpolators')
+    interp_lats = interpolate.interp1d(times, lats,
+                                       bounds_error=False, fill_value=0.0)
+    interp_lons = interpolate.interp1d(times, lons,
+                                       bounds_error=False, fill_value=0.0)
+    interp_heights = interpolate.interp1d(times, heights,
+                                          bounds_error=False, fill_value=0.0)
 
 # fetch video metadata
-metadata = skvideo.io.ffprobe(args.movie)
+metadata = skvideo.io.ffprobe(args.video)
 #print(metadata.keys())
 #print(json.dumps(metadata["video"], indent=4))
 fps_string = metadata['video']['@avg_frame_rate']
@@ -175,8 +209,8 @@ print('codec:', codec)
 print('output size:', w, 'x', h)
 
 # extract frames
-print("Opening ", args.movie)
-reader = skvideo.io.FFmpegReader(args.movie, inputdict={}, outputdict={})
+print("Opening ", args.video)
+reader = skvideo.io.FFmpegReader(args.video, inputdict={}, outputdict={})
 
 meta = os.path.join(dirname, "image-metadata.txt")
 f = open(meta, 'w')
@@ -198,9 +232,18 @@ for frame in reader.nextFrame():
     if args.end_time and time > args.end_time:
         break
 
-    lat_deg = interp_lats(time)
-    lon_deg = interp_lons(time)
-    altitude = interp_heights(time) + args.ground
+    if need_interpolate:
+        lat_deg = interp_lats(time)
+        lon_deg = interp_lons(time)
+        alt_m = interp_heights(time) + args.ground
+    else:
+        if counter - 1 >= len(times):
+            print("MORE FRAMES THAN SRT ENTRIS")
+            continue
+        datetime = times[counter - 1]
+        lat_deg = lats[counter - 1]
+        lon_deg = lons[counter - 1]
+        alt_m = heights[counter - 1]
     if abs(lat_deg) < 0.001 and abs(lon_deg) < 0.001:
         continue
     (c1, c2, dist_m) = wgs84.geo_inverse(lat_deg, lon_deg, last_lat, last_lon)
@@ -214,10 +257,11 @@ for frame in reader.nextFrame():
         # geotag the image
         exif = pyexiv2.ImageMetadata(file)
         exif.read()
-        print(lat_deg, lon_deg, altitude)
+        print(lat_deg, lon_deg, alt_m)
+        exif['Exif.Image.DateTime'] = datetime
         GPS = 'Exif.GPSInfo.GPS'
-        exif[GPS + 'AltitudeRef']  = '0' if altitude >= 0 else '1'
-        exif[GPS + 'Altitude']     = Fraction(altitude)
+        exif[GPS + 'AltitudeRef']  = '0' if alt_m >= 0 else '1'
+        exif[GPS + 'Altitude']     = Fraction(alt_m)
         exif[GPS + 'Latitude']     = decimal_to_dms(lat_deg)
         exif[GPS + 'LatitudeRef']  = 'N' if lat_deg >= 0 else 'S'
         exif[GPS + 'Longitude']    = decimal_to_dms(lon_deg)
@@ -225,7 +269,7 @@ for frame in reader.nextFrame():
         exif[GPS + 'MapDatum']     = 'WGS-84'
         exif.write()
         head, tail = os.path.split(file)
-        f.write("%s,%.8f,%.8f,%.4f,%.4f,%.4f,%.4f,%.2f\n" % (tail, lat_deg, lon_deg, altitude, args.heading, 0.0, 0.0, time))
+        f.write("%s,%.8f,%.8f,%.4f,%.4f,%.4f,%.4f,%.2f\n" % (tail, lat_deg, lon_deg, alt_m, args.heading, 0.0, 0.0, time))
         last_lat = lat_deg
         last_lon = lon_deg
         
