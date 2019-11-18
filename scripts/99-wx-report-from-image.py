@@ -10,9 +10,9 @@ from libxmp.utils import file_to_dict
 
 parser = argparse.ArgumentParser(description="Lookup a weather report for the location/time an image was captured.")
 parser.add_argument("--image", required=False, help="geotagged image")
-parser.add_argument("--lat", required=True, type=float, help="image lat")
-parser.add_argument("--lon", required=True, type=float, help="image lon")
-parser.add_argument("--unixtime", required=True, type=int, help="unix sec")
+parser.add_argument("--lat", required=False, type=float, help="image lat")
+parser.add_argument("--lon", required=False, type=float, help="image lon")
+parser.add_argument("--unixtime", required=False, type=int, help="unix sec")
 args = parser.parse_args()
 
 def dms_to_decimal(degrees, minutes, seconds, sign=' '):
@@ -43,18 +43,17 @@ if not len(apikey):
     print("Cannot lookup weather because no forecastio apikey found.")
     quit()
     
-# for lack of time to work on this, just use lon, lat, unix_sec from
-# image-metadata.txt manually
 alt = 0
-if False:
+if args.image:
     exif_dict = piexif.load(args.image)
-    for ifd in exif_dict:
-        if ifd == str("thumbnail"):
-            print("thumb thumb thumbnail")
-            continue
-        print(ifd, ":")
-        for tag in exif_dict[ifd]:
-            print(ifd, tag, piexif.TAGS[ifd][tag]["name"], exif_dict[ifd][tag])
+    if False:
+        for ifd in exif_dict:
+            if ifd == str("thumbnail"):
+                print("thumb thumb thumbnail")
+                continue
+            print(ifd, ":")
+            for tag in exif_dict[ifd]:
+                print(ifd, tag, piexif.TAGS[ifd][tag]["name"], exif_dict[ifd][tag])
 
     elat = exif_dict['GPS'][piexif.GPSIFD.GPSLatitude]
     lat = dms_to_decimal(elat[0], elat[1], elat[2],
@@ -74,14 +73,17 @@ if False:
         print(strdate, strtime)
         year, month, day = strdate.split(':')
         hour, minute, second = strtime.split(':')
-        d = datetime.date(int(year), int(month), int(day))
-        t = datetime.time(int(hour), int(minute), int(second))
-        dt = datetime.datetime.combine(d, t) 
+        #d = datetime.date(int(year), int(month), int(day))
+        #t = datetime.time(int(hour), int(minute), int(second))
+        #dt = datetime.datetime.combine(d, t) 
+        dt = datetime.datetime(int(year), int(month), int(day),
+                               int(hour), int(minute), int(second))
         unix_sec = float(dt.strftime('%s'))
 
-lat = args.lat
-lon = args.lon
-unix_sec = args.unixtime
+else:
+    lat = args.lat
+    lon = args.lon
+    unix_sec = args.unixtime
 
 print('pos, time:', lat, lon, alt, unix_sec)
     
