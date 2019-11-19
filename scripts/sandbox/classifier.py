@@ -21,26 +21,30 @@ class Classifier():
     saved_labels = []
     saved_data = []
     mode = None                 # LBP, red, ...
-
+    threshold_val = -1
+    
     def __init__(self):
         pass
 
-    def init_model(self, basename):
-        if basename:
-            fitname = basename + ".fit"
-            dataname = basename + ".data"
-        if basename and os.path.isfile(fitname):
-            print("Loading SVC model from:", fitname)
-            self.model = pickle.load(open(fitname, "rb"))
-            #update_prediction(cell_list, model)
+    def init_model(self, basename, threshold_val=-1):
+        if threshold_val >= 0:
+            self.threshold_val = threshold_val
         else:
-            print("Initializing a new SVC model")
-            self.model = sklearn.svm.LinearSVC(max_iter=5000000)
-            #self.model = sklearn.linear_model.SGDClassifier(warm_start=True, loss="modified_huber", max_iter=5000000)
-        if basename and os.path.isfile(dataname):
-            print("Loading saved model data from:", dataname)
-            (self.saved_labels, self.saved_data) = \
-                pickle.load( open(dataname, "rb"))
+            if basename:
+                fitname = basename + ".fit"
+                dataname = basename + ".data"
+            if basename and os.path.isfile(fitname):
+                print("Loading SVC model from:", fitname)
+                self.model = pickle.load(open(fitname, "rb"))
+                #update_prediction(cell_list, model)
+            else:
+                print("Initializing a new SVC model")
+                self.model = sklearn.svm.LinearSVC(max_iter=5000000)
+                #self.model = sklearn.linear_model.SGDClassifier(warm_start=True, loss="modified_huber", max_iter=5000000)
+            if basename and os.path.isfile(dataname):
+                print("Loading saved model data from:", dataname)
+                (self.saved_labels, self.saved_data) = \
+                    pickle.load( open(dataname, "rb"))
         self.basename = basename
 
     # compute the Local Binary Pattern representation of the image
@@ -81,7 +85,9 @@ class Classifier():
     # histogram of values
     def gen_classifier(self, r1, r2, c1, c2):
         region = self.index[r1:r2,c1:c2]
-        if self.mode == "LBP":
+        if self.threshold_val >= 0:
+            return (region >= self.threshold_val).sum()
+        elif self.mode == "LBP":
             (hist, _) = np.histogram(region.ravel(),
                                      bins=np.arange(0, self.numPoints + 3),
                                      range=(0, self.numPoints + 2))
@@ -125,9 +131,13 @@ class Classifier():
         for key in self.cells:
             (r1, r2, c1, c2) = self.cells[key]["region"]
             self.cells[key]["classifier"] = self.gen_classifier(r1, r2, c1, c2)
+            print(key, self.cells[key]["classifier"])
 
     # do the model fit
     def update_model(self):
+        if self.threshold_val >= 0:
+            return
+        
         labels = list(self.saved_labels)
         data = list(self.saved_data)
         for key in self.cells:
@@ -148,15 +158,25 @@ class Classifier():
             print("Done.")
  
     def update_prediction(self):
+        if self.threshold_val >= 0:
+            for key in self.cells:
+                cell = self.cells[key]
+                cell["prediction"] = (cell["classifier"] > 0)
+                cell["score"] = 1.0
+                print(key, cell["prediction"])
+            return
         if self.model == None:
             print("No model defined in update_prediction()")
             return
         for key in self.cells:
             cell = self.cells[key]
-            cell["prediction"] = \
-                self.model.predict(cell["classifier"].reshape(1, -1))[0]
-            cell["score"] = \
-                self.model.decision_function(cell["classifier"].reshape(1, -1))[0]
+            if self.threshold_val >= 0:
+                cell["prediction"] = (cell["classifier"] > 0)
+            else:
+                cell["prediction"] = \
+                    self.model.predict(cell["classifier"].reshape(1, -1))[0]
+                cell["score"] = \
+                    self.model.decision_function(cell["classifier"].reshape(1, -1))[0]
 
     # return the key of the cell containing the give x, y pixel coordinate
     def find_key(self, x, y):
