@@ -40,6 +40,7 @@ def get_arguments():
     ap.add_argument('-p', '--preview', required=False,
                     help='Show a preview of the image after applying the mask',
                     action='store_true')
+    ap.add_argument('--scale', type=float, default=0.25)
     args = vars(ap.parse_args())
 
     #if not xor(bool(args['image']), bool(args['webcam'])):
@@ -68,8 +69,10 @@ def main():
     range_filter = args['filter'].upper()
 
     if args['image']:
-        image = cv2.imread(args['image'])
+        image = cv2.imread(args['image'], flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
         image = cv2.GaussianBlur(image, (5,5), 4)
+        (h, w) = image.shape[:2]
+        image = cv2.resize(image, (int(w*args['scale']), int(h*args['scale'])))
         
         if range_filter == 'RGB':
             frame_to_thresh = image.copy()

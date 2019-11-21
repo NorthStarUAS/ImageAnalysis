@@ -9,8 +9,7 @@ import numpy as np
 import os
 import pickle
 import skimage.feature          # pip3 install scikit-image
-from sklearn.cluster import MeanShift, estimate_bandwidth
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, MeanShift, estimate_bandwidth # pip3 install scikit-learn
 
 class Cluster():
 

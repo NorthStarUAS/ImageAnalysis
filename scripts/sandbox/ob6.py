@@ -10,7 +10,7 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 
-import classifier
+import threshold
 
 texture_and_color = False
 # goal_step = 160                      # this is a tuning dial
@@ -18,20 +18,16 @@ texture_and_color = False
 parser = argparse.ArgumentParser(description='local binary patterns test.')
 parser.add_argument('--image', required=True, help='image name')
 parser.add_argument('--scale', type=float, default=0.4, help='scale image before processing')
-parser.add_argument('--threshold', type=int, default=128, help='threshold value for simple flagging')
 args = parser.parse_args()
 
 rgb = cv2.imread(args.image, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
 (h, w) = rgb.shape[:2]
 
 # texture based classifier
-model = classifier.Classifier()
-model.init_model(basename="ob6", threshold_val=args.threshold)
-#model.compute_lbp(rgb, radius=3)
-model.compute_redness(rgb)
+model = threshold.Threshold()
+model.init_model(rgb, "hsv90")
 model.compute_grid(grid_size=128)
-cv2.imshow('model', cv2.resize(model.index.astype('uint8'), (int(w*args.scale), int(h*args.scale))))
-#model.update_prediction()
+cv2.imshow('model', cv2.resize(model.image.astype('uint8'), (int(w*args.scale), int(h*args.scale))))
 
 # cv2.imshow('index', cv2.resize(model.index, (int(w*args.scale), int(h*args.scale))))
 scale_orig = cv2.resize(rgb, (int(w*args.scale), int(h*args.scale)))
@@ -60,9 +56,9 @@ def draw_prediction(image, cells, selected_cell, show_mode, alpha=0.25):
     for key in cells:
         cell = cells[key]
         (r1, r2, c1, c2) = cell["region"]
-        if show_mode == "model" and cell["prediction"] != None:
-            index = cell["prediction"]
-            if cell["prediction"] > 0:
+        if show_mode == "model" and cell["score"] != None:
+            (max, avg, count) = cell["score"]
+            if max > 110 or avg > 4 or count > 1000:
                 color = colors[0]
                 draw(overlay, r1, r2, c1, c2, color, cv2.FILLED)
     result = cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
@@ -89,8 +85,8 @@ def onmouse(event, x, y, flags, param):
         selected_cell = key
         (r1, r2, c1, c2) = model.cells[key]["region"]
         rgb_region = rgb[r1:r2,c1:c2]
-        model_region = model.index[r1:r2,c1:c2].astype('uint8')
-        print("max:", np.max(model_region))
+        (max, avg, count) = model.cells[key]["score"]
+        print("max:", max, "avg:", avg, "count:", count)
         cv2.imshow('region', cv2.resize(rgb_region, ( (r2-r1)*3, (c2-c1)*3) ))
         scale = draw_prediction(scale_orig, model.cells,
                                 selected_cell, show_mode)
@@ -131,8 +127,9 @@ while index < len(work_list):
         show_mode = show_modes[show_index]
         print("Show:", show_mode)
     elif keyb == ord('f'):
-        model.update_model()
-        model.update_prediction()
+        model.apply_threshold( (80, 80, 0), (100, 255, 255) )
+        cv2.imshow('mask', cv2.resize(model.mask, (int(w*args.scale), int(h*args.scale))))
+        cv2.imshow('thresh', cv2.resize(model.result, (int(w*args.scale), int(h*args.scale))))
     elif keyb == ord('q'):
         quit()
 
