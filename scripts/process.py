@@ -19,11 +19,12 @@
 
 import argparse
 import os
+import time
 
 from lib import logger
 from lib import Pose
 from lib import ProjectMgr
-
+from lib import state
 # from the aura-props python package
 from props import getNode, PropertyNode
 import props_json
@@ -115,18 +116,7 @@ else:
     logger.log("Aborting due to camera detection failure.")
     quit()
 
-### 1c. create pose file (if it doesn't already exist, for example
-###     sentera cameras will generate the pix4d.csv file
-###     automatically)
-
-pix4d_file = os.path.join(args.project, 'pix4d.csv')
-meta_file = os.path.join(args.project, 'image-metadata.txt')
-if os.path.exists(pix4d_file):
-    logger.log("Found a pose file:", pix4d_file)
-elif os.path.exists(meta_file):
-    logger.log("Found a pose file:", meta_file)
-else:
-    Pose.make_pix4d(args.project)
+state.update("STEP1")
 
 
 ############################################################################
@@ -135,6 +125,17 @@ else:
 
 logger.log("Configuring images")
 
+# create pose file (if it doesn't already exist, for example sentera
+# cameras will generate the pix4d.csv file automatically)
+pix4d_file = os.path.join(args.project, 'pix4d.csv')
+meta_file = os.path.join(args.project, 'image-metadata.txt')
+if os.path.exists(pix4d_file):
+    logger.log("Found a pose file:", pix4d_file)
+elif os.path.exists(meta_file):
+    logger.log("Found a pose file:", meta_file)
+else:
+    Pose.make_pix4d(args.project)
+    
 # load existing image meta data in case this isn't a first run
 proj.load_images_info()
 
@@ -168,48 +169,53 @@ proj.save_images_info()
 # save change to ned reference
 proj.save()
 
+state.update("STEP2")
+
 
 ############################################################################
 ### Step 3: detect features and compute descriptors
 ############################################################################
 
-# setup project detector parameters
-detector_node = getNode('/config/detector', True)
-detector_node.setString('detector', args.detector)
-detector_node.setString('scale', args.scale)
-if args.detector == 'SIFT':
-    pass
-elif args.detector == 'SURF':
-    detector_node.setInt('surf_hessian_threshold', args.surf_hessian_threshold)
-    detector_node.setInt('surf_noctaves', args.surf_noctaves)
-elif args.detector == 'ORB':
-    detector_node.setInt('grid_detect', args.grid_detect)
-    detector_node.setInt('orb_max_features', args.orb_max_features)
-elif args.detector == 'Star':
-    detector_node.setInt('star_max_size', args.star_max_size)
-    detector_node.setInt('star_response_threshold',
-                         args.star_response_threshold)
-    detector_node.setInt('star_line_threshold_projected',
-                         args.star_response_threshold)
-    detector_node.setInt('star_line_threshold_binarized',
-                         args.star_line_threshold_binarized)
-    detector_node.setInt('star_suppress_nonmax_size',
-                         args.star_suppress_nonmax_size)
+if not state.check("STEP3"):
+    # setup project detector parameters
+    detector_node = getNode('/config/detector', True)
+    detector_node.setString('detector', args.detector)
+    detector_node.setString('scale', args.scale)
+    if args.detector == 'SIFT':
+        pass
+    elif args.detector == 'SURF':
+        detector_node.setInt('surf_hessian_threshold', args.surf_hessian_threshold)
+        detector_node.setInt('surf_noctaves', args.surf_noctaves)
+    elif args.detector == 'ORB':
+        detector_node.setInt('grid_detect', args.grid_detect)
+        detector_node.setInt('orb_max_features', args.orb_max_features)
+    elif args.detector == 'Star':
+        detector_node.setInt('star_max_size', args.star_max_size)
+        detector_node.setInt('star_response_threshold',
+                             args.star_response_threshold)
+        detector_node.setInt('star_line_threshold_projected',
+                             args.star_response_threshold)
+        detector_node.setInt('star_line_threshold_binarized',
+                             args.star_line_threshold_binarized)
+        detector_node.setInt('star_suppress_nonmax_size',
+                             args.star_suppress_nonmax_size)
 
-logger.log("Detecting features.")
-logger.log("detector:", args.detector)
-logger.log("image scale for detection:", args.scale)
+    logger.log("Detecting features.")
+    logger.log("detector:", args.detector)
+    logger.log("image scale for detection:", args.scale)
 
-# find features in the full image set
-proj.detect_features(scale=args.scale, force=True)
+    # find features in the full image set
+    proj.detect_features(scale=args.scale, force=True)
 
-feature_count = 0
-image_count = 0
-for image in proj.image_list:
-    feature_count += len(image.kp_list)
-    image_count += 1
+    feature_count = 0
+    image_count = 0
+    for image in proj.image_list:
+        feature_count += len(image.kp_list)
+        image_count += 1
 
-logger.log("Average # of features per image found = %.0f" % (feature_count / image_count))
+    logger.log("Average # of features per image found = %.0f" % (feature_count / image_count))
 
-# save project configuration
-proj.save()
+    # save project configuration
+    proj.save()
+
+    state.update("STEP3")

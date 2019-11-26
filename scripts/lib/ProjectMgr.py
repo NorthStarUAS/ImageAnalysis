@@ -20,12 +20,13 @@ import geojson
 from props import root, getNode
 import props_json
 
-from . import logger
 from . import Camera
 from . import Exif
 from . import Image
 from . import ImageList
+from . import logger
 from . import Render
+from . import state
 from . import transformations
 
 
@@ -62,6 +63,9 @@ class ProjectMgr():
 
         # log directory
         logger.init(self.analysis_dir)
+
+        # state manager
+        state.init(self.analysis_dir)
         
         # and make other children directories
         meta_dir = os.path.join(self.analysis_dir, 'meta')
