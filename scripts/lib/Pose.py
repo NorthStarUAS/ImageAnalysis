@@ -42,6 +42,8 @@ r2d = 180.0 / math.pi
 
 # define the image aircraft poses from Sentera meta data file
 def setAircraftPoses(proj, posefile="", order='ypr', max_angle=25.0):
+    logger.log("Setting aircraft poses")
+    
     meta_dir = os.path.join(proj.project_dir, 'meta')
     proj.image_list = []
     
@@ -49,10 +51,10 @@ def setAircraftPoses(proj, posefile="", order='ypr', max_angle=25.0):
     for line in f:
         line.strip()
         if re.match('^\s*#', line):
-            print("skipping comment ", line)
+            #print("skipping comment ", line)
             continue
         if re.match('^\s*File', line):
-            print("skipping header ", line)
+            #print("skipping header ", line)
             continue
         field = line.split(',')
         name = field[0]
@@ -74,11 +76,11 @@ def setAircraftPoses(proj, posefile="", order='ypr', max_angle=25.0):
 
         found_dir = ''
         if not os.path.isfile( os.path.join(proj.project_dir, name) ):
-            print('No image file:', name, 'skipping ...')
+            logger.log("No image file:", name, "skipping ...")
             continue
         if abs(roll_deg) > max_angle or abs(pitch_deg) > max_angle:
             # fairly 'extreme' attitude, skip image
-            print('extreme attitude:', name, 'roll:', roll_deg, 'pitch:', pitch_deg)
+            logger.log("extreme attitude:", name, "roll:", roll_deg, "pitch:", pitch_deg)
             continue
 
         base, ext = os.path.splitext(name)
@@ -86,42 +88,44 @@ def setAircraftPoses(proj, posefile="", order='ypr', max_angle=25.0):
         image.set_aircraft_pose(lat_deg, lon_deg, alt_m,
                                 yaw_deg, pitch_deg, roll_deg,
                                 flight_time)
-        print(name, 'yaw=%.1f pitch=%.1f roll=%.1f' % (yaw_deg, pitch_deg, roll_deg))
+        logger.log("pose:", name, "yaw=%.1f pitch=%.1f roll=%.1f" % (yaw_deg, pitch_deg, roll_deg))
         proj.image_list.append(image)
 
 # for each image, compute the estimated camera pose in NED space from
 # the aircraft body pose and the relative camera orientation
 def compute_camera_poses(proj):
-    mount_node = getNode('/config/camera/mount', True)
-    ref_node = getNode('/config/ned_reference', True)
-    images_node = getNode('/images', True)
+    logger.log("Setting camera poses (offset from aircraft pose.)")
+    
+    mount_node = getNode("/config/camera/mount", True)
+    ref_node = getNode("/config/ned_reference", True)
+    images_node = getNode("/images", True)
 
-    camera_yaw = mount_node.getFloat('yaw_deg')
-    camera_pitch = mount_node.getFloat('pitch_deg')
-    camera_roll = mount_node.getFloat('roll_deg')
+    camera_yaw = mount_node.getFloat("yaw_deg")
+    camera_pitch = mount_node.getFloat("pitch_deg")
+    camera_roll = mount_node.getFloat("roll_deg")
     print(camera_yaw, camera_pitch, camera_roll)
     body2cam = transformations.quaternion_from_euler(camera_yaw * d2r,
                                                      camera_pitch * d2r,
                                                      camera_roll * d2r,
-                                                     'rzyx')
+                                                     "rzyx")
 
-    ref_lat = ref_node.getFloat('lat_deg')
-    ref_lon = ref_node.getFloat('lon_deg')
-    ref_alt = ref_node.getFloat('alt_m')
+    ref_lat = ref_node.getFloat("lat_deg")
+    ref_lon = ref_node.getFloat("lon_deg")
+    ref_alt = ref_node.getFloat("alt_m")
 
     for image in proj.image_list:
         ac_pose_node = image.node.getChild("aircraft_pose", True)
         #cam_pose_node = images_node.getChild(name + "/camera_pose", True)
         
-        aircraft_lat = ac_pose_node.getFloat('lat_deg')
-        aircraft_lon = ac_pose_node.getFloat('lon_deg')
-        aircraft_alt = ac_pose_node.getFloat('alt_m')
+        aircraft_lat = ac_pose_node.getFloat("lat_deg")
+        aircraft_lon = ac_pose_node.getFloat("lon_deg")
+        aircraft_alt = ac_pose_node.getFloat("alt_m")
         ned2body = []
         for i in range(4):
-            ned2body.append( ac_pose_node.getFloatEnum('quat', i) )
+            ned2body.append( ac_pose_node.getFloatEnum("quat", i) )
         
         ned2cam = transformations.quaternion_multiply(ned2body, body2cam)
-        (yaw_rad, pitch_rad, roll_rad) = transformations.euler_from_quaternion(ned2cam, 'rzyx')
+        (yaw_rad, pitch_rad, roll_rad) = transformations.euler_from_quaternion(ned2cam, "rzyx")
         ned = navpy.lla2ned( aircraft_lat, aircraft_lon, aircraft_alt,
                              ref_lat, ref_lon, ref_alt )
 
@@ -132,7 +136,7 @@ def make_pix4d(image_dir, force_altitude=None, force_heading=None, yaw_from_grou
     # load list of images
     files = []
     for file in os.listdir(image_dir):
-        if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
+        if fnmatch.fnmatch(file, "*.jpg") or fnmatch.fnmatch(file, "*.JPG"):
             files.append(file)
     files.sort()
 
@@ -204,7 +208,7 @@ def make_pix4d(image_dir, force_altitude=None, force_heading=None, yaw_from_grou
             images[i][6] = avg_hdg
 
     # sanity check
-    output_file = os.path.join(image_dir, 'pix4d.csv')
+    output_file = os.path.join(image_dir, "pix4d.csv")
     if os.path.exists(output_file):
         logger.log(output_file, "exists, please rename it and rerun this script.")
         quit()
@@ -213,13 +217,13 @@ def make_pix4d(image_dir, force_altitude=None, force_heading=None, yaw_from_grou
     # traverse the image list and create output csv file
     with open(output_file, 'w') as csvfile:
         writer = csv.DictWriter( csvfile,
-                                 fieldnames=['File Name',
-                                             'Lat (decimal degrees)',
-                                             'Lon (decimal degrees)',
-                                             'Alt (meters MSL)',
-                                             'Roll (decimal degrees)',
-                                             'Pitch (decimal degrees)',
-                                             'Yaw (decimal degrees)'] )
+                                 fieldnames=["File Name",
+                                             "Lat (decimal degrees)",
+                                             "Lon (decimal degrees)",
+                                             "Alt (meters MSL)",
+                                             "Roll (decimal degrees)",
+                                             "Pitch (decimal degrees)",
+                                             "Yaw (decimal degrees)"] )
         writer.writeheader()
         for line in images:
             image = line[0]
@@ -230,10 +234,10 @@ def make_pix4d(image_dir, force_altitude=None, force_heading=None, yaw_from_grou
             pitch_deg = line[5]
             yaw_deg = line[6]
             #print(image, lat_deg, lon_deg, alt_m)
-            writer.writerow( { 'File Name': os.path.basename(image),
-                               'Lat (decimal degrees)': "%.10f" % lat_deg,
-                               'Lon (decimal degrees)': "%.10f" % lon_deg,
-                               'Alt (meters MSL)': "%.2f" % alt_m,
-                               'Roll (decimal degrees)': "%.2f" % roll_deg,
-                               'Pitch (decimal degrees)': "%.2f" % pitch_deg,
-                               'Yaw (decimal degrees)': "%.2f" % yaw_deg } )
+            writer.writerow( { "File Name": os.path.basename(image),
+                               "Lat (decimal degrees)": "%.10f" % lat_deg,
+                               "Lon (decimal degrees)": "%.10f" % lon_deg,
+                               "Alt (meters MSL)": "%.2f" % alt_m,
+                               "Roll (decimal degrees)": "%.2f" % roll_deg,
+                               "Pitch (decimal degrees)": "%.2f" % pitch_deg,
+                               "Yaw (decimal degrees)": "%.2f" % yaw_deg } )

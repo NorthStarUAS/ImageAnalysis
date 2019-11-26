@@ -15,6 +15,7 @@ parser = argparse.ArgumentParser(description='Create an empty project.')
 
 parser.add_argument('--project', required=True, help='Directory with a set of aerial images.')
 
+# for camera setup
 parser.add_argument('--camera', help='camera config file')
 parser.add_argument('--yaw-deg', type=float, default=0.0,
                     help='camera yaw mounting offset from aircraft')
@@ -23,14 +24,17 @@ parser.add_argument('--pitch-deg', type=float, default=-90.0,
 parser.add_argument('--roll-deg', type=float, default=0.0,
                     help='camera roll mounting offset from aircraft')
 
+# for pose setup
+parser.add_argument('--max-angle', type=float, default=25.0, help='max pitch or roll angle for image inclusion')
+
 args = parser.parse_args()
 
 
 ############################################################################
-# Step 1: setup the project
+### Step 1: setup the project
 ############################################################################
 
-# 1a. initialize a new project workspace
+### 1a. initialize a new project workspace
 
 # test if images directory exists
 if not os.path.isdir(args.project):
@@ -43,7 +47,7 @@ proj.save()
 
 logger.log("Created project:", args.project)
 
-# 1b. intialize camera
+### 1b. intialize camera
 
 if args.camera:
     # specified on command line
@@ -74,10 +78,61 @@ else:
     logger.log("Aborting due to camera detection failure.")
     quit()
 
-# 1c. create pose file (if it doesn't already exist)
+### 1c. create pose file (if it doesn't already exist, for example
+###     sentera cameras will generate the pix4d.csv file
+###     automatically)
 
 pix4d_file = os.path.join(args.project, 'pix4d.csv')
 meta_file = os.path.join(args.project, 'image-metadata.txt')
-if not os.path.exists(pix4d_file) and not os.path.exists(meta_file):
+if os.path.exists(pix4d_file):
+    logger.log("Found a pose file:", pix4d_file)
+elif os.path.exists(meta_file):
+    logger.log("Found a pose file:", meta_file)
+else:
     Pose.make_pix4d(args.project)
+
+
+############################################################################
+### Step 2: configure camera poses and per-image meta data files
+############################################################################
+
+logger.log("Configuring images")
+
+# load existing image meta data in case this isn't a first run
+proj.load_images_info()
+
+pix4d_file = os.path.join(args.project, 'pix4d.csv')
+meta_file = os.path.join(args.project, 'image-metadata.txt')
+if os.path.exists(pix4d_file):
+    Pose.setAircraftPoses(proj, pix4d_file, order='rpy',
+                          max_angle=args.max_angle)
+elif os.path.exists(meta_file):
+    Pose.setAircraftPoses(proj, meta_file, order='ypr',
+                          max_angle=args.max_angle)
+else:
+    logger.log("Error: no pose file found in image directory:", args.project)
+    quit()
+
+# compute the project's NED reference location (based on average of
+# aircraft poses)
+proj.compute_ned_reference_lla()
+ned_node = getNode('/config/ned_reference', True)
+logger.log("NED reference location:", ned_node.getFloat('lat_deg'),
+           ned_node.getFloat('lon_deg'), ned_node.getFloat('alt_m'))
+
+# set the camera poses (fixed offset from aircraft pose) Camera pose
+# location is specfied in ned, so do this after computing the ned
+# reference point for this project.
+Pose.compute_camera_poses(proj)
+
+# save the poses
+proj.save_images_info()
+
+# save change to ned reference
+proj.save()
+
+
+############################################################################
+### Step 3: detect features and compute descriptors
+############################################################################
 
