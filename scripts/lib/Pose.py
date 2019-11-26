@@ -44,7 +44,7 @@ r2d = 180.0 / math.pi
 def setAircraftPoses(proj, posefile="", order='ypr', max_angle=25.0):
     logger.log("Setting aircraft poses")
     
-    meta_dir = os.path.join(proj.project_dir, 'meta')
+    meta_dir = os.path.join(proj.project_dir, 'ImageAnalysis', 'meta')
     proj.image_list = []
     
     f = fileinput.input(posefile)

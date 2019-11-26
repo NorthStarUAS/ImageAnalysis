@@ -226,7 +226,6 @@ class ProjectMgr():
         self.matcher_params = mparams
         
     def detect_features(self, scale, force=False, show=False):
-        print("Detecting features:")
         for image in tqdm(self.image_list):
             image.load_features()
             if len(image.kp_list) > 0 and not force:
@@ -267,6 +266,7 @@ class ProjectMgr():
             # clear descriptor memory(?)
             image.des_list = None
             image.save_matches()
+            logger.log(image.name, "features:", len(image.kp_list), quiet=True)
             if show:
                 result = image.show_features()
                 if result == 27 or result == ord('q'):
