@@ -1,5 +1,22 @@
 #!/usr/bin/python3
 
+# This is the master ImageAnalysis processing script.  For DJI and
+# Sentera cameras it should typically be able to run through with
+# default settings and produce a good result with no further input.
+#
+# If something goes wrong, there are usually specific sub-scripts that
+# can be run to fix the problem and then this script can be re-run to
+# continue.
+#
+# If your camera isn't yet supported, you can run a script that mostly
+# automates the process of adding a new camera (possibly with a small
+# amount of extra info that you can usually research by googling.
+#
+# If you run into an unsolvable glitch and are willing to share your
+# data set, I may be able to look at the issue and make some sort of
+# determination or fix.
+
+
 import argparse
 import os
 
