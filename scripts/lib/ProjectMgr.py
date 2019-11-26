@@ -9,7 +9,6 @@ import math
 import numpy as np
 import os.path
 import pickle
-import piexif
 import scipy.interpolate
 import subprocess
 import sys
@@ -21,9 +20,10 @@ import geojson
 from props import root, getNode
 import props_json
 
+from . import logger
 from . import Camera
+from . import Exif
 from . import Image
-
 from . import ImageList
 from . import Render
 from . import transformations
@@ -54,20 +54,23 @@ class ProjectMgr():
     def validate_project_dir(self, create_if_needed):
         if not os.path.exists(self.analysis_dir):
             if create_if_needed:
-                print("Notice: creating analysis directory:", self.analysis_dir)
+                logger.log("Creating analysis directory:", self.analysis_dir)
                 os.makedirs(self.analysis_dir)
             else:
-                print("Error: analysis dir doesn't exist: ", self.analysis_dir)
+                logger.log("Error: analysis dir doesn't exist: ", self.analysis_dir)
                 return False
 
-        # and make children directories
+        # log directory
+        logger.init(self.analysis_dir)
+        
+        # and make other children directories
         meta_dir = os.path.join(self.analysis_dir, 'meta')
         if not os.path.exists(meta_dir):
             if create_if_needed:
-                print("Notice: creating meta directory:", meta_dir)
+                logger.log("project: creating meta directory:", meta_dir)
                 os.makedirs(meta_dir)
             else:
-                print("Error: meta dir doesn't exist:", meta_dir)
+                logger.log("Error: meta dir doesn't exist:", meta_dir)
                 return False
             
         # all is good
@@ -99,14 +102,14 @@ class ProjectMgr():
                 # root.pretty_print()
                 result = True
             else:
-                print("Notice: unable to load: ", project_file)
+                logger.log("Notice: unable to load: ", project_file)
         else:
-            print("Notice: project configuration doesn't exist:", project_file)
+            logger.log("project: project configuration doesn't exist:", project_file)
         if not result and create:
-            print("Continuing with an empty project configuration")
+            logger.log("Continuing with an empty project configuration")
             self.set_defaults()
         elif not result:
-            print("aborting...")
+            logger.log("Project load failed, aborting...")
             quit()
 
         # overwrite project_dir with current location (this will get
@@ -117,24 +120,12 @@ class ProjectMgr():
         #root.pretty_print()
 
     def detect_camera(self):
-        camera = ""
         image_dir = self.project_dir
         for file in os.listdir(image_dir):
             if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
-                exif_dict = piexif.load(os.path.join(image_dir, file))
-                if piexif.ImageIFD.Make in exif_dict['0th']:
-                    make = exif_dict['0th'][piexif.ImageIFD.Make].decode('utf-8').rstrip('\x00')
-                    camera = make
-                if piexif.ImageIFD.Model in exif_dict['0th']:
-                    model = exif_dict['0th'][piexif.ImageIFD.Model].decode('utf-8').rstrip('\x00')
-                    camera += '_' + model
-                if piexif.ExifIFD.LensModel in exif_dict['Exif']:
-                    lens_model = exif_dict['Exif'][piexif.ExifIFD.LensModel].decode('utf-8').rstrip('\x00')
-                    camera += '_' + lens_model
-                else:
-                    lens_model = None
+                image_file = os.path.join(image_dir, file)
+                camera, make, model, lens_model = Exif.get_camera(image_file)
                 break
-        camera = camera.replace(' ', '_')
         return camera, make, model, lens_model
         
     def load_images_info(self):
