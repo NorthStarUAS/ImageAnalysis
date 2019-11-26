@@ -22,9 +22,11 @@ import os
 import time
 
 from lib import logger
+from lib import Matcher
 from lib import Pose
 from lib import ProjectMgr
 from lib import state
+
 # from the aura-props python package
 from props import getNode, PropertyNode
 import props_json
@@ -64,6 +66,21 @@ parser.add_argument('--star-line-threshold-projected', default=10)
 parser.add_argument('--star-line-threshold-binarized', default=8)
 parser.add_argument('--star-suppress-nonmax-size', default=5)
 parser.add_argument('--reject-margin', default=0, help='reject features within this distance of the image outer edge margin')
+
+# feature matching arguments
+parser.add_argument('--matcher', default='FLANN',
+                    choices=['FLANN', 'BF'])
+parser.add_argument('--match-ratio', default=0.75, type=float,
+                    help='match ratio')
+parser.add_argument('--min-pairs', default=25, type=int,
+                    help='minimum matches between image pairs to keep')
+parser.add_argument('--min-dist', default=0, type=float,
+                    help='minimum 2d camera distance for pair comparison')
+parser.add_argument('--max-dist', default=75, type=float,
+                    help='maximum 2d camera distance for pair comparison')
+parser.add_argument('--filter', default='gms',
+                    choices=['gms', 'homography', 'fundamental', 'essential', 'none'])
+parser.add_argument('--min-chain-length', type=int, default=3, help='minimum match chain length (3 recommended)')
 
 args = parser.parse_args()
 
@@ -219,3 +236,40 @@ if not state.check("STEP3"):
     proj.save()
 
     state.update("STEP3")
+
+
+############################################################################
+### Step 4: feature matching
+############################################################################
+
+if not state.check("STEP4"):
+    proj.load_images_info()
+    proj.load_features(descriptors=False) # descriptors cached on the fly later
+    proj.undistort_keypoints()
+    proj.load_match_pairs()
+
+    matcher_node = getNode('/config/matcher', True)
+    matcher_node.setString('matcher', args.matcher)
+    matcher_node.setFloat('match_ratio', args.match_ratio)
+    matcher_node.setString('filter', args.filter)
+    matcher_node.setInt('min_pairs', args.min_pairs)
+    matcher_node.setFloat('min_dist', args.min_dist)
+    matcher_node.setFloat('max_dist', args.max_dist)
+    matcher_node.setInt('min_chain_len', args.min_chain_length)
+
+    # save any config changes
+    proj.save()
+
+    # camera calibration
+    K = proj.cam.get_K()
+    # print("K:", K)
+
+    logger.log("Matching features")
+    
+    # fire up the matcher
+    m = Matcher.Matcher()
+    m.configure()
+    m.robustGroupMatches(proj.image_list, K,
+                         filter=args.filter, review=False)
+
+    state.update("STEP4")
