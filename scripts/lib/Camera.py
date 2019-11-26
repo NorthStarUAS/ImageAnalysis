@@ -123,7 +123,7 @@ class Camera():
         mount_node.setFloat('yaw_deg', yaw_deg)
         mount_node.setFloat('pitch_deg', pitch_deg)
         mount_node.setFloat('roll_deg', roll_deg)
-        self.camera_node.pretty_print()
+        #self.camera_node.pretty_print()
        
     def get_mount_params(self):
         mount_node = self.camera_node.getChild('mount', True)
