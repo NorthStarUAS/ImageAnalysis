@@ -2,7 +2,9 @@
 
 # pose related functions
 
+import csv
 import fileinput
+import fnmatch
 import math
 import os
 import re
@@ -10,8 +12,10 @@ import re
 import navpy
 from props import getNode
 
-from . import transformations
+from . import Exif
 from . import Image
+from . import logger
+from . import transformations
 
 # this should really be a parameter.  Any aircraft poses that exceed
 # this value for either roll or pitch will be ignored.  Oblique photos
@@ -123,3 +127,113 @@ def compute_camera_poses(proj):
 
         image.set_camera_pose(ned, yaw_rad*r2d, pitch_rad*r2d, roll_rad*r2d)
 
+# make a pix4d pose file from project image metadata
+def make_pix4d(image_dir, force_altitude=None, force_heading=None, yaw_from_groundtrack=False):
+    # load list of images
+    files = []
+    for file in os.listdir(image_dir):
+        if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
+            files.append(file)
+    files.sort()
+
+    # save some work if true
+    images_have_yaw = False
+
+    images = []
+    # read image exif timestamp (and convert to unix seconds)
+    for file in files:
+        full_name = os.path.join(image_dir, file)
+        # print(full_name)
+        lon, lat, alt, unixtime, yaw_deg = Exif.get_pose(full_name)
+
+        line = [file, lat, lon]
+        if not force_altitude:
+            line.append(alt)
+        else:
+            line.append(force_altitude)
+
+        line.append(0)          # assume zero pitch
+        line.append(0)          # assume zero roll
+        if force_heading is not None:
+            line.append(force_heading)
+        elif yaw_deg is not None:
+            images_have_yaw = True
+            line.append(yaw_deg)
+        else:
+            # no yaw info found in metadata
+            line.append(0)
+            
+        images.append(line)
+
+    if not force_heading and not images_have_yaw or yaw_from_groundtrack:
+        # do extra work to estimate yaw heading from gps ground track
+        for i in range(len(images)):
+            if i > 0:
+                prev = images[i-1]
+            else:
+                prev = None
+            cur = images[i]
+            if i < len(images)-1:
+                next = images[i+1]
+            else:
+                next = None
+
+            if not prev is None:
+                (prev_hdg, rev_course, prev_dist) = \
+                    wgs84.geo_inverse( prev[1], prev[2], cur[1], cur[2] )
+            else:
+                prev_hdg = 0.0
+                prev_dist = 0.0
+            if not next is None:
+                (next_hdg, rev_course, next_dist) = \
+                    wgs84.geo_inverse( cur[1], cur[2], next[1], next[2] )
+            else:
+                next_hdg = 0.0
+                next_dist = 0.0
+
+            prev_hdgx = math.cos(prev_hdg*d2r)
+            prev_hdgy = math.sin(prev_hdg*d2r)
+            next_hdgx = math.cos(next_hdg*d2r)
+            next_hdgy = math.sin(next_hdg*d2r)
+            avg_hdgx = (prev_hdgx*prev_dist + next_hdgx*next_dist) / (prev_dist + next_dist)
+            avg_hdgy = (prev_hdgy*prev_dist + next_hdgy*next_dist) / (prev_dist + next_dist)
+            avg_hdg = math.atan2(avg_hdgy, avg_hdgx)*r2d
+            if avg_hdg < 0:
+                avg_hdg += 360.0
+            #print("%d %.2f %.1f %.2f %.1f %.2f" % (i, prev_hdg, prev_dist, next_hdg, next_dist, avg_hdg))
+            images[i][6] = avg_hdg
+
+    # sanity check
+    output_file = os.path.join(image_dir, 'pix4d.csv')
+    if os.path.exists(output_file):
+        logger.log(output_file, "exists, please rename it and rerun this script.")
+        quit()
+    logger.log("Creating pix4d image pose file:", output_file, "images:", len(files))
+    
+    # traverse the image list and create output csv file
+    with open(output_file, 'w') as csvfile:
+        writer = csv.DictWriter( csvfile,
+                                 fieldnames=['File Name',
+                                             'Lat (decimal degrees)',
+                                             'Lon (decimal degrees)',
+                                             'Alt (meters MSL)',
+                                             'Roll (decimal degrees)',
+                                             'Pitch (decimal degrees)',
+                                             'Yaw (decimal degrees)'] )
+        writer.writeheader()
+        for line in images:
+            image = line[0]
+            lat_deg = line[1]
+            lon_deg = line[2]
+            alt_m = line[3]
+            roll_deg = line[4]
+            pitch_deg = line[5]
+            yaw_deg = line[6]
+            #print(image, lat_deg, lon_deg, alt_m)
+            writer.writerow( { 'File Name': os.path.basename(image),
+                               'Lat (decimal degrees)': "%.10f" % lat_deg,
+                               'Lon (decimal degrees)': "%.10f" % lon_deg,
+                               'Alt (meters MSL)': "%.2f" % alt_m,
+                               'Roll (decimal degrees)': "%.2f" % roll_deg,
+                               'Pitch (decimal degrees)': "%.2f" % pitch_deg,
+                               'Yaw (decimal degrees)': "%.2f" % yaw_deg } )

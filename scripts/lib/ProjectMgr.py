@@ -124,7 +124,8 @@ class ProjectMgr():
         for file in os.listdir(image_dir):
             if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
                 image_file = os.path.join(image_dir, file)
-                camera, make, model, lens_model = Exif.get_camera(image_file)
+                camera, make, model, lens_model = \
+                    Exif.get_camera_info(image_file)
                 break
         return camera, make, model, lens_model
         

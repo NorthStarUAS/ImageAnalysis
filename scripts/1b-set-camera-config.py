@@ -39,22 +39,7 @@ print("Camera:", camera_file)
 cam_node = getNode('/config/camera', True)
 tmp_node = PropertyNode()
 if props_json.load(camera_file, tmp_node):
-    for child in tmp_node.getChildren(expand=False):
-        if tmp_node.isEnum(child):
-            # print(child, tmp_node.getLen(child))
-            for i in range(tmp_node.getLen(child)):
-                cam_node.setFloatEnum(child, i, tmp_node.getFloatEnum(child, i))
-        else:
-            # print(child, type(tmp_node.__dict__[child]))
-            child_type = type(tmp_node.__dict__[child])
-            if child_type is float:
-                cam_node.setFloat(child, tmp_node.getFloat(child))
-            elif child_type is int:
-                cam_node.setInt(child, tmp_node.getInt(child))
-            elif child_type is str:
-                cam_node.setString(child, tmp_node.getString(child))
-            else:
-                print('Unknown child type:', child, child_type)
+    props_json.overlay(cam_node, tmp_node)
 
     proj.cam.set_mount_params(args.yaw_deg, args.pitch_deg, args.roll_deg)
 

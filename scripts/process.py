@@ -4,6 +4,7 @@ import argparse
 import os
 
 from lib import logger
+from lib import Pose
 from lib import ProjectMgr
 
 # from the aura-props python package
@@ -72,3 +73,11 @@ else:
         logger.log("Specified camera config not found:", args.camera)
     logger.log("Aborting due to camera detection failure.")
     quit()
+
+# 1c. create pose file (if it doesn't already exist)
+
+pix4d_file = os.path.join(args.project, 'pix4d.csv')
+meta_file = os.path.join(args.project, 'image-metadata.txt')
+if not os.path.exists(pix4d_file) and not os.path.exists(meta_file):
+    Pose.make_pix4d(args.project)
+
