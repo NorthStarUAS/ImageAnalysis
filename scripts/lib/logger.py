@@ -39,4 +39,8 @@ def log(*args, quiet=False):
         logbuf = []
     if not quiet:
         print(*msg)
+
+# log quietly (log to file, but not to stdout)
+def qlog(*args):
+    log(*args, quiet=True)
     

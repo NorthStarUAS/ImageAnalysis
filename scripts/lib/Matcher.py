@@ -17,6 +17,7 @@ from props import getNode
 
 from .find_obj import filter_matches,explore_match
 from . import ImageList
+from .logger import log, qlog
 from . import transformations
 
 class Matcher():
@@ -137,7 +138,7 @@ class Matcher():
                 kp2_dict[key2] = True
                 result.append(pair)
         if count > 0:
-            print("  removed %d duplicate features" % count)
+            qlog("  removed %d duplicate features" % count)
         return result
 
     # Iterate through all the matches for the specified image and
@@ -222,7 +223,7 @@ class Matcher():
                     new2.append( rpair )
                     break
         if len(idx_pairs1) != len(new1) or len(idx_pairs2) != len(new2):
-            print("  cross check: (%d, %d) => (%d, %d)" % (len(idx_pairs1), len(idx_pairs2), len(new1), len(new2)))
+            qlog("  cross check: (%d, %d) => (%d, %d)" % (len(idx_pairs1), len(idx_pairs2), len(new1), len(new2)))
         return new1, new2                                               
             
     def filter_non_reciprocal_pair(self, image_list, i, j):
@@ -277,7 +278,7 @@ class Matcher():
         matches = self.matcher.knnMatch(np.array(i1.des_list),
                                         trainDescriptors=np.array(i2.des_list),
                                         k=2)
-        print('  raw matches:', len(matches))
+        qlog("  raw matches:", len(matches))
 
         sum = 0.0
         max_good = 0
@@ -290,10 +291,10 @@ class Matcher():
                 count_good += 1
                 if m[0].distance > max_good:
                     max_good = m[0].distance
-        print('  avg dist:', sum / len(matches))
+        qlog("  avg dist:", sum / len(matches))
         if count_good:
-            print('  avg good dist:', sum_good / count_good, '(%d)' % count_good)
-        print('  max good dist:', max_good)
+            qlog("  avg good dist:", sum_good / count_good, "(%d)" % count_good)
+        qlog("  max good dist:", max_good)
 
         if False:
             # filter by absolute distance (for ORB, statistically all real
@@ -303,7 +304,7 @@ class Matcher():
             for m in matches:
                 if m[0].distance < self.max_distance and m[0].distance <= m[1].distance * self.match_ratio:
                     matches_thresh.append(m[0])
-            print('  quality matches:', len(matches_thresh))
+            qlog("  quality matches:", len(matches_thresh))
 
         if True:
             # generate a quality metric for each match, sort and only
@@ -321,13 +322,13 @@ class Matcher():
             for line in by_metric:
                 if line[0] < self.max_distance * self.match_ratio:
                     matches_thresh.append(line[1])
-            print('  quality matches:', len(matches_thresh))
+            qlog("  quality matches:", len(matches_thresh))
             # fixme, make this a command line option or parameter?
             mymax = 2000
             if len(matches_thresh) > mymax:
                 # clip list to n best rated matches
                 matches_thresh = matches_thresh[:mymax]
-                print('  clipping to:', mymax)
+                qlog("  clipping to:", mymax)
 
         if len(matches_thresh) < self.min_pairs:
             # just quit now
@@ -358,7 +359,7 @@ class Matcher():
             # handled above in a slightly more strategic way by
             # passing the best matches, not just all the matches.)
             p1, p2, kp_pairs, idx_pairs = self.filter_by_feature(i1, i2, matches)
-            print("  dist ratio matches =", len(idx_pairs))
+            qlog("  dist ratio matches =", len(idx_pairs))
 
         # check for duplicate matches (based on different scales or attributes)
         idx_pairs = self.filter_duplicates(i1, i2, idx_pairs)
@@ -397,7 +398,7 @@ class Matcher():
                 print('  feature alignment:', len(idx_pairs), '->', len(aligned_pairs))
                 idx_pairs = aligned_pairs
             
-        print("  initial matches =", len(idx_pairs))
+        qlog("  initial matches =", len(idx_pairs))
         if len(idx_pairs) < self.min_pairs:
             # sorry
             return []
@@ -491,7 +492,7 @@ class Matcher():
         # camera separation vs. matches stats
         dist_stats = []
 
-        print('Generating work list for range:', min_dist, '-', max_dist)
+        log('Generating work list for range:', min_dist, '-', max_dist)
         work_list = []
         for i, i1 in enumerate(tqdm(image_list)):
             for j, i2 in enumerate(image_list):
@@ -524,7 +525,8 @@ class Matcher():
         n_count = 0
         save_time = time.time()
         save_interval = 120     # seconds
-        for line in work_list:
+        log("Processing worklist matches:")
+        for line in tqdm(work_list, smoothing=0.05):
             dist = line[0]
             i = line[1]
             j = line[2]
@@ -543,16 +545,16 @@ class Matcher():
 
             # skip if match has already been computed
             if i2.name in i1.match_list and i1.name in i2.match_list:
-                print('Skipping: ', i1.name, 'vs', i2.name, 'already done.')
+                log("Skipping: ", i1.name, "vs'", i2.name, "already done.")
                 continue
             
-            print('Matching %s vs %s - ' % (i1.name, i2.name), end='')
-            print('%.1f%% done: ' % (percent * 100.0), end='')
+            msg = "Matching %s vs %s - %.1f%% done: " % (i1.name, i2.name, percent * 100.0)
             if t_remain < 3600:
-                print('%.1f (min)' % (t_remain / 60.0))
+                msg += "%.1f (min)" % (t_remain / 60.0)
             else:
-                print('%.1f (hr)' % (t_remain / 3600.0))
-            print("  separation = %.1f (m)" % dist)
+                msg += "%.1f (hr)" % (t_remain / 3600.0)
+            qlog(msg)
+            qlog("  separation = %.1f (m)" % dist)
 
             # update cache timers and make sure features are loaded
             i1.desc_timestamp = time.time()
@@ -593,7 +595,7 @@ class Matcher():
 
             # save our work so far, and flush descriptor cache
             if time.time() >= save_time + save_interval:
-                print('saving matches ...')
+                log('saving matches ...')
                 self.saveMatches(image_list)
                 save_time = time.time()
 
@@ -606,7 +608,7 @@ class Matcher():
                 # may wish to monitor and update cache_size formula
                 cache_size = 20 + 3 * (int(math.sqrt(len(image_list))) + 1)
                 flush_list = time_list[cache_size:]
-                print('flushing descriptor cache - size: %d (over by: %d)' % (cache_size, len(flush_list)) )
+                qlog("flushing descriptor cache - size: %d (over by: %d)" % (cache_size, len(flush_list)) )
                 for line in flush_list:
                     print('  clearing descriptors for:', line[1].name)
                     line[1].des_list = None
