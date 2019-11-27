@@ -53,7 +53,8 @@ def make_textures_opencv(src_dir, analysis_dir, image_list, resolution=512):
             cv2.imwrite(dst, result)
             print("Texture %dx%d %s" % (resolution, resolution, dst))
     # make the dummy.jpg image from the first texture
-    src = os.path.join(dst_dir, image_list[0].image_file)
+    #src = os.path.join(dst_dir, image_list[0].image_file)
+    src = image_list[0].image_file
     dst = os.path.join(dst_dir, "dummy.jpg")
     print("Dummy:", src, dst)
     if not os.path.exists(dst):
