@@ -12,7 +12,7 @@ from props import getNode
 from lib import Groups
 from lib import LineSolver
 from lib import ProjectMgr
-from lib import SRTM
+from lib import match_cleanup
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
@@ -54,69 +54,71 @@ def undistort(uv_orig):
     return uv_new[0][0]
     
 if args.method == 'srtm':
-    # lookup ned reference
-    ref_node = getNode("/config/ned_reference", True)
-    ref = [ ref_node.getFloat('lat_deg'),
-            ref_node.getFloat('lon_deg'),
-            ref_node.getFloat('alt_m') ]
+    match_cleanup.triangulate_srtm(proj, matches)
 
-    # setup SRTM ground interpolator
-    sss = SRTM.NEDGround( ref, 3000, 3000, 30 )
+    # # lookup ned reference
+    # ref_node = getNode("/config/ned_reference", True)
+    # ref = [ ref_node.getFloat('lat_deg'),
+    #         ref_node.getFloat('lon_deg'),
+    #         ref_node.getFloat('alt_m') ]
 
-    # for each image lookup the SRTM elevation under the camera
-    print("Looking up SRTM base elevation for each image location...")
-    for image in proj.image_list:
-        ned, ypr, quat = image.get_camera_pose()
-        image.base_elev = sss.interp([ned[0], ned[1]])[0]
-        # print(image.name, image.base_elev)
+    # # setup SRTM ground interpolator
+    # sss = SRTM.NEDGround( ref, 3000, 3000, 30 )
 
-    print("Estimating initial projection for each feature...")
-    bad_count = 0
-    bad_indices = []
-    for i, match in enumerate(tqdm(matches)):
-        sum = np.zeros(3)
-        array = []              # fixme: temp/debug
-        for m in match[2:]:
-            image = proj.image_list[m[0]]
-            cam2body = image.get_cam2body()
-            body2ned = image.get_body2ned()
-            ned, ypr, quat = image.get_camera_pose()
-            uv_list = [ m[1] ] # just one uv element
-            vec_list = proj.projectVectors(IK, body2ned, cam2body, uv_list)
-            v = vec_list[0]
-            if v[2] > 0.0:
-                d_proj = -(ned[2] + image.base_elev)
-                factor = d_proj / v[2]
-                n_proj = v[0] * factor
-                e_proj = v[1] * factor
-                p = [ ned[0] + n_proj, ned[1] + e_proj, ned[2] + d_proj ]
-                # print('  ', p)
-                sum += np.array(p)
-                array.append(p)
-            else:
-                print('vector projected above horizon.')
-        match[0] = (sum/len(match[2:])).tolist()
-        # print(match[0])
-        if do_sanity_check:
-            # crude sanity check
-            ok = True
-            for p in array:
-                dist = np.linalg.norm(np.array(match[0]) - np.array(p))
-                if dist > 100:
-                    ok = False
-            if not ok:
-                bad_count += 1
-                bad_indices.append(i)
-                print('match:', i, match[0])
-                for p in array:
-                    dist = np.linalg.norm(np.array(match[0]) - np.array(p))
-                    print(' ', dist, p)
-    if do_sanity_check:
-        print('bad count:', bad_count)
-        print('deleting bad matches...')
-        bad_indices.reverse()
-        for i in bad_indices:
-            del matches[i]
+    # # for each image lookup the SRTM elevation under the camera
+    # print("Looking up SRTM base elevation for each image location...")
+    # for image in proj.image_list:
+    #     ned, ypr, quat = image.get_camera_pose()
+    #     image.base_elev = sss.interp([ned[0], ned[1]])[0]
+    #     # print(image.name, image.base_elev)
+
+    # print("Estimating initial projection for each feature...")
+    # bad_count = 0
+    # bad_indices = []
+    # for i, match in enumerate(tqdm(matches)):
+    #     sum = np.zeros(3)
+    #     array = []              # fixme: temp/debug
+    #     for m in match[2:]:
+    #         image = proj.image_list[m[0]]
+    #         cam2body = image.get_cam2body()
+    #         body2ned = image.get_body2ned()
+    #         ned, ypr, quat = image.get_camera_pose()
+    #         uv_list = [ m[1] ] # just one uv element
+    #         vec_list = proj.projectVectors(IK, body2ned, cam2body, uv_list)
+    #         v = vec_list[0]
+    #         if v[2] > 0.0:
+    #             d_proj = -(ned[2] + image.base_elev)
+    #             factor = d_proj / v[2]
+    #             n_proj = v[0] * factor
+    #             e_proj = v[1] * factor
+    #             p = [ ned[0] + n_proj, ned[1] + e_proj, ned[2] + d_proj ]
+    #             # print('  ', p)
+    #             sum += np.array(p)
+    #             array.append(p)
+    #         else:
+    #             print('vector projected above horizon.')
+    #     match[0] = (sum/len(match[2:])).tolist()
+    #     # print(match[0])
+    #     if do_sanity_check:
+    #         # crude sanity check
+    #         ok = True
+    #         for p in array:
+    #             dist = np.linalg.norm(np.array(match[0]) - np.array(p))
+    #             if dist > 100:
+    #                 ok = False
+    #         if not ok:
+    #             bad_count += 1
+    #             bad_indices.append(i)
+    #             print('match:', i, match[0])
+    #             for p in array:
+    #                 dist = np.linalg.norm(np.array(match[0]) - np.array(p))
+    #                 print(' ', dist, p)
+    # if do_sanity_check:
+    #     print('bad count:', bad_count)
+    #     print('deleting bad matches...')
+    #     bad_indices.reverse()
+    #     for i in bad_indices:
+    #         del matches[i]
 elif args.method == 'triangulate':
     for i, match in enumerate(matches):
         if match[1] == args.group: # used in current group

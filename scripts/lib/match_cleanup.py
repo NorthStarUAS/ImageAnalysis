@@ -10,6 +10,7 @@ from props import getNode
 
 from lib import Matcher
 from lib import ProjectMgr
+from lib import SRTM
 
 # Reset all match point locations to their original direct
 # georeferenced locations based on estimated camera pose and
@@ -300,3 +301,51 @@ def link_matches(proj, matches_direct):
         print("Keypoint average instances:", "%.2f" % (sum / len(matches_direct)))
 
     return matches_direct
+
+def triangulate_srtm(proj, matches):
+    K = proj.cam.get_K(optimized=False)
+    IK = np.linalg.inv(K)
+    
+    # lookup ned reference
+    ref_node = getNode("/config/ned_reference", True)
+    ref = [ ref_node.getFloat('lat_deg'),
+            ref_node.getFloat('lon_deg'),
+            ref_node.getFloat('alt_m') ]
+
+    # setup SRTM ground interpolator
+    sss = SRTM.NEDGround( ref, 3000, 3000, 30 )
+
+    # for each image lookup the SRTM elevation under the camera
+    print("Looking up SRTM base elevation for each image location...")
+    for image in proj.image_list:
+        ned, ypr, quat = image.get_camera_pose()
+        image.base_elev = sss.interp([ned[0], ned[1]])[0]
+        # print(image.name, image.base_elev)
+
+    print("Estimating initial projection for each feature...")
+    bad_count = 0
+    bad_indices = []
+    for i, match in enumerate(tqdm(matches)):
+        sum = np.zeros(3)
+        array = []              # fixme: temp/debug
+        for m in match[2:]:
+            image = proj.image_list[m[0]]
+            cam2body = image.get_cam2body()
+            body2ned = image.get_body2ned()
+            ned, ypr, quat = image.get_camera_pose()
+            uv_list = [ m[1] ] # just one uv element
+            vec_list = proj.projectVectors(IK, body2ned, cam2body, uv_list)
+            v = vec_list[0]
+            if v[2] > 0.0:
+                d_proj = -(ned[2] + image.base_elev)
+                factor = d_proj / v[2]
+                n_proj = v[0] * factor
+                e_proj = v[1] * factor
+                p = [ ned[0] + n_proj, ned[1] + e_proj, ned[2] + d_proj ]
+                # print('  ', p)
+                sum += np.array(p)
+                array.append(p)
+            else:
+                print('vector projected above horizon.')
+        match[0] = (sum/len(match[2:])).tolist()
+        # print(match[0])

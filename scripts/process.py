@@ -291,3 +291,16 @@ if not state.check("STEP4b"):
     pickle.dump(matches_grouped, open(os.path.join(proj.analysis_dir, "matches_grouped"), "wb"))
 
     state.update("STEP4b")
+
+if not state.check("STEP4c"):
+    proj.load_images_info()
+    
+    K = proj.cam.get_K(optimized=False)
+    IK = np.linalg.inv(K)
+
+    source = 'matches_grouped'
+    print("Loading source matches:", "matches_grouped")
+    matches_grouped = pickle.load( open( os.path.join(proj.analysis_dir, source), 'rb' ) )
+
+    
+    state.update("STEP4c")
