@@ -230,7 +230,7 @@ class ProjectMgr():
         self.matcher_params = mparams
         
     def detect_features(self, scale, force=False, show=False):
-        for image in tqdm(self.image_list):
+        for image in tqdm(self.image_list, smoothing=0.1):
             image.load_features()
             if len(image.kp_list) > 0 and not force:
                 print("skipping:", image.name)

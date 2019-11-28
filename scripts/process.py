@@ -19,10 +19,12 @@
 
 import argparse
 import os
+import pickle
 import time
 
 from lib import logger
 from lib import Matcher
+from lib import match_cleanup
 from lib import Pose
 from lib import ProjectMgr
 from lib import state
@@ -242,7 +244,7 @@ if not state.check("STEP3"):
 ### Step 4: feature matching
 ############################################################################
 
-if not state.check("STEP4"):
+if not state.check("STEP4a"):
     proj.load_images_info()
     proj.load_features(descriptors=False) # descriptors cached on the fly later
     proj.undistort_keypoints()
@@ -272,4 +274,20 @@ if not state.check("STEP4"):
     m.robustGroupMatches(proj.image_list, K,
                          filter=args.filter, review=False)
 
-    state.update("STEP4")
+    state.update("STEP4a")
+
+if not state.check("STEP4b"):
+    proj.load_images_info()
+    proj.load_features(descriptors=False)
+    proj.load_match_pairs()
+    
+    match_cleanup.merge_duplicates(proj)
+    match_cleanup.check_for_pair_dups(proj)
+    match_cleanup.check_for_1vn_dups(proj)
+    matches_direct = match_cleanup.make_match_structure(proj)
+    matches_grouped = match_cleanup.link_matches(proj, matches_direct)
+
+    print("Writing full group chain matches_grouped file ...")
+    pickle.dump(matches_grouped, open(os.path.join(proj.analysis_dir, "matches_grouped"), "wb"))
+
+    state.update("STEP4b")
