@@ -617,9 +617,10 @@ class Matcher():
         self.saveMatches(image_list)
         print('Pair-wise matches successfully saved.')
 
-        dist_stats = np.array(dist_stats)
-        plt.plot(dist_stats[:,0], dist_stats[:,1], 'ro')
-        plt.show()
+        if len(dist_stats):
+            dist_stats = np.array(dist_stats)
+            plt.plot(dist_stats[:,0], dist_stats[:,1], 'ro')
+            plt.show()
 
     # remove any match sets shorter than self.min_pairs (this shouldn't
     # probably ever happen now?)

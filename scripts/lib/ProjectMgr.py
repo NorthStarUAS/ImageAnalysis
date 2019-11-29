@@ -25,6 +25,7 @@ from . import Exif
 from . import Image
 from . import ImageList
 from . import logger
+from .logger import log, qlog
 from . import Render
 from . import state
 from . import transformations
@@ -55,10 +56,10 @@ class ProjectMgr():
     def validate_project_dir(self, create_if_needed):
         if not os.path.exists(self.analysis_dir):
             if create_if_needed:
-                logger.log("Creating analysis directory:", self.analysis_dir)
+                log("Creating analysis directory:", self.analysis_dir)
                 os.makedirs(self.analysis_dir)
             else:
-                logger.log("Error: analysis dir doesn't exist: ", self.analysis_dir)
+                log("Error: analysis dir doesn't exist: ", self.analysis_dir)
                 return False
 
         # log directory
@@ -71,10 +72,10 @@ class ProjectMgr():
         meta_dir = os.path.join(self.analysis_dir, 'meta')
         if not os.path.exists(meta_dir):
             if create_if_needed:
-                logger.log("project: creating meta directory:", meta_dir)
+                log("project: creating meta directory:", meta_dir)
                 os.makedirs(meta_dir)
             else:
-                logger.log("Error: meta dir doesn't exist:", meta_dir)
+                log("Error: meta dir doesn't exist:", meta_dir)
                 return False
             
         # all is good
@@ -106,14 +107,14 @@ class ProjectMgr():
                 # root.pretty_print()
                 result = True
             else:
-                logger.log("Notice: unable to load: ", project_file)
+                log("Notice: unable to load: ", project_file)
         else:
-            logger.log("project: project configuration doesn't exist:", project_file)
+            log("project: project configuration doesn't exist:", project_file)
         if not result and create:
-            logger.log("Continuing with an empty project configuration")
+            log("Continuing with an empty project configuration")
             self.set_defaults()
         elif not result:
-            logger.log("Project load failed, aborting...")
+            log("Project load failed, aborting...")
             quit()
 
         # overwrite project_dir with current location (this will get
@@ -270,7 +271,7 @@ class ProjectMgr():
             # clear descriptor memory(?)
             image.des_list = None
             image.save_matches()
-            logger.log(image.name, "features:", len(image.kp_list), quiet=True)
+            qlog(image.name, "features:", len(image.kp_list))
             if show:
                 result = image.show_features()
                 if result == 27 or result == ord('q'):

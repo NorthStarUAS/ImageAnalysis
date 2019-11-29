@@ -20,6 +20,7 @@ def init(analysis_path):
     else:
         logfile = os.path.join(analysis_path, "messages")
 
+# log a message to messages files (and to stdout by default)
 def log(*args, quiet=False):
     global logbuf
     # assemble message line

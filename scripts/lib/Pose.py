@@ -14,7 +14,7 @@ from props import getNode
 
 from . import Exif
 from . import Image
-from . import logger
+from .logger import log
 from . import transformations
 
 # this should really be a parameter.  Any aircraft poses that exceed
@@ -42,7 +42,7 @@ r2d = 180.0 / math.pi
 
 # define the image aircraft poses from Sentera meta data file
 def setAircraftPoses(proj, posefile="", order='ypr', max_angle=25.0):
-    logger.log("Setting aircraft poses")
+    log("Setting aircraft poses")
     
     meta_dir = os.path.join(proj.project_dir, 'ImageAnalysis', 'meta')
     proj.image_list = []
@@ -76,11 +76,11 @@ def setAircraftPoses(proj, posefile="", order='ypr', max_angle=25.0):
 
         found_dir = ''
         if not os.path.isfile( os.path.join(proj.project_dir, name) ):
-            logger.log("No image file:", name, "skipping ...")
+            log("No image file:", name, "skipping ...")
             continue
         if abs(roll_deg) > max_angle or abs(pitch_deg) > max_angle:
             # fairly 'extreme' attitude, skip image
-            logger.log("extreme attitude:", name, "roll:", roll_deg, "pitch:", pitch_deg)
+            log("extreme attitude:", name, "roll:", roll_deg, "pitch:", pitch_deg)
             continue
 
         base, ext = os.path.splitext(name)
@@ -88,13 +88,13 @@ def setAircraftPoses(proj, posefile="", order='ypr', max_angle=25.0):
         image.set_aircraft_pose(lat_deg, lon_deg, alt_m,
                                 yaw_deg, pitch_deg, roll_deg,
                                 flight_time)
-        logger.log("pose:", name, "yaw=%.1f pitch=%.1f roll=%.1f" % (yaw_deg, pitch_deg, roll_deg))
+        log("pose:", name, "yaw=%.1f pitch=%.1f roll=%.1f" % (yaw_deg, pitch_deg, roll_deg))
         proj.image_list.append(image)
 
 # for each image, compute the estimated camera pose in NED space from
 # the aircraft body pose and the relative camera orientation
 def compute_camera_poses(proj):
-    logger.log("Setting camera poses (offset from aircraft pose.)")
+    log("Setting camera poses (offset from aircraft pose.)")
     
     mount_node = getNode("/config/camera/mount", True)
     ref_node = getNode("/config/ned_reference", True)
@@ -210,9 +210,9 @@ def make_pix4d(image_dir, force_altitude=None, force_heading=None, yaw_from_grou
     # sanity check
     output_file = os.path.join(image_dir, "pix4d.csv")
     if os.path.exists(output_file):
-        logger.log(output_file, "exists, please rename it and rerun this script.")
+        log(output_file, "exists, please rename it and rerun this script.")
         quit()
-    logger.log("Creating pix4d image pose file:", output_file, "images:", len(files))
+    log("Creating pix4d image pose file:", output_file, "images:", len(files))
     
     # traverse the image list and create output csv file
     with open(output_file, 'w') as csvfile:

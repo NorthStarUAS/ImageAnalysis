@@ -18,11 +18,13 @@
 
 
 import argparse
+import numpy as np
 import os
 import pickle
 import time
 
-from lib import logger
+from lib import Groups
+from lib.logger import log
 from lib import Matcher
 from lib import match_cleanup
 from lib import Pose
@@ -102,7 +104,7 @@ if not os.path.isdir(args.project):
 proj = ProjectMgr.ProjectMgr(args.project, create=True)
 proj.save()
 
-logger.log("Created project:", args.project)
+log("Created project:", args.project)
 
 ### 1b. intialize camera
 
@@ -113,8 +115,8 @@ else:
     # auto detect camera from image meta data
     camera, make, model, lens_model = proj.detect_camera()
     camera_file = os.path.join("..", "cameras", camera + ".json")
-    logger.log("Camera auto-detected:", camera, make, model, lens_model)
-logger.log("Camera file:", camera_file)
+    log("Camera auto-detected:", camera, make, model, lens_model)
+log("Camera file:", camera_file)
 
 # copy/overlay/update the specified camera config into the existing
 # project configuration
@@ -129,10 +131,10 @@ if props_json.load(camera_file, tmp_node):
 else:
     # failed to load camera config file
     if not args.camera:
-        logger.log("Camera autodetection failed.  Consider running the new camera script to create a camera config and then try running this script again.")
+        log("Camera autodetection failed.  Consider running the new camera script to create a camera config and then try running this script again.")
     else:
-        logger.log("Specified camera config not found:", args.camera)
-    logger.log("Aborting due to camera detection failure.")
+        log("Specified camera config not found:", args.camera)
+    log("Aborting due to camera detection failure.")
     quit()
 
 state.update("STEP1")
@@ -142,16 +144,16 @@ state.update("STEP1")
 ### Step 2: configure camera poses and per-image meta data files
 ############################################################################
 
-logger.log("Configuring images")
+log("Configuring images")
 
 # create pose file (if it doesn't already exist, for example sentera
-# cameras will generate the pix4d.csv file automatically)
+# cameras will generate the pix4d.csv file automatically, dji does not)
 pix4d_file = os.path.join(args.project, 'pix4d.csv')
 meta_file = os.path.join(args.project, 'image-metadata.txt')
 if os.path.exists(pix4d_file):
-    logger.log("Found a pose file:", pix4d_file)
+    log("Found a pose file:", pix4d_file)
 elif os.path.exists(meta_file):
-    logger.log("Found a pose file:", meta_file)
+    log("Found a pose file:", meta_file)
 else:
     Pose.make_pix4d(args.project)
     
@@ -167,14 +169,14 @@ elif os.path.exists(meta_file):
     Pose.setAircraftPoses(proj, meta_file, order='ypr',
                           max_angle=args.max_angle)
 else:
-    logger.log("Error: no pose file found in image directory:", args.project)
+    log("Error: no pose file found in image directory:", args.project)
     quit()
 
 # compute the project's NED reference location (based on average of
 # aircraft poses)
 proj.compute_ned_reference_lla()
 ned_node = getNode('/config/ned_reference', True)
-logger.log("NED reference location:", ned_node.getFloat('lat_deg'),
+log("NED reference location:", ned_node.getFloat('lat_deg'),
            ned_node.getFloat('lon_deg'), ned_node.getFloat('alt_m'))
 
 # set the camera poses (fixed offset from aircraft pose) Camera pose
@@ -219,9 +221,9 @@ if not state.check("STEP3"):
         detector_node.setInt('star_suppress_nonmax_size',
                              args.star_suppress_nonmax_size)
 
-    logger.log("Detecting features.")
-    logger.log("detector:", args.detector)
-    logger.log("image scale for detection:", args.scale)
+    log("Detecting features.")
+    log("detector:", args.detector)
+    log("image scale for detection:", args.scale)
 
     # find features in the full image set
     proj.detect_features(scale=args.scale, force=True)
@@ -232,7 +234,7 @@ if not state.check("STEP3"):
         feature_count += len(image.kp_list)
         image_count += 1
 
-    logger.log("Average # of features per image found = %.0f" % (feature_count / image_count))
+    log("Average # of features per image found = %.0f" % (feature_count / image_count))
 
     # save project configuration
     proj.save()
@@ -266,7 +268,7 @@ if not state.check("STEP4a"):
     K = proj.cam.get_K()
     # print("K:", K)
 
-    logger.log("Matching features")
+    log("Matching features")
     
     # fire up the matcher
     m = Matcher.Matcher()
@@ -298,9 +300,42 @@ if not state.check("STEP4c"):
     K = proj.cam.get_K(optimized=False)
     IK = np.linalg.inv(K)
 
-    source = 'matches_grouped'
     print("Loading source matches:", "matches_grouped")
-    matches_grouped = pickle.load( open( os.path.join(proj.analysis_dir, source), 'rb' ) )
+    matches_grouped = pickle.load( open( os.path.join(proj.analysis_dir, "matches_grouped"), 'rb' ) )
+    match_cleanup.triangulate_srtm(proj, matches_grouped)
+    print("Writing: matches_grouped")
+    pickle.dump(matches_grouped, open(os.path.join(proj.analysis_dir, "matches_grouped"), "wb"))
 
-    
     state.update("STEP4c")
+
+if not state.check("STEP4d"):
+    proj.load_images_info()
+
+    source = 'matches_grouped'
+    print("Loading source matches:", source)
+    matches = pickle.load( open( os.path.join(proj.analysis_dir, source), 'rb' ) )
+
+    print("features:", len(matches))
+
+    # compute the group connections within the image set.
+    groups = Groups.compute(proj.image_list, matches)
+    Groups.save(proj.analysis_dir, groups)
+
+    print('Total images:', len(proj.image_list))
+    print('Group sizes:', end=" ")
+    for g in groups:
+        print(len(g), end=" ")
+    print()
+
+    # debug
+    print("Counting allocated features...")
+    count = 0
+    for i, match in enumerate(matches):
+        if match[1] >= 0:
+            count += 1
+
+    print("Writing:", source, "...")
+    print("Features: %d/%d" % (count, len(matches)))
+    pickle.dump(matches, open(os.path.join(proj.analysis_dir, source), "wb"))
+
+    state.update("STEP4d")

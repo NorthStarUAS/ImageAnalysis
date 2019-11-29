@@ -3,12 +3,14 @@
 import os
 import time
 
+from .logger import log
+
 state_path = None
 
 def init(analysis_path):
     global state_path
     if not os.path.isdir(analysis_path):
-        logger.log("state: analysis_path missing:", analysis_path)
+        log("state: analysis_path missing:", analysis_path)
     state_path = analysis_path
 
 def check(file):
