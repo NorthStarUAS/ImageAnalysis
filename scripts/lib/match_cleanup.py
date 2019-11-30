@@ -317,13 +317,13 @@ def triangulate_srtm(proj, matches):
     sss = SRTM.NEDGround( ref, 3000, 3000, 30 )
 
     # for each image lookup the SRTM elevation under the camera
-    print("Looking up SRTM base elevation for each image location...")
+    log("Looking up SRTM base elevation for each image location...")
     for image in proj.image_list:
         ned, ypr, quat = image.get_camera_pose()
         image.base_elev = sss.interp([ned[0], ned[1]])[0]
         # print(image.name, image.base_elev)
 
-    print("Estimating initial projection for each feature...")
+    log("Estimating initial projection for each feature...")
     bad_count = 0
     bad_indices = []
     for i, match in enumerate(tqdm(matches)):
@@ -347,6 +347,6 @@ def triangulate_srtm(proj, matches):
                 sum += np.array(p)
                 array.append(p)
             else:
-                print('vector projected above horizon.')
+                log('vector projected above horizon.')
         match[0] = (sum/len(match[2:])).tolist()
         # print(match[0])

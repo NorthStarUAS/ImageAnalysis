@@ -10,6 +10,8 @@ import sys
 
 from props import getNode
 
+from .logger import log
+
 min_group = 10
 min_connections = 25
 max_wanted = 250                # possibly overridden later
@@ -25,19 +27,19 @@ def compute(image_list, matches):
     # notice: we assume that matches have been previously sorted by
     # longest chain first!
     
-    print("Start of new test grouping algorithm...")
+    log("Start of grouping algorithm...")
 
     matcher_node = getNode('/config/matcher', True)
     min_chain_len = matcher_node.getInt("min_chain_len")
     if min_chain_len == 0:
         min_chain_len = 3
-    print("/config/matcher/min_chain_len:", min_chain_len)
+    log("/config/matcher/min_chain_len:", min_chain_len)
     use_single_pairs = (min_chain_len == 2)
 
     max_wanted = int(8000 / math.sqrt(len(image_list)))
     if max_wanted < 100:
         max_wanted = 100
-    print("max features desired per image:", max_wanted)
+    log("max features desired per image:", max_wanted)
     print("Notice: I should really work on this formula ...")
     
     # mark all features as unaffiliated
@@ -51,7 +53,7 @@ def compute(image_list, matches):
     done = False
     while not done:
         group_level = len(groups)
-        print("Start of new group level:", group_level)
+        log("Start of new group level:", group_level)
         
         placed_matches = [0] * len(image_list)
         
@@ -73,18 +75,18 @@ def compute(image_list, matches):
                     seed_index = i
         if seed_index == -1:
             break
-        print("Seed index:", seed_index, "connections:", max_connections)
+        log("Seed index:", seed_index, "connections:", max_connections)
         match = matches[seed_index]
         m = match[3]            # first image referenced by match
         # group_images.add(m[0])
         my_add(placed_matches, matches, group_level, seed_index)
         seed_image = m[0]
-        print('Seeding group with:', image_list[seed_image].name)
+        log('Seeding group with:', image_list[seed_image].name)
 
         still_working = True
         iteration = 0
         while still_working:
-            print("Iteration:", iteration)
+            log("Iteration:", iteration)
             still_working = False
             for i, match in enumerate(matches):
                 if match[1] < 0 and (use_single_pairs or len(match[2:]) > 2):
@@ -125,7 +127,7 @@ def compute(image_list, matches):
             placed_images.add(i)
             group_list.append(image_list[i].name)
         if len(group_images) >= min_group:
-            print(group_list)
+            log(group_list)
             groups.append(group_list)
         if len(group_images) < 3:
             done = True
@@ -138,7 +140,7 @@ def save(path, groups):
         json.dump(groups, fd, indent=4, sort_keys=True)
         fd.close()
     except:
-        print('{}: error saving file: {}'.format(file, str(sys.exc_info()[1])))
+        log('{}: error saving file: {}'.format(file, str(sys.exc_info()[1])))
 
 def load(path):
     file = os.path.join(path, 'groups.json')
@@ -147,6 +149,6 @@ def load(path):
         groups = json.load(fd)
         fd.close()
     except:
-        print('{}: error loading file: {}'.format(file, str(sys.exc_info()[1])))
+        log('{}: error loading file: {}'.format(file, str(sys.exc_info()[1])))
         groups = []
     return groups
