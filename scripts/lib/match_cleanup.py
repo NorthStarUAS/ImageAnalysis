@@ -8,9 +8,10 @@ from tqdm import tqdm
 
 from props import getNode
 
-from lib import Matcher
-from lib import ProjectMgr
-from lib import SRTM
+from .logger import log, qlog
+from . import Matcher
+from . import ProjectMgr
+from . import SRTM
 
 # Reset all match point locations to their original direct
 # georeferenced locations based on estimated camera pose and
@@ -26,7 +27,7 @@ def merge_duplicates(proj):
     # uv coordinates.  These duplicates may have different scaling or
     # other attributes important during feature matching, yet ultimately
     # resolve to the same uv coordinate in an image.
-    print("Indexing features by unique uv coordinates:")
+    log("Indexing features by unique uv coordinates:")
     for image in tqdm(proj.image_list):
         # pass one, build a tmp structure of unique keypoints (by uv) and
         # the index of the first instance.
@@ -56,7 +57,7 @@ def merge_duplicates(proj):
     # duplicates could still exist.  This finds all the duplicates within
     # the entire match set and collapses them down to eliminate any
     # redundancy.
-    print("Merging keypoints with duplicate uv coordinates:")
+    log("Merging keypoints with duplicate uv coordinates:")
     for i, i1 in enumerate(tqdm(proj.image_list)):
         for key in i1.match_list:
             matches = i1.match_list[key]
@@ -124,7 +125,7 @@ def check_for_pair_dups(proj):
     # notes: this really shouldn't (!) (by my best current understanding)
     # be able to find any dups.  These should all get caught in the
     # original pair matching step.
-    print("Checking for pair duplicates (there never should be any):")
+    log("Checking for pair duplicates (there never should be any):")
     for i, i1 in enumerate(tqdm(proj.image_list)):
         for key in i1.match_list:
             matches = i1.match_list[key]
@@ -165,7 +166,7 @@ def check_for_1vn_dups(proj):
     # we start finding these here, I should hunt for the reason earlier in
     # the code that lets some through, or try to understand what larger
     # logic principle allows somne of these to still exist here.
-    print("Testing for 1 vs. n keypoint duplicates (there never should be any):")
+    log("Testing for 1 vs. n keypoint duplicates (there never should be any):")
     for i, i1 in enumerate(tqdm(proj.image_list)):
         for key in i1.match_list:
             matches = i1.match_list[key]
@@ -179,18 +180,18 @@ def check_for_1vn_dups(proj):
                 if not pair[0] in kp_dict:
                     kp_dict[pair[0]] = pair[1]
                 else:
-                    print("Warning keypoint idx", pair[0], "already used in another match.")
+                    log("Warning keypoint idx", pair[0], "already used in another match.")
                     uv2a = list(i2.kp_list[ kp_dict[pair[0]] ].pt)
                     uv2b = list(i2.kp_list[ pair[1] ].pt)
                     if not np.allclose(uv2, new_uv2):
-                        print("  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv2a[0], uv2a[1],
-                                                                  uv2b[0], uv2b[1]))
+                        qlog("  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv2a[0], uv2a[1],
+                                                                 uv2b[0], uv2b[1]))
                     count += 1
             if count > 0:
-                print('Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count)
+                qlog('Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count)
 
 def make_match_structure(proj):
-    print("Constructing unified match structure:")
+    log("Constructing unified match structure:")
     # create an initial pair-wise match list
     matches_direct = []
     for i, img in enumerate(tqdm(proj.image_list)):
@@ -216,18 +217,18 @@ def make_match_structure(proj):
         sum += len(match[2:])
 
     if len(matches_direct):
-        print("Total feature pairs in image set:", len(matches_direct))
-        print("Keypoint average instances = %.1f (should be 2.0 here)" % (sum / len(matches_direct)))
+        log("Total feature pairs in image set:", len(matches_direct))
+        log("Keypoint average instances = %.1f (should be 2.0 here)" % (sum / len(matches_direct)))
 
     return matches_direct
 
 # collect/group match chains that refer to the same keypoint
 def link_matches(proj, matches_direct):
-    print("Linking common matches together into chains:")
+    log("Linking common matches together into chains:")
     count = 0
     done = False
     while not done:
-        print("Iteration %d:" % count)
+        log("Iteration %d (%d):" % (count, len(matches_direct)))
         count += 1
         matches_new = []
         matches_lookup = {}
@@ -280,7 +281,7 @@ def link_matches(proj, matches_direct):
     # values.  This will save time later and avoid needing to load the
     # full original feature files which are quite large.  This also will
     # reduce the in-memory footprint for many steps.
-    print('Replacing keypoint indices with uv coordinates:')
+    log('Replacing keypoint indices with uv coordinates:')
     for match in tqdm(matches_direct):
         for m in match[2:]:
             kp = proj.image_list[m[0]].kp_list[m[1]].pt
@@ -288,7 +289,7 @@ def link_matches(proj, matches_direct):
         # print(match)
 
     # sort by longest match chains first
-    print("Sorting matches by longest chain first.")
+    log("Sorting matches by longest chain first.")
     matches_direct.sort(key=len, reverse=True)
 
     sum = 0.0
@@ -297,8 +298,8 @@ def link_matches(proj, matches_direct):
         sum += refs
 
     if count >= 1:
-        print("Total unique features in image set:", len(matches_direct))
-        print("Keypoint average instances:", "%.2f" % (sum / len(matches_direct)))
+        log("Total unique features in image set:", len(matches_direct))
+        log("Keypoint average instances:", "%.2f" % (sum / len(matches_direct)))
 
     return matches_direct
 
