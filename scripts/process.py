@@ -278,6 +278,8 @@ if not state.check("STEP4a"):
 
     state.update("STEP4a")
 
+matches_name = os.path.join(proj.analysis_dir, "matches_grouped")
+
 if not state.check("STEP4b"):
     proj.load_images_info()
     proj.load_features(descriptors=False)
@@ -289,8 +291,8 @@ if not state.check("STEP4b"):
     matches_direct = match_cleanup.make_match_structure(proj)
     matches_grouped = match_cleanup.link_matches(proj, matches_direct)
 
-    print("Writing full group chain matches_grouped file ...")
-    pickle.dump(matches_grouped, open(os.path.join(proj.analysis_dir, "matches_grouped"), "wb"))
+    log("Writing full group chain file:", matches_name)
+    pickle.dump(matches_grouped, open(matches_name, "wb"))
 
     state.update("STEP4b")
 
@@ -300,42 +302,40 @@ if not state.check("STEP4c"):
     K = proj.cam.get_K(optimized=False)
     IK = np.linalg.inv(K)
 
-    print("Loading source matches:", "matches_grouped")
-    matches_grouped = pickle.load( open( os.path.join(proj.analysis_dir, "matches_grouped"), 'rb' ) )
+    log("Loading source matches:", matches_name)
+    matches_grouped = pickle.load( open(matches_name, 'rb') )
     match_cleanup.triangulate_srtm(proj, matches_grouped)
-    print("Writing: matches_grouped")
-    pickle.dump(matches_grouped, open(os.path.join(proj.analysis_dir, "matches_grouped"), "wb"))
+    log("Writing triangulated group file:", matches_name)
+    pickle.dump(matches_grouped, open(matches_name, "wb"))
 
     state.update("STEP4c")
 
 if not state.check("STEP4d"):
     proj.load_images_info()
 
-    source = 'matches_grouped'
-    print("Loading source matches:", source)
-    matches = pickle.load( open( os.path.join(proj.analysis_dir, source), 'rb' ) )
-
-    print("features:", len(matches))
+    log("Loading source matches:", matches_name)
+    matches = pickle.load( open( matches_name, 'rb' ) )
+    log("matched features:", len(matches))
 
     # compute the group connections within the image set.
     groups = Groups.compute(proj.image_list, matches)
     Groups.save(proj.analysis_dir, groups)
 
-    print('Total images:', len(proj.image_list))
-    print('Group sizes:', end=" ")
+    log("Total images:", len(proj.image_list))
+    line = "Group sizes:"
     for g in groups:
-        print(len(g), end=" ")
-    print()
+        line += " " + str(len(g))
+    log(line)
 
-    # debug
-    print("Counting allocated features...")
+    log("Counting allocated features...")
     count = 0
     for i, match in enumerate(matches):
         if match[1] >= 0:
             count += 1
 
-    print("Writing:", source, "...")
     print("Features: %d/%d" % (count, len(matches)))
-    pickle.dump(matches, open(os.path.join(proj.analysis_dir, source), "wb"))
+    
+    log("Writing grouped tagged matches:", matches_name)
+    pickle.dump(matches, open(matches_name, "wb"))
 
     state.update("STEP4d")
