@@ -354,13 +354,12 @@ if not state.check("STEP4d"):
 if not state.check("STEP5"):
     proj.load_images_info()
 
-    print('Match file:', matches_name)
-    matches = pickle.load( open(matches_name, "rb") )
-    print('Match features:', len(matches))
+    log("Loading source matches:", matches_name)
+    matches = pickle.load( open( matches_name, 'rb' ) )
+    log("matched features:", len(matches))
 
     # load the group connections within the image set
     groups = Groups.load(proj.analysis_dir)
-    # sort from smallest to largest: groups.sort(key=len)
 
     opt = Optimizer.Optimizer(args.project)
 
@@ -386,7 +385,7 @@ if not state.check("STEP5"):
     opt.refit(proj, matches, groups, args.group)
 
     # write out the updated match_dict
-    print('Updating matches file:', len(matches), 'features')
+    log("Writing optimized (fitted) matches:", matches_name)
     pickle.dump(matches, open(matches_name, 'wb'))
 
     state.update("STEP5")

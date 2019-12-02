@@ -17,6 +17,7 @@ import numpy as np
 from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix
 
+from .logger import log, qlog
 from . import transformations
 
 d2r = math.pi / 180.0
@@ -25,7 +26,7 @@ r2d = 180.0 / math.pi
 # return a 3d affine tranformation between current camera locations
 # and original camera locations.
 def get_recenter_affine(src_list, dst_list):
-    print('get_recenter_affine():')
+    log('get_recenter_affine():')
     src = [[], [], [], []]      # current camera locations
     dst = [[], [], [], []]      # original camera locations
     for i in range(len(src_list)):
@@ -41,7 +42,7 @@ def get_recenter_affine(src_list, dst_list):
         dst[3].append(1.0)
         # print("{} <-- {}".format(dst_ned, src_ned))
     A = transformations.superimposition_matrix(src, dst, scale=True)
-    print("A:\n", A)
+    log("A:\n", A)
     return A
 
 # transform a point list given an affine transform matrix
@@ -119,7 +120,7 @@ class Optimizer():
         if self.optimize_calib == 'global':
             n += 8  # three K params (fx == fy) + five distortion params
         A = lil_matrix((m, n), dtype=int)
-        print('sparsity matrix is %d x %d' % (m, n))
+        log('sparsity matrix is %d x %d' % (m, n))
 
         i = np.arange(camera_indices.size)
         for s in range(self.ncp):
@@ -138,7 +139,7 @@ class Optimizer():
                 A[2 * i, n_cameras * self.ncp + n_points * 3 + s] = 1
                 A[2 * i + 1, n_cameras * self.ncp + n_points * 3 + s] = 1
 
-        print('A-matrix non-zero elements:', A.nnz)
+        log('A-matrix non-zero elements:', A.nnz)
         return A
 
     # compute an array of residuals (one for each observation)
@@ -201,22 +202,22 @@ class Optimizer():
                 count_std += 1
             if e > 10000:
                 count_bad += 1
-        print( 'std: %.2f %d/%d > 3*std (max: %.2f)' % (std, count_std, error.shape[0], np.amax(error)) )
-        by_cam = sorted(by_cam, key=lambda fields: fields[0], reverse=True)
-        for line in by_cam:
-            if line[0] > mre + 2*std:
-                print("  %s -- mean: %.3f max: %.3f" % (line[2], line[0], line[1]))
+        # print( 'std: %.2f %d/%d > 3*std (max: %.2f)' % (std, count_std, error.shape[0], np.amax(error)) )
+        # by_cam = sorted(by_cam, key=lambda fields: fields[0], reverse=True)
+        # for line in by_cam:
+        #     if line[0] > mre + 2*std:
+        #         print("  %s -- mean: %.3f max: %.3f" % (line[2], line[0], line[1]))
         
         # provide some runtime feedback for the operator
         if self.last_mre is None or 1.0 - mre/self.last_mre > 0.001:
             # mre has improved by more than 0.1%
             self.last_mre = mre
-            print('mre: %.3f std: %.3f max: %.2f' % (mre, np.std(error), np.amax(np.abs(error))) )
+            log('mre: %.3f std: %.3f max: %.2f' % (mre, np.std(error), np.amax(np.abs(error))) )
             if self.optimize_calib == 'global':
-                print("K:\n", K)
-                print("distCoeffs: %.3f %.3f %.3f %.3f %.3f" %
-                      (distCoeffs[0], distCoeffs[1], distCoeffs[2],
-                       distCoeffs[3], distCoeffs[4]))
+                log("K:\n", K)
+                log("distCoeffs: %.3f %.3f %.3f %.3f %.3f" %
+                    (distCoeffs[0], distCoeffs[1], distCoeffs[2],
+                     distCoeffs[3], distCoeffs[4]))
             # if not self.graph is None:
             #     points = points_3d
             #     #points = cams_3d
@@ -244,7 +245,7 @@ class Optimizer():
     # optimizing a group of images/features
     def setup(self, proj, groups, group_index, matches_list, optimized=False,
               cam_calib=False):
-        print('Setting up optimizer data structures...')
+        log('Setting up optimizer data structures...')
         if cam_calib:
             self.optimize_calib = 'global' # global camera optimization
         else:
@@ -259,7 +260,7 @@ class Optimizer():
         for name in groups[group_index]:
             i = proj.findIndexByName(name)
             placed_images.add(i)            
-        print('Number of placed images:', len(placed_images))
+        log('Number of placed images:', len(placed_images))
         
         # construct the camera index remapping
         self.camera_map_fwd = {}
@@ -360,7 +361,7 @@ class Optimizer():
                 self.camera_indices[obs_idx] = i
                 self.point_indices[obs_idx] = self.by_camera_point_indices[i][j]
                 obs_idx += 1
-        print("num observations:", obs_idx)
+        log("num observations:", obs_idx)
 
     # assemble the structures and remapping indices required for
     # optimizing a group of images/features, call the optimizer, and
@@ -441,9 +442,9 @@ class Optimizer():
                                   self.by_camera_point_indices,
                                   self.by_camera_points_2d))
         t1 = time.time()
-        print("Optimization took {0:.0f} seconds".format(t1 - t0))
+        log("Optimization took %.1f seconds" % (t1 - t0))
         # print(res['x'])
-        print(res)
+        log("res:", res)
         
         self.camera_params = res.x[:self.n_cameras * self.ncp].reshape((self.n_cameras, self.ncp))
         self.points_3d = res.x[self.n_cameras * self.ncp:self.n_cameras * self.ncp + self.n_points * 3].reshape((self.n_points, 3))
@@ -465,12 +466,12 @@ class Optimizer():
         iterations = res.njev
         time_sec = t1 - t0
 
-        print("Starting mean reprojection error: %.2f" % mre_start)
-        print("Final mean reprojection error: %.2f" % mre_final)
-        print("Iterations:", iterations)
-        print("Elapsed time = %.1f sec" % time_sec)
+        log("Starting mean reprojection error: %.2f" % mre_start)
+        log("Final mean reprojection error: %.2f" % mre_final)
+        log("Iterations:", iterations)
+        log("Elapsed time = %.1f sec" % time_sec)
         if self.optimize_calib == 'global':
-            print("Final camera calib:\n", camera_calib)
+            log("Final camera calib:\n", camera_calib)
 
         # final plot
         # plt.plot(res.fun)
@@ -482,6 +483,8 @@ class Optimizer():
                  fx, fy, cu, cv, distCoeffs_opt )
 
     def update_camera_poses(self, proj):
+        log('Updated the optimized camera poses.')
+        
         # mark all the optimized poses as invalid
         for image in proj.image_list:
             opt_cam_node = image.node.getChild('camera_pose_opt', True)
@@ -491,7 +494,7 @@ class Optimizer():
             image_index = self.camera_map_fwd[i]
             image = proj.image_list[image_index]
             ned_orig, ypr_orig, quat_orig = image.get_camera_pose()
-            print('optimized cam:', cam)
+            # print('optimized cam:', cam)
             rvec = cam[0:3]
             tvec = cam[3:6]
             Rned2cam, jac = cv2.Rodrigues(rvec)
@@ -503,11 +506,10 @@ class Optimizer():
             #print "new ypr =", [yaw/d2r, pitch/d2r, roll/d2r]
             pos = -np.matrix(Rned2cam).T * np.matrix(tvec).T
             newned = pos.T[0].tolist()[0]
-            print(image.name, ned_orig, '->', newned, 'dist:', np.linalg.norm(np.array(ned_orig) - np.array(newned)))
+            log(image.name, ned_orig, '->', newned, 'dist:', np.linalg.norm(np.array(ned_orig) - np.array(newned)))
             image.set_camera_pose( newned, yaw*r2d, pitch*r2d, roll*r2d, opt=True )
             image.placed = True
         proj.save_images_info()
-        print('Updated the optimized camera poses.')
 
     # compare original camera locations with optimized camera
     # locations and derive a transform matrix to 'best fit' the new
@@ -518,7 +520,7 @@ class Optimizer():
     def refit(self, proj, matches, groups, group_index):
         matches_opt = list(matches) # shallow copy
         group = groups[group_index]
-        print('refitting group size:', len(group))
+        log('refitting group size:', len(group))
         src_list = []
         dst_list = []
         # only consider images that are in the current   group
@@ -532,13 +534,13 @@ class Optimizer():
 
         # extract the rotation matrix (R) from the affine transform
         scale, shear, angles, trans, persp = transformations.decompose_matrix(A)
-        print('  scale:', scale)
-        print('  shear:', shear)
-        print('  angles:', angles)
-        print('  translate:', trans)
-        print('  perspective:', persp)
+        log('  scale:', scale)
+        log('  shear:', shear)
+        log('  angles:', angles)
+        log('  translate:', trans)
+        log('  perspective:', persp)
         R = transformations.euler_matrix(*angles)
-        print("R:\n{}".format(R))
+        log("R:\n{}".format(R))
 
         # fixme (just group):
 
@@ -581,19 +583,19 @@ class Optimizer():
                 image.set_camera_pose(new_cams[i], yaw*r2d, pitch*r2d, roll*r2d,
                                       opt=True)
                 dist = np.linalg.norm( np.array(ned_orig) - np.array(new_cams[i]))
-                print('image: {}'.format(image.name))
-                print('  orig pos: {}'.format(ned_orig))
-                print('  fit pos: {}'.format(new_cams[i]))
-                print('  dist moved: {}'.format(dist))
+                qlog("image:", image.name)
+                qlog("  orig pos:", ned_orig)
+                qlog("  fit pos:", new_cams[i])
+                qlog("  dist moved:", dist)
                 dist_report.append( (dist, image.name) )
             proj.save_images_info()
 
             dist_report = sorted(dist_report,
                                  key=lambda fields: fields[0],
                                  reverse=False)
-            print('Image movement sorted lowest to highest:')
+            log("Image movement sorted lowest to highest:")
             for report in dist_report:
-                print('{} dist: {}'.format(report[1], report[0]))
+                log(report[1], "dist:", report[0])
 
         # tranform the optimized point locations using the same best
         # fit transform for the camera locations.
@@ -613,6 +615,6 @@ class Optimizer():
                     in_group = True
                     break
             if in_group:
-                #print(' before:', match)
+                #print(" before:", match)
                 match[0] = feat
-                #print(' after:', match)
+                #print(" after:", match)
