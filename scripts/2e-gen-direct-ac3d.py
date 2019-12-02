@@ -14,7 +14,6 @@ import navpy
 
 sys.path.append('../lib')
 import ac3d
-import Pose
 import ProjectMgr
 import SRTM
 import transformations

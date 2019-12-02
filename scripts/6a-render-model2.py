@@ -22,7 +22,6 @@ from props import getNode
 
 from lib import groups
 from lib import panda3d
-from lib import Pose
 from lib import ProjectMgr
 from lib import SRTM
 from lib import transformations

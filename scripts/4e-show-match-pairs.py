@@ -7,7 +7,6 @@ import os.path
 from props import getNode
 
 from lib import matcher
-from lib import Pose
 from lib import ProjectMgr
 
 # working on matching features ...

@@ -14,7 +14,6 @@ import os.path
 import scipy.spatial
 
 sys.path.append('../lib')
-import Pose
 import ProjectMgr
 import SRTM
 import transformations

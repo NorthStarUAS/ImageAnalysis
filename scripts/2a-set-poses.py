@@ -5,7 +5,7 @@ import os
 
 from props import getNode
 
-from lib import Pose
+from lib import pose
 from lib import ProjectMgr
 
 # for all the images in the project image_dir, detect features using the
@@ -29,10 +29,10 @@ image_dir = args.project
 pix4d_file = os.path.join(image_dir, 'pix4d.csv')
 meta_file = os.path.join(image_dir, 'image-metadata.txt')
 if os.path.exists(pix4d_file):
-    Pose.setAircraftPoses(proj, pix4d_file, order='rpy',
+    pose.setAircraftPoses(proj, pix4d_file, order='rpy',
                           max_angle=args.max_angle)
 elif os.path.exists(meta_file):
-    Pose.setAircraftPoses(proj, meta_file, order='ypr',
+    pose.setAircraftPoses(proj, meta_file, order='ypr',
                           max_angle=args.max_angle)
 else:
     print("Error: no pose file found in image directory:", image_dir)
@@ -48,7 +48,7 @@ ned_node.pretty_print("  ")
 # set the camera poses (fixed offset from aircraft pose) Camera pose
 # location is specfied in ned, so do this after computing the ned
 # reference point for this project.
-Pose.compute_camera_poses(proj)
+pose.compute_camera_poses(proj)
 
 # save the poses
 proj.save_images_info()

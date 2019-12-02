@@ -7,7 +7,7 @@ import os
 from auracore import wgs84      # github.com/AuraUAS/aura-core
 from props import getNode
 
-from lib import Pose
+from lib import pose
 
 d2r = math.pi / 180.0
 r2d = 180.0 / math.pi
@@ -21,4 +21,4 @@ args = parser.parse_args()
 
 image_dir = args.project
 
-Pose.make_pix4d(image_dir, args.force_altitude, args.force_heading, args.yaw_from_groundtrack)
+pose.make_pix4d(image_dir, args.force_altitude, args.force_heading, args.yaw_from_groundtrack)

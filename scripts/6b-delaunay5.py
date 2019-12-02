@@ -12,7 +12,6 @@ import os.path
 import scipy.spatial
 
 from lib import groups
-from lib import Pose
 from lib import ProjectMgr
 from lib import SRTM
 from lib import transformations

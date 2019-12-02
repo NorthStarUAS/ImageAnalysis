@@ -28,7 +28,7 @@ from lib.logger import log
 from lib import matcher
 from lib import match_cleanup
 from lib import optimzer
-from lib import Pose
+from lib import pose
 from lib import ProjectMgr
 from lib import state
 
@@ -161,7 +161,7 @@ if os.path.exists(pix4d_file):
 elif os.path.exists(meta_file):
     log("Found a pose file:", meta_file)
 else:
-    Pose.make_pix4d(args.project)
+    pose.make_pix4d(args.project)
     
 # load existing image meta data in case this isn't a first run
 proj.load_images_info()
@@ -169,10 +169,10 @@ proj.load_images_info()
 pix4d_file = os.path.join(args.project, 'pix4d.csv')
 meta_file = os.path.join(args.project, 'image-metadata.txt')
 if os.path.exists(pix4d_file):
-    Pose.setAircraftPoses(proj, pix4d_file, order='rpy',
+    pose.setAircraftPoses(proj, pix4d_file, order='rpy',
                           max_angle=args.max_angle)
 elif os.path.exists(meta_file):
-    Pose.setAircraftPoses(proj, meta_file, order='ypr',
+    pose.setAircraftPoses(proj, meta_file, order='ypr',
                           max_angle=args.max_angle)
 else:
     log("Error: no pose file found in image directory:", args.project)
@@ -188,7 +188,7 @@ log("NED reference location:", ned_node.getFloat('lat_deg'),
 # set the camera poses (fixed offset from aircraft pose) Camera pose
 # location is specfied in ned, so do this after computing the ned
 # reference point for this project.
-Pose.compute_camera_poses(proj)
+pose.compute_camera_poses(proj)
 
 # save the poses
 proj.save_images_info()

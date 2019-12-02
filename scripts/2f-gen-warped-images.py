@@ -13,7 +13,6 @@ import random
 import navpy
 
 sys.path.append('../lib')
-import Pose
 import ProjectMgr
 import Render
 import SRTM
