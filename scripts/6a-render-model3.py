@@ -25,7 +25,7 @@ import scipy.spatial
 from props import getNode
 
 from lib import groups
-from lib import Panda3d
+from lib import panda3d
 from lib import Pose
 from lib import ProjectMgr
 from lib import SRTM
@@ -300,7 +300,7 @@ for name in group:
 # generate the panda3d egg models
 dir_node = getNode('/config/directories', True)
 img_src_dir = dir_node.getString('images_source')
-Panda3d.generate_from_fit(proj, group_list[args.group], src_dir=img_src_dir,
+panda3d.generate_from_fit(proj, group_list[args.group], src_dir=img_src_dir,
                           analysis_dir=proj.analysis_dir,
                           resolution=args.texture_resolution)
 
