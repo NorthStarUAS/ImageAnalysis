@@ -16,7 +16,7 @@ import cv2
 import numpy as np
 import os.path
 
-from lib import Matcher
+from lib import matcher
 from lib import ProjectMgr
 
 import match_culling as cull
@@ -32,7 +32,7 @@ proj.load_images_info()
 proj.load_features()
 proj.undistort_keypoints()
 
-matcher = Matcher.Matcher()
+matcher = matcher.Matcher()
 
 print("Loading match points (direct)...")
 matches = pickle.load( open( os.path.join(proj.analysis_dir, "matches_direct"), "rb" ) )
@@ -71,8 +71,7 @@ for match in matches:
 # print pairs
 
 # sanity check (display pairs)
-# import Matcher
-# m = Matcher.Matcher()
+# m = matcher.Matcher()
 # for i in range(len(proj.image_list)):
 #     for j in range(len(proj.image_list)):
 #         if len(pairs[i][j]):

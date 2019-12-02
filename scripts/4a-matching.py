@@ -7,7 +7,7 @@ import os
 
 from props import getNode
 
-from lib import Matcher
+from lib import matcher
 from lib import Pose
 from lib import ProjectMgr
 from lib import SRTM
@@ -56,7 +56,7 @@ K = proj.cam.get_K()
 print("K:", K)
 
 # fire up the matcher
-m = Matcher.Matcher()
+m = matcher.Matcher()
 m.configure()
 m.robustGroupMatches(proj.image_list, K,
                      filter=args.filter, review=False)

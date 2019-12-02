@@ -6,7 +6,7 @@ import os.path
 
 from props import getNode
 
-from lib import Matcher
+from lib import matcher
 from lib import Pose
 from lib import ProjectMgr
 
@@ -61,7 +61,7 @@ ref = [ ref_node.getFloat('lat_deg'),
         ref_node.getFloat('lon_deg'),
         ref_node.getFloat('alt_m') ]
 
-m = Matcher.Matcher()
+m = matcher.Matcher()
 
 order = 'fewest-matches'
 

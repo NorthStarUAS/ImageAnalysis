@@ -17,7 +17,6 @@ import os.path
 import scipy.spatial
 
 sys.path.append('../lib')
-import Matcher
 import Pose
 import ProjectMgr
 import SRTM

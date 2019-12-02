@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from props import getNode
 
-from lib import Matcher
+from lib import matcher
 from lib import match_cleanup
 from lib import ProjectMgr
 
@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 args = parser.parse_args()
 
-m = Matcher.Matcher()
+m = matcher.Matcher()
 
 proj = ProjectMgr.ProjectMgr(args.project)
 proj.load_images_info()

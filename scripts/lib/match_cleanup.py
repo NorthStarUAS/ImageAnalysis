@@ -9,7 +9,7 @@ from tqdm import tqdm
 from props import getNode
 
 from .logger import log, qlog
-from . import Matcher
+from . import matcher
 from . import ProjectMgr
 from . import SRTM
 
@@ -17,7 +17,7 @@ from . import SRTM
 # georeferenced locations based on estimated camera pose and
 # projection onto DEM earth surface
 
-m = Matcher.Matcher()
+m = matcher.Matcher()
 
 def merge_duplicates(proj):
     # compute keypoint usage map
