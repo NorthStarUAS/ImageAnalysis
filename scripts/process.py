@@ -25,9 +25,9 @@ import time
 
 from lib import groups
 from lib.logger import log
-from lib import Matcher
+from lib import matcher
 from lib import match_cleanup
-from lib import Optimizer
+from lib import optimzer
 from lib import Pose
 from lib import ProjectMgr
 from lib import state
@@ -277,7 +277,7 @@ if not state.check("STEP4a"):
     log("Matching features")
     
     # fire up the matcher
-    m = Matcher.Matcher()
+    m = matcher.Matcher()
     m.configure()
     m.robustGroupMatches(proj.image_list, K,
                          filter=args.filter, review=False)
@@ -361,7 +361,7 @@ if not state.check("STEP5"):
     # load the group connections within the image set
     group_list = groups.load(proj.analysis_dir)
 
-    opt = Optimizer.Optimizer(args.project)
+    opt = optimzer.Optimizer(args.project)
 
     # setup the data structures
     opt.setup( proj, group_list, args.group, matches, optimized=args.refine,

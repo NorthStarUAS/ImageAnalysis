@@ -12,7 +12,7 @@ import os
 from props import getNode
 
 from lib import groups
-from lib import Optimizer
+from lib import optimzer
 from lib import ProjectMgr
 from lib import match_culling as cull
 
@@ -48,7 +48,7 @@ for group in group_list:
     print(len(group), end=" ")
 print()
 
-opt = Optimizer.Optimizer(args.project)
+opt = optimzer.Optimizer(args.project)
 if args.initial_pose:
     opt.setup( proj, group_list, args.group, matches, optimized=False )
 else:

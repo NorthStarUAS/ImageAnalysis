@@ -12,7 +12,7 @@ import numpy as np
 import os
 
 from lib import groups
-from lib import Optimizer
+from lib import optimizer
 from lib import ProjectMgr
 from lib import transformations
 
@@ -39,7 +39,7 @@ print('Match features:', len(matches))
 group_list = groups.load(proj.analysis_dir)
 # sort from smallest to largest: groups.sort(key=len)
 
-opt = Optimizer.Optimizer(args.project)
+opt = optimizer.Optimizer(args.project)
 
 opt.setup( proj, group_list, args.group, matches, optimized=args.refine,
            cam_calib=args.cam_calibration)
