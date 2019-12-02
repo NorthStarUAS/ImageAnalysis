@@ -10,7 +10,7 @@ from tqdm import tqdm
 from props import getNode
 
 from lib import groups
-from lib import LineSolver
+from lib import line_solver
 from lib import ProjectMgr
 from lib import match_cleanup
 
@@ -142,7 +142,7 @@ elif args.method == 'triangulate':
             if len(points) >= 2:
                 # print('points:', points)
                 # print('vectors:', vectors)
-                p = LineSolver.ls_lines_intersection(points, vectors, transpose=True).tolist()
+                p = line_solver.ls_lines_intersection(points, vectors, transpose=True).tolist()
                 # print('result:',  p, p[0])
                 print(i, match[0], '>>>', end=" ")
                 match[0] = [ p[0][0], p[1][0], p[2][0] ]
