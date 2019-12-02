@@ -20,13 +20,13 @@ import geojson
 from props import root, getNode
 import props_json
 
-from . import Camera
-from . import Exif
+from . import camera
+from . import exif
 from . import Image
 from . import ImageList
 from . import logger
 from .logger import log, qlog
-from . import Render
+# from . import Render
 from . import state
 from . import transformations
 
@@ -35,7 +35,7 @@ class ProjectMgr():
     def __init__(self, project_dir, create=False):
         self.project_dir = project_dir
         self.analysis_dir = os.path.join(self.project_dir, "ImageAnalysis")
-        self.cam = Camera.Camera()
+        self.cam = camera.Camera()
         self.image_list = []
         self.matcher_params = { 'matcher': 'FLANN', # { FLANN or 'BF' }
                                 'match-ratio': 0.75,
@@ -45,7 +45,7 @@ class ProjectMgr():
 
         # the following member variables need to be reviewed/organized
         self.ac3d_steps = 8
-        self.render = Render.Render()
+        # self.render = Render.Render()
         self.dir_node = getNode('/config/directories', True)
         self.load( create )
 
@@ -130,7 +130,7 @@ class ProjectMgr():
             if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
                 image_file = os.path.join(image_dir, file)
                 camera, make, model, lens_model = \
-                    Exif.get_camera_info(image_file)
+                    exif.get_camera_info(image_file)
                 break
         return camera, make, model, lens_model
         
@@ -153,8 +153,8 @@ class ProjectMgr():
             image = Image.Image(meta_dir, name)
             self.image_list.append( image )
 
-        # make sure our matcher gets a copy of the image list
-        self.render.setImageList(self.image_list)
+        # make sure our renderer gets a copy of the image list
+        # self.render.setImageList(self.image_list)
 
     def load_features(self, descriptors=False):
         if descriptors:

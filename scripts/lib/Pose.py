@@ -12,7 +12,7 @@ import re
 import navpy
 from props import getNode
 
-from . import Exif
+from . import exif
 from . import Image
 from .logger import log
 from . import transformations
@@ -148,7 +148,7 @@ def make_pix4d(image_dir, force_altitude=None, force_heading=None, yaw_from_grou
     for file in files:
         full_name = os.path.join(image_dir, file)
         # print(full_name)
-        lon, lat, alt, unixtime, yaw_deg = Exif.get_pose(full_name)
+        lon, lat, alt, unixtime, yaw_deg = exif.get_pose(full_name)
 
         line = [file, lat, lon]
         if not force_altitude:

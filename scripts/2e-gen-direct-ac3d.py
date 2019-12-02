@@ -13,7 +13,7 @@ import random
 import navpy
 
 sys.path.append('../lib')
-import AC3D
+import ac3d
 import Pose
 import ProjectMgr
 import SRTM
@@ -106,7 +106,7 @@ for image in image_list:
     depth -= 0.01                # favor last pictures above earlier ones
     
 # call the ac3d generator
-AC3D.generate(image_list, src_dir=proj.source_dir,
+ac3d.generate(image_list, src_dir=proj.source_dir,
               project_dir=args.project, base_name='direct',
               version=1.0, trans=0.1, resolution=args.texture_resolution)
 
