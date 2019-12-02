@@ -10,7 +10,7 @@ import sys
 from props import getNode       # from aura-props package
 import props_json               # from aura-props package
 
-from lib import Camera
+from lib import camera
 from lib import ProjectMgr
 
 parser = argparse.ArgumentParser(description='New camera configuration.')
@@ -102,7 +102,7 @@ cu = width * 0.5
 cv = height * 0.5
 print('cu cv = %.2f %.2f' % (cu, cv))
 
-cam = Camera.Camera()
+cam = camera.Camera()
 cam.set_defaults()
 cam.set_meta(make, model, lens_model)
 cam.set_lens_params(ccd_width, ccd_height, focal_len_mm)

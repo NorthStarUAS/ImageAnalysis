@@ -7,7 +7,7 @@ import argparse
 import pickle
 import os.path
 
-from lib import Groups
+from lib import groups
 from lib import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
@@ -24,12 +24,12 @@ matches = pickle.load( open( os.path.join(proj.analysis_dir, source), 'rb' ) )
 print("features:", len(matches))
 
 # compute the group connections within the image set.
-groups = Groups.compute(proj.image_list, matches)
-Groups.save(proj.analysis_dir, groups)
+group_list = groups.compute(proj.image_list, matches)
+groups.save(proj.analysis_dir, group_list)
 
 print('Total images:', len(proj.image_list))
 print('Group sizes:', end=" ")
-for g in groups:
+for g in group_list:
     print(len(g), end=" ")
 print()
 

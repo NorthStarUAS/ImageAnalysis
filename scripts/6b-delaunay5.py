@@ -11,7 +11,7 @@ import numpy as np
 import os.path
 import scipy.spatial
 
-from lib import Groups
+from lib import groups
 from lib import Matcher
 from lib import Pose
 from lib import ProjectMgr
@@ -59,7 +59,7 @@ print("Loading optimized points ...")
 matches = pickle.load( open( os.path.join(proj.analysis_dir, "matches_grouped"), "rb" ) )
 
 # load the group connections within the image set
-groups = Groups.load(proj.analysis_dir)
+group_list = groups.load(proj.analysis_dir)
 
 points_group = []
 values_group = []

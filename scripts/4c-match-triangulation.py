@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from props import getNode
 
-from lib import Groups
+from lib import groups
 from lib import LineSolver
 from lib import ProjectMgr
 from lib import match_cleanup
@@ -28,9 +28,9 @@ print("Loading source matches:", source)
 matches = pickle.load( open( os.path.join(proj.analysis_dir, source), 'rb' ) )
 
 # load the group connections within the image set
-groups = Groups.load(proj.analysis_dir)
+group_list = groups.load(proj.analysis_dir)
 print('Group sizes:', end=" ")
-for group in groups:
+for group in group_list:
     print(len(group), end=" ")
 print()
 
@@ -126,7 +126,7 @@ elif args.method == 'triangulate':
             points = []
             vectors = []
             for m in match[2:]:
-                if proj.image_list[m[0]].name in groups[args.group]:
+                if proj.image_list[m[0]].name in group_list[args.group]:
                     # print(m)
                     image = proj.image_list[m[0]]
                     cam2body = image.get_cam2body()

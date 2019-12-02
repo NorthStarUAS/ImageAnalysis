@@ -34,7 +34,7 @@ import os
 import sys
 
 sys.path.append('../lib')
-import Groups
+import groups
 import ProjectMgr
 
 import match_culling as cull
@@ -60,8 +60,8 @@ matches_opt = pickle.load( open( os.path.join(args.project, "matches_opt"), "rb"
 print('Number of optimized features:', len(matches_opt))
 
 # load the group connections within the image set
-groups = Groups.load(args.project)
-print('Main group size:', len(groups[0]))
+group_list = groups.load(args.project)
+print('Main group size:', len(group_list[0]))
 
 # compute the depth of each feature for each image
 def compute_feature_depths(image_list, group, matches):
@@ -158,7 +158,7 @@ def mark_outliers(error_list, trim_stddev):
             
     return mark_count
 
-error_list = compute_feature_depths(proj.image_list, groups[0], matches_opt)
+error_list = compute_feature_depths(proj.image_list, group_list[0], matches_opt)
 
 if args.interactive:
     # interactively pick outliers

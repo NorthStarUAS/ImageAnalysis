@@ -8,7 +8,7 @@ import pickle
 import sys
 
 sys.path.append('../lib')
-import Groups
+import groups
 import ProjectMgr
 
 import match_culling as cull
@@ -32,8 +32,8 @@ matches_opt = pickle.load( open( os.path.join(args.project, "matches_opt"), "rb"
 print('Number of optimized features:', len(matches_opt))
 
 # load the group connections within the image set
-groups = Groups.load(args.project)
-print('Main group size:', len(groups[0]))
+group_list = groups.load(args.project)
+print('Main group size:', len(group_list[0]))
 
 pair_angles = []
 for i in range(len(proj.image_list)):
@@ -64,7 +64,7 @@ for match in matches_opt:
         for m2 in match[1:]:
             if m1[0] >= m2[0]:
                 continue
-            if m1[0] in groups[0] and m2[0] in groups[0]:
+            if m1[0] in group_list[0] and m2[0] in group_list[0]:
                 i1 = proj.image_list[m1[0]]
                 i2 = proj.image_list[m2[0]]
                 ned1, ypr1, q1 = i1.get_camera_pose(opt=True)

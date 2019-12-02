@@ -16,7 +16,7 @@ from tqdm import tqdm
 from props import getNode
 
 from .find_obj import filter_matches,explore_match
-from . import ImageList
+from . import image_list
 from .logger import log, qlog
 from . import transformations
 
@@ -1287,9 +1287,9 @@ class Matcher():
                 #self.showMatch(i1, i2, match)
 
     def reviewPoint(self, lon_deg, lat_deg, ref_lon, ref_lat):
-        (x, y) = ImageList.wgs842cart(lon_deg, lat_deg, ref_lon, ref_lat)
+        (x, y) = image_list.wgs842cart(lon_deg, lat_deg, ref_lon, ref_lat)
         print("Review images touching %.2f %.2f" % (x, y))
-        review_list = ImageList.getImagesCoveringPoint(self.image_list, x, y, pad=25.0, only_placed=False)
+        review_list = image_list.getImagesCoveringPoint(self.image_list, x, y, pad=25.0, only_placed=False)
         #print "  Images = %s" % str(review_list)
         for image in review_list:
             print("    %s -> " % image.name,)
@@ -1299,7 +1299,7 @@ class Matcher():
                     print("%s (%d) " % (self.image_list[j].name, len(matches)),)
             print
             r2 = image.coverage()
-            p = ImageList.getImagesCoveringRectangle(self.image_list, r2)
+            p = image_list.getImagesCoveringRectangle(self.image_list, r2)
             p_names = []
             for i in p:
                 p_names.append(i.name)

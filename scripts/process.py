@@ -23,7 +23,7 @@ import os
 import pickle
 import time
 
-from lib import Groups
+from lib import groups
 from lib.logger import log
 from lib import Matcher
 from lib import match_cleanup
@@ -324,12 +324,12 @@ if not state.check("STEP4d"):
     log("matched features:", len(matches))
 
     # compute the group connections within the image set.
-    groups = Groups.compute(proj.image_list, matches)
-    Groups.save(proj.analysis_dir, groups)
+    group_list = groups.compute(proj.image_list, matches)
+    groups.save(proj.analysis_dir, group_list)
 
     log("Total images:", len(proj.image_list))
     line = "Group sizes:"
-    for g in groups:
+    for g in group_list:
         line += " " + str(len(g))
     log(line)
 
@@ -359,12 +359,12 @@ if not state.check("STEP5"):
     log("matched features:", len(matches))
 
     # load the group connections within the image set
-    groups = Groups.load(proj.analysis_dir)
+    group_list = groups.load(proj.analysis_dir)
 
     opt = Optimizer.Optimizer(args.project)
 
     # setup the data structures
-    opt.setup( proj, groups, args.group, matches, optimized=args.refine,
+    opt.setup( proj, group_list, args.group, matches, optimized=args.refine,
                cam_calib=args.cam_calibration)
 
     # run the optimization (fit)
@@ -382,7 +382,7 @@ if not state.check("STEP5"):
 
     # reposition the optimized data set to best fit the original gps
     # locations of the camera poses.
-    opt.refit(proj, matches, groups, args.group)
+    opt.refit(proj, matches, group_list, args.group)
 
     # write out the updated match_dict
     log("Writing optimized (fitted) matches:", matches_name)

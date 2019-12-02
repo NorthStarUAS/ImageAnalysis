@@ -2,7 +2,7 @@ import cv2
 import math
 import numpy as np
 
-from . import ImageList
+from . import image_list
 
 class Render():
     def __init__(self):
@@ -209,7 +209,7 @@ class Render():
             blend_px += 1
 
         if bounds == None:
-            (xmin, ymin, xmax, ymax) = ImageList.coverage(draw_list)
+            (xmin, ymin, xmax, ymax) = image_list.coverage(draw_list)
         else:
             (xmin, ymin, xmax, ymax) = bounds
 
@@ -236,7 +236,7 @@ class Render():
         xcenter = (xmin + xmax) * 0.5
         ycenter = (ymin + ymax) * 0.5
         pad = (xmax - xmin) * 0.5
-        draw_list = ImageList.getImagesCoveringPoint(placed_list, 
+        draw_list = image_list.getImagesCoveringPoint(placed_list, 
                                                      xcenter, ycenter, pad,
                                                      only_placed=True)
         if len(draw_list):
@@ -267,7 +267,7 @@ class Render():
         if blend_px % 2 == 0:
             blend_px += 1
 
-        (xmin, ymin, xmax, ymax) = ImageList.coverage(self.image_list)
+        (xmin, ymin, xmax, ymax) = image_list.coverage(self.image_list)
         grid_m = (dim * cm_per_pixel) / 100.0
         print("grid square size = (%.2f x %.2f)" % (grid_m, grid_m))
         #xpixel = (xmax - xmin) * 100.0 / cm_per_pixel
@@ -291,10 +291,10 @@ class Render():
                                           bounds=(x, y, x+grid_m, y+grid_m),
                                           file=jpgfile)
                 if len(images):
-                    (ul_lon, ul_lat) = ImageList.cart2wgs84(x, y+grid_m,
+                    (ul_lon, ul_lat) = image_list.cart2wgs84(x, y+grid_m,
                                                             self.ref_lon,
                                                             self.ref_lat)
-                    (lr_lon, lr_lat) = ImageList.cart2wgs84(x+grid_m, y,
+                    (lr_lon, lr_lat) = image_list.cart2wgs84(x+grid_m, y,
                                                             self.ref_lon,
                                                             self.ref_lat)
                     cmd = 'gdal_translate -a_srs "+proj=latlong +datum=WGS84" '

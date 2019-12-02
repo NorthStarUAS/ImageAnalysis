@@ -11,7 +11,7 @@ import math
 import numpy as np
 import os
 
-from lib import Groups
+from lib import groups
 from lib import Optimizer
 from lib import ProjectMgr
 from lib import transformations
@@ -36,12 +36,12 @@ matches = pickle.load( open(source_file, "rb") )
 print('Match features:', len(matches))
 
 # load the group connections within the image set
-groups = Groups.load(proj.analysis_dir)
+group_list = groups.load(proj.analysis_dir)
 # sort from smallest to largest: groups.sort(key=len)
 
 opt = Optimizer.Optimizer(args.project)
 
-opt.setup( proj, groups, args.group, matches, optimized=args.refine,
+opt.setup( proj, group_list, args.group, matches, optimized=args.refine,
            cam_calib=args.cam_calibration)
 
 cameras, features, cam_index_map, feat_index_map, fx_opt, fy_opt, cu_opt, cv_opt, distCoeffs_opt = opt.run()
@@ -64,7 +64,7 @@ proj.save()
 matches_opt = list(matches) # shallow copy
 refit_group_orientations = True
 if refit_group_orientations:
-    opt.refit(proj, matches, groups, args.group)
+    opt.refit(proj, matches, group_list, args.group)
 else:
     # not refitting group orientations, just copy over optimized
     # coordinates
@@ -89,7 +89,7 @@ f.close()
 # temp write out direct and optimized camera positions
 f1 = open(os.path.join(proj.analysis_dir, 'cams-direct.txt'), 'w')
 f2 = open(os.path.join(proj.analysis_dir, 'cams-opt.txt'), 'w')
-for name in groups[args.group]:
+for name in group_list[args.group]:
     image = proj.findImageByName(name)
     ned1, ypr1, quat1 = image.get_camera_pose()
     ned2, ypr2, quat2 = image.get_camera_pose(opt=True)

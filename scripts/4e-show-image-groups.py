@@ -9,7 +9,6 @@ import os.path
 
 import pygraphviz as pgv
 
-from lib import Groups
 from lib import ProjectMgr
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')

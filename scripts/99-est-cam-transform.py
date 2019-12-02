@@ -15,7 +15,7 @@ from props import getNode
 
 import sys
 sys.path.append('../lib')
-import Groups
+import groups
 import ProjectMgr
 import transformations
 
@@ -31,13 +31,13 @@ proj = ProjectMgr.ProjectMgr(args.project)
 print("Loading image info...")
 proj.load_images_info()
 
-groups = Groups.load(proj.analysis_dir)
+group_list = groups.load(proj.analysis_dir)
 
 # compute an average transform between original camera attitude estimate
 # and optimized camera attitude estimate
 quats = []
 for i, image in enumerate(proj.image_list):
-    if image.name in groups[0]:
+    if image.name in group_list[0]:
         print(image.name)
         ned, ypr, q0 = image.get_camera_pose(opt=False)
         ned, ypr, q1 = image.get_camera_pose(opt=True)
@@ -118,7 +118,7 @@ def wrap_pi(val):
 
 # test correcting the original aircraft attitude from optimized camera attitude
 for i, image in enumerate(proj.image_list):
-    if image.name in groups[0]:
+    if image.name in group_list[0]:
         lla, ypr, q_aircraft = image.get_aircraft_pose()
         ned_init, ypr, q_cam_initial = image.get_camera_pose(opt=False)
         ned_opt, ypr, q_cam_opt = image.get_camera_pose(opt=True)

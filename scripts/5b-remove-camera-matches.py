@@ -9,7 +9,7 @@ import os
 
 from props import getNode
 
-from lib import Groups
+from lib import groups
 from lib import ProjectMgr
 from lib import match_culling as cull
 
@@ -28,7 +28,7 @@ matches = pickle.load( open( os.path.join(proj.analysis_dir, "matches_grouped"),
 print("  features:", len(matches))
 
 # load the group connections within the image set
-groups = Groups.load(proj.analysis_dir)
+group_list = groups.load(proj.analysis_dir)
 
 # a value of 2 let's pairs exist which can be trouble ...
 matcher_node = getNode('/config/matcher', True)
@@ -58,18 +58,18 @@ if not args.images is None:
         index = proj.findIndexByName(name)
         if index == None:
             print("Cannot locate by name:", args.images)
-        elif not name in groups[args.group]:
+        elif not name in group_list[args.group]:
             print(name, "not in selected group.")
         else:
             count = mark_image_features(index, matches)
-            groups[args.group].remove(name)
+            group_list[args.group].remove(name)
 elif not args.indices is None:
     for index in args.indices:
         if index >= len(proj.image_list):
             print("Index greater than image list size:", index)
         else:
             count = mark_image_features(index, matches)
-            groups[args.group].remove(proj.image_list[index].name)
+            group_list[args.group].remove(proj.image_list[index].name)
     
 if count > 0:
     print('Image removed from %d features.' % count)
@@ -77,6 +77,6 @@ if count > 0:
     if result == 'y' or result == 'Y':
         cull.delete_marked_features(matches, min_chain_len)
         print("Updating groups file")
-        Groups.save(proj.analysis_dir, groups)
+        groups.save(proj.analysis_dir, group_list)
         print("Writing: matches_grouped")
         pickle.dump(matches, open(os.path.join(proj.analysis_dir, "matches_grouped"), "wb"))

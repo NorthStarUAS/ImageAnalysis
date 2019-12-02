@@ -24,7 +24,7 @@ import scipy.spatial
 
 from props import getNode
 
-from lib import Groups
+from lib import groups
 from lib import Panda3d
 from lib import Pose
 from lib import ProjectMgr
@@ -63,7 +63,7 @@ print("Loading optimized match points ...")
 matches = pickle.load( open( os.path.join(proj.analysis_dir, "matches_grouped"), "rb" ) )
 
 # load the group connections within the image set
-groups = Groups.load(proj.analysis_dir)
+group_list = groups.load(proj.analysis_dir)
 
 # initialize temporary structures for vanity stats
 for image in proj.image_list:
@@ -90,7 +90,7 @@ for match in matches:
         raw_points.append( [ned[1], ned[0]] )
         raw_values.append( ned[2] )
         for m in match[2:]:
-            if proj.image_list[m[0]].name in groups[args.group]:
+            if proj.image_list[m[0]].name in group_list[args.group]:
                 image = proj.image_list[ m[0] ]
                 image.pool_xy.append( [ned[1], ned[0]] )
                 image.pool_z.append( -ned[2] )
@@ -196,9 +196,9 @@ for image in proj.image_list:
 # ned space, then intersect each vector with the srtm / ground /
 # delauney surface.
 
-#for group in groups:
+#for group in group_list:
 if True:
-    group = groups[args.group]
+    group = group_list[args.group]
     #if len(group) < 3:
     #    continue
     for name in group:
@@ -259,7 +259,7 @@ if True:
         print('len:', len(image.fit_xy), len(image.fit_z), len(image.fit_uv))
 
 # Triangle fit algorithm
-group = groups[args.group]
+group = group_list[args.group]
 #if len(group) < 3:
 #    continue
 for name in group:
@@ -300,7 +300,7 @@ for name in group:
 # generate the panda3d egg models
 dir_node = getNode('/config/directories', True)
 img_src_dir = dir_node.getString('images_source')
-Panda3d.generate_from_fit(proj, groups[args.group], src_dir=img_src_dir,
+Panda3d.generate_from_fit(proj, group_list[args.group], src_dir=img_src_dir,
                           analysis_dir=proj.analysis_dir,
                           resolution=args.texture_resolution)
 

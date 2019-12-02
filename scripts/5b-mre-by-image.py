@@ -11,7 +11,7 @@ import os
 
 from props import getNode
 
-from lib import Groups
+from lib import groups
 from lib import Optimizer
 from lib import ProjectMgr
 from lib import match_culling as cull
@@ -42,17 +42,17 @@ matches = pickle.load( open( os.path.join(proj.analysis_dir, source), "rb" ) )
 print('Number of original features:', len(matches))
 
 # load the group connections within the image set
-groups = Groups.load(proj.analysis_dir)
+group_list = groups.load(proj.analysis_dir)
 print('Group sizes:', end=" ")
-for group in groups:
+for group in group_list:
     print(len(group), end=" ")
 print()
 
 opt = Optimizer.Optimizer(args.project)
 if args.initial_pose:
-    opt.setup( proj, groups, args.group, matches, optimized=False )
+    opt.setup( proj, group_list, args.group, matches, optimized=False )
 else:
-    opt.setup( proj, groups, args.group, matches, optimized=True )
+    opt.setup( proj, group_list, args.group, matches, optimized=True )
 x0 = np.hstack((opt.camera_params.ravel(), opt.points_3d.ravel(),
                 opt.K[0,0], opt.K[0,2], opt.K[1,2],
                 opt.distCoeffs))

@@ -12,7 +12,7 @@ import os
 
 import sys
 sys.path.append('../lib')
-import Groups
+import groups
 import ProjectMgr
 
 import match_culling as cull
@@ -37,8 +37,8 @@ print("Loading matches_sba...")
 matches_sba = pickle.load( open( os.path.join(args.project, "matches_sba"), "rb" ) )
 
 # load the group connections within the image set
-groups = Groups.load(args.project)
-print('Main group size:', len(groups[0]))
+group_list = groups.load(args.project)
+print('Main group size:', len(group_list[0]))
 
 # find matches that are likely to be 'volatile' because they are
 # paired from nearly colocated camera poses.

@@ -16,7 +16,6 @@ import cv2
 import numpy as np
 import os.path
 
-from lib import Groups
 from lib import Matcher
 from lib import ProjectMgr
 

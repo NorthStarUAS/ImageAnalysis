@@ -9,7 +9,7 @@ import pickle
 
 from props import getNode
 
-from lib import Groups
+from lib import groups
 from lib import ProjectMgr
 from lib import match_culling as cull
 
@@ -38,9 +38,9 @@ matches = pickle.load( open( os.path.join(proj.analysis_dir, source), "rb" ) )
 print('Number of original features:', len(matches))
 
 # load the group connections within the image set
-groups = Groups.load(proj.analysis_dir)
+group_list = groups.load(proj.analysis_dir)
 print('Group sizes:', end=" ")
-for group in groups:
+for group in group_list:
     print(len(group), end=" ")
 print()
 
@@ -71,7 +71,7 @@ for k, match in enumerate(tqdm(matches)):
                 if i < j:
                     i1 = proj.image_list[m1[0]]
                     i2 = proj.image_list[m2[0]]
-                    if i1.name in groups[args.group] and i2.name in groups[args.group]:
+                    if i1.name in group_list[args.group] and i2.name in group_list[args.group]:
                         ned1, ypr1, q1 = i1.get_camera_pose(opt=True)
                         ned2, ypr2, q2 = i2.get_camera_pose(opt=True)
                         quick_approx = False
