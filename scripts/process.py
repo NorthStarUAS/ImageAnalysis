@@ -27,6 +27,7 @@ from lib import Groups
 from lib.logger import log
 from lib import Matcher
 from lib import match_cleanup
+from lib import Optimizer
 from lib import Pose
 from lib import ProjectMgr
 from lib import state
@@ -85,6 +86,11 @@ parser.add_argument('--max-dist', default=75, type=float,
 parser.add_argument('--filter', default='gms',
                     choices=['gms', 'homography', 'fundamental', 'essential', 'none'])
 parser.add_argument('--min-chain-length', type=int, default=3, help='minimum match chain length (3 recommended)')
+
+# optimizer arguments
+parser.add_argument('--group', type=int, default=0, help='group number')
+parser.add_argument('--cam-calibration', action='store_true', help='include camera calibration in the optimization.')
+parser.add_argument('--refine', action='store_true', help='refine a previous optimization.')
 
 args = parser.parse_args()
 
@@ -339,3 +345,48 @@ if not state.check("STEP4d"):
     pickle.dump(matches, open(matches_name, "wb"))
 
     state.update("STEP4d")
+
+
+############################################################################
+### Step 5: Optimization (fit)
+############################################################################
+
+if not state.check("STEP5"):
+    proj.load_images_info()
+
+    print('Match file:', matches_name)
+    matches = pickle.load( open(matches_name, "rb") )
+    print('Match features:', len(matches))
+
+    # load the group connections within the image set
+    groups = Groups.load(proj.analysis_dir)
+    # sort from smallest to largest: groups.sort(key=len)
+
+    opt = Optimizer.Optimizer(args.project)
+
+    # setup the data structures
+    opt.setup( proj, groups, args.group, matches, optimized=args.refine,
+               cam_calib=args.cam_calibration)
+
+    # run the optimization (fit)
+    cameras, features, cam_index_map, feat_index_map, \
+        fx_opt, fy_opt, cu_opt, cv_opt, distCoeffs_opt \
+        = opt.run()
+
+    # update camera poses
+    opt.update_camera_poses(proj)
+
+    # update and save the optimized camera calibration
+    proj.cam.set_K(fx_opt, fy_opt, cu_opt, cv_opt, optimized=True)
+    proj.cam.set_dist_coeffs(distCoeffs_opt.tolist(), optimized=True)
+    proj.save()
+
+    # reposition the optimized data set to best fit the original gps
+    # locations of the camera poses.
+    opt.refit(proj, matches, groups, args.group)
+
+    # write out the updated match_dict
+    print('Updating matches file:', len(matches), 'features')
+    pickle.dump(matches, open(matches_name, 'wb'))
+
+    state.update("STEP5")
