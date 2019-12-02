@@ -22,7 +22,7 @@ import props_json
 
 from . import camera
 from . import exif
-from . import Image
+from . import image
 from . import logger
 from .logger import log, qlog
 # from . import Render
@@ -149,8 +149,8 @@ class ProjectMgr():
         # wipe image list (so we don't double load)
         self.image_list = []
         for name in images_node.getChildren():
-            image = Image.Image(meta_dir, name)
-            self.image_list.append( image )
+            img = image.Image(meta_dir, name)
+            self.image_list.append( img )
 
     def load_features(self, descriptors=False):
         if descriptors:

@@ -13,7 +13,7 @@ import navpy
 from props import getNode
 
 from . import exif
-from . import Image
+from . import image
 from .logger import log
 from . import transformations
 
@@ -84,12 +84,12 @@ def setAircraftPoses(proj, posefile="", order='ypr', max_angle=25.0):
             continue
 
         base, ext = os.path.splitext(name)
-        image = Image.Image(meta_dir, base)
-        image.set_aircraft_pose(lat_deg, lon_deg, alt_m,
-                                yaw_deg, pitch_deg, roll_deg,
-                                flight_time)
+        img = image.Image(meta_dir, base)
+        img.set_aircraft_pose(lat_deg, lon_deg, alt_m,
+                              yaw_deg, pitch_deg, roll_deg,
+                              flight_time)
         log("pose:", name, "yaw=%.1f pitch=%.1f roll=%.1f" % (yaw_deg, pitch_deg, roll_deg))
-        proj.image_list.append(image)
+        proj.image_list.append(img)
 
 # for each image, compute the estimated camera pose in NED space from
 # the aircraft body pose and the relative camera orientation

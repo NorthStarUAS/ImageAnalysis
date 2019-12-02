@@ -3,8 +3,6 @@
 
 import math
 
-from . import Image
-
 # return the bounds of the rectangle spanned by the provided list of
 # images
 def coverage(image_list):
