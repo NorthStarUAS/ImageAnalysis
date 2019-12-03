@@ -27,7 +27,7 @@ from lib import groups
 from lib.logger import log
 from lib import matcher
 from lib import match_cleanup
-from lib import optimzer
+from lib import optimizer
 from lib import pose
 from lib import ProjectMgr
 from lib import state
@@ -361,7 +361,7 @@ if not state.check("STEP5"):
     # load the group connections within the image set
     group_list = groups.load(proj.analysis_dir)
 
-    opt = optimzer.Optimizer(args.project)
+    opt = optimizer.Optimizer(args.project)
 
     # setup the data structures
     opt.setup( proj, group_list, args.group, matches, optimized=args.refine,
