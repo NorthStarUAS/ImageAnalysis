@@ -7,10 +7,12 @@ import numpy as np
 import os
 import scipy.spatial
 
+from .logger import log
+
 def make_textures(src_dir, analysis_dir, image_list, resolution=512):
     dst_dir = os.path.join(analysis_dir, 'models')
     if not os.path.exists(dst_dir):
-        print("Notice: creating models directory =", dst_dir)
+        log("Notice: creating models directory =", dst_dir)
         os.makedirs(dst_dir)
     for image in image_list:
         src = os.path.join(src_dir, image.name)

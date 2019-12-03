@@ -8,7 +8,8 @@ import scipy.spatial
 
 from props import getNode
 
-from lib import panda3d
+from .logger import log, qlog
+from . import panda3d
 
 r2d = 180 / math.pi
 
@@ -81,7 +82,7 @@ def build_map(proj, group_list, group_index):
             ref_node.getFloat('lon_deg'),
             ref_node.getFloat('alt_m') ]
 
-    print("Loading optimized match points ...")
+    log("Loading optimized match points ...")
     matches = pickle.load( open( os.path.join(proj.analysis_dir, "matches_grouped"), "rb" ) )
 
     # initialize temporary structures for vanity stats
@@ -92,18 +93,18 @@ def build_map(proj, group_list, group_index):
         image.min_z = 9999.0
 
     # elevation stats
-    print("Computing stats...")
+    log("Computing stats...")
     ned_list = []
     for match in matches:
         if match[1] == group_index:  # used by current group
             ned_list.append(match[0])
     avg = -np.mean(np.array(ned_list)[:,2])
     std = np.std(np.array(ned_list)[:,2])
-    print("Average elevation: %.2f" % avg)
-    print("Standard deviation: %.2f" % std)
+    log("Average elevation: %.2f" % avg)
+    log("Standard deviation: %.2f" % std)
 
     # sort through points
-    print('Reading feature locations from optimized match points ...')
+    log('Reading feature locations from optimized match points ...')
     raw_points = []
     raw_values = []
     for match in matches:
@@ -126,18 +127,18 @@ def build_map(proj, group_list, group_index):
                             image.max_z = z
                             #print(max_z, match)
             else:
-                print("Discarding match with excessive altitude:", match)
+                log("Discarding match with excessive altitude:", match)
 
     # save the surface definition as a separate file
     models_dir = os.path.join(proj.analysis_dir, 'models')
     if not os.path.exists(models_dir):
-        print("Notice: creating models directory =", models_dir)
+        log("Notice: creating models directory =", models_dir)
         os.makedirs(models_dir)
     surface = { 'points': raw_points,
                 'values': raw_values }
     pickle.dump(surface, open(os.path.join(proj.analysis_dir, 'models', 'surface.bin'), "wb"))
 
-    print('Generating Delaunay mesh and interpolator ...')
+    log('Generating Delaunay mesh and interpolator ...')
     global_tri_list = scipy.spatial.Delaunay(np.array(raw_points))
     interp = scipy.interpolate.LinearNDInterpolator(global_tri_list, raw_values)
 
@@ -145,7 +146,7 @@ def build_map(proj, group_list, group_index):
     for image in proj.image_list:
         if image.sum_count > 0:
             image.z_avg = image.sum_values / float(image.sum_count)
-            print(image.name, 'avg elev:', image.z_avg)
+            # log(image.name, 'avg elev:', image.z_avg)
         else:
             image.z_avg = 0
 
@@ -160,7 +161,7 @@ def build_map(proj, group_list, group_index):
         #    continue
         for name in group:
             image = proj.findImageByName(name)
-            print(image.name, image.z_avg)
+            log(image.name, image.z_avg)
             width, height = proj.cam.get_image_params()
             # scale the K matrix if we have scaled the images
             K = proj.cam.get_K(optimized=True)
