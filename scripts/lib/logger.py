@@ -23,13 +23,14 @@ def init(analysis_path):
 # log a message to messages files (and to stdout by default)
 def log(*args, quiet=False):
     global logbuf
+    # timestamp
+    now = datetime.now()
+    timestamp = str(now) + ": "
     # assemble message line
     msg = []
-    now = datetime.now()
-    msg.append(str(now) + ":")
     for a in args:
         msg.append(str(a))
-    logbuf.append(" ".join(msg))
+    logbuf.append(timestamp + " ".join(msg))
     if logfile:
         # flush log buffer
         f = open(logfile, "a")
