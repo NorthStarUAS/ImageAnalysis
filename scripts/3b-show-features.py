@@ -7,7 +7,7 @@ import cv2
 import fnmatch
 import os.path
 
-from lib import ProjectMgr
+from lib import project
 
 # for all the images in the project image_dir, detect features using the
 # specified method and parameters
@@ -20,7 +20,7 @@ parser.add_argument('--index', type=int, help='show specific image by index')
 args = parser.parse_args()
 #print args
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 proj.load_features()
 

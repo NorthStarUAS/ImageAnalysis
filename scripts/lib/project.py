@@ -154,9 +154,9 @@ class ProjectMgr():
 
     def load_features(self, descriptors=False):
         if descriptors:
-            print("Loading keypoints and descriptors:")
+            log("Loading feature keypoints and descriptors:")
         else:
-            print("Loading keypoints:")
+            log("Loading feature keypoints:")
         for image in tqdm(self.image_list):
             image.load_features()
             if descriptors:
@@ -170,7 +170,7 @@ class ProjectMgr():
             print("resetting the match state of the system back to the original")
             print("set of found matches.")
             time.sleep(2)
-        print("Loading keypoint (pair) matches:")
+        log("Loading keypoint (pair) matches:")
         for image in tqdm(self.image_list):
             image.load_matches()
             wipe_list = []
@@ -391,7 +391,7 @@ class ProjectMgr():
         return uv_distorted
     
     def compute_kp_usage(self, all=False):
-        print("Determining feature usage in matching pairs...")
+        log("[orig] Determining feature usage in matching pairs...")
         # but they may have different scaling or other attributes important
         # during feature matching
         if all:
@@ -412,7 +412,7 @@ class ProjectMgr():
                             i2.kp_used[ pair[1] ] = True
                     
     def compute_kp_usage_new(self, matches_direct):
-        print("Determining feature usage in matching pairs...")
+        log("[new] Determining feature usage in matching pairs...")
         for image in self.image_list:
             image.kp_used = np.zeros(len(image.kp_list), np.bool_)
         for match in matches_direct:

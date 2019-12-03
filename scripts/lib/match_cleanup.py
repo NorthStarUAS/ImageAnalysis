@@ -10,7 +10,6 @@ from props import getNode
 
 from .logger import log, qlog
 from . import matcher
-from . import ProjectMgr
 from . import SRTM
 
 # Reset all match point locations to their original direct

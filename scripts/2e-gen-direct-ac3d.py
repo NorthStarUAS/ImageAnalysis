@@ -14,7 +14,7 @@ import navpy
 
 sys.path.append('../lib')
 import ac3d
-import ProjectMgr
+import project
 import SRTM
 import transformations
 
@@ -32,7 +32,7 @@ parser.add_argument('--sba', action='store_true', help='use sba pose')
 
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_image_info()
 
 ref = proj.ned_reference_lla

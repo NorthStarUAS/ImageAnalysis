@@ -390,17 +390,23 @@ class Optimizer():
             for i in range(self.n_cameras):
                 # unlimit the camera params
                 for j in range(self.ncp):
-                    if j == 6:
+                    if j == 5:
+                        # bound the altitude of camera (pretend we
+                        # trust dji to +/- 1m)
+                        lower.append( self.camera_params[i*self.ncp + j] - 1 )
+                        upper.append( self.camera_params[i*self.ncp + j] + 1 )
+                    elif j == 6:
+                        pass 
                         # bound focal length
-                        lower.append(self.K[0,0]*0.95)
-                        upper.append(self.K[0,0]*1.05)
+                        #lower.append(self.K[0,0]*0.95)
+                        #upper.append(self.K[0,0]*1.05)
                     else:
                         lower.append( -np.inf )
                         upper.append( np.inf )
             for i in range(self.n_points * 3):
                 #lower.append( points_3d[i] - tol )
                 #upper.append( points_3d[i] + tol )
-                # what if we let point locations float without constraint?
+                # let point locations float without constraint
                 lower.append( -np.inf )
                 upper.append( np.inf )
             if self.optimize_calib == 'global':
@@ -438,6 +444,7 @@ class Optimizer():
                             loss='linear',
                             ftol=self.ftol,
                             x_scale='jac',
+                            bounds=bounds,
                             args=(self.n_cameras, self.n_points,
                                   self.by_camera_point_indices,
                                   self.by_camera_points_2d))

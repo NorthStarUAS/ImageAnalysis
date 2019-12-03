@@ -3,7 +3,7 @@
 import argparse
 import os
 
-from lib import ProjectMgr
+from lib import project
 
 # initialize a new project workspace
 
@@ -18,7 +18,7 @@ if not os.path.isdir(args.project):
     quit()
 
 # create an empty project
-proj = ProjectMgr.ProjectMgr(args.project, create=True)
+proj = project.ProjectMgr(args.project, create=True)
 
 # and save what we have so far ...
 proj.save()

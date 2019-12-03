@@ -17,7 +17,7 @@ import os.path
 import scipy.spatial
 
 sys.path.append('../lib')
-import ProjectMgr
+import project
 import SRTM
 import transformations
 
@@ -45,7 +45,7 @@ parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--stddev', default=5, type=int, help='standard dev threshold')
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_image_info()
         
 print "Loading original (direct) matches ..."

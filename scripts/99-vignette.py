@@ -10,7 +10,7 @@ import random
 
 from props import getNode
 
-from lib import ProjectMgr
+from lib import project
 
 # for all the images in the project image_dir, detect features using the
 # specified method and parameters
@@ -30,7 +30,7 @@ parser.add_argument('--scale', type=float, default=0.2, help='preview scale')
 parser.add_argument('--nofit', action='store_true', help='skip fitting the ideal function and just process the averate as the mask')
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 
 # load existing images info which could include things like camera pose
 proj.load_images_info()

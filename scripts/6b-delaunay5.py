@@ -12,7 +12,7 @@ import os.path
 import scipy.spatial
 
 from lib import groups
-from lib import ProjectMgr
+from lib import project
 from lib import SRTM
 from lib import transformations
 
@@ -50,7 +50,7 @@ def gen_ac3d_surface(name, points_group, values_group, tris_group):
                 f.write("%d 0 0\n" % (t))
         f.write("kids 0\n")
                 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 
 print("Loading optimized points ...")

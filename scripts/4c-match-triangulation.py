@@ -11,7 +11,7 @@ from props import getNode
 
 from lib import groups
 from lib import line_solver
-from lib import ProjectMgr
+from lib import project
 from lib import match_cleanup
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
@@ -20,7 +20,7 @@ parser.add_argument('--group', type=int, default=0, help='group number')
 parser.add_argument('--method', default='srtm', choices=['srtm', 'triangulate'])
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 
 source = 'matches_grouped'

@@ -22,7 +22,7 @@ import os.path
 import scipy.spatial
 
 sys.path.append('../lib')
-import ProjectMgr
+import project
 import SRTM
 import transformations
 
@@ -52,7 +52,7 @@ parser.add_argument('--checkpoint', action='store_true', help='auto save results
 parser.add_argument('--show', action='store_true', help='show most extreme reprojection errors with matches.')
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_image_info()
 proj.load_features()
 

@@ -10,7 +10,7 @@ from props import getNode
 
 from lib import matcher
 from lib import match_cleanup
-from lib import ProjectMgr
+from lib import project
 
 # Reset all match point locations to their original direct
 # georeferenced locations based on estimated camera pose and
@@ -22,7 +22,7 @@ args = parser.parse_args()
 
 m = matcher.Matcher()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 proj.load_features(descriptors=False)
 #proj.undistort_keypoints()

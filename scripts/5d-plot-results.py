@@ -12,13 +12,13 @@ import numpy as np
 import os.path
 
 sys.path.append('../lib')
-import ProjectMgr
+import project
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 
 args = parser.parse_args()
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 
 print "Loading matches ..."
 matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )

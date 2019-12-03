@@ -9,7 +9,7 @@ import sys
 
 sys.path.append('../lib')
 import groups
-import ProjectMgr
+import project
 
 import match_culling as cull
 
@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 
 #source = 'matches_direct'

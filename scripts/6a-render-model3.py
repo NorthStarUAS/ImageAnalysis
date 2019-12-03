@@ -26,7 +26,7 @@ from props import getNode
 
 from lib import groups
 from lib import panda3d
-from lib import ProjectMgr
+from lib import project
 from lib import SRTM
 from lib import transformations
 
@@ -44,7 +44,7 @@ parser.add_argument('--direct', action='store_true', help='use direct pose')
 
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 
 # lookup ned reference

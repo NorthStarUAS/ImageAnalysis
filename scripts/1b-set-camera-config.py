@@ -8,7 +8,7 @@ import os.path
 from props import getNode, PropertyNode
 import props_json
 
-from lib import ProjectMgr
+from lib import project
 
 # set all the various camera configuration parameters
 
@@ -23,7 +23,7 @@ parser.add_argument('--roll-deg', type=float, default=0.0,
                     help='camera roll mounting offset from aircraft')
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 
 if args.camera:
     # specified on command line

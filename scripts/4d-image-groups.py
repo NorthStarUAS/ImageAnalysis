@@ -8,13 +8,13 @@ import pickle
 import os.path
 
 from lib import groups
-from lib import ProjectMgr
+from lib import project
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 
 source = 'matches_grouped'

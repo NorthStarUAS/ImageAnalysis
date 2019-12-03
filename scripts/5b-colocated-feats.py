@@ -10,7 +10,7 @@ import pickle
 from props import getNode
 
 from lib import groups
-from lib import ProjectMgr
+from lib import project
 from lib import match_culling as cull
 
 r2d = 180.0 / math.pi
@@ -21,7 +21,7 @@ parser.add_argument('--group', type=int, default=0, help='group index')
 parser.add_argument('--min-angle', type=float, default=1.0, help='max feature angle')
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 
 # a value of 2 let's pairs exist which can be trouble ...

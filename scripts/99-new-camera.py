@@ -11,7 +11,7 @@ from props import getNode       # from aura-props package
 import props_json               # from aura-props package
 
 from lib import camera
-from lib import ProjectMgr
+from lib import project
 
 parser = argparse.ArgumentParser(description='New camera configuration.')
 parser.add_argument('--project', required=True, help='project directory')
@@ -21,7 +21,7 @@ parser.add_argument('--force', action='store_true', help='force overwrite of an 
 
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 
 image_dir = args.project
 image_file = None

@@ -17,7 +17,7 @@ import numpy as np
 import os.path
 
 from lib import matcher
-from lib import ProjectMgr
+from lib import project
 
 import match_culling as cull
 
@@ -27,7 +27,7 @@ parser.add_argument('--stddev', type=float, default=5, help='how many stddevs ab
 
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 proj.load_features()
 proj.undistort_keypoints()

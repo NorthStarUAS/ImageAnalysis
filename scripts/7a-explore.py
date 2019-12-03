@@ -26,7 +26,7 @@ from direct.task import Task
 from panda3d.core import LineSegs, NodePath, OrthographicLens, PNMImage, Texture, Filename, Shader, WindowProperties
 from direct.gui.DirectGui import YesNoDialog
 
-from lib import ProjectMgr
+from lib import project
 from explore import annotations
 from explore import reticle
 from explore import surface
@@ -64,7 +64,7 @@ if not args.project:
         print("no project selected, exiting.")
         quit()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 
 # lookup ned reference
@@ -76,7 +76,7 @@ ned_ref = [ ref_node.getFloat('lat_deg'),
 tcache = {}
 
 # adaptive equalizer
-clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+clahe = cv2.createCLAHE(clipLimit=1.0, tileGridSize=(8,8))
 
 class MyApp(ShowBase):
  

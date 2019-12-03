@@ -13,7 +13,7 @@ import os
 import sys
 sys.path.append('../lib')
 import groups
-import ProjectMgr
+import project
 
 import match_culling as cull
 
@@ -25,7 +25,7 @@ parser.add_argument('--interactive', action='store_true', help='interactively re
 
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_image_info()
 if args.interactive:
     proj.load_features()

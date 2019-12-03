@@ -10,7 +10,7 @@ import os
 from props import getNode
 
 from lib import groups
-from lib import ProjectMgr
+from lib import project
 from lib import match_culling as cull
 
 parser = argparse.ArgumentParser(description='Remove all matches referencing the specific image.')
@@ -20,7 +20,7 @@ parser.add_argument('--indices', nargs='+', type=int, help='image index')
 parser.add_argument('--images', nargs='+', help='image names')
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 
 print("Loading matches_grouped...")

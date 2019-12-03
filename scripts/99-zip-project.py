@@ -6,7 +6,7 @@ import os
 import re
 from zipfile import ZipFile
 
-from lib import ProjectMgr
+from lib import project
 
 parser = argparse.ArgumentParser(description='Make a redistributable zip archive of a project.')
 parser.add_argument('--project', required=True, help='project directory')
@@ -19,7 +19,7 @@ if not os.path.isdir(args.project):
     quit()
 
 # load the project
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 
 # zip base

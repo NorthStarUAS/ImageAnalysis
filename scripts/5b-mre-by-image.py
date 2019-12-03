@@ -13,7 +13,7 @@ from props import getNode
 
 from lib import groups
 from lib import optimizer
-from lib import ProjectMgr
+from lib import project
 from lib import match_culling as cull
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
@@ -26,7 +26,7 @@ parser.add_argument('--interactive', action='store_true', help='interactively re
 
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 
 # a value of 2 let's pairs exist which can be trouble ...

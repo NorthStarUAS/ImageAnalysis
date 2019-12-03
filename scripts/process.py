@@ -29,7 +29,7 @@ from lib import matcher
 from lib import match_cleanup
 from lib import optimizer
 from lib import pose
-from lib import ProjectMgr
+from lib import project
 from lib import state
 
 # from the aura-props python package
@@ -107,7 +107,7 @@ if not os.path.isdir(args.project):
     quit()
 
 # create an empty project and save...
-proj = ProjectMgr.ProjectMgr(args.project, create=True)
+proj = project.ProjectMgr(args.project, create=True)
 proj.save()
 
 log("Created project:", args.project)

@@ -1,8 +1,6 @@
 import cv2
 import math
 
-from lib import ProjectMgr
-
 # Draw a match entry.  Creates a window for each image referenced by
 # the match.  A cropped portion of the image is drawn with the match
 # location highlited.  Waits for a key press to continue, the key

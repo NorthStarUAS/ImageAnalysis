@@ -35,7 +35,7 @@ import sys
 
 sys.path.append('../lib')
 import groups
-import ProjectMgr
+import project
 
 import match_culling as cull
 
@@ -46,7 +46,7 @@ parser.add_argument('--interactive', action='store_true', help='interactively re
 
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 proj.load_features()
 proj.undistort_keypoints()

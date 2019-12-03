@@ -16,7 +16,7 @@ from props import getNode
 import sys
 sys.path.append('../lib')
 import groups
-import ProjectMgr
+import project
 import transformations
 
 r2d = 180.0 / math.pi
@@ -27,7 +27,7 @@ parser.add_argument('--project', required=True, help='project directory')
 
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 print("Loading image info...")
 proj.load_images_info()
 

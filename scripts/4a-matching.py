@@ -8,7 +8,7 @@ import os
 from props import getNode
 
 from lib import matcher
-from lib import ProjectMgr
+from lib import project
 from lib import SRTM
 
 # working on matching features ...
@@ -32,7 +32,7 @@ parser.add_argument('--min-chain-length', type=int, default=3, help='minimum mat
 
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 proj.load_features(descriptors=False) # descriptors cached on the fly later
 proj.undistort_keypoints()

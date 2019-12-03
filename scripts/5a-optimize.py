@@ -13,7 +13,7 @@ import os
 
 from lib import groups
 from lib import optimizer
-from lib import ProjectMgr
+from lib import project
 from lib import transformations
 
 d2r = math.pi / 180.0
@@ -27,7 +27,7 @@ parser.add_argument('--cam-calibration', action='store_true', help='include came
 
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 
 source_file = os.path.join(proj.analysis_dir, 'matches_grouped' )

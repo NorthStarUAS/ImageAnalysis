@@ -7,7 +7,7 @@ import os.path
 from props import getNode
 
 from lib import matcher
-from lib import ProjectMgr
+from lib import project
 
 # working on matching features ...
 
@@ -25,7 +25,7 @@ parser.add_argument('--direct', action='store_true', help='show matches_direct')
 parser.add_argument('--sba', action='store_true', help='show matches_sba')
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 proj.load_features()
 if args.direct:

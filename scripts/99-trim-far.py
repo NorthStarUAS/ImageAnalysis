@@ -10,7 +10,7 @@ import cv2
 import os.path
 
 sys.path.append('../lib')
-import ProjectMgr
+import project
 
 # this is a one-off script for debugging.  The intention is to strip
 # down a larger data set to something small for testing/debugging.  It
@@ -26,7 +26,7 @@ parser.add_argument('--delete-further-than', type=float, help='delete images fur
 args = parser.parse_args()
 # print args
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_image_info()
 
 def robust_delete(path):

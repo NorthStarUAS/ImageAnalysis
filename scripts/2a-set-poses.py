@@ -6,7 +6,7 @@ import os
 from props import getNode
 
 from lib import pose
-from lib import ProjectMgr
+from lib import project
 
 # for all the images in the project image_dir, detect features using the
 # specified method and parameters
@@ -19,7 +19,7 @@ parser.add_argument('--max-angle', type=float, default=25.0, help='max pitch or 
 
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 print("Loading image info...")
 proj.load_images_info()
 

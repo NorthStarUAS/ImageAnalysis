@@ -13,7 +13,7 @@ import math
 import numpy as np
 
 sys.path.append('../lib')
-import ProjectMgr
+import project
 
 def diff_stats(pts1, pts2):
     if len(pts1) != len(pts2):
@@ -48,7 +48,7 @@ parser.add_argument('--project', required=True, help='project directory')
 parser.add_argument('--stddev', required=True, type=int, default=6, help='how many stddevs above the mean to consider')
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_image_info()
 
 print "Loading original matches ..."

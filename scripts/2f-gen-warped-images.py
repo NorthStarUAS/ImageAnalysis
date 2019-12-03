@@ -13,7 +13,7 @@ import random
 import navpy
 
 sys.path.append('../lib')
-import ProjectMgr
+import project
 import Render
 import SRTM
 import transformations
@@ -31,7 +31,7 @@ parser.add_argument('--pose', required=True, default='direct',
 
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 proj.load_image_info()
 
 ref = proj.ned_reference_lla

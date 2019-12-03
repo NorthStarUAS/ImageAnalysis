@@ -7,7 +7,7 @@ import os.path
 
 from props import getNode
 
-from lib import ProjectMgr
+from lib import project
 
 # for all the images in the project image_dir, detect features using the
 # specified method and parameters
@@ -49,7 +49,7 @@ parser.add_argument('--show', action='store_true',
 
 args = parser.parse_args()
 
-proj = ProjectMgr.ProjectMgr(args.project)
+proj = project.ProjectMgr(args.project)
 
 # load existing images info which could include things like camera pose
 proj.load_images_info()
