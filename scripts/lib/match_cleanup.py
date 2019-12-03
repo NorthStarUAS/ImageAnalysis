@@ -10,7 +10,7 @@ from props import getNode
 
 from .logger import log, qlog
 from . import matcher
-from . import SRTM
+from . import srtm
 
 # Reset all match point locations to their original direct
 # georeferenced locations based on estimated camera pose and
@@ -313,7 +313,7 @@ def triangulate_srtm(proj, matches):
             ref_node.getFloat('alt_m') ]
 
     # setup SRTM ground interpolator
-    sss = SRTM.NEDGround( ref, 3000, 3000, 30 )
+    sss = srtm.NEDGround( ref, 3000, 3000, 30 )
 
     # for each image lookup the SRTM elevation under the camera
     log("Looking up SRTM base elevation for each image location...")

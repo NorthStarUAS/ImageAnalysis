@@ -27,7 +27,7 @@ from props import getNode
 from lib import groups
 from lib import panda3d
 from lib import project
-from lib import SRTM
+from lib import srtm
 from lib import transformations
 
 mesh_steps = 8                  # 1 = corners only
@@ -54,7 +54,7 @@ ref = [ ref_node.getFloat('lat_deg'),
         ref_node.getFloat('alt_m') ]
   
 # setup SRTM ground interpolator
-sss = SRTM.NEDGround( ref, 6000, 6000, 30 )
+sss = srtm.NEDGround( ref, 6000, 6000, 30 )
 
 width, height = proj.cam.get_image_params()
 

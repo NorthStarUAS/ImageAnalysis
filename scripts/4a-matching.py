@@ -9,7 +9,6 @@ from props import getNode
 
 from lib import matcher
 from lib import project
-from lib import SRTM
 
 # working on matching features ...
 

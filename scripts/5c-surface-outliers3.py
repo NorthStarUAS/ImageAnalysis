@@ -43,7 +43,6 @@ import scipy.spatial
 
 sys.path.append('../lib')
 import project
-import SRTM
 import transformations
 
 def meta_stats(report):

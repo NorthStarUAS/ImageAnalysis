@@ -15,7 +15,7 @@ import navpy
 sys.path.append('../lib')
 import project
 import Render
-import SRTM
+import srtm
 import transformations
 
 # for all the images in the project image_dir, compute the camera
@@ -37,7 +37,7 @@ proj.load_image_info()
 ref = proj.ned_reference_lla
 
 # setup SRTM ground interpolator
-sss = SRTM.NEDGround( ref, 2000, 2000, 30 )
+sss = srtm.NEDGround( ref, 2000, 2000, 30 )
 
 camw, camh = proj.cam.get_image_params()
 dist_coeffs = proj.cam.get_dist_coeffs()

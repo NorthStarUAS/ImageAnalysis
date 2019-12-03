@@ -23,7 +23,7 @@ from props import getNode
 from lib import groups
 from lib import panda3d
 from lib import project
-from lib import SRTM
+from lib import srtm
 from lib import transformations
 
 ac3d_steps = 8
@@ -49,7 +49,7 @@ ref = [ ref_node.getFloat('lat_deg'),
         ref_node.getFloat('alt_m') ]
   
 # setup SRTM ground interpolator
-sss = SRTM.NEDGround( ref, 6000, 6000, 30 )
+sss = srtm.NEDGround( ref, 6000, 6000, 30 )
 
 print("Loading optimized match points ...")
 matches = pickle.load( open( os.path.join(proj.analysis_dir, "matches_grouped"), "rb" ) )

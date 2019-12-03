@@ -15,7 +15,7 @@ import navpy
 sys.path.append('../lib')
 import ac3d
 import project
-import SRTM
+import srtm
 import transformations
 
 # for all the images in the project image_dir, compute the camera
@@ -38,7 +38,7 @@ proj.load_image_info()
 ref = proj.ned_reference_lla
 
 # setup SRTM ground interpolator
-sss = SRTM.NEDGround( ref, 6000, 6000, 30 )
+sss = srtm.NEDGround( ref, 6000, 6000, 30 )
 
 ac3d_steps = 8
 

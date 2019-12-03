@@ -13,7 +13,6 @@ import scipy.spatial
 
 from lib import groups
 from lib import project
-from lib import SRTM
 from lib import transformations
 
 parser = argparse.ArgumentParser(description='Compute Delauney triangulation of matches.')

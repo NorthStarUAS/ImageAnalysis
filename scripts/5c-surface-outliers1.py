@@ -18,7 +18,6 @@ import scipy.spatial
 
 sys.path.append('../lib')
 import project
-import SRTM
 import transformations
 
 
