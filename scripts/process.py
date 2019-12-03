@@ -30,6 +30,7 @@ from lib import match_cleanup
 from lib import optimizer
 from lib import pose
 from lib import project
+from lib import render_panda3d
 from lib import state
 
 # from the aura-props python package
@@ -389,3 +390,16 @@ if not state.check("STEP5"):
     pickle.dump(matches, open(matches_name, 'wb'))
 
     state.update("STEP5")
+
+
+############################################################################
+### Step 6: Create the map
+############################################################################
+
+if not state.check("STEP6"):
+    # load the group connections within the image set
+    group_list = groups.load(proj.analysis_dir)
+
+    render_panda3d.build_map(proj, group_list, args.group)
+    
+    #state.update("STEP6")
