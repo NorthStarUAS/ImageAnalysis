@@ -21,7 +21,7 @@ def init(analysis_path):
         logfile = os.path.join(analysis_path, "messages")
 
 # log a message to messages files (and to stdout by default)
-def log(*args, quiet=False):
+def log(*args, quiet=False, fancy=False):
     global logbuf
     # timestamp
     now = datetime.now()
@@ -30,7 +30,14 @@ def log(*args, quiet=False):
     msg = []
     for a in args:
         msg.append(str(a))
-    logbuf.append(timestamp + " ".join(msg))
+    if not fancy:
+        logbuf.append(timestamp + " ".join(msg))
+    else:
+        logbuf.append("")
+        logbuf.append("############################################################################")
+        logbuf.append("### " + timestamp + " ".join(msg))
+        logbuf.append("############################################################################")
+        logbuf.append("")
     if logfile:
         # flush log buffer
         f = open(logfile, "a")
@@ -45,4 +52,3 @@ def log(*args, quiet=False):
 # log quietly (log to file, but not to stdout)
 def qlog(*args):
     log(*args, quiet=True)
-    
