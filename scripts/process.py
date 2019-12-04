@@ -97,7 +97,7 @@ args = parser.parse_args()
 
 
 ############################################################################
-### Step 1: setup the project
+log("Step 1: setup the project", fancy=True)
 ############################################################################
 
 ### 1a. initialize a new project workspace
@@ -148,7 +148,7 @@ state.update("STEP1")
 
 
 ############################################################################
-### Step 2: configure camera poses and per-image meta data files
+log("Step 2: configure camera poses and per-image meta data files", fancy=True)
 ############################################################################
 
 log("Configuring images")
@@ -201,7 +201,7 @@ state.update("STEP2")
 
 
 ############################################################################
-### Step 3: detect features and compute descriptors
+log("Step 3: detect features and compute descriptors", fancy=True)
 ############################################################################
 
 if not state.check("STEP3"):
@@ -250,7 +250,7 @@ if not state.check("STEP3"):
 
 
 ############################################################################
-### Step 4: feature matching
+log("Step 4: feature matching", fancy=True)
 ############################################################################
 
 if not state.check("STEP4a"):
@@ -349,7 +349,7 @@ if not state.check("STEP4d"):
 
 
 ############################################################################
-### Step 5: Optimization (fit)
+log("Step 5: Optimization (fit)", fancy=True)
 ############################################################################
 
 if not state.check("STEP5"):
@@ -393,7 +393,7 @@ if not state.check("STEP5"):
 
 
 ############################################################################
-### Step 6: Create the map
+log("Step 6: Create the map", fancy=True)
 ############################################################################
 
 if not state.check("STEP6"):
