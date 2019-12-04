@@ -79,7 +79,7 @@ class Optimizer():
         #self.ftol = 1e-3              # stop condition - quicker
         self.ftol = 1e-4              # stop condition - better
         self.min_chain_len = 2        # use whatever matches are defind upstream
-        self.with_bounds = False
+        self.with_bounds = True
         self.ncp = 6
 
     # plot range
@@ -390,16 +390,11 @@ class Optimizer():
             for i in range(self.n_cameras):
                 # unlimit the camera params
                 for j in range(self.ncp):
-                    if j == 5:
+                    if False and j >= 3 and j <= 5:
                         # bound the altitude of camera (pretend we
                         # trust dji to +/- 1m)
                         lower.append( self.camera_params[i*self.ncp + j] - 1 )
                         upper.append( self.camera_params[i*self.ncp + j] + 1 )
-                    elif j == 6:
-                        pass 
-                        # bound focal length
-                        #lower.append(self.K[0,0]*0.95)
-                        #upper.append(self.K[0,0]*1.05)
                     else:
                         lower.append( -np.inf )
                         upper.append( np.inf )
@@ -410,10 +405,10 @@ class Optimizer():
                 lower.append( -np.inf )
                 upper.append( np.inf )
             if self.optimize_calib == 'global':
-                tol = 0.01
+                tol = 0.0000001
                 # bound focal length
-                lower.append(self.K[0,0]*(1-tol))
-                upper.append(self.K[0,0]*(1+tol))
+                lower.append(self.K[0,0]*(1-ktol))
+                upper.append(self.K[0,0]*(1+ktol))
                 cu = self.K[0,2]
                 cv = self.K[1,2]
                 lower.append(cu*(1-tol))
