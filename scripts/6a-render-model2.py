@@ -20,6 +20,7 @@ import scipy.spatial
 
 from props import getNode
 
+from lib import camera
 from lib import groups
 from lib import panda3d
 from lib import project
@@ -189,9 +190,9 @@ if True:
     for name in group:
         image = proj.findImageByName(name)
         print(image.name, image.z_avg)
-        width, height = proj.cam.get_image_params()
+        width, height = camera.get_image_params()
         # scale the K matrix if we have scaled the images
-        K = proj.cam.get_K(optimized=True)
+        K = camera.get_K(optimized=True)
         IK = np.linalg.inv(K)
 
         grid_list = []

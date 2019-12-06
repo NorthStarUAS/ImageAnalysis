@@ -23,6 +23,7 @@ import os
 import pickle
 import time
 
+from lib import camera
 from lib import groups
 from lib.logger import log
 from lib import matcher
@@ -120,9 +121,9 @@ if args.camera:
     camera_file = args.camera
 else:
     # auto detect camera from image meta data
-    camera, make, model, lens_model = proj.detect_camera()
-    camera_file = os.path.join("..", "cameras", camera + ".json")
-    log("Camera auto-detected:", camera, make, model, lens_model)
+    camera_name, make, model, lens_model = proj.detect_camera()
+    camera_file = os.path.join("..", "cameras", camera_name + ".json")
+    log("Camera auto-detected:", camera_name, make, model, lens_model)
 log("Camera file:", camera_file)
 
 # copy/overlay/update the specified camera config into the existing
@@ -131,7 +132,7 @@ cam_node = getNode('/config/camera', True)
 tmp_node = PropertyNode()
 if props_json.load(camera_file, tmp_node):
     props_json.overlay(cam_node, tmp_node)
-    proj.cam.set_mount_params(args.yaw_deg, args.pitch_deg, args.roll_deg)
+    camera.set_mount_params(args.yaw_deg, args.pitch_deg, args.roll_deg)
     # note: dist_coeffs = array[5] = k1, k2, p1, p2, k3
     # ... and save
     proj.save()
@@ -201,10 +202,21 @@ state.update("STEP2")
 
 
 ############################################################################
-log("Step 3: detect features and compute descriptors", fancy=True)
+log("Step 3 is now combined with step 4 matching)", fancy=True)
 ############################################################################
 
 if not state.check("STEP3"):
+    state.update("STEP3")
+
+
+############################################################################
+log("Step 4: feature matching", fancy=True)
+############################################################################
+
+if not state.check("STEP4a"):
+    proj.load_images_info()
+    proj.load_match_pairs()
+
     # setup project detector parameters
     detector_node = getNode('/config/detector', True)
     detector_node.setString('detector', args.detector)
@@ -228,39 +240,12 @@ if not state.check("STEP3"):
         detector_node.setInt('star_suppress_nonmax_size',
                              args.star_suppress_nonmax_size)
 
-    log("Detecting features.")
     log("detector:", args.detector)
-    log("image scale for detection:", args.scale)
-
-    # find features in the full image set
-    proj.detect_features(scale=args.scale, force=True)
-
-    feature_count = 0
-    image_count = 0
-    for image in proj.image_list:
-        feature_count += len(image.kp_list)
-        image_count += 1
-
-    log("Average # of features per image found = %.0f" % (feature_count / image_count))
-
-    # save project configuration
-    proj.save()
-
-    state.update("STEP3")
-
-
-############################################################################
-log("Step 4: feature matching", fancy=True)
-############################################################################
-
-if not state.check("STEP4a"):
-    proj.load_images_info()
-    proj.load_features(descriptors=False) # descriptors cached on the fly later
-    proj.undistort_keypoints()
-    proj.load_match_pairs()
+    log("image scale for fearture detection/matching:", args.scale)
 
     matcher_node = getNode('/config/matcher', True)
     matcher_node.setString('matcher', args.matcher)
+    matcher_node.setString('scale', args.scale)
     matcher_node.setFloat('match_ratio', args.match_ratio)
     matcher_node.setString('filter', args.filter)
     matcher_node.setInt('min_pairs', args.min_pairs)
@@ -272,7 +257,7 @@ if not state.check("STEP4a"):
     proj.save()
 
     # camera calibration
-    K = proj.cam.get_K()
+    K = camera.get_K()
     # print("K:", K)
 
     log("Matching features")
@@ -282,6 +267,13 @@ if not state.check("STEP4a"):
     m.configure()
     m.robustGroupMatches(proj.image_list, K,
                          filter=args.filter, review=False)
+
+    feature_count = 0
+    image_count = 0
+    for image in proj.image_list:
+        feature_count += image.num_features
+        image_count += 1
+    log("Average # of features per image found = %.0f" % (feature_count / image_count))
 
     state.update("STEP4a")
 
@@ -306,7 +298,7 @@ if not state.check("STEP4b"):
 if not state.check("STEP4c"):
     proj.load_images_info()
     
-    K = proj.cam.get_K(optimized=False)
+    K = camera.get_K(optimized=False)
     IK = np.linalg.inv(K)
 
     log("Loading source matches:", matches_name)
@@ -377,8 +369,8 @@ if not state.check("STEP5"):
     opt.update_camera_poses(proj)
 
     # update and save the optimized camera calibration
-    proj.cam.set_K(fx_opt, fy_opt, cu_opt, cv_opt, optimized=True)
-    proj.cam.set_dist_coeffs(distCoeffs_opt.tolist(), optimized=True)
+    camera.set_K(fx_opt, fy_opt, cu_opt, cv_opt, optimized=True)
+    camera.set_dist_coeffs(distCoeffs_opt.tolist(), optimized=True)
     proj.save()
 
     # reposition the optimized data set to best fit the original gps

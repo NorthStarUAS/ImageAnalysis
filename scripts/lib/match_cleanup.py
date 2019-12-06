@@ -8,6 +8,7 @@ from tqdm import tqdm
 
 from props import getNode
 
+from . import camera
 from .logger import log, qlog
 from . import matcher
 from . import srtm
@@ -303,7 +304,7 @@ def link_matches(proj, matches_direct):
     return matches_direct
 
 def triangulate_srtm(proj, matches):
-    K = proj.cam.get_K(optimized=False)
+    K = camera.get_K(optimized=False)
     IK = np.linalg.inv(K)
     
     # lookup ned reference

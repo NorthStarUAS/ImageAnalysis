@@ -69,6 +69,7 @@ class Matcher():
         elif matcher_str == 'BF':
             print("brute force norm = %d" % norm)
             self.matcher = cv2.BFMatcher(norm)
+        self.scale = self.matcher_node.getFloat('scale')
         self.match_ratio = self.matcher_node.getFloat('match_ratio')
         self.min_pairs = self.matcher_node.getFloat('min_pairs')
 
@@ -506,6 +507,7 @@ class Matcher():
                     work_list.append( [dist, i, j] )
 
         # (optional) sort worklist from closest pairs to furthest pairs
+        # (caution, this will currently break the kp/des cache clearing)
         #
         # benefits of sorting by distance: most important work is done
         # first (chance to quit early)
@@ -556,11 +558,13 @@ class Matcher():
             qlog(msg)
             qlog("  separation = %.1f (m)" % dist)
 
-            # update cache timers and make sure features are loaded
+            # update cache timers and make sure features/descriptors are loaded
             i1.desc_timestamp = time.time()
             i2.desc_timestamp = time.time()
-            i1.load_descriptors()
-            i2.load_descriptors()
+            if not len(i1.kp_list) or not len(i1.des_list):
+                i1.detect_features(self.scale)
+            if not len(i2.kp_list) or not len(i2.des_list):
+                i2.detect_features(self.scale)
 
             i1.match_list[i2.name], i2.match_list[i1.name] \
                 = self.bidirectional_matches(image_list, i, j, review)
@@ -599,19 +603,36 @@ class Matcher():
                 self.saveMatches(image_list)
                 save_time = time.time()
 
-                time_list = []
-                for i3 in image_list:
-                    if not i3.des_list is None:
-                        time_list.append( [i3.desc_timestamp, i3] )
-                time_list = sorted(time_list, key=lambda fields: fields[0],
-                                   reverse=True)
-                # may wish to monitor and update cache_size formula
-                cache_size = 20 + 3 * (int(math.sqrt(len(image_list))) + 1)
-                flush_list = time_list[cache_size:]
-                qlog("flushing descriptor cache - size: %d (over by: %d)" % (cache_size, len(flush_list)) )
-                for line in flush_list:
-                    print('  clearing descriptors for:', line[1].name)
-                    line[1].des_list = None
+                if True:
+                    # traverse images that we are done processing
+                    for k in range(i):
+                        i3 = image_list[k]
+                        updated = False
+                        if i3.kp_list is not None:
+                            i3.kp_list = None
+                            updated = True
+                        if i3.uv_list is not None:
+                            i3.uv_list = None
+                            updated = True
+                        if i3.des_list is not None:
+                            i3.des_list = None
+                            updated = True
+                        if updated:
+                            log('  clearing keypoints/descriptors for:', i3.name)
+                if False:
+                    time_list = []
+                    for i3 in image_list:
+                        if not i3.des_list is None:
+                            time_list.append( [i3.desc_timestamp, i3] )
+                    time_list = sorted(time_list, key=lambda fields: fields[0],
+                                       reverse=True)
+                    # may wish to monitor and update cache_size formula
+                    cache_size = 20 + 3 * (int(math.sqrt(len(image_list))) + 1)
+                    flush_list = time_list[cache_size:]
+                    qlog("flushing descriptor cache - size: %d (over by: %d)" % (cache_size, len(flush_list)) )
+                    for line in flush_list:
+                        print('  clearing descriptors for:', line[1].name)
+                        line[1].des_list = None
                     
         # and save
         self.saveMatches(image_list)

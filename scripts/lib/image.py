@@ -15,11 +15,13 @@ import sys
 
 from props import getNode
 
+from .logger import log, qlog
 from . import transformations
 
-
 d2r = math.pi / 180.0           # a helpful constant
-    
+
+detector = None
+
 class Image():
     def __init__(self, meta_dir=None, image_base=None):
         if image_base != None:
@@ -54,6 +56,7 @@ class Image():
         # idea computed and used in different places.  We should be
         # able to collapse this into a single consistent value.
         self.num_matches = 0
+        self.num_features = 0
         self.connections = 0.0
         self.cycle_depth = -1
         self.connection_order = -1
@@ -87,7 +90,6 @@ class Image():
                 self.image_file = None
             file_root = os.path.join(meta_dir, image_base)
             self.features_file = file_root + ".feat"
-            self.des_file = file_root + ".desc"
             self.match_file = file_root + ".match"
             
     def load_rgb(self, equalize=False):
@@ -149,25 +151,25 @@ class Image():
                       + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1]))
                 return
 
-    def load_descriptors(self):
-        if os.path.exists(self.des_file):
-            if self.des_list is None:
-                #print "Loading " + self.des_file
-                try:
-                    fp = gzip.open(self.des_file, 'rb')
-                    self.des_list = np.load(fp)
-                    fp.close()
-                    #print np.any(self.des_list)
-                    #val = "%s" % self.des_list
-                    #print
-                    #print "des_list.size =", self.des_list.size
-                    #print val
-                    #print
-                except:
-                    print(self.des_file + ":\n" + "  desc load error: " \
-                        + str(sys.exc_info()[1]))
-        else:
-            print("no file:", self.des_file)
+    # def load_descriptors(self):
+    #     if os.path.exists(self.des_file):
+    #         if self.des_list is None:
+    #             #print "Loading " + self.des_file
+    #             try:
+    #                 fp = gzip.open(self.des_file, 'rb')
+    #                 self.des_list = np.load(fp)
+    #                 fp.close()
+    #                 #print np.any(self.des_list)
+    #                 #val = "%s" % self.des_list
+    #                 #print
+    #                 #print "des_list.size =", self.des_list.size
+    #                 #print val
+    #                 #print
+    #             except:
+    #                 print(self.des_file + ":\n" + "  desc load error: " \
+    #                     + str(sys.exc_info()[1]))
+    #     else:
+    #         print("no file:", self.des_file)
             
     def load_matches(self):
         try:
@@ -195,15 +197,15 @@ class Image():
         except:
             raise
 
-    def save_descriptors(self):
-        # write descriptors as 'ppm image' format
-        try:
-            fp = gzip.open(self.des_file, 'wb', compresslevel=6)
-            result = np.save(fp, self.des_list)
-            fp.close()
-        except:
-            print(self.des_file + ": error saving file: " \
-                + str(sys.exc_info()[1]))
+    # def save_descriptors(self):
+    #     # write descriptors as 'ppm image' format
+    #     try:
+    #         fp = gzip.open(self.des_file, 'wb', compresslevel=6)
+    #         result = np.save(fp, self.des_list)
+    #         fp.close()
+    #     except:
+    #         print(self.des_file + ": error saving file: " \
+    #             + str(sys.exc_info()[1]))
 
     def save_matches(self):
         try:
@@ -216,8 +218,9 @@ class Image():
             raise
 
     def make_detector(self):
+        global detector
+        
         detector_node = getNode('/config/detector', True)
-        detector = None
         if detector_node.getString('detector') == 'SIFT':
             max_features = detector_node.getInt('sift_max_features')
             #detector = cv2.xfeatures2d.SIFT_create(nfeatures=max_features)
@@ -238,11 +241,7 @@ class Image():
             lineThresholdProjected = detector_node.getInt('star_line_threshold_projected')
             lineThresholdBinarized = detector_node.getInt('star_line_threshold_binarized')
             suppressNonmaxSize = detector_node.getInt('star_suppress_nonmax_size')
-            detector = cv2.xfeatures2d.StarDetector_create(maxSize, responseThreshold,
-                                        lineThresholdProjected,
-                                        lineThresholdBinarized,
-                                        suppressNonmaxSize)
-        return detector
+            detector = cv2.xfeatures2d.StarDetector_create(maxSize, responseThreshold, lineThresholdProjected, lineThresholdBinarized, suppressNonmaxSize)
 
     def orb_grid_detect(self, detector, image, grid_size):
         steps = grid_size
@@ -264,34 +263,70 @@ class Image():
             x += dx
         return kp_list
 
-    def detect_features(self, img, scale):
+    def undistort_features(self):
+        if not len(self.kp_list):
+            return
+        K = self.cam.get_K(optimized)
+        uv_raw = np.zeros((len(image.kp_list),1,2), dtype=np.float32)
+        for i, kp in enumerate(image.kp_list):
+            uv_raw[i][0] = (kp.pt[0], kp.pt[1])
+        dist_coeffs = self.cam.get_dist_coeffs(optimized)
+        uv_new = cv2.undistortPoints(uv_raw, K, np.array(dist_coeffs), P=K)
+        image.uv_list = []
+        for i, uv in enumerate(uv_new):
+            image.uv_list.append(uv_new[i][0])
+            # print("  orig = %s  undistort = %s" % (uv_raw[i][0], uv_new[i]     
+    def detect_features(self, scale):
+        qlog("Detecting features/descriptors for:", self.name)
+        rgb = self.load_rgb(equalize=True)
+        
         # scale image for feature detection.  Note that with feature
         # detection, often less is more ... scaling to a smaller image
         # can allow the feature detector to see bigger scale features.
         # With outdoor natural images at full detail, oftenthe
         # detector/matcher gets lots in the microscopic details and
         # sees more noise than valid features.
-        scaled = cv2.resize(img, (0,0), fx=scale, fy=scale)
+        scaled = cv2.resize(rgb, (0,0), fx=scale, fy=scale)
         
-        detector_node = getNode('/config/detector', True)
-        detector = self.make_detector()
-        grid_size = detector_node.getInt('grid_detect')
-        if detector_node.getString('detector') == 'ORB' and grid_size > 1:
-            kp_list = self.orb_grid_detect(detector, scaled, grid_size)
-        else:
-            kp_list = detector.detect(scaled)
+        if not detector:
+            self.make_detector()
+        #detector_node = getNode('/config/detector', True)
+        #grid_size = detector_node.getInt('grid_detect')
+        #if detector_node.getString('detector') == 'ORB' and grid_size > 1:
+        #    kp_list = self.orb_grid_detect(detector, scaled, grid_size)
+        #else:
+        #    kp_list = detector.detect(scaled)
 
+        self.kp_list, self.des_list = detector.detectAndCompute(scaled, None)
+        self.num_features = len(self.kp_list)
+        
         # compute the descriptors for the found features (Note: Star
         # is a special case that uses the brief extractor
         #
         # compute() could potential add/remove keypoints so we want to
         # save the returned keypoint list, not our original detected
         # keypoint list
-        if detector_node.getString('detector') == 'Star':
-            extractor = cv2.DescriptorExtractor_create('ORB')
-        else:
-            extractor = detector
-        self.kp_list, self.des_list = extractor.compute(scaled, kp_list)
+        #if detector_node.getString('detector') == 'Star':
+        #    extractor = cv2.DescriptorExtractor_create('ORB')
+        #else:
+        #    extractor = detector
+        #self.kp_list, self.des_list = extractor.compute(scaled, kp_list)
+
+        if False:
+            # [pasted code from project.py needs to be fixed before
+            # using uv_list for filtering features]
+            # Filter out of bound undistorted feature points.
+            # Traverse the list in reverse so we can safely remove
+            # features if needed
+            self.undistort_image_keypoints(image)
+            margin = 0
+            for i in reversed(range(len(image.uv_list))):
+                uv = image.uv_list[i]
+                if uv[0] < margin or uv[0] > width - margin \
+                   or uv[1] < margin or uv[1] > height - margin:
+                    #print ' ', i, uv
+                    image.kp_list.pop(i)                             # python list
+                    image.des_list = np.delete(image.des_list, i, 0) # np array
 
         # scale the keypoint coordinates back to the original image size
         for kp in self.kp_list:
@@ -299,9 +334,11 @@ class Image():
             kp.pt = (kp.pt[0]/scale, kp.pt[1]/scale)
             #print('full:', kp.pt)
             
-        # wipe matches because we've touched the keypoints
-        self.match_list = {}
+        self.save_features()
 
+    def compute_descriptors(self, scale):
+        pass
+    
     # Displays the image in a window and waits for a keystroke and
     # then destroys the window.  Returns the value of the keystroke.
     def show_features(self, flags=0):

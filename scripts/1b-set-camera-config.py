@@ -8,6 +8,7 @@ import os.path
 from props import getNode, PropertyNode
 import props_json
 
+from lib import camera
 from lib import project
 
 # set all the various camera configuration parameters
@@ -30,8 +31,8 @@ if args.camera:
     camera_file = args.camera
 else:
     # auto detect camera from image meta data
-    camera, make, model, lens_model = proj.detect_camera()
-    camera_file = os.path.join("..", "cameras", camera + ".json")
+    camera_name, make, model, lens_model = proj.detect_camera()
+    camera_file = os.path.join("..", "cameras", camera_name + ".json")
 print("Camera:", camera_file)
 
 # copy/overlay/update the specified camera config into the existing
@@ -40,8 +41,7 @@ cam_node = getNode('/config/camera', True)
 tmp_node = PropertyNode()
 if props_json.load(camera_file, tmp_node):
     props_json.overlay(cam_node, tmp_node)
-
-    proj.cam.set_mount_params(args.yaw_deg, args.pitch_deg, args.roll_deg)
+    camera.set_mount_params(args.yaw_deg, args.pitch_deg, args.roll_deg)
 
     # note: dist_coeffs = array[5] = k1, k2, p1, p2, k3
 

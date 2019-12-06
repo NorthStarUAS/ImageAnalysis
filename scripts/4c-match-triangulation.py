@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from props import getNode
 
+from lib import camera
 from lib import groups
 from lib import line_solver
 from lib import project
@@ -35,10 +36,10 @@ for group in group_list:
 print()
 
 if args.method == 'triangulate':
-    K = proj.cam.get_K(optimized=True)
+    K = camera.get_K(optimized=True)
     dist_coeffs = np.array(proj.cam.get_dist_coeffs(optimized=True))
 else:
-    K = proj.cam.get_K(optimized=False)
+    K = camera.get_K(optimized=False)
 IK = np.linalg.inv(K)
 
 do_sanity_check = False

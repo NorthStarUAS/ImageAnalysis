@@ -7,6 +7,7 @@ import os
 
 from props import getNode
 
+from lib import camera
 from lib import matcher
 from lib import project
 
@@ -14,8 +15,31 @@ from lib import project
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
+
+parser.add_argument('--scale', type=float, default=0.4, help='scale images before detecting features, this acts much like a noise filter')
+parser.add_argument('--detector', default='SIFT',
+                    choices=['SIFT', 'SURF', 'ORB', 'Star'])
+#parser.add_argument('--sift-max-features', default=30000,
+#                    help='maximum SIFT features')
+parser.add_argument('--surf-hessian-threshold', default=600,
+                    help='hessian threshold for surf method')
+parser.add_argument('--surf-noctaves', default=4,
+                    help='use a bigger number to detect bigger features')
+parser.add_argument('--orb-max-features', default=2000,
+                    help='maximum ORB features')
+parser.add_argument('--grid-detect', default=1,
+                    help='run detect on gridded squares for (maybe) better feature distribution, 4 is a good starting value, only affects ORB method')
+parser.add_argument('--star-max-size', default=16,
+                    help='4, 6, 8, 11, 12, 16, 22, 23, 32, 45, 46, 64, 90, 128')
+parser.add_argument('--star-response-threshold', default=30)
+parser.add_argument('--star-line-threshold-projected', default=10)
+parser.add_argument('--star-line-threshold-binarized', default=8)
+parser.add_argument('--star-suppress-nonmax-size', default=5)
+parser.add_argument('--reject-margin', default=0, help='reject features within this distance of the image outer edge margin')
+
 parser.add_argument('--matcher', default='FLANN',
                     choices=['FLANN', 'BF'])
+parser.add_argument('--scale', type=float, default=0.4, help='scale images before detecting features, this acts much like a noise filter')
 parser.add_argument('--match-ratio', default=0.75, type=float,
                     help='match ratio')
 parser.add_argument('--min-pairs', default=25, type=int,
@@ -33,12 +57,37 @@ args = parser.parse_args()
 
 proj = project.ProjectMgr(args.project)
 proj.load_images_info()
-proj.load_features(descriptors=False) # descriptors cached on the fly later
-proj.undistort_keypoints()
+#proj.load_features(descriptors=False) # descriptors cached on the fly later
+#proj.undistort_keypoints()
 proj.load_match_pairs()
+
+# setup project detector params
+detector_node = getNode('/config/detector', True)
+detector_node.setString('detector', args.detector)
+detector_node.setString('scale', args.scale)
+if args.detector == 'SIFT':
+    #detector_node.setInt('sift_max_features', args.sift_max_features)
+    pass
+elif args.detector == 'SURF':
+    detector_node.setInt('surf_hessian_threshold', args.surf_hessian_threshold)
+    detector_node.setInt('surf_noctaves', args.surf_noctaves)
+elif args.detector == 'ORB':
+    detector_node.setInt('grid_detect', args.grid_detect)
+    detector_node.setInt('orb_max_features', args.orb_max_features)
+elif args.detector == 'Star':
+    detector_node.setInt('star_max_size', args.star_max_size)
+    detector_node.setInt('star_response_threshold',
+                         args.star_response_threshold)
+    detector_node.setInt('star_line_threshold_projected',
+                         args.star_response_threshold)
+    detector_node.setInt('star_line_threshold_binarized',
+                         args.star_line_threshold_binarized)
+    detector_node.setInt('star_suppress_nonmax_size',
+                         args.star_suppress_nonmax_size)
 
 matcher_node = getNode('/config/matcher', True)
 matcher_node.setString('matcher', args.matcher)
+matcher_node.setString('scale', args.scale)
 matcher_node.setFloat('match_ratio', args.match_ratio)
 matcher_node.setString('filter', args.filter)
 matcher_node.setInt('min_pairs', args.min_pairs)
@@ -50,7 +99,7 @@ matcher_node.setInt('min_chain_len', args.min_chain_length)
 proj.save()
 
 # camera calibration
-K = proj.cam.get_K()
+K = camera.get_K()
 print("K:", K)
 
 # fire up the matcher
@@ -58,6 +107,13 @@ m = matcher.Matcher()
 m.configure()
 m.robustGroupMatches(proj.image_list, K,
                      filter=args.filter, review=False)
+
+feature_count = 0
+image_count = 0
+for image in proj.image_list:
+    feature_count += image.num_features
+    image_count += 1
+log("Average # of features per image found = %.0f" % (feature_count / image_count))
 
 # The following code is deprecated ...
 do_old_match_consolodation = False
