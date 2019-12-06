@@ -231,10 +231,7 @@ class Image():
             detector = cv2.xfeatures2d.SURF_create(hessianThreshold=threshold, nOctaves=nOctaves)
         elif detector_node.getString('detector') == 'ORB':
             max_features = detector_node.getInt('orb_max_features')
-            grid_size = detector_node.getInt('grid_detect')
-            cells = grid_size * grid_size
-            max_cell_features = int(max_features / cells)
-            detector = cv2.ORB_create(max_cell_features)
+            detector = cv2.ORB_create(max_features)
         elif detector_node.getString('detector') == 'Star':
             maxSize = detector_node.getInt('star_max_size')
             responseThreshold = detector_node.getInt('star_response_threshold')
@@ -243,7 +240,7 @@ class Image():
             suppressNonmaxSize = detector_node.getInt('star_suppress_nonmax_size')
             detector = cv2.xfeatures2d.StarDetector_create(maxSize, responseThreshold, lineThresholdProjected, lineThresholdBinarized, suppressNonmaxSize)
 
-    def orb_grid_detect(self, detector, image, grid_size):
+    def orb_grid_detect_depricated(self, detector, image, grid_size):
         steps = grid_size
         kp_list = []
         h, w = image.shape

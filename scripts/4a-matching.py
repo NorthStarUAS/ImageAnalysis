@@ -25,10 +25,8 @@ parser.add_argument('--surf-hessian-threshold', default=600,
                     help='hessian threshold for surf method')
 parser.add_argument('--surf-noctaves', default=4,
                     help='use a bigger number to detect bigger features')
-parser.add_argument('--orb-max-features', default=2000,
+parser.add_argument('--orb-max-features', default=20000,
                     help='maximum ORB features')
-parser.add_argument('--grid-detect', default=1,
-                    help='run detect on gridded squares for (maybe) better feature distribution, 4 is a good starting value, only affects ORB method')
 parser.add_argument('--star-max-size', default=16,
                     help='4, 6, 8, 11, 12, 16, 22, 23, 32, 45, 46, 64, 90, 128')
 parser.add_argument('--star-response-threshold', default=30)
@@ -72,7 +70,6 @@ elif args.detector == 'SURF':
     detector_node.setInt('surf_hessian_threshold', args.surf_hessian_threshold)
     detector_node.setInt('surf_noctaves', args.surf_noctaves)
 elif args.detector == 'ORB':
-    detector_node.setInt('grid_detect', args.grid_detect)
     detector_node.setInt('orb_max_features', args.orb_max_features)
 elif args.detector == 'Star':
     detector_node.setInt('star_max_size', args.star_max_size)

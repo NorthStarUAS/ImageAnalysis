@@ -62,7 +62,7 @@ parser.add_argument('--surf-hessian-threshold', default=600,
                     help='hessian threshold for surf method')
 parser.add_argument('--surf-noctaves', default=4,
                     help='use a bigger number to detect bigger features')
-parser.add_argument('--orb-max-features', default=2000,
+parser.add_argument('--orb-max-features', default=20000,
                     help='maximum ORB features')
 parser.add_argument('--grid-detect', default=1,
                     help='run detect on gridded squares for (maybe) better feature distribution, 4 is a good starting value, only affects ORB method')
@@ -199,14 +199,6 @@ proj.save_images_info()
 proj.save()
 
 state.update("STEP2")
-
-
-############################################################################
-log("Step 3 is now combined with step 4 matching)", fancy=True)
-############################################################################
-
-if not state.check("STEP3"):
-    state.update("STEP3")
 
 
 ############################################################################
