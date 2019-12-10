@@ -44,10 +44,9 @@ additionally needs an estimate of the camera pose when the image was
 taken.  There is a helper script which can automate this process:
 99-make-pix4d.py
 
-# 3. Feature Detection (this has been merged into the 4a-matching.py
-     script ... more documentations updates soon hopefully ...)
+# 3. Feature Detection and Matching
 
-  ## 3a-detect-features.py
+  ## Feature detection algorithms:
   
   ## SIFT
 
@@ -106,9 +105,7 @@ taken.  There is a helper script which can automate this process:
   features.  The exact amount of scaling probably depends on the
   camera, lens, altitude, and subject matter.
 
-# 4. Feature Matching
-
-  ## 4a-matching.py
+  ## 3a-matching.py
 
   Run this script to find all the matching feature pairs in the image set.
 
@@ -162,7 +159,7 @@ taken.  There is a helper script which can automate this process:
   Initial optimization may also be slightly tighter.  This is my
   favorite filter right now.
 
-  ## 4b-clean-and-combine-matches.py
+  ## 3b-clean-and-combine-matches.py
 
   Start with the original pair-wise match set, then run several
   validation and consistency checks to remove some potential weird
@@ -171,11 +168,11 @@ taken.  There is a helper script which can automate this process:
   should be run after the 4a-matching step, and can be rerun later to
   reset the matches.
 
-  ## 4c-match-triangulation.py
+  ## 3c-match-triangulation.py
 
   Compute an initial 3d location estimate for every feature/match
   
-  ## 4d-image-groups.py
+  ## 3d-image-groups.py
 
   Compute the connected groups in the image set.  Images are matched
   as pairs, but these pairs can be connected into larger groups.
