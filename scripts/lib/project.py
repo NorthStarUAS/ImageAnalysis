@@ -353,7 +353,7 @@ class ProjectMgr():
     # for each feature in each image, compute the undistorted pixel
     # location (from the calibrated distortion parameters)
     def undistort_keypoints(self, optimized=False):
-        print("Undistorting keypoints:")
+        log("Undistorting keypoints:")
         for image in tqdm(self.image_list):
             self.undistort_image_keypoints(image, optimized)
                 
