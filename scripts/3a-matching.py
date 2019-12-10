@@ -101,7 +101,7 @@ print("K:", K)
 
 # fire up the matcher
 m = matcher.Matcher()
-m.configure()
+matcher.configure()
 m.robustGroupMatches(proj.image_list, K,
                      filter=args.filter, review=False)
 

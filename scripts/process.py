@@ -202,10 +202,10 @@ state.update("STEP2")
 
 
 ############################################################################
-log("Step 4: feature matching", fancy=True)
+log("Step 3: feature matching", fancy=True)
 ############################################################################
 
-if not state.check("STEP4a"):
+if not state.check("STEP3a"):
     proj.load_images_info()
     proj.load_match_pairs()
 
@@ -256,7 +256,7 @@ if not state.check("STEP4a"):
     
     # fire up the matcher
     m = matcher.Matcher()
-    m.configure()
+    matcher.configure()
     m.robustGroupMatches(proj.image_list, K,
                          filter=args.filter, review=False)
 
@@ -267,11 +267,11 @@ if not state.check("STEP4a"):
         image_count += 1
     log("Average # of features per image found = %.0f" % (feature_count / image_count))
 
-    state.update("STEP4a")
+    state.update("STEP3a")
 
 matches_name = os.path.join(proj.analysis_dir, "matches_grouped")
 
-if not state.check("STEP4b"):
+if not state.check("STEP3b"):
     proj.load_images_info()
     proj.load_features(descriptors=False)
     proj.load_match_pairs()
@@ -285,9 +285,9 @@ if not state.check("STEP4b"):
     log("Writing full group chain file:", matches_name)
     pickle.dump(matches_grouped, open(matches_name, "wb"))
 
-    state.update("STEP4b")
+    state.update("STEP3b")
 
-if not state.check("STEP4c"):
+if not state.check("STEP3c"):
     proj.load_images_info()
     
     K = camera.get_K(optimized=False)
@@ -299,9 +299,9 @@ if not state.check("STEP4c"):
     log("Writing triangulated group file:", matches_name)
     pickle.dump(matches_grouped, open(matches_name, "wb"))
 
-    state.update("STEP4c")
+    state.update("STEP3c")
 
-if not state.check("STEP4d"):
+if not state.check("STEP3d"):
     proj.load_images_info()
 
     log("Loading source matches:", matches_name)
@@ -329,7 +329,7 @@ if not state.check("STEP4d"):
     log("Writing grouped tagged matches:", matches_name)
     pickle.dump(matches, open(matches_name, "wb"))
 
-    state.update("STEP4d")
+    state.update("STEP3d")
 
 
 ############################################################################

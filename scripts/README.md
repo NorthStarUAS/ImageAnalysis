@@ -150,14 +150,13 @@ taken.  There is a helper script which can automate this process:
     
   ### Essential filter (*)
 
-  Seems to better handle variations off plane while still being
-  pretty robust and rejecting false matches.  (Only available with
-  OpenCV3?)  The Essential matrix is a more recent discovery and
-  encapsulates the camera calibration matrices as well.  Thus it can
-  also be used to derive relative poses of the two images.  Results
-  in a few percent fewer matches, but fewer outlier matches.
-  Initial optimization may also be slightly tighter.  This is my
-  favorite filter right now.
+  Seems to better handle variations off plane while still being pretty
+  robust and rejecting false matches.  The Essential matrix is a more
+  recent discovery and encapsulates the camera calibration matrices as
+  well.  Thus it can also be used to derive relative poses of the two
+  images.  Results in a few percent fewer matches, but fewer outlier
+  matches.  Initial optimization may also be slightly tighter.  This
+  is my favorite filter right now.
 
   ## 3b-clean-and-combine-matches.py
 

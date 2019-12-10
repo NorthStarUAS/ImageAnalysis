@@ -24,6 +24,61 @@ from . import transformations
 detector_node = getNode('/config/detector', True)
 matcher_node = getNode('/config/matcher', True)
 
+detect_scale = 0.40
+the_matcher = None
+max_distance = None
+match_ratio = 0.70
+min_pairs = 25
+
+# Configure the matching session
+def configure():
+    global detect_scale
+    global the_matcher
+    global max_distance
+    global match_ratio
+    global min_pairs
+
+    detect_scale = detector_node.getFloat('scale')
+    detector_str = detector_node.getString('detector')
+    if detector_str == 'SIFT':
+        norm = cv2.NORM_L2
+        max_distance = 270.0
+    elif detector_str == 'SURF':
+        norm = cv2.NORM_L2
+        max_distance = 270.0
+    elif detector_str == 'ORB':
+        norm = cv2.NORM_HAMMING
+        max_distance = 64
+    elif detector_str == 'Star':
+        norm = cv2.NORM_HAMMING
+        max_distance = 64
+    else:
+        print('No detector defined???')
+        quit()
+
+    FLANN_INDEX_KDTREE = 1  # bug: flann enums are missing
+    FLANN_INDEX_LSH    = 6
+    matcher_str = matcher_node.getString('matcher')
+    if matcher_str == 'FLANN':
+        if norm == cv2.NORM_L2:
+            flann_params = {
+                'algorithm': FLANN_INDEX_KDTREE,
+                'trees': 5
+            }
+        else:
+            flann_params = {
+                'algorithm': FLANN_INDEX_LSH,
+                'table_number': 6,     # 12
+                'key_size': 12,        # 20
+                'multi_probe_level': 1 #2
+            }
+        the_matcher = cv2.FlannBasedMatcher(flann_params, {}) # bug : need to pass empty dict (#1329)
+    elif matcher_str == 'BF':
+        print("brute force norm = %d" % norm)
+        the_matcher = cv2.BFMatcher(norm)
+    match_ratio = matcher_node.getFloat('match_ratio')
+    min_pairs = matcher_node.getFloat('min_pairs')
+
 # SIFT (for example) can detect the same feature at different
 # scales which can lead to duplicate match pairs, or possibly one
 # feature in image1 matching two or more features in images2.
@@ -58,53 +113,7 @@ def filter_duplicates(i1, i2, idx_pairs):
 
 class Matcher():
     def __init__(self):
-        self.image_list = []
-        self.matcher = None
-        self.match_ratio = 0.70
-        self.min_pairs = 25
-        # probably cleaner ways to do this...
-
-    def configure(self):
-        detector_str = detector_node.getString('detector')
-        if detector_str == 'SIFT':
-            norm = cv2.NORM_L2
-            self.max_distance = 270.0
-        elif detector_str == 'SURF':
-            norm = cv2.NORM_L2
-            self.max_distance = 270.0
-        elif detector_str == 'ORB':
-            norm = cv2.NORM_HAMMING
-            self.max_distance = 64
-        elif detector_str == 'Star':
-            norm = cv2.NORM_HAMMING
-            self.max_distance = 64
-        else:
-            print('No detector defined???')
-            quit()
-
-        FLANN_INDEX_KDTREE = 1  # bug: flann enums are missing
-        FLANN_INDEX_LSH    = 6
-        matcher_str = matcher_node.getString('matcher')
-        if matcher_str == 'FLANN':
-            if norm == cv2.NORM_L2:
-                flann_params = {
-                    'algorithm': FLANN_INDEX_KDTREE,
-                    'trees': 5
-                }
-            else:
-                flann_params = {
-                    'algorithm': FLANN_INDEX_LSH,
-                    'table_number': 6,     # 12
-                    'key_size': 12,        # 20
-                    'multi_probe_level': 1 #2
-                }
-            self.matcher = cv2.FlannBasedMatcher(flann_params, {}) # bug : need to pass empty dict (#1329)
-        elif matcher_str == 'BF':
-            print("brute force norm = %d" % norm)
-            self.matcher = cv2.BFMatcher(norm)
-        self.scale = matcher_node.getFloat('scale')
-        self.match_ratio = matcher_node.getFloat('match_ratio')
-        self.min_pairs = matcher_node.getFloat('min_pairs')
+        pass
 
     def filter_by_ratio(self, i1, i2, matches):
         kp1 = i1.kp_list
@@ -117,7 +126,7 @@ class Matcher():
                 # we need to ask for at least two matches
                 continue
             #print "dist = %.2f %.2f (%.2f)" % (m[0].distance, m[1].distance, m[0].distance/m[1].distance)
-            if m[0].distance > m[1].distance * self.match_ratio:
+            if m[0].distance > m[1].distance * match_ratio:
                 # must pass the feature vector distance ratio test
                 continue
 
@@ -149,7 +158,7 @@ class Matcher():
             tol = 1.0
         # print "tol = %.4f" % tol 
         matches = i1.match_list[i2.name]
-        if len(matches) < self.min_pairs:
+        if len(matches) < min_pairs:
             i1.match_list[i2.name] = []
             return True
         p1 = []
@@ -266,9 +275,9 @@ class Matcher():
         if len(i2.des_list.shape) == 0 or i2.des_list.shape[0] <= 1:
             return []
 
-        matches = self.matcher.knnMatch(np.array(i1.des_list),
-                                        np.array(i2.des_list),
-                                        k=2)
+        matches = the_matcher.knnMatch(np.array(i1.des_list),
+                                       np.array(i2.des_list),
+                                       k=2)
         qlog("  raw matches:", len(matches))
 
         sum = 0.0
@@ -277,7 +286,7 @@ class Matcher():
         count_good = 0
         for m in matches:
             sum += m[0].distance
-            if m[0].distance <= m[1].distance * self.match_ratio:
+            if m[0].distance <= m[1].distance * match_ratio:
                 sum_good += m[0].distance
                 count_good += 1
                 if m[0].distance > max_good:
@@ -293,7 +302,7 @@ class Matcher():
             # but I'm guessing anything more than 270.0 is a bad match.
             matches_thresh = []
             for m in matches:
-                if m[0].distance < self.max_distance and m[0].distance <= m[1].distance * self.match_ratio:
+                if m[0].distance < max_distance and m[0].distance <= m[1].distance * match_ratio:
                     matches_thresh.append(m[0])
             qlog("  quality matches:", len(matches_thresh))
 
@@ -311,7 +320,7 @@ class Matcher():
             by_metric = sorted(by_metric, key=lambda fields: fields[0])
             matches_thresh = []
             for line in by_metric:
-                if line[0] < self.max_distance * self.match_ratio:
+                if line[0] < max_distance * match_ratio:
                     matches_thresh.append(line[1])
             qlog("  quality matches:", len(matches_thresh))
             # fixme, make this a command line option or parameter?
@@ -321,7 +330,7 @@ class Matcher():
                 matches_thresh = matches_thresh[:mymax]
                 qlog("  clipping to:", mymax)
 
-        if len(matches_thresh) < self.min_pairs:
+        if len(matches_thresh) < min_pairs:
             # just quit now
             return []
 
@@ -382,7 +391,7 @@ class Matcher():
                 idx_pairs = aligned_pairs
             
         qlog("  initial matches =", len(idx_pairs))
-        if len(idx_pairs) < self.min_pairs:
+        if len(idx_pairs) < min_pairs:
             # sorry
             return []
         else:
@@ -402,7 +411,7 @@ class Matcher():
         # keypoints (forward match)
         idx_pairs1 = self.basic_matches(i1, i2)
 
-        if len(idx_pairs1) >= self.min_pairs:
+        if len(idx_pairs1) >= min_pairs:
             # all vs. all match between overlapping i2 keypoints and i1
             # keypoints (reverse match)
             idx_pairs2 = self.basic_matches(i2, i1)
@@ -544,9 +553,9 @@ class Matcher():
             i1.desc_timestamp = time.time()
             i2.desc_timestamp = time.time()
             if not len(i1.kp_list) or not len(i1.des_list):
-                i1.detect_features(self.scale)
+                i1.detect_features(detect_scale)
             if not len(i2.kp_list) or not len(i2.des_list):
-                i2.detect_features(self.scale)
+                i2.detect_features(detect_scale)
 
             i1.match_list[i2.name], i2.match_list[i1.name] \
                 = self.bidirectional_matches(image_list, i, j, review)
@@ -819,7 +828,7 @@ class Matcher():
     def showMatches(self, i1):
         for key in i1.match_list:
             idx_pairs = i1.match_list[key]
-            if len(idx_pairs) >= self.min_pairs:
+            if len(idx_pairs) >= min_pairs:
                 i2 = self.findImageByName(key)
                 print("Showing matches for image %s and %s" % (i1.name, i2.name))
                 self.showMatch( i1, i2, idx_pairs )
@@ -1098,7 +1107,7 @@ class Matcher():
                 i2 = self.findImageByName[key]
                 if i1.name == i2.name:
                     continue
-                if len(matches) < self.min_pairs:
+                if len(matches) < min_pairs:
                     i1.match_list[i2.name] = []
                     continue
                 p1 = []
@@ -1158,7 +1167,7 @@ class Matcher():
                 i2 = self.findImageByName[key]
                 if i1.name == i2.name:
                     continue
-                if len(matches) < self.min_pairs:
+                if len(matches) < min_pairs:
                     i1.match_list[i2.name] = []
                     continue
                 pts = []
