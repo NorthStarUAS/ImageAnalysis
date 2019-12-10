@@ -75,8 +75,6 @@ parser.add_argument('--star-suppress-nonmax-size', default=5)
 parser.add_argument('--reject-margin', default=0, help='reject features within this distance of the image outer edge margin')
 
 # feature matching arguments
-parser.add_argument('--matcher', default='FLANN',
-                    choices=['FLANN', 'BF'])
 parser.add_argument('--match-ratio', default=0.75, type=float,
                     help='match ratio')
 parser.add_argument('--min-pairs', default=25, type=int,
@@ -236,8 +234,6 @@ if not state.check("STEP3a"):
     log("image scale for fearture detection/matching:", args.scale)
 
     matcher_node = getNode('/config/matcher', True)
-    matcher_node.setString('matcher', args.matcher)
-    matcher_node.setString('scale', args.scale)
     matcher_node.setFloat('match_ratio', args.match_ratio)
     matcher_node.setString('filter', args.filter)
     matcher_node.setInt('min_pairs', args.min_pairs)
@@ -257,8 +253,8 @@ if not state.check("STEP3a"):
     # fire up the matcher
     m = matcher.Matcher()
     matcher.configure()
-    m.robustGroupMatches(proj.image_list, K,
-                         filter=args.filter, review=False)
+    matcher.find_matches(proj.image_list, K, transform=args.filter,
+                         review=False)
 
     feature_count = 0
     image_count = 0

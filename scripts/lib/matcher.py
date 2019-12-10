@@ -1,7 +1,5 @@
 #!/usr/bin/python3
 
-from __future__ import print_function
-
 # put most of our eggs in the gms matching basket:
 # https://github.com/JiawangBian/GMS-Feature-Matcher/blob/master/python/gms_matcher.py
 
@@ -27,62 +25,117 @@ matcher_node = getNode('/config/matcher', True)
 detect_scale = 0.40
 the_matcher = None
 max_distance = None
-match_ratio = 0.70
 min_pairs = 25
 
-# Configure the matching session
+# Configure the matching session (setup the values in the property
+# tree and call this function before any others.  Note, putting the
+# parameters in the property tree simplifies the parameter list and
+# lets us save a record of these in the config.json file
 def configure():
     global detect_scale
     global the_matcher
     global max_distance
-    global match_ratio
     global min_pairs
 
     detect_scale = detector_node.getFloat('scale')
     detector_str = detector_node.getString('detector')
-    if detector_str == 'SIFT':
+    if detector_str == 'SIFT' or detector_str == 'SURF':
         norm = cv2.NORM_L2
         max_distance = 270.0
-    elif detector_str == 'SURF':
-        norm = cv2.NORM_L2
-        max_distance = 270.0
-    elif detector_str == 'ORB':
-        norm = cv2.NORM_HAMMING
-        max_distance = 64
-    elif detector_str == 'Star':
+    elif detector_str == 'ORB' or detector_str == 'Star':
         norm = cv2.NORM_HAMMING
         max_distance = 64
     else:
-        print('No detector defined???')
+        log("Detector not specified or not known:", detector_str)
         quit()
 
-    FLANN_INDEX_KDTREE = 1  # bug: flann enums are missing
+    # work around a feature/bug: flann enums don't exist
+    FLANN_INDEX_KDTREE = 1
     FLANN_INDEX_LSH    = 6
-    matcher_str = matcher_node.getString('matcher')
-    if matcher_str == 'FLANN':
-        if norm == cv2.NORM_L2:
-            flann_params = {
-                'algorithm': FLANN_INDEX_KDTREE,
-                'trees': 5
-            }
-        else:
-            flann_params = {
-                'algorithm': FLANN_INDEX_LSH,
-                'table_number': 6,     # 12
-                'key_size': 12,        # 20
-                'multi_probe_level': 1 #2
-            }
-        the_matcher = cv2.FlannBasedMatcher(flann_params, {}) # bug : need to pass empty dict (#1329)
-    elif matcher_str == 'BF':
-        print("brute force norm = %d" % norm)
-        the_matcher = cv2.BFMatcher(norm)
-    match_ratio = matcher_node.getFloat('match_ratio')
+    if norm == cv2.NORM_L2:
+        flann_params = {
+            'algorithm': FLANN_INDEX_KDTREE,
+            'trees': 5
+        }
+    else:
+        flann_params = {
+            'algorithm': FLANN_INDEX_LSH,
+            'table_number': 6,     # 12
+            'key_size': 12,        # 20
+            'multi_probe_level': 1 #2
+        }
+    search_params = {
+        'checks': 100
+    }
+    the_matcher = cv2.FlannBasedMatcher(flann_params, search_params)
     min_pairs = matcher_node.getFloat('min_pairs')
 
-# SIFT (for example) can detect the same feature at different
-# scales which can lead to duplicate match pairs, or possibly one
-# feature in image1 matching two or more features in images2.
-# Find and filter these out of the set.
+# Iterate through all the matches for the specified image and
+# delete keypoints that don't satisfy the homography (or
+# fundamental) relationship.  Returns true if match set is clean, false
+# if keypoints were removed.
+#
+# Notice: this tends to eliminate matches that aren't all on the
+# same plane, so if the scene has a lot of depth, this could knock
+# out a lot of good matches.
+def filter_by_transform(K, i1, i2, transform):
+    clean = True
+
+    # tol = float(i1.width) / 200.0 # rejection range in pixels
+    tol = math.pow(i1.width, 0.25)
+    if tol < 1.0:
+        tol = 1.0
+    # print "tol = %.4f" % tol 
+    matches = i1.match_list[i2.name]
+    if len(matches) < min_pairs:
+        i1.match_list[i2.name] = []
+        return True
+    p1 = []
+    p2 = []
+    for k, pair in enumerate(matches):
+        use_raw_uv = False
+        if use_raw_uv:
+            p1.append( i1.kp_list[pair[0]].pt )
+            p2.append( i2.kp_list[pair[1]].pt )
+        else:
+            # undistorted uv points should be better if the camera
+            # calibration is known, right?
+            p1.append( i1.uv_list[pair[0]] )
+            p2.append( i2.uv_list[pair[1]] )
+
+    p1 = np.float32(p1)
+    p2 = np.float32(p2)
+    #print "p1 = %s" % str(p1)
+    #print "p2 = %s" % str(p2)
+    method = cv2.RANSAC
+    #method = cv2.LMEDS
+    if transform == "homography":
+        M, status = cv2.findHomography(p1, p2, method, tol)
+    elif transform == "fundamental":
+        M, status = cv2.findFundamentalMat(p1, p2, method, tol)
+    elif transform == "essential":
+        M, status = cv2.findEssentialMat(p1, p2, K, method, threshold=tol)
+    elif transform == "none":
+        status = np.ones(len(matches))
+    else:
+        # fail
+        M, status = None, None
+    log("  %s vs %s: %d / %d  inliers/matched" % (i1.name, i2.name, np.sum(status), len(status)))
+    # remove outliers
+    for k, flag in enumerate(status):
+        if not flag:
+            # print("    deleting: " + str(matches[k]))
+            clean = False
+            matches[k] = (-1, -1)
+    for pair in reversed(matches):
+        if pair == (-1, -1):
+            matches.remove(pair)
+    return clean
+
+# Filter duplicate features.  SIFT (for example) can detect the same
+# feature at different scales/orientations which can lead to duplicate
+# match pairs, or possibly one feature in image1 matching two or more
+# features in images2.  Find and remove these from the set.
 def filter_duplicates(i1, i2, idx_pairs):
     count = 0
     result = []
@@ -110,347 +163,322 @@ def filter_duplicates(i1, i2, idx_pairs):
         qlog("  removed %d/%d duplicate features" % (count, len(idx_pairs)))
     return result
 
+# iterate through idx_pairs1 and mark/remove any pairs that don't
+# exist in idx_pairs2.  Then recreate idx_pairs2 as the inverse of
+# idx_pairs1
+def filter_cross_check(idx_pairs1, idx_pairs2):
+    new1 = []
+    new2 = []
+    for k, pair in enumerate(idx_pairs1):
+        rpair = [pair[1], pair[0]]
+        for r in idx_pairs2:
+            #print "%s - %s" % (rpair, r)
+            if rpair == r:
+                new1.append( pair )
+                new2.append( rpair )
+                break
+    if len(idx_pairs1) != len(new1) or len(idx_pairs2) != len(new2):
+        qlog("  cross check: (%d, %d) => (%d, %d)" % (len(idx_pairs1), len(idx_pairs2), len(new1), len(new2)))
+    return new1, new2                                               
+            
+def basic_matches(i1, i2):
+    # all vs. all match between overlapping i1 keypoints and i2
+    # keypoints (forward match)
+
+    # sanity check
+    if i1.des_list is None or i2.des_list is None:
+        return []
+    if len(i1.des_list.shape) == 0 or i1.des_list.shape[0] <= 1:
+        return []
+    if len(i2.des_list.shape) == 0 or i2.des_list.shape[0] <= 1:
+        return []
+
+    matches = the_matcher.knnMatch(np.array(i1.des_list),
+                                   np.array(i2.des_list),
+                                   k=2)
+    qlog("  raw matches:", len(matches))
+
+    match_ratio = matcher_node.getFloat('match_ratio')
+    sum = 0.0
+    max_good = 0
+    sum_good = 0.0
+    count_good = 0
+    for m in matches:
+        sum += m[0].distance
+        if m[0].distance <= m[1].distance * match_ratio:
+            sum_good += m[0].distance
+            count_good += 1
+            if m[0].distance > max_good:
+                max_good = m[0].distance
+    qlog("  avg dist:", sum / len(matches))
+    if count_good:
+        qlog("  avg good dist:", sum_good / count_good, "(%d)" % count_good)
+    qlog("  max good dist:", max_good)
+
+    if False:
+        # filter by absolute distance (for ORB, statistically all real
+        # matches will have a distance < 64, for SIFT I don't know,
+        # but I'm guessing anything more than 270.0 is a bad match.
+        matches_thresh = []
+        for m in matches:
+            if m[0].distance < max_distance and m[0].distance <= m[1].distance * match_ratio:
+                matches_thresh.append(m[0])
+        qlog("  quality matches:", len(matches_thresh))
+
+    if True:
+        # generate a quality metric for each match, sort and only
+        # pass along the best 'n' matches that pass the distance
+        # ratio test.  (Testing the idea that 2000 matches aren't
+        # better than 20 if they are good matches with respect to
+        # optimizing the fit.)
+        by_metric = []
+        for m in matches:
+            ratio = m[0].distance / m[1].distance # smaller is better
+            metric = m[0].distance * ratio
+            by_metric.append( [metric, m[0]] )
+        by_metric = sorted(by_metric, key=lambda fields: fields[0])
+        matches_thresh = []
+        for line in by_metric:
+            if line[0] < max_distance * match_ratio:
+                matches_thresh.append(line[1])
+        qlog("  quality matches:", len(matches_thresh))
+        # fixme, make this a command line option or parameter?
+        mymax = 2000
+        if len(matches_thresh) > mymax:
+            # clip list to n best rated matches
+            matches_thresh = matches_thresh[:mymax]
+            qlog("  clipping to:", mymax)
+
+    if len(matches_thresh) < min_pairs:
+        # just quit now
+        return []
+
+    w, h = camera.get_image_params()
+    if not w or not h:
+        log("Zero image sizes will crash matchGMS():", w, h)
+        log("Possibly the detect feature step was killed and restarted?")
+        log("Recommend removing all meta/*.feat and meta/*.desc and")
+        log("rerun the feature detection step.")
+        log("... or do some coding to add this information to the")
+        log("ImageAnalysis/meta/<image_name>.json files")
+        quit()
+    size = (w, h)
+
+    matchesGMS = cv2.xfeatures2d.matchGMS(size, size, i1.kp_list, i2.kp_list, matches_thresh, withRotation=True, withScale=False, thresholdFactor=5.0)
+    #matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, i1.uv_list, i2.uv_list, matches_thresh, withRotation=True, withScale=False)
+    #print('matchesGMS:', matchesGMS)
+
+    idx_pairs = []
+    for i, m in enumerate(matchesGMS):
+        idx_pairs.append( [m.queryIdx, m.trainIdx] )
+
+    # check for duplicate matches (based on different scales or attributes)
+    idx_pairs = filter_duplicates(i1, i2, idx_pairs)
+
+    qlog("  initial matches =", len(idx_pairs))
+    if len(idx_pairs) < min_pairs:
+        # so sorry
+        return []
+    else:
+        return idx_pairs
+
+# do initial feature matching (both ways) for the specified image
+# pair.
+def bidirectional_matches(image_list, i, j, review=False):
+    if i == j:
+        log("We shouldn't see this, but i == j", i, j)
+        return [], []
+
+    i1 = image_list[i]
+    i2 = image_list[j]
+
+    # all vs. all match between overlapping i1 keypoints and i2
+    # keypoints (forward match)
+    idx_pairs1 = basic_matches(i1, i2)
+    if len(idx_pairs1) >= min_pairs:
+        idx_pairs2 = basic_matches(i2, i1)
+    else:
+        # save some time
+        idx_pairs2 = []
+
+    idx_pairs1, idx_pairs2 = filter_cross_check(idx_pairs1, idx_pairs2)
+
+    if False:
+        plot_matches(i1, i2, idx_pairs1)
+        plot_matches(i2, i1, idx_pairs2)
+
+    if review:
+        if len(idx_pairs1):
+            status, key = self.showMatchOrient(i1, i2, idx_pairs1)
+            # remove deselected pairs
+            for k, flag in enumerate(status):
+                if not flag:
+                    print("    deleting: " + str(idx_pairs1[k]))
+                    idx_pairs1[k] = (-1, -1)
+            for pair in reversed(idx_pairs1):
+                if pair == (-1, -1):
+                    idx_pairs1.remove(pair)
+
+        if len(idx_pairs2):
+            status, key = self.showMatchOrient(i2, i1, idx_pairs2)
+            # remove deselected pairs
+            for k, flag in enumerate(status):
+                if not flag:
+                    print("    deleting: " + str(idx_pairs2[k]))
+                    idx_pairs2[k] = (-1, -1)
+            for pair in reversed(idx_pairs2):
+                if pair == (-1, -1):
+                    idx_pairs2.remove(pair)
+
+    return idx_pairs1, idx_pairs2
+
+def find_matches(image_list, K, transform="fundamental", review=False):
+    min_dist = matcher_node.getFloat('min_dist')
+    max_dist = matcher_node.getFloat('max_dist')
+
+    n = len(image_list) - 1
+    n_work = float(n*(n+1)/2)
+    t_start = time.time()
+
+    # camera separation vs. matches stats
+    dist_stats = []
+
+    log('Generating work list for range:', min_dist, '-', max_dist)
+    work_list = []
+    for i, i1 in enumerate(tqdm(image_list)):
+        for j, i2 in enumerate(image_list):
+            if j <= i:
+                continue
+            # camera pose distance check
+            ned1, ypr1, q1 = i1.get_camera_pose()
+            ned2, ypr2, q2 = i2.get_camera_pose()
+            dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
+            if dist >= min_dist and dist <= max_dist:
+                work_list.append( [dist, i, j] )
+
+    # (optional) sort worklist from closest pairs to furthest pairs
+    # (caution, this will currently break the kp/des cache clearing)
+    #
+    # benefits of sorting by distance: most important work is done
+    # first (chance to quit early)
+    #
+    # benefits of sorting by order: for large memory usage, active
+    # memory pool decreases as work progresses (becoming more and
+    # more system friendly.)
+
+    # work_list = sorted(work_list, key=lambda fields: fields[0])
+
+    # note: image.desc_timestamp is used to unload not recently
+    # used descriptors ... these burn a ton of memory so unloading
+    # things not recently used should help our memory foot print
+    # at hopefully not too much of a performance expense.
+
+    # process the work list
+    n_count = 0
+    save_time = time.time()
+    save_interval = 120     # seconds
+    log("Processing worklist matches:")
+    for line in tqdm(work_list, smoothing=0.05):
+        dist = line[0]
+        i = line[1]
+        j = line[2]
+        i1 = image_list[i]
+        i2 = image_list[j]
+
+        # eta estimation
+        percent = n_count / float(len(work_list))
+        n_count += 1
+        t_elapsed = time.time() - t_start
+        if percent > 0:
+            t_end = t_elapsed / percent
+        else:
+            t_end = t_start
+        t_remain = t_end - t_elapsed
+
+        # skip if match has already been computed
+        if i2.name in i1.match_list and i1.name in i2.match_list:
+            log("Skipping: ", i1.name, "vs'", i2.name, "already done.")
+            continue
+
+        msg = "Matching %s vs %s - %.1f%% done: " % (i1.name, i2.name, percent * 100.0)
+        if t_remain < 3600:
+            msg += "%.1f (min)" % (t_remain / 60.0)
+        else:
+            msg += "%.1f (hr)" % (t_remain / 3600.0)
+        qlog(msg)
+        qlog("  separation = %.1f (m)" % dist)
+
+        # update cache timers and make sure features/descriptors are loaded
+        i1.desc_timestamp = time.time()
+        i2.desc_timestamp = time.time()
+        if not len(i1.kp_list) or not len(i1.des_list):
+            i1.detect_features(detect_scale)
+        if not len(i2.kp_list) or not len(i2.des_list):
+            i2.detect_features(detect_scale)
+
+        i1.match_list[i2.name], i2.match_list[i1.name] \
+            = bidirectional_matches(image_list, i, j, review)
+
+        dist_stats.append( [ dist, len(i1.match_list[i2.name]) ] )
+
+        # save our work so far, and flush descriptor cache
+        if time.time() >= save_time + save_interval:
+            log('saving matches ...')
+            saveMatches(image_list)
+            save_time = time.time()
+
+            if True:
+                # traverse images that we are done processing
+                for k in range(i):
+                    i3 = image_list[k]
+                    updated = False
+                    if i3.kp_list is not None:
+                        i3.kp_list = None
+                        updated = True
+                    if i3.uv_list is not None:
+                        i3.uv_list = None
+                        updated = True
+                    if i3.des_list is not None:
+                        i3.des_list = None
+                        updated = True
+                    if updated:
+                        log('  clearing keypoints/descriptors for:', i3.name)
+            if False:
+                time_list = []
+                for i3 in image_list:
+                    if not i3.des_list is None:
+                        time_list.append( [i3.desc_timestamp, i3] )
+                time_list = sorted(time_list, key=lambda fields: fields[0],
+                                   reverse=True)
+                # may wish to monitor and update cache_size formula
+                cache_size = 20 + 3 * (int(math.sqrt(len(image_list))) + 1)
+                flush_list = time_list[cache_size:]
+                qlog("flushing descriptor cache - size: %d (over by: %d)" % (cache_size, len(flush_list)) )
+                for line in flush_list:
+                    print('  clearing descriptors for:', line[1].name)
+                    line[1].des_list = None
+
+    # and save
+    saveMatches(image_list)
+    print('Pair-wise matches successfully saved.')
+
+    if len(dist_stats):
+        dist_stats = np.array(dist_stats)
+        plt.plot(dist_stats[:,0], dist_stats[:,1], 'ro')
+        plt.show()
+    
+def saveMatches(image_list):
+    for image in image_list:
+        image.save_matches()
+
+
+#########################################################################
+###   STUFF BELOW HERE IS OLD, RARELY USED, AND POSSIBLY DEPRECATED   ###
+#########################################################################
 
 class Matcher():
     def __init__(self):
         pass
-
-    def filter_by_ratio(self, i1, i2, matches):
-        kp1 = i1.kp_list
-        kp2 = i2.kp_list
-        mkp1, mkp2 = [], []
-        idx_pairs = []
-        used = np.zeros(len(kp2), np.bool_)
-        for m in matches:
-            if len(m) < 2:
-                # we need to ask for at least two matches
-                continue
-            #print "dist = %.2f %.2f (%.2f)" % (m[0].distance, m[1].distance, m[0].distance/m[1].distance)
-            if m[0].distance > m[1].distance * match_ratio:
-                # must pass the feature vector distance ratio test
-                continue
-
-            m = m[0]
-            if not used[m.trainIdx]:
-                used[m.trainIdx] = True
-                mkp1.append( kp1[m.queryIdx] )
-                mkp2.append( kp2[m.trainIdx] )
-                idx_pairs.append( [m.queryIdx, m.trainIdx] )
-        p1 = np.float32([kp.pt for kp in mkp1])
-        p2 = np.float32([kp.pt for kp in mkp2])
-        kp_pairs = zip(mkp1, mkp2)
-        return p1, p2, kp_pairs, idx_pairs
-
-    # Iterate through all the matches for the specified image and
-    # delete keypoints that don't satisfy the homography (or
-    # fundamental) relationship.  Returns true if match set is clean, false
-    # if keypoints were removed.
-    #
-    # Notice: this tends to eliminate matches that aren't all on the
-    # same plane, so if the scene has a lot of depth, this could knock
-    # out a lot of good matches.
-    def filter_by_homography(self, K, i1, i2, filter):
-        clean = True
-        
-        # tol = float(i1.width) / 200.0 # rejection range in pixels
-        tol = math.pow(i1.width, 0.25)
-        if tol < 1.0:
-            tol = 1.0
-        # print "tol = %.4f" % tol 
-        matches = i1.match_list[i2.name]
-        if len(matches) < min_pairs:
-            i1.match_list[i2.name] = []
-            return True
-        p1 = []
-        p2 = []
-        for k, pair in enumerate(matches):
-            use_raw_uv = False
-            if use_raw_uv:
-                p1.append( i1.kp_list[pair[0]].pt )
-                p2.append( i2.kp_list[pair[1]].pt )
-            else:
-                # undistorted uv points should be better if the camera
-                # calibration is known, right?
-                p1.append( i1.uv_list[pair[0]] )
-                p2.append( i2.uv_list[pair[1]] )
-
-        p1 = np.float32(p1)
-        p2 = np.float32(p2)
-        #print "p1 = %s" % str(p1)
-        #print "p2 = %s" % str(p2)
-        if filter == "homography":
-            #method = cv2.RANSAC
-            method = cv2.LMEDS
-            M, status = cv2.findHomography(p1, p2, method, tol)
-        elif filter == "fundamental":
-            method = cv2.FM_RANSAC # more stable
-            #method = cv2.FM_LMEDS # keeps dropping more points
-            M, status = cv2.findFundamentalMat(p1, p2, method, tol)
-        elif filter == "essential":
-            # method = cv2.FM_RANSAC     
-            method = cv2.FM_LMEDS
-            M, status = cv2.findEssentialMat(p1, p2, K, method, threshold=tol)
-        elif filter == "none":
-            status = np.ones(len(matches))
-        else:
-            # fail
-            M, status = None, None
-        print('  %s vs %s: %d / %d  inliers/matched' \
-            % (i1.name, i2.name, np.sum(status), len(status)))
-        # remove outliers
-        for k, flag in enumerate(status):
-            if not flag:
-                print("    deleting: " + str(matches[k]))
-                clean = False
-                matches[k] = (-1, -1)
-        for pair in reversed(matches):
-            if pair == (-1, -1):
-                matches.remove(pair)
-        return clean
-
-    # iterate through idx_pairs1 and mark/remove any pairs that don't
-    # exist in idx_pairs2.  Then recreate idx_pairs2 as the inverse of
-    # idx_pairs1
-    def filter_cross_check(self, idx_pairs1, idx_pairs2):
-        new1 = []
-        new2 = []
-        for k, pair in enumerate(idx_pairs1):
-            rpair = [pair[1], pair[0]]
-            for r in idx_pairs2:
-                #print "%s - %s" % (rpair, r)
-                if rpair == r:
-                    new1.append( pair )
-                    new2.append( rpair )
-                    break
-        if len(idx_pairs1) != len(new1) or len(idx_pairs2) != len(new2):
-            qlog("  cross check: (%d, %d) => (%d, %d)" % (len(idx_pairs1), len(idx_pairs2), len(new1), len(new2)))
-        return new1, new2                                               
-            
-    def filter_non_reciprocal_pair(self, image_list, i, j):
-        clean = True
-        i1 = image_list[i]
-        i2 = image_list[j]
-        #print "testing %i vs %i" % (i, j)
-        matches = i1.match_list[i2.name]
-        rmatches = i2.match_list[i1.name]
-        before = len(matches)
-        for k, pair in enumerate(matches):
-            rpair = [pair[1], pair[0]]
-            found = False
-            for r in rmatches:
-                #print "%s - %s" % (rpair, r)
-                if rpair == r:
-                    found = True
-                    break
-            if not found:
-                #print "not found =", rpair
-                matches[k] = [-1, -1]
-        for pair in reversed(matches):
-            if pair == [-1, -1]:
-                matches.remove(pair)
-        after = len(matches)
-        if before != after:
-            clean = False
-            print("  (%d vs. %d) matches %d -> %d" % (i, j, before, after))
-        return clean
-
-    def filter_non_reciprocal(self, image_list):
-        clean = True
-        print("Removing non-reciprocal matches:")
-        for i, i1 in enumerate(image_list):
-            for j, i2 in enumerate(image_list):
-                if not self.filter_non_reciprocal_pair(image_list, i, j):
-                    clean = False
-        return clean
-
-    def basic_matches(self, i1, i2):
-        # all vs. all match between overlapping i1 keypoints and i2
-        # keypoints (forward match)
-        
-        # sanity check
-        if i1.des_list is None or i2.des_list is None:
-            return []
-        if len(i1.des_list.shape) == 0 or i1.des_list.shape[0] <= 1:
-            return []
-        if len(i2.des_list.shape) == 0 or i2.des_list.shape[0] <= 1:
-            return []
-
-        matches = the_matcher.knnMatch(np.array(i1.des_list),
-                                       np.array(i2.des_list),
-                                       k=2)
-        qlog("  raw matches:", len(matches))
-
-        sum = 0.0
-        max_good = 0
-        sum_good = 0.0
-        count_good = 0
-        for m in matches:
-            sum += m[0].distance
-            if m[0].distance <= m[1].distance * match_ratio:
-                sum_good += m[0].distance
-                count_good += 1
-                if m[0].distance > max_good:
-                    max_good = m[0].distance
-        qlog("  avg dist:", sum / len(matches))
-        if count_good:
-            qlog("  avg good dist:", sum_good / count_good, "(%d)" % count_good)
-        qlog("  max good dist:", max_good)
-
-        if False:
-            # filter by absolute distance (for ORB, statistically all real
-            # matches will have a distance < 64, for SIFT I don't know,
-            # but I'm guessing anything more than 270.0 is a bad match.
-            matches_thresh = []
-            for m in matches:
-                if m[0].distance < max_distance and m[0].distance <= m[1].distance * match_ratio:
-                    matches_thresh.append(m[0])
-            qlog("  quality matches:", len(matches_thresh))
-
-        if True:
-            # generate a quality metric for each match, sort and only
-            # pass along the best 'n' matches that pass the distance
-            # ratio test.  (Testing the idea that 2000 matches aren't
-            # better than 20 if they are good matches with respect to
-            # optimizing the fit.)
-            by_metric = []
-            for m in matches:
-                ratio = m[0].distance / m[1].distance # smaller is better
-                metric = m[0].distance * ratio
-                by_metric.append( [metric, m[0]] )
-            by_metric = sorted(by_metric, key=lambda fields: fields[0])
-            matches_thresh = []
-            for line in by_metric:
-                if line[0] < max_distance * match_ratio:
-                    matches_thresh.append(line[1])
-            qlog("  quality matches:", len(matches_thresh))
-            # fixme, make this a command line option or parameter?
-            mymax = 2000
-            if len(matches_thresh) > mymax:
-                # clip list to n best rated matches
-                matches_thresh = matches_thresh[:mymax]
-                qlog("  clipping to:", mymax)
-
-        if len(matches_thresh) < min_pairs:
-            # just quit now
-            return []
-
-        w, h = camera.get_image_params()
-        if not w or not h:
-            print("Zero image sizes will crash matchGMS():", w, h)
-            print("Possibly the detect feature step was killed and restarted?")
-            print("Recommend removing all meta/*.feat and meta/*.desc and")
-            print("rerun the feature detection step.")
-            print("... or do some coding to add this information to the")
-            print("ImageAnalysis/meta/<image_name>.json files")
-            quit()
-        size = (w, h)
-            
-        matchesGMS = cv2.xfeatures2d.matchGMS(size, size, i1.kp_list, i2.kp_list, matches_thresh, withRotation=True, withScale=False, thresholdFactor=5.0)
-        #matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, i1.uv_list, i2.uv_list, matches_thresh, withRotation=True, withScale=False)
-        #print('matchesGMS:', matchesGMS)
-            
-        idx_pairs = []
-        for i, m in enumerate(matchesGMS):
-            idx_pairs.append( [m.queryIdx, m.trainIdx] )
-            
-        # check for duplicate matches (based on different scales or attributes)
-        idx_pairs = filter_duplicates(i1, i2, idx_pairs)
-
-        # look for common feature angle difference (should we
-        # depricate this step?)
-        if False and len(idx_pairs):
-            # do a quick test of relative feature angles
-            offsets = []
-            for pair in idx_pairs:
-                p1 = i1.kp_list[pair[0]]
-                p2 = i2.kp_list[pair[1]]
-                offset = p2.angle - p1.angle
-                if offset < -180: offset += 360
-                if offset > 180: offset -= 360
-                offsets.append(offset)
-                #print('angles:', p1.angle, p2.angle, offset)
-            offsets = np.array(offsets)
-            offset_avg = np.mean(offsets)
-            offset_std = np.std(offsets)
-            print('gms inlier offset.  avg: %.1f std: %.1f' % (offset_avg, offset_std))
-            # carry forward the aligned pairs
-            aligned_pairs = []
-            for pair in idx_pairs:
-                p1 = i1.kp_list[pair[0]]
-                p2 = i2.kp_list[pair[1]]
-                offset = p2.angle - p1.angle
-                if offset < -180: offset += 360
-                if offset > 180: offset -= 360
-                diff = offset - offset_avg
-                if diff < -180: diff += 360
-                if diff > 180: diff -= 360
-                if abs(diff) <= 10:
-                    aligned_pairs.append(pair)
-            if len(idx_pairs) > len(aligned_pairs):
-                print('  feature alignment:', len(idx_pairs), '->', len(aligned_pairs))
-                idx_pairs = aligned_pairs
-            
-        qlog("  initial matches =", len(idx_pairs))
-        if len(idx_pairs) < min_pairs:
-            # sorry
-            return []
-        else:
-            return idx_pairs
-    
-    # do initial feature matching (both ways) for the specified image
-    # pair.
-    def bidirectional_matches(self, image_list, i, j, review=False):
-        if i == j:
-            print("We shouldn't see this, but i == j", i, j)
-            return [], []
-
-        i1 = image_list[i]
-        i2 = image_list[j]
-
-        # all vs. all match between overlapping i1 keypoints and i2
-        # keypoints (forward match)
-        idx_pairs1 = self.basic_matches(i1, i2)
-
-        if len(idx_pairs1) >= min_pairs:
-            # all vs. all match between overlapping i2 keypoints and i1
-            # keypoints (reverse match)
-            idx_pairs2 = self.basic_matches(i2, i1)
-        else:
-            # don't bother checking the reciprocal direction if we
-            # didn't find matches in the forward direction
-            idx_pairs2 = []
-
-        idx_pairs1, idx_pairs2 = self.filter_cross_check(idx_pairs1, idx_pairs2)
-        
-        plot_matches = False
-        if plot_matches:
-            self.plot_matches(i1, i2, idx_pairs1)
-            self.plot_matches(i2, i1, idx_pairs2)
-            
-        if review:
-            if len(idx_pairs1):
-                status, key = self.showMatchOrient(i1, i2, idx_pairs1)
-                # remove deselected pairs
-                for k, flag in enumerate(status):
-                    if not flag:
-                        print("    deleting: " + str(idx_pairs1[k]))
-                        idx_pairs1[k] = (-1, -1)
-                for pair in reversed(idx_pairs1):
-                    if pair == (-1, -1):
-                        idx_pairs1.remove(pair)
-                        
-            if len(idx_pairs2):
-                status, key = self.showMatchOrient(i2, i1, idx_pairs2)
-                # remove deselected pairs
-                for k, flag in enumerate(status):
-                    if not flag:
-                        print("    deleting: " + str(idx_pairs2[k]))
-                        idx_pairs2[k] = (-1, -1)
-                for pair in reversed(idx_pairs2):
-                    if pair == (-1, -1):
-                        idx_pairs2.remove(pair)
-
-        return idx_pairs1, idx_pairs2
 
     def plot_matches(self, i1, i2, idx_pairs):
         # This can be plotted in gnuplot with:
@@ -470,179 +498,7 @@ class Matcher():
             f.write("%.3f %.3f %.3f %.3f %.3f %.3f\n" % ( c2[1], c2[0], -c2[2], c1[1], c1[0], -c1[2] ))
         f.close()
         # a = raw_input("Press Enter to continue...")
-
-
-    def robustGroupMatches(self, image_list, K,
-                           filter="fundamental", review=False):
-        min_dist = matcher_node.getFloat('min_dist')
-        max_dist = matcher_node.getFloat('max_dist')
         
-        n = len(image_list) - 1
-        n_work = float(n*(n+1)/2)
-        t_start = time.time()
-
-        # camera separation vs. matches stats
-        dist_stats = []
-
-        log('Generating work list for range:', min_dist, '-', max_dist)
-        work_list = []
-        for i, i1 in enumerate(tqdm(image_list)):
-            for j, i2 in enumerate(image_list):
-                if j <= i:
-                    continue
-                # camera pose distance check
-                ned1, ypr1, q1 = i1.get_camera_pose()
-                ned2, ypr2, q2 = i2.get_camera_pose()
-                dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
-                if dist >= min_dist and dist <= max_dist:
-                    work_list.append( [dist, i, j] )
-
-        # (optional) sort worklist from closest pairs to furthest pairs
-        # (caution, this will currently break the kp/des cache clearing)
-        #
-        # benefits of sorting by distance: most important work is done
-        # first (chance to quit early)
-        #
-        # benefits of sorting by order: for large memory usage, active
-        # memory pool decreases as work progresses (becoming more and
-        # more system friendly.)
-        
-        # work_list = sorted(work_list, key=lambda fields: fields[0])
-
-        # note: image.desc_timestamp is used to unload not recently
-        # used descriptors ... these burn a ton of memory so unloading
-        # things not recently used should help our memory foot print
-        # at hopefully not too much of a performance expense.
-        
-        # process the work list
-        n_count = 0
-        save_time = time.time()
-        save_interval = 120     # seconds
-        log("Processing worklist matches:")
-        for line in tqdm(work_list, smoothing=0.05):
-            dist = line[0]
-            i = line[1]
-            j = line[2]
-            i1 = image_list[i]
-            i2 = image_list[j]
-
-            # eta estimation
-            percent = n_count / float(len(work_list))
-            n_count += 1
-            t_elapsed = time.time() - t_start
-            if percent > 0:
-                t_end = t_elapsed / percent
-            else:
-                t_end = t_start
-            t_remain = t_end - t_elapsed
-
-            # skip if match has already been computed
-            if i2.name in i1.match_list and i1.name in i2.match_list:
-                log("Skipping: ", i1.name, "vs'", i2.name, "already done.")
-                continue
-            
-            msg = "Matching %s vs %s - %.1f%% done: " % (i1.name, i2.name, percent * 100.0)
-            if t_remain < 3600:
-                msg += "%.1f (min)" % (t_remain / 60.0)
-            else:
-                msg += "%.1f (hr)" % (t_remain / 3600.0)
-            qlog(msg)
-            qlog("  separation = %.1f (m)" % dist)
-
-            # update cache timers and make sure features/descriptors are loaded
-            i1.desc_timestamp = time.time()
-            i2.desc_timestamp = time.time()
-            if not len(i1.kp_list) or not len(i1.des_list):
-                i1.detect_features(detect_scale)
-            if not len(i2.kp_list) or not len(i2.des_list):
-                i2.detect_features(detect_scale)
-
-            i1.match_list[i2.name], i2.match_list[i1.name] \
-                = self.bidirectional_matches(image_list, i, j, review)
-
-            scheme = 'none'
-            # scheme = 'one_step'
-            # scheme = 'iterative'
-
-            if scheme == 'iterative':
-                done = False
-                while not done:
-                    done = True
-                    if not self.filter_non_reciprocal_pair(image_list, i, j):
-                        done = False
-                    if not self.filter_non_reciprocal_pair(image_list, j, i):
-                        done = False
-                    if not self.filter_by_homography(K, i1, i2, j, filter):
-                        done = False
-                    if not self.filter_by_homography(K, i2, i1, i, filter):
-                        done = False
-            elif scheme == 'one_step':
-                # quickly dump non-reciprocals from initial results
-                self.filter_non_reciprocal_pair(image_list, i, j)
-                self.filter_non_reciprocal_pair(image_list, j, i)
-                # filter the remaining features by 'filter' relationship
-                self.filter_by_homography(K, i1, i2, j, filter)
-                self.filter_by_homography(K, i2, i1, i, filter)
-                # cull any new non-reciprocals
-                self.filter_non_reciprocal_pair(image_list, i, j)
-                self.filter_non_reciprocal_pair(image_list, j, i)
-            dist_stats.append( [ dist, len(i1.match_list[i2.name]) ] )
-
-            # save our work so far, and flush descriptor cache
-            if time.time() >= save_time + save_interval:
-                log('saving matches ...')
-                self.saveMatches(image_list)
-                save_time = time.time()
-
-                if True:
-                    # traverse images that we are done processing
-                    for k in range(i):
-                        i3 = image_list[k]
-                        updated = False
-                        if i3.kp_list is not None:
-                            i3.kp_list = None
-                            updated = True
-                        if i3.uv_list is not None:
-                            i3.uv_list = None
-                            updated = True
-                        if i3.des_list is not None:
-                            i3.des_list = None
-                            updated = True
-                        if updated:
-                            log('  clearing keypoints/descriptors for:', i3.name)
-                if False:
-                    time_list = []
-                    for i3 in image_list:
-                        if not i3.des_list is None:
-                            time_list.append( [i3.desc_timestamp, i3] )
-                    time_list = sorted(time_list, key=lambda fields: fields[0],
-                                       reverse=True)
-                    # may wish to monitor and update cache_size formula
-                    cache_size = 20 + 3 * (int(math.sqrt(len(image_list))) + 1)
-                    flush_list = time_list[cache_size:]
-                    qlog("flushing descriptor cache - size: %d (over by: %d)" % (cache_size, len(flush_list)) )
-                    for line in flush_list:
-                        print('  clearing descriptors for:', line[1].name)
-                        line[1].des_list = None
-                    
-        # and save
-        self.saveMatches(image_list)
-        print('Pair-wise matches successfully saved.')
-
-        if len(dist_stats):
-            dist_stats = np.array(dist_stats)
-            plt.plot(dist_stats[:,0], dist_stats[:,1], 'ro')
-            plt.show()
-
-    def saveMatches(self, image_list):
-        for image in image_list:
-            image.save_matches()
-
-        
-###########################################################
-###   STUFF BELOW HERE IS OLD AND POSSIBLY DEPRECATED   ###
-###########################################################
-
     def showMatch(self, i1, i2, idx_pairs, status=None):
         #print " -- idx_pairs = " + str(idx_pairs)
         kp_pairs = []
