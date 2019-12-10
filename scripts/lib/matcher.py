@@ -276,7 +276,7 @@ class Matcher():
             return []
 
         matches = self.matcher.knnMatch(np.array(i1.des_list),
-                                        trainDescriptors=np.array(i2.des_list),
+                                        np.array(i2.des_list),
                                         k=2)
         qlog("  raw matches:", len(matches))
 
