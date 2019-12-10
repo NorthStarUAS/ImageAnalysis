@@ -97,7 +97,7 @@ def generate_from_grid(proj, group, ref_image=False, src_dir=".",
         # this is contructed in a weird way, but we generate the 2d
         # iteration in the same order that the original grid_list was
         # constucted so it works.
-        width, height = camera.cam.get_image_params()
+        width, height = camera.get_image_params()
         steps = int(math.sqrt(len(image.grid_list))) - 1
         n = 1
         nan_list = []

@@ -1,3 +1,17 @@
+# Streamline processing of an image set with defaults:
+
+  Run: ./process.py --project /path/to/images/folder
+
+  <wait a while>
+
+  Run: ./7a-explore.py --project /path/to/images/folder
+
+
+# Individual scripts (the harder way)
+
+You can also run individual scripts to execute one step at a time (or
+rerun a step with different defaults.
+
 # 1. Project Setup
 
 Your folder of aerial images (usually one folder per flight) is
@@ -30,7 +44,8 @@ additionally needs an estimate of the camera pose when the image was
 taken.  There is a helper script which can automate this process:
 99-make-pix4d.py
 
-# 3. Feature Detection
+# 3. Feature Detection (this has been merged into the 4a-matching.py
+     script ... more documentations updates soon hopefully ...)
 
   ## 3a-detect-features.py
   

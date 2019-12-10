@@ -8,6 +8,7 @@ import scipy.spatial
 
 from props import getNode
 
+from . import camera
 from .logger import log, qlog
 from . import panda3d
 from . import objmtl            # temporary?
@@ -163,9 +164,9 @@ def build_map(proj, group_list, group_index):
         for name in group:
             image = proj.findImageByName(name)
             log(image.name, image.z_avg)
-            width, height = proj.cam.get_image_params()
+            width, height = camera.get_image_params()
             # scale the K matrix if we have scaled the images
-            K = proj.cam.get_K(optimized=True)
+            K = camera.get_K(optimized=True)
             IK = np.linalg.inv(K)
 
             grid_list = []

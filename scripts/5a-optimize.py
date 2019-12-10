@@ -11,6 +11,7 @@ import math
 import numpy as np
 import os
 
+from lib import camera
 from lib import groups
 from lib import optimizer
 from lib import project
@@ -49,8 +50,8 @@ cameras, features, cam_index_map, feat_index_map, fx_opt, fy_opt, cu_opt, cv_opt
 opt.update_camera_poses(proj)
 
 # update and save the optimized camera calibration
-proj.cam.set_K(fx_opt, fy_opt, cu_opt, cv_opt, optimized=True)
-proj.cam.set_dist_coeffs(distCoeffs_opt.tolist(), optimized=True)
+camera.set_K(fx_opt, fy_opt, cu_opt, cv_opt, optimized=True)
+camera.set_dist_coeffs(distCoeffs_opt.tolist(), optimized=True)
 proj.save()
 
 # compare original camera locations with optimized camera locations and
@@ -77,7 +78,7 @@ else:
 print('Updating matches file:', len(matches_opt), 'features')
 pickle.dump(matches_opt, open(source_file, 'wb'))
 
-#proj.cam.set_K(fx_opt/scale[0], fy_opt/scale[0], cu_opt/scale[0], cv_opt/scale[0], optimized=True)
+#camera.set_K(fx_opt/scale[0], fy_opt/scale[0], cu_opt/scale[0], cv_opt/scale[0], optimized=True)
 #proj.save()
 
 # temp write out just the points so we can plot them with gnuplot

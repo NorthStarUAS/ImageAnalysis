@@ -34,7 +34,6 @@ class ProjectMgr():
     def __init__(self, project_dir, create=False):
         self.project_dir = project_dir
         self.analysis_dir = os.path.join(self.project_dir, "ImageAnalysis")
-        self.cam = camera.Camera()
         self.image_list = []
         self.matcher_params = { 'matcher': 'FLANN', # { FLANN or 'BF' }
                                 'match-ratio': 0.75,
@@ -49,7 +48,7 @@ class ProjectMgr():
         self.load( create )
 
     def set_defaults(self):
-        self.cam.set_defaults() # camera defaults
+        camera.set_defaults() # camera defaults
 
     # project_dir is a new folder for all derived files
     def validate_project_dir(self, create_if_needed):
@@ -226,7 +225,7 @@ class ProjectMgr():
     def set_matcher_params(self, mparams):
         self.matcher_params = mparams
         
-    def detect_features(self, scale, force=False, show=False):
+    def detect_features_delete_me(self, scale, force=False, show=False):
         for image in tqdm(self.image_list, smoothing=0.1):
             image.load_features()
             if len(image.kp_list) > 0 and not force:
@@ -238,7 +237,7 @@ class ProjectMgr():
 
             # sanity check
             width, height = image.get_size()
-            cw, ch = self.cam.get_image_params()
+            cw, ch = camera.get_image_params()
             if width != cw or height != ch:
                 print("WARNING!")
                 print("Image dimensions do not match camera dimensions!")
@@ -259,10 +258,12 @@ class ProjectMgr():
                     image.kp_list.pop(i)                             # python list
                     image.des_list = np.delete(image.des_list, i, 0) # np array
 
-            #print("save features")
+            # print("save features")
             image.save_features()
-            #print("save descriptors")
-            image.save_descriptors()
+            
+            # print("save descriptors")
+            # image.save_descriptors() # not saved, generated jit/cached
+            
             #print("finished image")
             # clear descriptor memory(?)
             image.des_list = None
@@ -320,8 +321,8 @@ class ProjectMgr():
         if len(uv_orig) == 0:
             return []
         # camera parameters
-        dist_coeffs = np.array(self.cam.get_dist_coeffs())
-        K = self.cam.get_K()
+        dist_coeffs = np.array(camera.get_dist_coeffs())
+        K = camera.get_K()
         # assemble the points in the proper format
         uv_raw = np.zeros((len(uv_orig),1,2), dtype=np.float32)
         for i, kp in enumerate(uv_orig):
@@ -340,11 +341,11 @@ class ProjectMgr():
     def undistort_image_keypoints(self, image, optimized=False):
         if len(image.kp_list) == 0:
             return
-        K = self.cam.get_K(optimized)
+        K = camera.get_K(optimized)
         uv_raw = np.zeros((len(image.kp_list),1,2), dtype=np.float32)
         for i, kp in enumerate(image.kp_list):
             uv_raw[i][0] = (kp.pt[0], kp.pt[1])
-        dist_coeffs = self.cam.get_dist_coeffs(optimized)
+        dist_coeffs = camera.get_dist_coeffs(optimized)
         uv_new = cv2.undistortPoints(uv_raw, K, np.array(dist_coeffs), P=K)
         image.uv_list = []
         for i, uv in enumerate(uv_new):
@@ -360,8 +361,8 @@ class ProjectMgr():
     # for each uv in the provided uv list, apply the distortion
     # formula to compute the original distorted value.
     def redistort(self, uv_list, optimized=False):
-        K = self.cam.get_K(optimized)
-        dist_coeffs = self.cam.get_dist_coeffs(optimized)
+        K = camera.get_K(optimized)
+        dist_coeffs = camera.get_dist_coeffs(optimized)
         fx = K[0,0]
         fy = K[1,1]
         cx = K[0,2]
@@ -506,7 +507,7 @@ class ProjectMgr():
     # 5. interpolate original uv coordinates to 3d locations
     def fastProjectKeypointsTo3d(self, sss):
         print("Projecting keypoints to 3d:")
-        K = self.cam.get_K()
+        K = camera.get_K()
         IK = np.linalg.inv(K)
         for image in tqdm(self.image_list):
             # print(image.name)
@@ -599,7 +600,7 @@ class ProjectMgr():
     def fastProjectKeypointsToGround(self, ground_m, cam_dict=None):
         print("Projecting keypoints to 3d:")
         for image in tqdm(self.image_list):
-            K = self.cam.get_K()
+            K = camera.get_K()
             IK = np.linalg.inv(K)
             
             # project the grid out into vectors

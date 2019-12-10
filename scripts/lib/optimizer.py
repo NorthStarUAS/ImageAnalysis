@@ -17,6 +17,7 @@ import numpy as np
 from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix
 
+from . import camera
 from .logger import log, qlog
 from . import transformations
 
@@ -275,8 +276,8 @@ class Optimizer():
         self.feat_map_fwd = {}
         self.feat_map_rev = {}
 
-        self.K = proj.cam.get_K(optimized)
-        self.distCoeffs = np.array(proj.cam.get_dist_coeffs(optimized))
+        self.K = camera.get_K(optimized)
+        self.distCoeffs = np.array(camera.get_dist_coeffs(optimized))
         
         # assemble the initial camera estimates
         self.n_cameras = len(placed_images)
