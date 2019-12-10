@@ -7,7 +7,8 @@ import numpy as np
 import os
 import scipy.spatial
 
-from .logger import log
+from . import camera
+from .logger import log, qlog
 
 def make_textures(src_dir, analysis_dir, image_list, resolution=512):
     dst_dir = os.path.join(analysis_dir, 'models')
@@ -23,12 +24,12 @@ def make_textures(src_dir, analysis_dir, image_list, resolution=512):
 def make_textures_opencv(src_dir, analysis_dir, image_list, resolution=512):
     dst_dir = os.path.join(analysis_dir, 'models')
     if not os.path.exists(dst_dir):
-        print("Notice: creating texture directory =", dst_dir)
+        log("Notice: creating texture directory =", dst_dir)
         os.makedirs(dst_dir)
     for image in image_list:
         src = image.image_file
         dst = os.path.join(dst_dir, image.name + '.JPG')
-        print(src, '->', dst)
+        log(src, '->', dst)
         if not os.path.exists(dst):
             src = cv2.imread(src, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
             height, width = src.shape[:2]
@@ -53,12 +54,12 @@ def make_textures_opencv(src_dir, analysis_dir, image_list, resolution=512):
             else:
                 result = scale
             cv2.imwrite(dst, result)
-            print("Texture %dx%d %s" % (resolution, resolution, dst))
+            qlog("Texture %dx%d %s" % (resolution, resolution, dst))
     # make the dummy.jpg image from the first texture
     #src = os.path.join(dst_dir, image_list[0].image_file)
     src = image_list[0].image_file
     dst = os.path.join(dst_dir, "dummy.jpg")
-    print("Dummy:", src, dst)
+    log("Dummy:", src, dst)
     if not os.path.exists(dst):
         src = cv2.imread(src, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
         height, width = src.shape[:2]
@@ -70,7 +71,7 @@ def make_textures_opencv(src_dir, analysis_dir, image_list, resolution=512):
                            fy=resolution/float(height),
                            interpolation=method)
         cv2.imwrite(dst, dummy)
-        print("Texture %dx%d %s" % (resolution, resolution, dst))
+        qlog("Texture %dx%d %s" % (resolution, resolution, dst))
     
             
 def generate_from_grid(proj, group, ref_image=False, src_dir=".",
@@ -85,7 +86,7 @@ def generate_from_grid(proj, group, ref_image=False, src_dir=".",
 
         root, ext = os.path.splitext(image.name)
         name = os.path.join( analysis_dir, "models", root + ".egg" )
-        print("EGG file name:", name)
+        log("EGG file name:", name)
 
         f = open(name, "w")
         f.write("<CoordinateSystem> { Z-Up }\n\n")
@@ -96,7 +97,7 @@ def generate_from_grid(proj, group, ref_image=False, src_dir=".",
         # this is contructed in a weird way, but we generate the 2d
         # iteration in the same order that the original grid_list was
         # constucted so it works.
-        width, height = proj.cam.get_image_params()
+        width, height = camera.cam.get_image_params()
         steps = int(math.sqrt(len(image.grid_list))) - 1
         n = 1
         nan_list = []
@@ -139,7 +140,7 @@ def generate_from_grid(proj, group, ref_image=False, src_dir=".",
         if count == 0:
             # uh oh, no polygons fully projected onto the surface for
             # this image.  For now let's warn and delete the model
-            print("Warning: no polygons fully on surface, removing:", name)
+            log("Warning: no polygons fully on surface, removing:", name)
             os.remove(name)
 
 def share_edge(label, uv1, uv2, h, w):
@@ -195,23 +196,23 @@ def generate_from_fit(proj, group, ref_image=False, src_dir=".",
 
     for name in group:
         image = proj.findImageByName(name)
-        print("generate from fit:", image)
+        log("generate from fit:", image)
         if len(image.fit_xy) < 3:
             continue
-            print("Warning: removing egg file, no polygons for:", name)
+            log("Warning: removing egg file, no polygons for:", name)
             if os.path.exists(name):
                 os.remove(name)
 
         root, ext = os.path.splitext(image.name)
         name = os.path.join( analysis_dir, "models", root + ".egg" )
-        print("EGG file name:", name)
+        log("EGG file name:", name)
 
         f = open(name, "w")
         f.write("<CoordinateSystem> { Z-Up }\n\n")
         f.write("<Texture> tex { \"" + image.name + ".JPG\" }\n\n")
         f.write("<VertexPool> surface {\n")
 
-        width, height = proj.cam.get_image_params()
+        width, height = camera.get_image_params()
         n = 1
         #print("uv len:", len(image.fit_uv))
         for i in range(len(image.fit_xy)):
@@ -234,7 +235,7 @@ def generate_from_fit(proj, group, ref_image=False, src_dir=".",
                 + image.fit_edge[tri[1]] \
                 + image.fit_edge[tri[2]]
             if is_skinny(tri, image.fit_xy, image.fit_uv, height, width):
-                print("skinny edge skipping")
+                qlog("skinny edge skipping")
             else:
                 f.write("  <Polygon> {\n")
                 f.write("   <TRef> { tex }\n")
