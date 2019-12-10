@@ -251,7 +251,6 @@ if not state.check("STEP3a"):
     log("Matching features")
     
     # fire up the matcher
-    m = matcher.Matcher()
     matcher.configure()
     matcher.find_matches(proj.image_list, K, transform=args.filter,
                          review=False)

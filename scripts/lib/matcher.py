@@ -14,7 +14,7 @@ from tqdm import tqdm
 from props import getNode
 
 from . import camera
-from .find_obj import filter_matches,explore_match
+from .find_obj import explore_match
 from . import image_list
 from .logger import log, qlog
 from . import transformations
@@ -182,8 +182,7 @@ def filter_cross_check(idx_pairs1, idx_pairs2):
     return new1, new2                                               
             
 def basic_matches(i1, i2):
-    # all vs. all match between overlapping i1 keypoints and i2
-    # keypoints (forward match)
+    # run the knn matcher for the two sets of keypoints
 
     # sanity check
     if i1.des_list is None or i2.des_list is None:
@@ -256,16 +255,15 @@ def basic_matches(i1, i2):
     w, h = camera.get_image_params()
     if not w or not h:
         log("Zero image sizes will crash matchGMS():", w, h)
-        log("Possibly the detect feature step was killed and restarted?")
-        log("Recommend removing all meta/*.feat and meta/*.desc and")
-        log("rerun the feature detection step.")
+        log("Recommend removing all meta/*.feat files and")
+        log("rerun the matching step.")
         log("... or do some coding to add this information to the")
         log("ImageAnalysis/meta/<image_name>.json files")
         quit()
     size = (w, h)
 
     matchesGMS = cv2.xfeatures2d.matchGMS(size, size, i1.kp_list, i2.kp_list, matches_thresh, withRotation=True, withScale=False, thresholdFactor=5.0)
-    #matchesGMS = cv2.xfeatures2d.matchGMS(size1, size2, i1.uv_list, i2.uv_list, matches_thresh, withRotation=True, withScale=False)
+    #matchesGMS = cv2.xfeatures2d.matchGMS(size, size, i1.uv_list, i2.uv_list, matches_thresh, withRotation=True, withScale=False)
     #print('matchesGMS:', matchesGMS)
 
     idx_pairs = []
@@ -274,7 +272,6 @@ def basic_matches(i1, i2):
 
     # check for duplicate matches (based on different scales or attributes)
     idx_pairs = filter_duplicates(i1, i2, idx_pairs)
-
     qlog("  initial matches =", len(idx_pairs))
     if len(idx_pairs) < min_pairs:
         # so sorry

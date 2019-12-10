@@ -96,7 +96,6 @@ K = camera.get_K()
 print("K:", K)
 
 # fire up the matcher
-m = matcher.Matcher()
 matcher.configure()
 matcher.group_matcher(proj.image_list, K, filter=args.filter, review=False)
 
