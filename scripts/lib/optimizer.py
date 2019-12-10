@@ -407,18 +407,26 @@ class Optimizer():
             if self.optimize_calib == 'global':
                 tol = 0.0000001
                 # bound focal length
-                lower.append(self.K[0,0]*(1-ktol))
-                upper.append(self.K[0,0]*(1+ktol))
+                lower.append(self.K[0,0]*(1-tol))
+                upper.append(self.K[0,0]*(1+tol))
                 cu = self.K[0,2]
                 cv = self.K[1,2]
                 lower.append(cu*(1-tol))
                 upper.append(cu*(1+tol))
                 lower.append(cv*(1-tol))
                 upper.append(cv*(1+tol))
-                # unlimit distortion params
-                for i in range(5):
-                    lower.append( -np.inf )
-                    upper.append( np.inf )
+                # unlimit radial distortion params, limit tangential
+                # params (5 parameters)
+                lower.append( -np.inf )
+                upper.append( np.inf )
+                lower.append( -np.inf )
+                upper.append( np.inf )
+                lower.append( -tol )
+                upper.append( tol )
+                lower.append( -tol )
+                upper.append( tol )
+                lower.append( -np.inf )
+                upper.append( np.inf )
             bounds = [lower, upper]
         else:
             bounds = (-np.inf, np.inf)
