@@ -73,7 +73,8 @@ for line in dist_list:
     # print(i1.match_list)
     num_matches = len(i1.match_list[i2.name])
     print("dist: %.1f" % dist, i1.name, i2.name, num_matches)
-    
+    print("rev matches:", len(i2.match_list[i1.name]))
+
     if not len(i1.kp_list) or not len(i1.des_list):
         i1.detect_features(args.scale)
     if not len(i2.kp_list) or not len(i2.des_list):
