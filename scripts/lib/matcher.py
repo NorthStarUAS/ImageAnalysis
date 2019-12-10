@@ -15,24 +15,57 @@ from tqdm import tqdm
 
 from props import getNode
 
+from . import camera
 from .find_obj import filter_matches,explore_match
 from . import image_list
 from .logger import log, qlog
 from . import transformations
 
+detector_node = getNode('/config/detector', True)
+matcher_node = getNode('/config/matcher', True)
+
+# SIFT (for example) can detect the same feature at different
+# scales which can lead to duplicate match pairs, or possibly one
+# feature in image1 matching two or more features in images2.
+# Find and filter these out of the set.
+def filter_duplicates(i1, i2, idx_pairs):
+    count = 0
+    result = []
+    kp1_dict = {}
+    kp2_dict = {}
+    for pair in idx_pairs:
+        kp1 = i1.kp_list[pair[0]]
+        kp2 = i2.kp_list[pair[1]]
+        key1 = "%.2f-%.2f" % (kp1.pt[0], kp1.pt[1])
+        key2 = "%.2f-%.2f" % (kp2.pt[0], kp2.pt[1])
+        if key1 in kp1_dict and key2 in kp2_dict:
+            # print("image1 and image2 key point already used:", key1, key2)
+            count += 1
+        elif key1 in kp1_dict:
+            # print("image1 key point already used:", key1)
+            count += 1
+        elif key2 in kp2_dict:
+            # print( "image2 key point already used:", key2)
+            count += 1
+        else:
+            kp1_dict[key1] = True
+            kp2_dict[key2] = True
+            result.append(pair)
+    if count > 0:
+        qlog("  removed %d/%d duplicate features" % (count, len(idx_pairs)))
+    return result
+
+
 class Matcher():
     def __init__(self):
-        self.detector_node = getNode('/config/detector', True)
-        self.matcher_node = getNode('/config/matcher', True)
         self.image_list = []
         self.matcher = None
         self.match_ratio = 0.70
         self.min_pairs = 25
         # probably cleaner ways to do this...
-        self.camera_node = getNode('/config/camera', True)
 
     def configure(self):
-        detector_str = self.detector_node.getString('detector')
+        detector_str = detector_node.getString('detector')
         if detector_str == 'SIFT':
             norm = cv2.NORM_L2
             self.max_distance = 270.0
@@ -51,7 +84,7 @@ class Matcher():
 
         FLANN_INDEX_KDTREE = 1  # bug: flann enums are missing
         FLANN_INDEX_LSH    = 6
-        matcher_str = self.matcher_node.getString('matcher')
+        matcher_str = matcher_node.getString('matcher')
         if matcher_str == 'FLANN':
             if norm == cv2.NORM_L2:
                 flann_params = {
@@ -69,19 +102,19 @@ class Matcher():
         elif matcher_str == 'BF':
             print("brute force norm = %d" % norm)
             self.matcher = cv2.BFMatcher(norm)
-        self.scale = self.matcher_node.getFloat('scale')
-        self.match_ratio = self.matcher_node.getFloat('match_ratio')
-        self.min_pairs = self.matcher_node.getFloat('min_pairs')
+        self.scale = matcher_node.getFloat('scale')
+        self.match_ratio = matcher_node.getFloat('match_ratio')
+        self.min_pairs = matcher_node.getFloat('min_pairs')
 
-    def filter_by_feature(self, i1, i2, matches):
+    def filter_by_ratio(self, i1, i2, matches):
         kp1 = i1.kp_list
         kp2 = i2.kp_list
         mkp1, mkp2 = [], []
         idx_pairs = []
         used = np.zeros(len(kp2), np.bool_)
         for m in matches:
-            if len(m) != 2:
-                # we asked for the two best matches
+            if len(m) < 2:
+                # we need to ask for at least two matches
                 continue
             #print "dist = %.2f %.2f (%.2f)" % (m[0].distance, m[1].distance, m[0].distance/m[1].distance)
             if m[0].distance > m[1].distance * self.match_ratio:
@@ -98,49 +131,6 @@ class Matcher():
         p2 = np.float32([kp.pt for kp in mkp2])
         kp_pairs = zip(mkp1, mkp2)
         return p1, p2, kp_pairs, idx_pairs
-
-    def filter_by_location(self, i1, i2, idx_pairs, dist):
-        result = []
-        for pair in idx_pairs:
-            c1 = np.array(i1.coord_list[pair[0]])
-            c2 = np.array(i2.coord_list[pair[1]])
-            d = np.linalg.norm(c1 - c2)
-            if d > dist:
-                # must be in physical proximity
-                continue
-            result.append(pair)
-        return result
-
-    # SIFT (for example) can detect the same feature at different
-    # scales which can lead to duplicate match pairs, or possibly one
-    # feature in image1 matching two or more features in images2.
-    # Find and filter these out of the set.
-    def filter_duplicates(self, i1, i2, idx_pairs):
-        count = 0
-        result = []
-        kp1_dict = {}
-        kp2_dict = {}
-        for pair in idx_pairs:
-            kp1 = i1.kp_list[pair[0]]
-            kp2 = i2.kp_list[pair[1]]
-            key1 = "%.2f-%.2f" % (kp1.pt[0], kp1.pt[1])
-            key2 = "%.2f-%.2f" % (kp2.pt[0], kp2.pt[1])
-            if key1 in kp1_dict and key2 in kp2_dict:
-                # print("image1 and image2 key point already used:", key1, key2)
-                count += 1
-            elif key1 in kp1_dict:
-                # print("image1 key point already used:", key1)
-                count += 1
-            elif key2 in kp2_dict:
-                # print( "image2 key point already used:", key2)
-                count += 1
-            else:
-                kp1_dict[key1] = True
-                kp2_dict[key2] = True
-                result.append(pair)
-        if count > 0:
-            qlog("  removed %d duplicate features" % count)
-        return result
 
     # Iterate through all the matches for the specified image and
     # delete keypoints that don't satisfy the homography (or
@@ -335,8 +325,7 @@ class Matcher():
             # just quit now
             return []
 
-        w = self.camera_node.getInt('width_px')
-        h = self.camera_node.getInt('height_px')
+        w, h = camera.get_image_params()
         if not w or not h:
             print("Zero image sizes will crash matchGMS():", w, h)
             print("Possibly the detect feature step was killed and restarted?")
@@ -355,15 +344,8 @@ class Matcher():
         for i, m in enumerate(matchesGMS):
             idx_pairs.append( [m.queryIdx, m.trainIdx] )
             
-        if False:
-            # run the classic feature distance ratio test (already
-            # handled above in a slightly more strategic way by
-            # passing the best matches, not just all the matches.)
-            p1, p2, kp_pairs, idx_pairs = self.filter_by_feature(i1, i2, matches)
-            qlog("  dist ratio matches =", len(idx_pairs))
-
         # check for duplicate matches (based on different scales or attributes)
-        idx_pairs = self.filter_duplicates(i1, i2, idx_pairs)
+        idx_pairs = filter_duplicates(i1, i2, idx_pairs)
 
         # look for common feature angle difference (should we
         # depricate this step?)
@@ -483,8 +465,8 @@ class Matcher():
 
     def robustGroupMatches(self, image_list, K,
                            filter="fundamental", review=False):
-        min_dist = self.matcher_node.getFloat('min_dist')
-        max_dist = self.matcher_node.getFloat('max_dist')
+        min_dist = matcher_node.getFloat('min_dist')
+        max_dist = matcher_node.getFloat('max_dist')
         
         n = len(image_list) - 1
         n_work = float(n*(n+1)/2)
@@ -642,17 +624,6 @@ class Matcher():
             dist_stats = np.array(dist_stats)
             plt.plot(dist_stats[:,0], dist_stats[:,1], 'ro')
             plt.show()
-
-    # remove any match sets shorter than self.min_pairs (this shouldn't
-    # probably ever happen now?)
-    def cullShortMatches(self, image_list):
-        for i, i1 in enumerate(image_list):
-            print("(needed?) Cull matches for %s" % i1.name)
-            for key in i1.match_list:
-                matches = i1.match_list[key]
-                if len(matches) < self.min_pairs:
-                    print('  Culling pair index:', j)
-                    i1.match_list[key] = []
 
     def saveMatches(self, image_list):
         for image in image_list:
