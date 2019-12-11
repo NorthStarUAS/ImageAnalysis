@@ -53,6 +53,7 @@ parser.add_argument('--roll-deg', type=float, default=0.0,
 
 # pose setup options
 parser.add_argument('--max-angle', type=float, default=25.0, help='max pitch or roll angle for image inclusion')
+parser.add_argument('--force-altitude', type=float, help='Fudge altitude geotag for stupid dji phantom 4 pro v2.0')
 
 # feature detection options
 parser.add_argument('--scale', type=float, default=0.4, help='scale images before detecting features, this acts much like a noise filter')
@@ -161,7 +162,7 @@ if os.path.exists(pix4d_file):
 elif os.path.exists(meta_file):
     log("Found a pose file:", meta_file)
 else:
-    pose.make_pix4d(args.project)
+    pose.make_pix4d(args.project, args.force_altitude)
     
 # load existing image meta data in case this isn't a first run
 proj.load_images_info()
@@ -253,7 +254,7 @@ if not state.check("STEP3a"):
     # fire up the matcher
     matcher.configure()
     matcher.find_matches(proj.image_list, K, transform=args.filter,
-                         review=False)
+                         sort=True, review=False)
 
     feature_count = 0
     image_count = 0

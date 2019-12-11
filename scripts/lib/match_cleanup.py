@@ -144,7 +144,7 @@ def check_for_pair_dups(proj):
                 else:
                     count += 1
             if count > 0:
-                print('Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count)
+                print('Match:', i1.name, 'vs', i2.name, 'matches:', len(matches), 'dups:', count)
             i1.match_list[key] = new_matches
         
 # enable the following code to visualize the matches after eliminating

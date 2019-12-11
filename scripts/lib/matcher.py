@@ -180,10 +180,9 @@ def filter_cross_check(idx_pairs1, idx_pairs2):
     if len(idx_pairs1) != len(new1) or len(idx_pairs2) != len(new2):
         qlog("  cross check: (%d, %d) => (%d, %d)" % (len(idx_pairs1), len(idx_pairs2), len(new1), len(new2)))
     return new1, new2                                               
-            
-def basic_matches(i1, i2):
-    # run the knn matcher for the two sets of keypoints
 
+# run the knn matcher for the two sets of keypoints
+def raw_matches(i1, i2, k=2):
     # sanity check
     if i1.des_list is None or i2.des_list is None:
         return []
@@ -194,9 +193,12 @@ def basic_matches(i1, i2):
 
     matches = the_matcher.knnMatch(np.array(i1.des_list),
                                    np.array(i2.des_list),
-                                   k=2)
+                                   k=k)
     qlog("  raw matches:", len(matches))
+    return matches
 
+def basic_pair_matches(i1, i2):
+    matches = raw_matches(i1, i2)
     match_ratio = matcher_node.getFloat('match_ratio')
     sum = 0.0
     max_good = 0
@@ -281,19 +283,16 @@ def basic_matches(i1, i2):
 
 # do initial feature matching (both ways) for the specified image
 # pair.
-def bidirectional_matches(image_list, i, j, review=False):
-    if i == j:
-        log("We shouldn't see this, but i == j", i, j)
+def bidirectional_pair_matches(i1, i2, review=False):
+    if i1 == i2:
+        log("We shouldn't see this, but i1 == i2", i1.name, i2.name)
         return [], []
-
-    i1 = image_list[i]
-    i2 = image_list[j]
 
     # all vs. all match between overlapping i1 keypoints and i2
     # keypoints (forward match)
-    idx_pairs1 = basic_matches(i1, i2)
+    idx_pairs1 = basic_pair_matches(i1, i2)
     if len(idx_pairs1) >= min_pairs:
-        idx_pairs2 = basic_matches(i2, i1)
+        idx_pairs2 = basic_pair_matches(i2, i1)
     else:
         # save some time
         idx_pairs2 = []
@@ -329,7 +328,151 @@ def bidirectional_matches(image_list, i, j, review=False):
 
     return idx_pairs1, idx_pairs2
 
-def find_matches(image_list, K, transform="fundamental", review=False):
+def smart_pair_matches(i1, i2, review=False):
+    match_ratio = matcher_node.getFloat('match_ratio')
+    (w, h) = i1.get_size()
+    diag = int(math.sqrt(h*h + w*w))
+    print("h:", h, "w:", w)
+    print("scaled diag:", diag)
+
+    if review:
+        rgb1 = i1.load_rgb()
+        rgb2 = i2.load_rgb()
+
+    matches = raw_matches(i1, i2, k=3)
+    
+    print("collect stats...")
+    match_stats = []
+    for i, m in enumerate(matches):
+        best_index = -1
+        best_metric = 9
+        best_angle = 0
+        best_size = 0
+        best_dist = 0
+        for j in range(len(m)):
+            if m[j].distance >= 290:
+                break
+            ratio = m[0].distance / m[j].distance
+            if ratio < match_ratio:
+                break
+            p1 = np.float32(i1.kp_list[m[j].queryIdx].pt)
+            p2 = np.float32(i2.kp_list[m[j].trainIdx].pt)
+            raw_dist = np.linalg.norm(p2 - p1)
+            # angle difference mapped to +/- 90
+            a1 = np.array(i1.kp_list[m[j].queryIdx].angle)
+            a2 = np.array(i2.kp_list[m[j].trainIdx].angle)
+            angle_diff = abs((a1-a2+90) % 180 - 90)
+            s1 = np.array(i1.kp_list[m[j].queryIdx].size)
+            s2 = np.array(i2.kp_list[m[j].trainIdx].size)
+            if s1 > s2:
+                size_diff = s1 / s2
+            else:
+                size_diff = s2 / s1
+            if size_diff > 1.5:
+                continue
+            metric = (size_diff + 1) / ratio
+            #print(" ", j, m[j].distance, size_diff, metric)
+            if best_index < 0 or metric < best_metric:
+                best_metric = metric
+                best_index = j
+                best_angle = angle_diff
+                best_size = size_diff
+                best_dist = raw_dist
+        if best_index >= 0:
+            #print(i, best_index, m[best_index].distance, best_size, best_metric)
+            match_stats.append( [ m[best_index], best_index, ratio, best_metric,
+                                  best_angle, best_size, best_dist ] )
+
+    maxrange = int(diag*0.02)
+    step = int(maxrange / 2)
+    tol = int(diag*0.005)
+    if tol < 5: tol = 5
+    maxdist = int(diag*0.55)
+    best_fitted_matches = 0
+    match_bins = [[] for i in range(int(maxdist/step)+1)]
+    print("bins:", len(match_bins))
+    for line in match_stats:
+        best_metric = line[3]
+        best_dist = line[6]
+        bin = int(round(best_dist / step))
+        if bin < len(match_bins):
+            match_bins[bin].append(line)
+            if bin > 0:
+                match_bins[bin-1].append(line)
+            if bin < len(match_bins) - 1:
+                match_bins[bin+1].append(line)
+        
+    for i, dist_matches in enumerate(match_bins):
+        astep = 10
+        print("bin:", i, "len:", len(dist_matches),
+              "angles 0-90, step:", astep, )
+        best_of_bin = 0
+        for angle in range(0, 90, astep):
+            angle_matches = []
+            for line in dist_matches:
+                match = line[0]
+                best_metric = line[3]
+                best_angle = line[4]
+                if abs(angle - best_angle) > astep*2:
+                    continue
+                angle_matches.append(match)
+            if len(angle_matches) >= min_pairs:
+                src = []
+                dst = []
+                for m in angle_matches:
+                    src.append( i1.kp_list[m.queryIdx].pt )
+                    dst.append( i2.kp_list[m.trainIdx].pt )
+                H, status = cv2.findHomography(np.array([src]).astype(np.float32),
+                                               np.array([dst]).astype(np.float32),
+                                               cv2.RANSAC,
+                                               tol)
+                num_fit = np.count_nonzero(status)
+                if num_fit > best_of_bin:
+                       best_of_bin = num_fit
+                if num_fit > best_fitted_matches:
+                    matches_fit = []
+                    matches_dist = []
+                    for i, m in enumerate(angle_matches):
+                        if status[i]:
+                            matches_fit.append(m)
+                            matches_dist.append(m.distance)
+                    best_fitted_matches = num_fit
+                    print("Filtered matches:", len(angle_matches),
+                          "Fitted matches:", num_fit)
+                    print("metric cutoff:", best_metric)
+                    matches_dist = np.array(matches_dist)
+                    print("avg match quality:", np.average(matches_dist))
+                    print("max match quality:", np.max(matches_dist))
+                    if review:
+                        i1_new = cv2.warpPerspective(rgb1, H, (rgb1.shape[1], rgb1.shape[0]))
+                        blend = cv2.addWeighted(i1_new, 0.5, rgb2, 0.5, 0)
+                        blend = cv2.resize(blend, (int(w*detect_scale), int(h*detect_scale)))
+                        cv2.imshow('blend', blend)
+                        #draw_inlier(rgb1, rgb2, i1.kp_list, i2.kp_list, matches_fit, 'ONLY_LINES', detect_scale)
+                       
+        # check for diminishing returns and bail early
+        print(best_fitted_matches, best_of_bin)
+        if best_fitted_matches > 50 and best_of_bin < 10:
+            break
+
+    if review:
+        cv2.waitKey()
+
+    if len(matches_fit) >= min_pairs:
+        idx_pairs = []
+        for m in matches_fit:
+            idx_pairs.append( [m.queryIdx, m.trainIdx] )
+        idx_pairs = filter_duplicates(i1, i2, idx_pairs)
+        if len(idx_pairs) >= min_pairs:
+            rev_pairs = []
+            for p in idx_pairs:
+                rev_pairs.append( [p[1], p[0]] )
+            qlog("  initial matches =", len(idx_pairs))
+            return idx_pairs, rev_pairs
+    return [], []
+    
+def find_matches(image_list, K, transform="homography", sort=False,
+                 review=False):
     min_dist = matcher_node.getFloat('min_dist')
     max_dist = matcher_node.getFloat('max_dist')
 
@@ -353,17 +496,17 @@ def find_matches(image_list, K, transform="fundamental", review=False):
             if dist >= min_dist and dist <= max_dist:
                 work_list.append( [dist, i, j] )
 
-    # (optional) sort worklist from closest pairs to furthest pairs
-    # (caution, this will currently break the kp/des cache clearing)
-    #
-    # benefits of sorting by distance: most important work is done
-    # first (chance to quit early)
-    #
-    # benefits of sorting by order: for large memory usage, active
-    # memory pool decreases as work progresses (becoming more and
-    # more system friendly.)
-
-    # work_list = sorted(work_list, key=lambda fields: fields[0])
+    if sort:
+        # (optional) sort worklist from closest pairs to furthest pairs
+        # (caution, this will currently break the kp/des cache clearing)
+        #
+        # benefits of sorting by distance: most important work is done
+        # first (chance to quit early)
+        #
+        # benefits of sorting by order: for large memory usage, active
+        # memory pool decreases as work progresses (becoming more and
+        # more system friendly.)
+        work_list = sorted(work_list, key=lambda fields: fields[0])
 
     # note: image.desc_timestamp is used to unload not recently
     # used descriptors ... these burn a ton of memory so unloading
@@ -413,8 +556,13 @@ def find_matches(image_list, K, transform="fundamental", review=False):
         if not len(i2.kp_list) or not len(i2.des_list):
             i2.detect_features(detect_scale)
 
-        i1.match_list[i2.name], i2.match_list[i1.name] \
-            = bidirectional_matches(image_list, i, j, review)
+        mode = "smart"
+        if mode == "normal":
+            i1.match_list[i2.name], i2.match_list[i1.name] \
+                = bidirectional_pair_matches(i1, i2, review)
+        elif mode == "smart":
+            i1.match_list[i2.name], i2.match_list[i1.name] \
+                = smart_pair_matches(i1, i2)
 
         dist_stats.append( [ dist, len(i1.match_list[i2.name]) ] )
 
@@ -424,7 +572,10 @@ def find_matches(image_list, K, transform="fundamental", review=False):
             saveMatches(image_list)
             save_time = time.time()
 
-            if True:
+            if sort:
+                # if sorting by distance, we can't safely expire feat/desc
+                pass
+            elif True:
                 # traverse images that we are done processing
                 for k in range(i):
                     i3 = image_list[k]
@@ -440,7 +591,7 @@ def find_matches(image_list, K, transform="fundamental", review=False):
                         updated = True
                     if updated:
                         log('  clearing keypoints/descriptors for:', i3.name)
-            if False:
+            elif False:
                 time_list = []
                 for i3 in image_list:
                     if not i3.des_list is None:
