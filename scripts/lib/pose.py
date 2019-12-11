@@ -12,6 +12,7 @@ import re
 import navpy
 from props import getNode
 
+from . import camera
 from . import exif
 from . import image
 from .logger import log
@@ -133,6 +134,14 @@ def compute_camera_poses(proj):
 
 # make a pix4d pose file from project image metadata
 def make_pix4d(image_dir, force_altitude=None, force_heading=None, yaw_from_groundtrack=False):
+    if not force_altitude and camera.camera_node.getString("make") == "DJI" and camera.camera_node.getString("model") == "FC6310S":
+        # test for Phantom 4 Pro v2.0 camera which lies about it's altitude
+        log("Detected these images are from a Phantom 4 Pro V2.0 which lies about it's")
+        log("altitude.  Please rerun the script with the --force-altitude option to")
+        log("override the incorrect goetag altitude with your best estimate of the")
+        log("true gps altitude.  Sorry for the inconvenience!")
+        quit()
+        
     # load list of images
     files = []
     for file in os.listdir(image_dir):

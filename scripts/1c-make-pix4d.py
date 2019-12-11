@@ -8,6 +8,7 @@ from auracore import wgs84      # github.com/AuraUAS/aura-core
 from props import getNode
 
 from lib import pose
+from lib import project
 
 d2r = math.pi / 180.0
 r2d = 180.0 / math.pi
@@ -20,5 +21,7 @@ parser.add_argument('--yaw-from-groundtrack', action='store_true', help='estimat
 args = parser.parse_args()
 
 image_dir = args.project
+
+proj = project.ProjectMgr(args.project)
 
 pose.make_pix4d(image_dir, args.force_altitude, args.force_heading, args.yaw_from_groundtrack)
