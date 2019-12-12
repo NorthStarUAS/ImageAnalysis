@@ -551,12 +551,12 @@ def find_matches(image_list, K, transform="homography", sort=False,
         # update cache timers and make sure features/descriptors are loaded
         i1.desc_timestamp = time.time()
         i2.desc_timestamp = time.time()
-        if not len(i1.kp_list) or not len(i1.des_list):
+        if i1.kp_list is None or i1.des_list is None or not len(i1.kp_list) or not len(i1.des_list):
             i1.detect_features(detect_scale)
-        if not len(i2.kp_list) or not len(i2.des_list):
+        if i2.kp_list is None or i2.des_list is None or not len(i2.kp_list) or not len(i2.des_list):
             i2.detect_features(detect_scale)
 
-        mode = "normal"
+        mode = "smart"
         if mode == "normal":
             i1.match_list[i2.name], i2.match_list[i1.name] \
                 = bidirectional_pair_matches(i1, i2, review)
