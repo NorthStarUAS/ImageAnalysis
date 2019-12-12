@@ -571,40 +571,21 @@ def find_matches(image_list, K, transform="homography", sort=False,
             log('saving matches ...')
             saveMatches(image_list)
             save_time = time.time()
-
-            if sort:
-                # if sorting by distance, we can't safely expire feat/desc
-                pass
-            elif True:
-                # traverse images that we are done processing
-                for k in range(i):
-                    i3 = image_list[k]
-                    updated = False
-                    if i3.kp_list is not None:
-                        i3.kp_list = None
-                        updated = True
-                    if i3.uv_list is not None:
-                        i3.uv_list = None
-                        updated = True
-                    if i3.des_list is not None:
-                        i3.des_list = None
-                        updated = True
-                    if updated:
-                        log('  clearing keypoints/descriptors for:', i3.name)
-            elif False:
-                time_list = []
-                for i3 in image_list:
-                    if not i3.des_list is None:
-                        time_list.append( [i3.desc_timestamp, i3] )
-                time_list = sorted(time_list, key=lambda fields: fields[0],
-                                   reverse=True)
-                # may wish to monitor and update cache_size formula
-                cache_size = 20 + 3 * (int(math.sqrt(len(image_list))) + 1)
-                flush_list = time_list[cache_size:]
-                qlog("flushing descriptor cache - size: %d (over by: %d)" % (cache_size, len(flush_list)) )
-                for line in flush_list:
-                    print('  clearing descriptors for:', line[1].name)
-                    line[1].des_list = None
+            time_list = []
+            for i3 in image_list:
+                if not i3.des_list is None:
+                    time_list.append( [i3.desc_timestamp, i3] )
+            time_list = sorted(time_list, key=lambda fields: fields[0],
+                               reverse=True)
+            # may wish to monitor and update cache_size formula
+            cache_size = 20 + 3 * (int(math.sqrt(len(image_list))) + 1)
+            flush_list = time_list[cache_size:]
+            qlog("flushing keypoint/descriptor cache - size: %d (over by: %d)" % (cache_size, len(flush_list)) )
+            for line in flush_list:
+                qlog('  clearing descriptors for:', line[1].name)
+                line[1].kp_list = None
+                line[1].des_list = None
+                line[1].uv_list = None
 
     # and save
     saveMatches(image_list)
