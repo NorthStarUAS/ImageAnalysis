@@ -143,6 +143,7 @@ class Image():
                 fp = gzip.open(self.features_file, "rb")
                 feature_list = pickle.load(fp)
                 fp.close()
+                self.kp_list = []
                 for point in feature_list:
                     kp = cv2.KeyPoint(x=point[0][0], y=point[0][1],
                                       _size=point[1], _angle=point[2],
