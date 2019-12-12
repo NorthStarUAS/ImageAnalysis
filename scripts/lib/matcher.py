@@ -330,7 +330,7 @@ def bidirectional_pair_matches(i1, i2, review=False):
 
 def smart_pair_matches(i1, i2, review=False):
     match_ratio = matcher_node.getFloat('match_ratio')
-    (w, h) = i1.get_size()
+    w, h = camera.get_image_params()
     diag = int(math.sqrt(h*h + w*w))
     print("h:", h, "w:", w)
     print("scaled diag:", diag)
@@ -402,6 +402,7 @@ def smart_pair_matches(i1, i2, review=False):
             if bin < len(match_bins) - 1:
                 match_bins[bin+1].append(line)
         
+    matches_fit = []
     for i, dist_matches in enumerate(match_bins):
         astep = 10
         best_of_bin = 0
