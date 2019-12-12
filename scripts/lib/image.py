@@ -23,7 +23,7 @@ d2r = math.pi / 180.0           # a helpful constant
 detector = None
 
 class Image():
-    def __init__(self, meta_dir=None, image_base=None):
+    def __init__(self, analysis_dir=None, image_base=None):
         if image_base != None:
             self.name = image_base
             self.node = getNode("/images/" + self.name, True)
@@ -88,9 +88,12 @@ class Image():
             if not self.image_file:
                 print('Warning: no image source file found:', image_base)
                 self.image_file = None
-            file_root = os.path.join(meta_dir, image_base)
-            self.features_file = file_root + ".feat"
-            self.match_file = file_root + ".match"
+            meta_dir = os.path.join(analysis_dir, 'meta')
+            cache_dir = os.path.join(analysis_dir, 'cache')
+            file_root = os.path.join(analysis_dir, 'meta', image_base)
+            self.features_file = os.path.join(cache_dir, image_base + ".feat")
+            self.desc_file = os.path.join(cache_dir, image_base + ".desc")
+            self.match_file = os.path.join(meta_dir, image_base + ".match")
             
     def load_rgb(self, equalize=False):
         # print("Loading:", self.image_file)
@@ -134,7 +137,7 @@ class Image():
         return self.node.getInt('width'), self.node.getInt('height')
     
     def load_features(self):
-        if len(self.kp_list) == 0 and os.path.exists(self.features_file):
+        if os.path.exists(self.features_file):
             #print "Loading " + self.features_file
             try:
                 fp = gzip.open(self.features_file, "rb")
@@ -146,31 +149,34 @@ class Image():
                                       _response=point[3], _octave=point[4],
                                       _class_id=point[5])
                     self.kp_list.append(kp)
+                return True
             except:
                 print(self.features_file + ":\n" + "  feature load error: " \
                       + str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1]))
-                return
+        return False
 
-    # def load_descriptors(self):
-    #     if os.path.exists(self.des_file):
-    #         if self.des_list is None:
-    #             #print "Loading " + self.des_file
-    #             try:
-    #                 fp = gzip.open(self.des_file, 'rb')
-    #                 self.des_list = np.load(fp)
-    #                 fp.close()
-    #                 #print np.any(self.des_list)
-    #                 #val = "%s" % self.des_list
-    #                 #print
-    #                 #print "des_list.size =", self.des_list.size
-    #                 #print val
-    #                 #print
-    #             except:
-    #                 print(self.des_file + ":\n" + "  desc load error: " \
-    #                     + str(sys.exc_info()[1]))
-    #     else:
-    #         print("no file:", self.des_file)
-            
+    def load_descriptors(self):
+        if os.path.exists(self.desc_file):
+            if self.des_list is None:
+                #print "Loading " + self.desc_file
+                try:
+                    fp = gzip.open(self.desc_file, 'rb')
+                    self.des_list = np.load(fp)
+                    fp.close()
+                    #print np.any(self.des_list)
+                    #val = "%s" % self.des_list
+                    #print
+                    #print "des_list.size =", self.des_list.size
+                    #print val
+                    #print
+                    return True
+                except:
+                    print(self.desc_file + ":\n" + "  desc load error: " \
+                        + str(sys.exc_info()[1]))
+        #else:
+        #    print("no file:", self.desc_file)
+        return False
+    
     def load_matches(self):
         try:
             self.match_list = pickle.load( open( self.match_file, "rb" ) )
@@ -197,15 +203,15 @@ class Image():
         except:
             raise
 
-    # def save_descriptors(self):
-    #     # write descriptors as 'ppm image' format
-    #     try:
-    #         fp = gzip.open(self.des_file, 'wb', compresslevel=6)
-    #         result = np.save(fp, self.des_list)
-    #         fp.close()
-    #     except:
-    #         print(self.des_file + ": error saving file: " \
-    #             + str(sys.exc_info()[1]))
+    def save_descriptors(self):
+        # write descriptors as 'ppm image' format
+        try:
+            fp = gzip.open(self.desc_file, 'wb', compresslevel=6)
+            result = np.save(fp, self.des_list)
+            fp.close()
+        except:
+            print(self.desc_file + ": error saving file: " \
+                + str(sys.exc_info()[1]))
 
     def save_matches(self):
         try:
@@ -273,7 +279,17 @@ class Image():
         for i, uv in enumerate(uv_new):
             image.uv_list.append(uv_new[i][0])
             # print("  orig = %s  undistort = %s" % (uv_raw[i][0], uv_new[i]     
-    def detect_features(self, scale):
+    def detect_features(self, scale, use_cache=True):
+        if use_cache:
+            success = True
+            if not self.load_features():
+                success = False
+            if not self.load_descriptors():
+                success = False
+            if success:
+                qlog("Loaded features/descriptors from cache:", self.name)
+                return
+
         qlog("Detecting features/descriptors for:", self.name)
         rgb = self.load_rgb(equalize=True)
         
@@ -297,18 +313,6 @@ class Image():
         self.kp_list, self.des_list = detector.detectAndCompute(scaled, None)
         self.num_features = len(self.kp_list)
         
-        # compute the descriptors for the found features (Note: Star
-        # is a special case that uses the brief extractor
-        #
-        # compute() could potential add/remove keypoints so we want to
-        # save the returned keypoint list, not our original detected
-        # keypoint list
-        #if detector_node.getString('detector') == 'Star':
-        #    extractor = cv2.DescriptorExtractor_create('ORB')
-        #else:
-        #    extractor = detector
-        #self.kp_list, self.des_list = extractor.compute(scaled, kp_list)
-
         if False:
             # [pasted code from project.py needs to be fixed before
             # using uv_list for filtering features]
@@ -332,10 +336,8 @@ class Image():
             #print('full:', kp.pt)
             
         self.save_features()
+        self.save_descriptors()
 
-    def compute_descriptors(self, scale):
-        pass
-    
     # Displays the image in a window and waits for a keystroke and
     # then destroys the window.  Returns the value of the keystroke.
     def show_features(self, flags=0):

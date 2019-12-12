@@ -67,13 +67,21 @@ class ProjectMgr():
         state.init(self.analysis_dir)
         
         # and make other children directories
-        meta_dir = os.path.join(self.analysis_dir, 'meta')
+        meta_dir = os.path.join(self.analysis_dir, "meta")
         if not os.path.exists(meta_dir):
             if create_if_needed:
                 log("project: creating meta directory:", meta_dir)
                 os.makedirs(meta_dir)
             else:
                 log("Error: meta dir doesn't exist:", meta_dir)
+                return False
+        cache_dir = os.path.join(self.analysis_dir, "cache")
+        if not os.path.exists(cache_dir):
+            if create_if_needed:
+                log("project: creating cache directory:", cache_dir)
+                os.makedirs(cache_dir)
+            else:
+                log("Error: cache dir doesn't exist:", cache_dir)
                 return False
             
         # all is good
@@ -148,7 +156,7 @@ class ProjectMgr():
         # wipe image list (so we don't double load)
         self.image_list = []
         for name in images_node.getChildren():
-            img = image.Image(meta_dir, name)
+            img = image.Image(self.analysis_dir, name)
             self.image_list.append( img )
 
     def load_features(self, descriptors=False):
@@ -225,56 +233,6 @@ class ProjectMgr():
     def set_matcher_params(self, mparams):
         self.matcher_params = mparams
         
-    def detect_features_delete_me(self, scale, force=False, show=False):
-        for image in tqdm(self.image_list, smoothing=0.1):
-            image.load_features()
-            if len(image.kp_list) > 0 and not force:
-                print("skipping:", image.name)
-                continue
-            #print "detecting features and computing descriptors: " + image.name
-            rgb = image.load_rgb(equalize=True)
-            image.detect_features(rgb, scale)
-
-            # sanity check
-            width, height = image.get_size()
-            cw, ch = camera.get_image_params()
-            if width != cw or height != ch:
-                print("WARNING!")
-                print("Image dimensions do not match camera dimensions!")
-                print("This could cause the matcher to crash later!")
-                print("You should figure out why the image meta data is lying")
-                print("and fix the problem before continuing!")
-                
-            # Filter out of bound undistorted feature points.
-            # Traverse the list in reverse so we can safely remove
-            # features if needed
-            self.undistort_image_keypoints(image)
-            margin = 0
-            for i in reversed(range(len(image.uv_list))):
-                uv = image.uv_list[i]
-                if uv[0] < margin or uv[0] > width - margin \
-                   or uv[1] < margin or uv[1] > height - margin:
-                    #print ' ', i, uv
-                    image.kp_list.pop(i)                             # python list
-                    image.des_list = np.delete(image.des_list, i, 0) # np array
-
-            # print("save features")
-            image.save_features()
-            
-            # print("save descriptors")
-            # image.save_descriptors() # not saved, generated jit/cached
-            
-            #print("finished image")
-            # clear descriptor memory(?)
-            image.des_list = None
-            image.save_matches()
-            qlog(image.name, "features:", len(image.kp_list))
-            if show:
-                result = image.show_features()
-                if result == 27 or result == ord('q'):
-                    break
-        self.save_images_info()
-
     def show_features_image(self, image):
         result = image.show_features()
         return result

@@ -341,7 +341,7 @@ def smart_pair_matches(i1, i2, review=False):
 
     matches = raw_matches(i1, i2, k=3)
     
-    print("collect stats...")
+    qlog("  collect stats...")
     match_stats = []
     for i, m in enumerate(matches):
         best_index = -1
@@ -404,8 +404,6 @@ def smart_pair_matches(i1, i2, review=False):
         
     for i, dist_matches in enumerate(match_bins):
         astep = 10
-        print("bin:", i, "len:", len(dist_matches),
-              "angles 0-90, step:", astep, )
         best_of_bin = 0
         for angle in range(0, 90, astep):
             angle_matches = []
@@ -451,7 +449,9 @@ def smart_pair_matches(i1, i2, review=False):
                         #draw_inlier(rgb1, rgb2, i1.kp_list, i2.kp_list, matches_fit, 'ONLY_LINES', detect_scale)
                        
         # check for diminishing returns and bail early
-        print(best_fitted_matches, best_of_bin)
+        print("bin:", i, "len:", len(dist_matches),
+              "angles 0-90, step:", astep,
+              best_fitted_matches, best_of_bin)
         if best_fitted_matches > 50 and best_of_bin < 10:
             break
 
@@ -556,7 +556,7 @@ def find_matches(image_list, K, transform="homography", sort=False,
         if not len(i2.kp_list) or not len(i2.des_list):
             i2.detect_features(detect_scale)
 
-        mode = "smart"
+        mode = "normal"
         if mode == "normal":
             i1.match_list[i2.name], i2.match_list[i1.name] \
                 = bidirectional_pair_matches(i1, i2, review)
