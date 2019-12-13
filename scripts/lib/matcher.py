@@ -349,6 +349,7 @@ def smart_pair_matches(i1, i2, review=False):
         best_angle = 0
         best_size = 0
         best_dist = 0
+        best_vangle = 0
         for j in range(len(m)):
             if m[j].distance >= 290:
                 break
@@ -357,7 +358,10 @@ def smart_pair_matches(i1, i2, review=False):
                 break
             p1 = np.float32(i1.kp_list[m[j].queryIdx].pt)
             p2 = np.float32(i2.kp_list[m[j].trainIdx].pt)
-            raw_dist = np.linalg.norm(p2 - p1)
+            v = p2 - p1
+            raw_dist = np.linalg.norm(v)
+            vangle = math.atan2(v[1], v[0])
+            if vangle < 0: vangle += 2*math.pi
             # angle difference mapped to +/- 90
             a1 = np.array(i1.kp_list[m[j].queryIdx].angle)
             a2 = np.array(i2.kp_list[m[j].trainIdx].angle)
@@ -368,9 +372,9 @@ def smart_pair_matches(i1, i2, review=False):
                 size_diff = s1 / s2
             else:
                 size_diff = s2 / s1
-            if size_diff > 1.5:
+            if size_diff > 1.25:
                 continue
-            metric = (size_diff + 1) / ratio
+            metric = size_diff / ratio
             #print(" ", j, m[j].distance, size_diff, metric)
             if best_index < 0 or metric < best_metric:
                 best_metric = metric
@@ -378,43 +382,53 @@ def smart_pair_matches(i1, i2, review=False):
                 best_angle = angle_diff
                 best_size = size_diff
                 best_dist = raw_dist
+                best_vangle = vangle
         if best_index >= 0:
             #print(i, best_index, m[best_index].distance, best_size, best_metric)
             match_stats.append( [ m[best_index], best_index, ratio, best_metric,
-                                  best_angle, best_size, best_dist ] )
+                                  best_angle, best_size, best_dist, best_vangle ] )
 
+    maxdist = int(diag*0.55)
     maxrange = int(diag*0.02)
-    step = int(maxrange / 2)
+    divs = 40
+    step = maxdist / divs       # 0.1
     tol = int(diag*0.005)
     if tol < 5: tol = 5
-    maxdist = int(diag*0.55)
     best_fitted_matches = 0
-    match_bins = [[] for i in range(int(maxdist/step)+1)]
-    print("bins:", len(match_bins))
+    dist_bins = [[] for i in range(divs + 1)]
+    print("bins:", len(dist_bins))
     for line in match_stats:
-        best_metric = line[3]
         best_dist = line[6]
         bin = int(round(best_dist / step))
-        if bin < len(match_bins):
-            match_bins[bin].append(line)
+        if bin < len(dist_bins):
+            dist_bins[bin].append(line)
             if bin > 0:
-                match_bins[bin-1].append(line)
-            if bin < len(match_bins) - 1:
-                match_bins[bin+1].append(line)
+                dist_bins[bin-1].append(line)
+            if bin < len(dist_bins) - 1:
+                dist_bins[bin+1].append(line)
         
     matches_fit = []
-    for i, dist_matches in enumerate(match_bins):
-        astep = 10
+    for i, dist_matches in enumerate(dist_bins):
+        print("bin:", i, "len:", len(dist_matches))
         best_of_bin = 0
-        for angle in range(0, 90, astep):
-            angle_matches = []
-            for line in dist_matches:
-                match = line[0]
-                best_metric = line[3]
-                best_angle = line[4]
-                if abs(angle - best_angle) > astep*2:
-                    continue
-                angle_matches.append(match)
+        divs = 20
+        step = 2*math.pi / divs
+        angle_bins = [[] for i in range(divs + 1)]
+        for line in dist_matches:
+            match = line[0]
+            vangle = line[7]
+            bin = int(round(vangle / step))
+            angle_bins[bin].append(match)
+            if bin == 0:
+                angle_bins[-1].append(match)
+                angle_bins[bin+1].append(match)
+            elif bin == divs:
+                angle_bins[bin-1].append(match)
+                angle_bins[0].append(match)
+            else:
+                angle_bins[bin-1].append(match)
+                angle_bins[bin+1].append(match)
+        for angle_matches in angle_bins:
             if len(angle_matches) >= min_pairs:
                 src = []
                 dst = []
@@ -438,7 +452,6 @@ def smart_pair_matches(i1, i2, review=False):
                     best_fitted_matches = num_fit
                     print("Filtered matches:", len(angle_matches),
                           "Fitted matches:", num_fit)
-                    print("metric cutoff:", best_metric)
                     matches_dist = np.array(matches_dist)
                     print("avg match quality:", np.average(matches_dist))
                     print("max match quality:", np.max(matches_dist))
@@ -451,7 +464,6 @@ def smart_pair_matches(i1, i2, review=False):
                        
         # check for diminishing returns and bail early
         print("bin:", i, "len:", len(dist_matches),
-              "angles 0-90, step:", astep,
               best_fitted_matches, best_of_bin)
         if best_fitted_matches > 50 and best_of_bin < 10:
             break
@@ -538,8 +550,11 @@ def find_matches(image_list, K, transform="homography", sort=False,
 
         # skip if match has already been computed
         if i2.name in i1.match_list and i1.name in i2.match_list:
-            log("Skipping: ", i1.name, "vs'", i2.name, "already done.")
-            continue
+            if sort and len(i1.match_list[i2.name]) == 0:
+                log("Retrying: ", i1.name, "vs'", i2.name, "(no matches found previously)")
+            else:
+                log("Skipping: ", i1.name, "vs'", i2.name, "already done.")
+                continue
 
         msg = "Matching %s vs %s - %.1f%% done: " % (i1.name, i2.name, percent * 100.0)
         if t_remain < 3600:
