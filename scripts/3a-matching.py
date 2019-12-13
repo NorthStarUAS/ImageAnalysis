@@ -35,7 +35,6 @@ parser.add_argument('--star-line-threshold-binarized', default=8)
 parser.add_argument('--star-suppress-nonmax-size', default=5)
 parser.add_argument('--reject-margin', default=0, help='reject features within this distance of the image outer edge margin')
 
-parser.add_argument('--scale', type=float, default=0.4, help='scale images before detecting features, this acts much like a noise filter')
 parser.add_argument('--match-ratio', default=0.75, type=float,
                     help='match ratio')
 parser.add_argument('--min-pairs', default=25, type=int,
@@ -97,7 +96,8 @@ print("K:", K)
 
 # fire up the matcher
 matcher.configure()
-matcher.group_matcher(proj.image_list, K, filter=args.filter, review=False)
+matcher.find_matches(proj.image_list, K, transform=args.filter, sort=True,
+                     review=False)
 
 feature_count = 0
 image_count = 0
