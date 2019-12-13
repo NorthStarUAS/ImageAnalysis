@@ -506,6 +506,7 @@ def find_matches(image_list, K, transform="homography", sort=False,
             ned1, ypr1, q1 = i1.get_camera_pose()
             ned2, ypr2, q2 = i2.get_camera_pose()
             dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
+            dist = int(round(dist)) # slightly less sorted
             if dist >= min_dist and dist <= max_dist:
                 work_list.append( [dist, i, j] )
 
@@ -594,7 +595,7 @@ def find_matches(image_list, K, transform="homography", sort=False,
             time_list = sorted(time_list, key=lambda fields: fields[0],
                                reverse=True)
             # may wish to monitor and update cache_size formula
-            cache_size = 20 + 3 * (int(math.sqrt(len(image_list))) + 1)
+            cache_size = 20 + 5 * (int(math.sqrt(len(image_list))) + 1)
             flush_list = time_list[cache_size:]
             qlog("flushing keypoint/descriptor cache - size: %d (over by: %d)" % (cache_size, len(flush_list)) )
             for line in flush_list:
