@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+# bin distance, bin vector angle
+
 import argparse
 import cv2
 import math
@@ -119,6 +121,7 @@ for line in dist_list:
         best_angle = 0
         best_size = 0
         best_dist = 0
+        best_vangle = 0
         for j in range(len(m)):
             if m[j].distance >= 290:
                 break
@@ -129,6 +132,8 @@ for line in dist_list:
             #p1 = np.dot(R, p1)
             p2 = np.float32(i2.kp_list[m[j].trainIdx].pt)
             #print(p1, p2)
+            v = p2 - p1
+            vangle = math.atan2(v[1], v[0])
             raw_dist = np.linalg.norm(p2 - p1)
             # angle difference mapped to +/- 90
             a1 = np.array(i1.kp_list[m[j].queryIdx].angle)
@@ -150,13 +155,14 @@ for line in dist_list:
                 best_angle = angle_diff
                 best_size = size_diff
                 best_dist = raw_dist
+                best_vangle = vangle
         if best_index >= 0:
             #print(i, best_index, m[best_index].distance, best_size, best_metric)
             match_stats.append( [ m[best_index], best_index, ratio, best_metric,
-                                  best_angle, best_size, best_dist ] )
+                                  best_angle, best_size, best_dist, best_vangle ] )
 
-    maxrange = int(diag*0.03) # 0.2
-    step = int(maxrange / 4)  # 2
+    step = int(diag*0.01)       # 0.1
+    maxrange = int(step*2.5)    # 2
     tol = int(diag*0.005)
     if tol < 5: tol = 5
     maxdist = int(diag*0.55)
@@ -175,17 +181,21 @@ for line in dist_list:
                 match_bins[bin+1].append(line)
         
     for i, dist_matches in enumerate(match_bins):
-        astep = 20
-        print("bin:", i, "len:", len(dist_matches),
-              "angles 0-90, step:", astep, )
+        print("bin:", i, "len:", len(dist_matches))
         best_of_bin = 0
-        for angle in range(0, 90, astep):
+        divs = 20
+        arange = (2*math.pi/divs)*2
+        for angle in np.linspace(0, 2*math.pi, divs-1):
             angle_matches = []
             for line in dist_matches:
                 match = line[0]
                 best_metric = line[3]
                 best_angle = line[4]
-                if abs(angle - best_angle) > astep*2:
+                best_vangle = line[7]
+                diff = angle - best_vangle
+                if diff < -math.pi: diff += 2*math.pi
+                if diff > math.pi: diff -= 2*math.pi
+                if abs(diff) > arange:
                     continue
                 angle_matches.append(match)
             if len(angle_matches) > 7:

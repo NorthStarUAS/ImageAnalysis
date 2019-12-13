@@ -113,47 +113,48 @@ for line in dist_list:
     
     print("collect stats...")
     match_stats = []
-    for i, m in enumerate(tqdm(matches)):
-        best_index = -1
-        best_metric = 9
-        best_angle = 0
-        best_size = 0
-        best_dist = 0
-        for j in range(len(m)):
-            if m[j].distance >= 290:
-                break
-            ratio = m[0].distance / m[j].distance
-            if ratio < ratio_cutoff:
-                break
-            p1 = np.float32(i1.kp_list[m[j].queryIdx].pt)
-            #p1 = np.dot(R, p1)
-            p2 = np.float32(i2.kp_list[m[j].trainIdx].pt)
-            #print(p1, p2)
-            raw_dist = np.linalg.norm(p2 - p1)
-            # angle difference mapped to +/- 90
-            a1 = np.array(i1.kp_list[m[j].queryIdx].angle)
-            a2 = np.array(i2.kp_list[m[j].trainIdx].angle)
-            angle_diff = abs((a1-a2+90) % 180 - 90)
-            s1 = np.array(i1.kp_list[m[j].queryIdx].size)
-            s2 = np.array(i2.kp_list[m[j].trainIdx].size)
-            if s1 > s2:
-                size_diff = s1 / s2
-            else:
-                size_diff = s2 / s1
-            if size_diff > 1.25:
-                continue
-            metric = size_diff / ratio
-            #print(" ", j, m[j].distance, size_diff, metric)
-            if best_index < 0 or metric < best_metric:
-                best_metric = metric
-                best_index = j
-                best_angle = angle_diff
-                best_size = size_diff
-                best_dist = raw_dist
-        if best_index >= 0:
-            #print(i, best_index, m[best_index].distance, best_size, best_metric)
-            match_stats.append( [ m[best_index], best_index, ratio, best_metric,
-                                  best_angle, best_size, best_dist ] )
+    for i, m in enumerate(matches):
+        ratio = m[0].distance / m[1].distance
+        p1 = np.float32(i1.kp_list[m[0].queryIdx].pt)
+        #p1 = np.dot(R, p1)
+        p2 = np.float32(i2.kp_list[m[0].trainIdx].pt)
+        #print(p1, p2)
+        raw_dist = np.linalg.norm(p2 - p1)
+        # angle difference mapped to +/- 90
+        a1 = np.array(i1.kp_list[m[0].queryIdx].angle)
+        a2 = np.array(i2.kp_list[m[0].trainIdx].angle)
+        angle_diff = abs((a1-a2+90) % 180 - 90)
+        s1 = np.array(i1.kp_list[m[0].queryIdx].size)
+        s2 = np.array(i2.kp_list[m[0].trainIdx].size)
+        if s1 > s2:
+            size_diff = s1 / s2
+        else:
+            size_diff = s2 / s1
+        if m[0].distance > 290:
+            continue
+        if size_diff > 1.1:
+            continue
+        metric = (size_diff + 1) / ratio
+        #print(" ", j, m[0].distance, size_diff, metric)
+        match_stats.append( [ m[0], ratio, a1, a2, angle_diff, s1, s2, size_diff ] )
+
+    #match_stats = sorted(match_stats, key=lambda fields: fields[0].distance)
+    match_stats = sorted(match_stats, key=lambda fields: fields[5])
+    match_stats.reverse()
+
+    for i in range(1, len(match_stats)):
+        matches_top = []
+        print()
+        for line in match_stats[:i]:
+            m = line[0]
+            ratio = line[1]
+            s1 = line[5]
+            s2 = line[6]
+            size_diff = line[6]
+            matches_top.append(m)
+            print(i, ratio, m.distance, s1, s2)
+        draw_inlier(rgb1, rgb2, i1.kp_list, i2.kp_list, matches_top, 'ONLY_LINES', args.scale)
+        cv2.waitKey()
 
     maxrange = int(diag*0.03) # 0.2
     step = int(maxrange / 4)  # 2
