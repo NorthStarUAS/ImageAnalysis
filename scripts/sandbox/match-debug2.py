@@ -90,7 +90,7 @@ for line in dist_list:
     if not len(i2.kp_list) or not len(i2.des_list):
         i2.detect_features(args.scale)
 
-    (w, h) = i1.get_size()
+    w, h = camera.get_image_params()
     diag = int(math.sqrt(h*h + w*w))
     print("h:", h, "w:", w)
     print("scaled diag:", diag)
@@ -134,6 +134,7 @@ for line in dist_list:
             #print(p1, p2)
             v = p2 - p1
             vangle = math.atan2(v[1], v[0])
+            if vangle < 0: vangle += 2*math.pi
             raw_dist = np.linalg.norm(p2 - p1)
             # angle difference mapped to +/- 90
             a1 = np.array(i1.kp_list[m[j].queryIdx].angle)
@@ -161,44 +162,49 @@ for line in dist_list:
             match_stats.append( [ m[best_index], best_index, ratio, best_metric,
                                   best_angle, best_size, best_dist, best_vangle ] )
 
-    step = int(diag*0.01)       # 0.1
-    maxrange = int(step*2.5)    # 2
+    min_pairs = 25
+    maxdist = int(diag*0.55)
+    divs = 40
+    step = maxdist / divs       # 0.1
     tol = int(diag*0.005)
     if tol < 5: tol = 5
-    maxdist = int(diag*0.55)
     best_fitted_matches = 0
-    match_bins = [[] for i in range(int(maxdist/step)+1)]
-    print("bins:", len(match_bins))
+    dist_bins = [[] for i in range(divs + 1)]
+    print("bins:", len(dist_bins))
     for line in match_stats:
         best_metric = line[3]
         best_dist = line[6]
         bin = int(round(best_dist / step))
-        if bin < len(match_bins):
-            match_bins[bin].append(line)
+        if bin < len(dist_bins):
+            dist_bins[bin].append(line)
             if bin > 0:
-                match_bins[bin-1].append(line)
-            if bin < len(match_bins) - 1:
-                match_bins[bin+1].append(line)
+                dist_bins[bin-1].append(line)
+            if bin < len(dist_bins) - 1:
+                dist_bins[bin+1].append(line)
         
-    for i, dist_matches in enumerate(match_bins):
+    for i, dist_matches in enumerate(dist_bins):
         print("bin:", i, "len:", len(dist_matches))
         best_of_bin = 0
         divs = 20
-        arange = (2*math.pi/divs)*2
-        for angle in np.linspace(0, 2*math.pi, divs-1):
-            angle_matches = []
-            for line in dist_matches:
-                match = line[0]
-                best_metric = line[3]
-                best_angle = line[4]
-                best_vangle = line[7]
-                diff = angle - best_vangle
-                if diff < -math.pi: diff += 2*math.pi
-                if diff > math.pi: diff -= 2*math.pi
-                if abs(diff) > arange:
-                    continue
-                angle_matches.append(match)
-            if len(angle_matches) > 7:
+        step = 2*math.pi / divs
+        angle_bins = [[] for i in range(divs + 1)]
+        print(len(angle_bins))
+        for line in dist_matches:
+            match = line[0]
+            vangle = line[7]
+            bin = int(round(vangle / step))
+            angle_bins[bin].append(match)
+            if bin == 0:
+                angle_bins[-1].append(match)
+                angle_bins[bin+1].append(match)
+            elif bin == divs:
+                angle_bins[bin-1].append(match)
+                angle_bins[0].append(match)
+            else:
+                angle_bins[bin-1].append(match)
+                angle_bins[bin+1].append(match)
+        for angle_matches in angle_bins:
+            if len(angle_matches) >= min_pairs:
                 src = []
                 dst = []
                 for m in angle_matches:
@@ -208,17 +214,17 @@ for line in dist_list:
                                                np.array([dst]).astype(np.float32),
                                                cv2.RANSAC,
                                                tol)
-                matches_fit = []
-                matches_dist = []
-                for i, m in enumerate(angle_matches):
-                    if status[i]:
-                        matches_fit.append(m)
-                        matches_dist.append(m.distance)
-                if len(matches_fit) > best_of_bin:
-                       best_of_bin = len(matches_fit)
-                if len(matches_fit) > best_fitted_matches:
+                num_fit = np.count_nonzero(status)
+                if num_fit > best_of_bin:
+                    best_of_bin = num_fit
+                if num_fit > best_fitted_matches:
+                    matches_fit = []
+                    matches_dist = []
+                    for i, m in enumerate(angle_matches):
+                        if status[i]:
+                            matches_fit.append(m)
+                            matches_dist.append(m.distance)
                     best_fitted_matches = len(matches_fit)
-                    print("angle:", angle)
                     print("Filtered matches:", len(angle_matches),
                           "Fitted matches:", len(matches_fit))
                     print("metric cutoff:", best_metric)
