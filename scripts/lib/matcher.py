@@ -328,7 +328,7 @@ def bidirectional_pair_matches(i1, i2, review=False):
 
     return idx_pairs1, idx_pairs2
 
-def smart_pair_matches(i1, i2, review=False):
+def bruteforce_pair_matches(i1, i2, review=False):
     match_ratio = matcher_node.getFloat('match_ratio')
     w, h = camera.get_image_params()
     diag = int(math.sqrt(h*h + w*w))
@@ -573,13 +573,13 @@ def find_matches(image_list, K, transform="homography", sort=False,
         if i2.kp_list is None or i2.des_list is None or not len(i2.kp_list) or not len(i2.des_list):
             i2.detect_features(detect_scale)
 
-        mode = "smart"
+        mode = "bruteforce"
         if mode == "normal":
             i1.match_list[i2.name], i2.match_list[i1.name] \
                 = bidirectional_pair_matches(i1, i2, review)
-        elif mode == "smart":
+        elif mode == "bruteforce":
             i1.match_list[i2.name], i2.match_list[i1.name] \
-                = smart_pair_matches(i1, i2)
+                = bruteforce_pair_matches(i1, i2)
 
         dist_stats.append( [ dist, len(i1.match_list[i2.name]) ] )
 
