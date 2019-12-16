@@ -115,7 +115,7 @@ for line in dist_list:
     
     print("collect stats...")
     match_stats = []
-    for i, m in enumerate(tqdm(matches)):
+    for i, m in enumerate(matches):
         best_index = -1
         best_metric = 9
         best_angle = 0
@@ -129,13 +129,11 @@ for line in dist_list:
             if ratio < ratio_cutoff:
                 break
             p1 = np.float32(i1.kp_list[m[j].queryIdx].pt)
-            #p1 = np.dot(R, p1)
             p2 = np.float32(i2.kp_list[m[j].trainIdx].pt)
-            #print(p1, p2)
             v = p2 - p1
+            raw_dist = np.linalg.norm(v)
             vangle = math.atan2(v[1], v[0])
             if vangle < 0: vangle += 2*math.pi
-            raw_dist = np.linalg.norm(p2 - p1)
             # angle difference mapped to +/- 90
             a1 = np.array(i1.kp_list[m[j].queryIdx].angle)
             a2 = np.array(i2.kp_list[m[j].trainIdx].angle)
@@ -182,13 +180,13 @@ for line in dist_list:
             if bin < len(dist_bins) - 1:
                 dist_bins[bin+1].append(line)
         
+    matches_fit = []
     for i, dist_matches in enumerate(dist_bins):
         print("bin:", i, "len:", len(dist_matches))
         best_of_bin = 0
         divs = 20
         step = 2*math.pi / divs
         angle_bins = [[] for i in range(divs + 1)]
-        print(len(angle_bins))
         for line in dist_matches:
             match = line[0]
             vangle = line[7]
@@ -224,10 +222,9 @@ for line in dist_list:
                         if status[i]:
                             matches_fit.append(m)
                             matches_dist.append(m.distance)
-                    best_fitted_matches = len(matches_fit)
+                    best_fitted_matches = num_fit
                     print("Filtered matches:", len(angle_matches),
-                          "Fitted matches:", len(matches_fit))
-                    print("metric cutoff:", best_metric)
+                          "Fitted matches:", num_fit)
                     matches_dist = np.array(matches_dist)
                     print("avg match quality:", np.average(matches_dist))
                     print("max match quality:", np.max(matches_dist))

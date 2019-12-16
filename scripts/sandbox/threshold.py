@@ -33,8 +33,8 @@ class Threshold():
             # hsv with hue rotated by a value of 90
             hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
             hue, sat, val = cv2.split(hsv)
-            hue = np.mod((hue.astype('float') + 90), 180).astype('uint8')
-            self.image = cv2.merge( (hue, sat, val) )
+            self.hue90 = np.mod((hue.astype('float') + 90), 180).astype('uint8')
+            self.image = cv2.merge( (self.hue90, sat, val) )
         else:
             print("Unknown filter:", filter)
             return
@@ -46,7 +46,10 @@ class Threshold():
     def gen_score(self, r1, r2, c1, c2):
         mask = self.mask[r1:r2,c1:c2]
         region = self.result[r1:r2,c1:c2]
-        return (np.max(region), np.average(region), (mask > 0).sum())
+        dist = 90 - np.abs(90 - self.hue90_masked[r1:r2,c1:c2])
+        #cv2.imshow('hue90', dist)
+        #cv2.waitKey()
+        return (np.max(region), np.average(region), (mask > 0).sum(), np.min(dist))
 
     # compute the grid layout and classifier
     def compute_grid(self, grid_size=160):
@@ -71,6 +74,7 @@ class Threshold():
     def apply_threshold(self, min, max):
         self.mask = cv2.inRange(self.image, min, max)
         self.result = cv2.bitwise_and(self.gray, self.gray, mask=self.mask)
+        self.hue90_masked = cv2.bitwise_and(self.hue90, self.hue90, mask=self.mask)
         for key in self.cells:
             (r1, r2, c1, c2) = self.cells[key]["region"]
             self.cells[key]["score"] = self.gen_score(r1, r2, c1, c2)

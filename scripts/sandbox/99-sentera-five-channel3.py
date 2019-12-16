@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 from props import root, getNode
 import props_json
 
-from lib import Camera
-from lib import Image
+from lib import camera
+from lib import image
 
 parser = argparse.ArgumentParser(description='Align and combine sentera images.')
 parser.add_argument('--flight', help='Base directory (parent of NIR/RGB directories.')

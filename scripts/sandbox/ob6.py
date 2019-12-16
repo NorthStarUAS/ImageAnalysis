@@ -57,8 +57,10 @@ def draw_prediction(image, cells, selected_cell, show_mode, alpha=0.25):
         cell = cells[key]
         (r1, r2, c1, c2) = cell["region"]
         if show_mode == "model" and cell["score"] != None:
-            (max, avg, count) = cell["score"]
-            if max > 110 or avg > 4 or count > 1000:
+            (max, avg, count, hue_dist) = cell["score"]
+            if max < 100 or avg < 1:
+                pass
+            elif max > 110 or avg > 4 or count > 1000:
                 color = colors[0]
                 draw(overlay, r1, r2, c1, c2, color, cv2.FILLED)
     result = cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
@@ -85,8 +87,8 @@ def onmouse(event, x, y, flags, param):
         selected_cell = key
         (r1, r2, c1, c2) = model.cells[key]["region"]
         rgb_region = rgb[r1:r2,c1:c2]
-        (max, avg, count) = model.cells[key]["score"]
-        print("max:", max, "avg:", avg, "count:", count)
+        (max, avg, count, hue_dist) = model.cells[key]["score"]
+        print("max:", max, "avg:", avg, "count:", count, "hue dist:", hue_dist)
         cv2.imshow('region', cv2.resize(rgb_region, ( (r2-r1)*3, (c2-c1)*3) ))
         scale = draw_prediction(scale_orig, model.cells,
                                 selected_cell, show_mode)

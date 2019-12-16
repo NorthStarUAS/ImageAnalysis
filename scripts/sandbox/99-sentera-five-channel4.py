@@ -99,12 +99,9 @@ i1 = cv2.resize(i1, (int(w*args.scale), int(h*args.scale)))
 i2 = cv2.resize(i2, (int(w*args.scale), int(h*args.scale)))
 
 detector = cv2.xfeatures2d.SIFT_create()
-kp1 = detector.detect(i1)
-kp2 = detector.detect(i2)
+kp1, des1 = detector.detectAndCompute(i1, None)
+kp2, des2 = detector.detectAndCompute(i2, None)
 print("Keypoints:", len(kp1), len(kp2))
-
-kp1, des1 = detector.compute(i1, kp1)
-kp2, des2 = detector.compute(i2, kp2)
 print("Descriptors:", len(des1), len(des2))
 
 FLANN_INDEX_KDTREE = 1
@@ -354,7 +351,7 @@ while True:
                 matches_fit.append(m)
 
     print("Fitted matches:", len(matches_fit))
-    # draw_inlier(i1, i2, kp1, kp2, matches_fit, 'ONLY_LINES')
+    draw_inlier(i1, i2, kp1, kp2, matches_fit, 'ONLY_LINES')
 
     if True:
         src = []
