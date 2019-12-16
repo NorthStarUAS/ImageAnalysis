@@ -11,6 +11,7 @@ from props import getNode
 from . import camera
 from .logger import log, qlog
 from . import matcher
+from . import project
 from . import srtm
 
 # Reset all match point locations to their original direct

@@ -345,8 +345,7 @@ def smart_pair_matches(i1, i2, review=False):
     dist_coeffs = camera.get_dist_coeffs()
     w, h = camera.get_image_params()
     diag = int(math.sqrt(h*h + w*w))
-    print("h:", h, "w:", w)
-    print("scaled diag:", diag)
+    print("h:", h, "w:", w, "diag:", diag)
     grid_steps = 8
     grid_list = gen_grid(w, h, grid_steps)
     ground_m = matcher_node.getFloat("ground_m")
@@ -394,6 +393,7 @@ def smart_pair_matches(i1, i2, review=False):
     print("Raw matches:", len(matches))
 
     best_fitted_matches = 20    # don't proceed if we can't beat this value
+    matches_fit = []
     
     while True:
         # print('H:', H)
@@ -750,7 +750,7 @@ def find_matches(image_list, K, transform="homography", sort=False,
 
         # skip if match has already been computed
         if i2.name in i1.match_list and i1.name in i2.match_list:
-            if mode == "bruteforce" and len(i1.match_list[i2.name]) == 0:
+            if (mode == "smart" or mode == "bruteforce") and len(i1.match_list[i2.name]) == 0:
                 log("Retrying: ", i1.name, "vs'", i2.name, "(no matches found previously)")
             else:
                 log("Skipping: ", i1.name, "vs'", i2.name, "already done.")

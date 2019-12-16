@@ -123,7 +123,7 @@ for line in dist_list:
     # print(i1.match_list)
     num_matches = len(i1.match_list[i2.name])
     print("dist: %.1f" % dist, "yaw: %.1f" % yaw_diff, i1.name, i2.name, num_matches)
-    if num_matches >= 2500:
+    if num_matches > 0:
         continue
 
     # project a grid of uv coordinates from image 2 out onto the
@@ -132,11 +132,11 @@ for line in dist_list:
     # homography relationship between the two images as a starting
     # search point for feature matches.
     
-    proj_list = proj.projectVectors( IK, i2.get_body2ned(), i2.get_cam2body(),
-                                     grid_list )
+    proj_list = project.projectVectors( IK, i2.get_body2ned(),
+                                        i2.get_cam2body(), grid_list )
     ned2, ypr2, quat2 = i2.get_camera_pose()
-    pts_ned = proj.intersectVectorsWithGroundPlane(ned2, args.ground,
-                                                   proj_list)
+    pts_ned = project.intersectVectorsWithGroundPlane(ned2, args.ground,
+                                                      proj_list)
     rvec1, tvec1 = i1.get_proj()
     reproj_points, jac = cv2.projectPoints(np.array(pts_ned), rvec1, tvec1,
                                            K, dist_coeffs)
@@ -154,8 +154,8 @@ for line in dist_list:
     print("Translation (pixels):", tx, ty)
     print("Skew:", sx, sy)
 
-    if rot < 10:
-        continue
+    #if rot < 10:
+    #    continue
     
     H, status = cv2.findHomography(np.array([reproj_list]).astype(np.float32),
                                    np.array([grid_list]).astype(np.float32),
