@@ -145,14 +145,14 @@ for line in dist_list:
 
     print("Should filter points outside of 2nd image space here and now!")
 
-    affine, status = \
-        cv2.estimateAffinePartial2D(np.array([reproj_list]).astype(np.float32),
-                                    np.array([grid_list]).astype(np.float32))
-    (rot, tx, ty, sx, sy) = decomposeAffine(affine)
-    print("Affine:")
-    print("Rotation (deg):", rot)
-    print("Translation (pixels):", tx, ty)
-    print("Skew:", sx, sy)
+    # affine, status = \
+    #     cv2.estimateAffinePartial2D(np.array([reproj_list]).astype(np.float32),
+    #                                 np.array([grid_list]).astype(np.float32))
+    # (rot, tx, ty, sx, sy) = decomposeAffine(affine)
+    # print("Affine:")
+    # print("Rotation (deg):", rot)
+    # print("Translation (pixels):", tx, ty)
+    # print("Skew:", sx, sy)
 
     #if rot < 10:
     #    continue
@@ -182,19 +182,20 @@ for line in dist_list:
 
     best_fitted_matches = 20    # don't proceed if we can't beat this value
     
+    src_pts = np.float32([i1.kp_list[i].pt for i in range(len(i1.kp_list))]).reshape(-1, 1, 2)
+    dst_pts = np.float32([i2.kp_list[i].pt for i in range(len(i2.kp_list))]).reshape(-1, 1, 2)
+    
     while True:
         print('H:', H)
-        src_pts = np.float32([i1.kp_list[i].pt for i in range(len(i1.kp_list))]).reshape(-1, 1, 2)
-        dst_pts = np.float32([i2.kp_list[i].pt for i in range(len(i2.kp_list))]).reshape(-1, 1, 2)
-        src_pts = cv2.perspectiveTransform(src_pts, H)
+        trans_pts = cv2.perspectiveTransform(src_pts, H)
 
         print("collect stats...")
         match_stats = []
-        for i, m in enumerate(tqdm(matches)):
+        for i, m in enumerate(matches):
             best_index = -1
             best_metric = 9
-            best_angle = 0
-            best_size = 0
+            #best_angle = 0
+            #best_size = 0
             best_dist = 0
             for j in range(len(m)):
                 if m[j].distance >= 300:
@@ -202,14 +203,14 @@ for line in dist_list:
                 ratio = m[0].distance / m[j].distance
                 if ratio < ratio_cutoff:
                     break
-                p1 = src_pts[m[j].queryIdx]
+                p1 = trans_pts[m[j].queryIdx]
                 p2 = dst_pts[m[j].trainIdx]
                 #print(p1, p2)
                 raw_dist = np.linalg.norm(p2 - p1)
                 # angle difference mapped to +/- 90
-                a1 = np.array(i1.kp_list[m[j].queryIdx].angle)
-                a2 = np.array(i2.kp_list[m[j].trainIdx].angle)
-                angle_diff = abs((a1-a2+90) % 180 - 90)
+                #a1 = np.array(i1.kp_list[m[j].queryIdx].angle)
+                #a2 = np.array(i2.kp_list[m[j].trainIdx].angle)
+                #angle_diff = abs((a1-a2+90) % 180 - 90)
                 s1 = np.array(i1.kp_list[m[j].queryIdx].size)
                 s2 = np.array(i2.kp_list[m[j].trainIdx].size)
                 if s1 > s2:
@@ -218,34 +219,28 @@ for line in dist_list:
                     size_diff = s2 / s1
                 if size_diff > 1.25:
                     continue
-                metric = size_diff / ratio
+                metric = raw_dist * size_diff / ratio
                 #print(" ", j, m[j].distance, size_diff, metric)
                 if best_index < 0 or metric < best_metric:
                     best_metric = metric
                     best_index = j
-                    best_angle = angle_diff
-                    best_size = size_diff
+                    #best_angle = angle_diff
+                    #best_size = size_diff
                     best_dist = raw_dist
             if best_index >= 0:
-                #print(i, best_index, m[best_index].distance, best_size, best_metric)
-                match_stats.append( [ m[best_index], best_index, ratio, best_metric,
-                                      best_angle, best_size, best_dist ] )
+                match_stats.append( [ m[best_index], best_dist ] )
 
         min_pairs = 25
-        maxdist = int(diag*0.55)
-        divs = 80
-        step = maxdist / divs       # 0.1
         tol = int(diag*0.005)
         if tol < 5: tol = 5
 
         cutoffs = [ 16, 32, 64, 128, 256, 512, 1024 ]
-    
         dist_bins = [[] for i in range(len(cutoffs))]
         print("bins:", len(dist_bins))
         for line in match_stats:
             m = line[0]
-            best_metric = line[3]
-            best_dist = line[6]
+            best_metric = line[0]
+            best_dist = line[1]
             for i, d in enumerate(cutoffs):
                 if best_dist < cutoffs[i]:
                     dist_bins[i].append(m)
@@ -254,25 +249,22 @@ for line in dist_list:
         for i, dist_matches in enumerate(dist_bins):
             print("bin:", i, "cutoff:", cutoffs[i], "len:", len(dist_matches))
             if len(dist_matches) >= min_pairs:
-                src = []
-                dst = []
-                for m in dist_matches:
-                    src.append( i1.kp_list[m.queryIdx].pt )
-                    dst.append( i2.kp_list[m.trainIdx].pt )
-                H_test, status = cv2.findHomography(np.array([src]).astype(np.float32), np.array([dst]).astype(np.float32), cv2.RANSAC, tol)
+                src = np.float32([src_pts[m.queryIdx] for m in dist_matches]).reshape(1, -1, 2)
+                dst = np.float32([dst_pts[m.trainIdx] for m in dist_matches]).reshape(1, -1, 2)
+                H_test, status = cv2.findHomography(src, dst, cv2.RANSAC, tol)
                 num_fit = np.count_nonzero(status)
                 if num_fit > best_fitted_matches:
                     done = False
                     matches_fit = []
                     matches_dist = []
-                    affine, astatus = \
-                        cv2.estimateAffinePartial2D(np.array([src]).astype(np.float32),
-                                                    np.array([dst]).astype(np.float32))
-                    (rot, tx, ty, sx, sy) = decomposeAffine(affine)
-                    print("Affine:")
-                    print("Rotation (deg):", rot)
-                    print("Translation (pixels):", tx, ty)
-                    print("Skew:", sx, sy)
+                    # affine, astatus = \
+                    #     cv2.estimateAffinePartial2D(np.array([src]).astype(np.float32),
+                    #                                 np.array([dst]).astype(np.float32))
+                    # (rot, tx, ty, sx, sy) = decomposeAffine(affine)
+                    # print("Affine:")
+                    # print("Rotation (deg):", rot)
+                    # print("Translation (pixels):", tx, ty)
+                    # print("Skew:", sx, sy)
                     H = np.copy(H_test)
                     print("H:", H)
                     for i, m in enumerate(dist_matches):
