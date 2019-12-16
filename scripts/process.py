@@ -21,6 +21,7 @@ import argparse
 import numpy as np
 import os
 import pickle
+import socket                   # gethostname()
 import time
 
 from lib import camera
@@ -98,6 +99,7 @@ parser.add_argument('--refine', action='store_true', help='refine a previous opt
 
 args = parser.parse_args()
 
+log("Project processed on host:", socket.gethostname())
 
 ############################################################################
 log("Step 1: setup the project", fancy=True)
