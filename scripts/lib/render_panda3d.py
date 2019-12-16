@@ -12,7 +12,7 @@ from . import camera
 from .logger import log, qlog
 from . import panda3d
 from . import project
-from . import objmtl            # temporary?
+#from . import objmtl            # temporary?
 
 r2d = 180 / math.pi
 
