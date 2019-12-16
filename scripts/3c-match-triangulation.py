@@ -85,7 +85,7 @@ if args.method == 'srtm':
     #         body2ned = image.get_body2ned()
     #         ned, ypr, quat = image.get_camera_pose()
     #         uv_list = [ m[1] ] # just one uv element
-    #         vec_list = proj.projectVectors(IK, body2ned, cam2body, uv_list)
+    #         vec_list = project.projectVectors(IK, body2ned, cam2body, uv_list)
     #         v = vec_list[0]
     #         if v[2] > 0.0:
     #             d_proj = -(ned[2] + image.base_elev)
@@ -134,7 +134,7 @@ elif args.method == 'triangulate':
                     body2ned = image.get_body2ned()
                     ned, ypr, quat = image.get_camera_pose(opt=True)
                     uv_list = [ undistort(m[1]) ] # just one uv element
-                    vec_list = proj.projectVectors(IK, body2ned, cam2body, uv_list)
+                    vec_list = project.projectVectors(IK, body2ned, cam2body, uv_list)
                     points.append( ned )
                     vectors.append( vec_list[0] )
                     # print(' ', image.name)

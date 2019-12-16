@@ -52,7 +52,8 @@ for image in proj.image_list:
     corner_list.append( [0, image.height] )
     corner_list.append( [image.width, image.height] )
     
-    proj_list = proj.projectVectors( IK, image, corner_list, pose=args.pose )
+    proj_list = project.projectVectors( IK, image, corner_list,
+                                        pose=args.pose )
     #print "proj_list:\n", proj_list
     if args.pose == 'direct':
         pts_ned = sss.interpolate_vectors(image.camera_pose, proj_list)

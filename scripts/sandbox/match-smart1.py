@@ -118,7 +118,6 @@ grid_list = gen_grid(w, h, grid_steps)
 for line in dist_list:
     dist = line[0]
     yaw_diff = line[1]
-    i = None; j = None          # break something if these are still used
     i1 = proj.image_list[ line[2] ]
     i2 = proj.image_list[ line[3] ]
     # print(i1.match_list)

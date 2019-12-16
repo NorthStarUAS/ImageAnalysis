@@ -17,6 +17,7 @@ from . import camera
 from .find_obj import explore_match
 from . import image_list
 from .logger import log, qlog
+from lib import project
 from . import transformations
 
 detector_node = getNode('/config/detector', True)
@@ -328,6 +329,202 @@ def bidirectional_pair_matches(i1, i2, review=False):
 
     return idx_pairs1, idx_pairs2
 
+def gen_grid(w, h, steps):
+    grid_list = []
+    u_list = np.linspace(0, w, steps + 1)
+    v_list = np.linspace(0, h, steps + 1)
+    for v in v_list:
+        for u in u_list:
+            grid_list.append( [u, v] )
+    return grid_list
+
+def smart_pair_matches(i1, i2, review=False):
+    # common camera parameters
+    K = camera.get_K()
+    IK = np.linalg.inv(K)
+    dist_coeffs = camera.get_dist_coeffs()
+    w, h = camera.get_image_params()
+    diag = int(math.sqrt(h*h + w*w))
+    print("h:", h, "w:", w)
+    print("scaled diag:", diag)
+    grid_steps = 8
+    grid_list = gen_grid(w, h, grid_steps)
+    ground_m = matcher_node.getFloat("ground_m")
+    match_ratio = matcher_node.getFloat("match_ratio")
+    
+    if review:
+        rgb1 = i1.load_rgb()
+        rgb2 = i2.load_rgb()
+
+    # project a grid of uv coordinates from image 2 out onto the
+    # supposed ground plane.  Then back project these 3d world points
+    # into image 1 uv coordinates.  Compute an estimated 'ideal'
+    # homography relationship between the two images as a starting
+    # search point for feature matches.
+    
+    proj_list = project.projectVectors( IK, i2.get_body2ned(),
+                                        i2.get_cam2body(),
+                                        grid_list )
+    ned2, ypr2, quat2 = i2.get_camera_pose()
+    pts_ned = project.intersectVectorsWithGroundPlane(ned2, ground_m,
+                                                      proj_list)
+    rvec1, tvec1 = i1.get_proj()
+    reproj_points, jac = cv2.projectPoints(np.array(pts_ned), rvec1, tvec1,
+                                           K, dist_coeffs)
+    reproj_list = reproj_points.reshape(-1,2).tolist()
+    # print("reprojected points:", reproj_list)
+
+    print("Should filter points outside of 2nd image space here and now!")
+
+    # affine, status = \
+    #     cv2.estimateAffinePartial2D(np.array([reproj_list]).astype(np.float32),
+    #                                 np.array([grid_list]).astype(np.float32))
+    # (rot, tx, ty, sx, sy) = decomposeAffine(affine)
+    # print("Affine:")
+    # print("Rotation (deg):", rot)
+    # print("Translation (pixels):", tx, ty)
+    # print("Skew:", sx, sy)
+
+    H, status = cv2.findHomography(np.array([reproj_list]).astype(np.float32),
+                                   np.array([grid_list]).astype(np.float32),
+                                   0)
+    #print("Preliminary H:", H)
+
+    matches = raw_matches(i1, i2, k=3)
+    print("Raw matches:", len(matches))
+
+    best_fitted_matches = 20    # don't proceed if we can't beat this value
+    
+    while True:
+        # print('H:', H)
+        src_pts = np.float32([i1.kp_list[i].pt for i in range(len(i1.kp_list))]).reshape(-1, 1, 2)
+        dst_pts = np.float32([i2.kp_list[i].pt for i in range(len(i2.kp_list))]).reshape(-1, 1, 2)
+        src_pts = cv2.perspectiveTransform(src_pts, H)
+
+        print("collect stats...")
+        match_stats = []
+        for i, m in enumerate(matches):
+            best_index = -1
+            best_metric = 9
+            best_angle = 0
+            best_size = 0
+            best_dist = 0
+            for j in range(len(m)):
+                if m[j].distance >= 300:
+                    break
+                ratio = m[0].distance / m[j].distance
+                if ratio < match_ratio:
+                    break
+                p1 = src_pts[m[j].queryIdx]
+                p2 = dst_pts[m[j].trainIdx]
+                #print(p1, p2)
+                raw_dist = np.linalg.norm(p2 - p1)
+                # angle difference mapped to +/- 90
+                #a1 = np.array(i1.kp_list[m[j].queryIdx].angle)
+                #a2 = np.array(i2.kp_list[m[j].trainIdx].angle)
+                #angle_diff = abs((a1-a2+90) % 180 - 90)
+                s1 = np.array(i1.kp_list[m[j].queryIdx].size)
+                s2 = np.array(i2.kp_list[m[j].trainIdx].size)
+                if s1 > s2:
+                    size_diff = s1 / s2
+                else:
+                    size_diff = s2 / s1
+                if size_diff > 1.25:
+                    continue
+                metric = size_diff / ratio
+                #print(" ", j, m[j].distance, size_diff, metric)
+                if best_index < 0 or metric < best_metric:
+                    best_metric = metric
+                    best_index = j
+                    #best_angle = angle_diff
+                    #best_size = size_diff
+                    best_dist = raw_dist
+            if best_index >= 0:
+                #print(i, best_index, m[best_index].distance, best_size, best_metric)
+                match_stats.append( [ m[best_index], best_dist ] )
+
+        min_pairs = 25
+        tol = int(diag*0.005)
+        if tol < 5: tol = 5
+
+        cutoffs = [ 16, 32, 64, 128, 256, 512, 1024 ]
+    
+        dist_bins = [[] for i in range(len(cutoffs))]
+        print("bins:", len(dist_bins))
+        for line in match_stats:
+            m = line[0]
+            best_dist = line[1]
+            for i, d in enumerate(cutoffs):
+                if best_dist < cutoffs[i]:
+                    dist_bins[i].append(m)
+
+        done = True
+        for i, dist_matches in enumerate(dist_bins):
+            print("bin:", i, "cutoff:", cutoffs[i], "len:", len(dist_matches))
+            if len(dist_matches) >= min_pairs:
+                src = []
+                dst = []
+                for m in dist_matches:
+                    src.append( i1.kp_list[m.queryIdx].pt )
+                    dst.append( i2.kp_list[m.trainIdx].pt )
+                H_test, status = cv2.findHomography(np.array([src]).astype(np.float32), np.array([dst]).astype(np.float32), cv2.RANSAC, tol)
+                num_fit = np.count_nonzero(status)
+                if num_fit > best_fitted_matches:
+                    done = False
+                    matches_fit = []
+                    matches_dist = []
+                    # affine, astatus = \
+                    #     cv2.estimateAffinePartial2D(np.array([src]).astype(np.float32),
+                    #                                 np.array([dst]).astype(np.float32))
+                    # (rot, tx, ty, sx, sy) = decomposeAffine(affine)
+                    # print("Affine:")
+                    # print("Rotation (deg):", rot)
+                    # print("Translation (pixels):", tx, ty)
+                    # print("Skew:", sx, sy)
+                    H = np.copy(H_test)
+                    # print("H:", H)
+                    for i, m in enumerate(dist_matches):
+                        if status[i]:
+                            matches_fit.append(m)
+                            matches_dist.append(m.distance)
+                    best_fitted_matches = len(matches_fit)
+                    print("Filtered matches:", len(dist_matches),
+                          "Fitted matches:", len(matches_fit))
+                    print("metric cutoff:", best_metric)
+                    matches_dist = np.array(matches_dist)
+                    print("avg match quality:", np.average(matches_dist))
+                    print("max match quality:", np.max(matches_dist))
+                    if review:
+                        i1_new = cv2.warpPerspective(rgb1, H, (rgb1.shape[1], rgb1.shape[0]))
+                        blend = cv2.addWeighted(i1_new, 0.5, rgb2, 0.5, 0)
+                        blend = cv2.resize(blend, (int(w*args.scale), int(h*args.scale)))
+                        cv2.imshow('blend', blend)
+                        draw_inlier(rgb1, rgb2, i1.kp_list, i2.kp_list, matches_fit, 'ONLY_LINES', args.scale)
+
+            # check for diminishing returns and bail early
+            #print(best_fitted_matches)
+            #if best_fitted_matches > 50:
+            #    break
+
+        if review:
+            cv2.waitKey()
+            
+        if done:
+            break
+        
+    if len(matches_fit) >= min_pairs:
+        idx_pairs = []
+        for m in matches_fit:
+            idx_pairs.append( [m.queryIdx, m.trainIdx] )
+        idx_pairs = filter_duplicates(i1, i2, idx_pairs)
+        if len(idx_pairs) >= min_pairs:
+            rev_pairs = []
+            for p in idx_pairs:
+                rev_pairs.append( [p[1], p[0]] )
+            qlog("  initial matches =", len(idx_pairs))
+            return idx_pairs, rev_pairs
+    return [], []
+
 def bruteforce_pair_matches(i1, i2, review=False):
     match_ratio = matcher_node.getFloat('match_ratio')
     w, h = camera.get_image_params()
@@ -506,7 +703,7 @@ def find_matches(image_list, K, transform="homography", sort=False,
             ned1, ypr1, q1 = i1.get_camera_pose()
             ned2, ypr2, q2 = i2.get_camera_pose()
             dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
-            dist = int(round(dist)) # slightly less sorted
+            dist = int(round(dist/2))*2 # slightly less sorted
             if dist >= min_dist and dist <= max_dist:
                 work_list.append( [dist, i, j] )
 
@@ -549,9 +746,11 @@ def find_matches(image_list, K, transform="homography", sort=False,
             t_end = t_start
         t_remain = t_end - t_elapsed
 
+        mode = "smart"     # smart, traditional, bruteforce
+
         # skip if match has already been computed
         if i2.name in i1.match_list and i1.name in i2.match_list:
-            if sort and len(i1.match_list[i2.name]) == 0:
+            if mode == "bruteforce" and len(i1.match_list[i2.name]) == 0:
                 log("Retrying: ", i1.name, "vs'", i2.name, "(no matches found previously)")
             else:
                 log("Skipping: ", i1.name, "vs'", i2.name, "already done.")
@@ -563,7 +762,7 @@ def find_matches(image_list, K, transform="homography", sort=False,
         else:
             msg += "%.1f (hr)" % (t_remain / 3600.0)
         qlog(msg)
-        qlog("  separation = %.1f (m)" % dist)
+        qlog("  separation (approx) = %.0f (m)" % dist)
 
         # update cache timers and make sure features/descriptors are loaded
         i1.desc_timestamp = time.time()
@@ -573,8 +772,10 @@ def find_matches(image_list, K, transform="homography", sort=False,
         if i2.kp_list is None or i2.des_list is None or not len(i2.kp_list) or not len(i2.des_list):
             i2.detect_features(detect_scale)
 
-        mode = "bruteforce"
-        if mode == "normal":
+        if mode == "smart":
+            i1.match_list[i2.name], i2.match_list[i1.name] \
+                = smart_pair_matches(i1, i2, review)
+        elif mode == "traditional":
             i1.match_list[i2.name], i2.match_list[i1.name] \
                 = bidirectional_pair_matches(i1, i2, review)
         elif mode == "bruteforce":

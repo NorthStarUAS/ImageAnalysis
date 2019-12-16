@@ -58,7 +58,7 @@ def merge_duplicates(proj):
     # the entire match set and collapses them down to eliminate any
     # redundancy.
     log("Merging keypoints with duplicate uv coordinates:")
-    for i, i1 in enumerate(tqdm(proj.image_list)):
+    for i, i1 in enumerate(tqdm(proj.image_list, smoothing=0.5)):
         for key in i1.match_list:
             matches = i1.match_list[key]
             count = 0
@@ -335,7 +335,7 @@ def triangulate_srtm(proj, matches):
             body2ned = image.get_body2ned()
             ned, ypr, quat = image.get_camera_pose()
             uv_list = [ m[1] ] # just one uv element
-            vec_list = proj.projectVectors(IK, body2ned, cam2body, uv_list)
+            vec_list = project.projectVectors(IK, body2ned, cam2body, uv_list)
             v = vec_list[0]
             if v[2] > 0.0:
                 d_proj = -(ned[2] + image.base_elev)

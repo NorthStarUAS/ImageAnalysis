@@ -81,8 +81,7 @@ class ProjectMgr():
                 log("project: creating cache directory:", cache_dir)
                 os.makedirs(cache_dir)
             else:
-                log("Error: cache dir doesn't exist:", cache_dir)
-                return False
+                log("Notice: cache dir doesn't exist:", cache_dir)
             
         # all is good
         return True
@@ -164,7 +163,7 @@ class ProjectMgr():
             log("Loading feature keypoints and descriptors:")
         else:
             log("Loading feature keypoints:")
-        for image in tqdm(self.image_list):
+        for image in tqdm(self.image_list, smoothing=0.05):
             image.load_features()
             if descriptors:
                 image.load_descriptors()
@@ -379,24 +378,6 @@ class ProjectMgr():
                 image = self.image_list[ p[0] ]
                 image.kp_used[ p[1] ] = True
                     
-    # project the list of (u, v) pixels from image space into camera
-    # space, remap that to a vector in ned space (for camera
-    # ypr=[0,0,0], and then transform that by the camera pose, returns
-    # the vector from the camera, through the pixel, into ned space
-    def projectVectors(self, IK, body2ned, cam2body, uv_list):
-        proj_list = []
-        for uv in uv_list:
-            uvh = np.array([uv[0], uv[1], 1.0])
-            proj = body2ned.dot(cam2body).dot(IK).dot(uvh)
-            proj_norm = transformations.unit_vector(proj)
-            proj_list.append(proj_norm)
-
-        #for uv in uv_list:
-        #    print "uv:", uv
-        #    uvh = np.array([uv[0], uv[1], 1.0])
-        #    print "cam vec=", transformations.unit_vector(IR.dot(IK).dot(uvh))
-        return proj_list
-
     # project the (u, v) pixels for the specified image using the current
     # sba pose and write them to image.vec_list
     def projectVectorsImageSBA(self, IK, image):
@@ -409,23 +390,6 @@ class ProjectMgr():
             proj_norm = transformations.unit_vector(proj)
             vec_list.append(proj_norm)
         return vec_list
-
-    # given a set of vectors in the ned frame, and a starting point.
-    # Find the ground intersection point.  For any vectors which point into
-    # the sky, return just the original reference/starting point.
-    def intersectVectorsWithGroundPlane(self, pose_ned, ground_m, v_list):
-        pt_list = []
-        for v in v_list:
-            # solve projection
-            p = pose_ned
-            if v[2] > 0.0:
-                d_proj = -(pose_ned[2] + ground_m)
-                factor = d_proj / v[2]
-                n_proj = v[0] * factor
-                e_proj = v[1] * factor
-                p = [ pose_ned[0] + n_proj, pose_ned[1] + e_proj, pose_ned[2] + d_proj ]
-            pt_list.append(p)
-        return pt_list
 
     def polyval2d(self, x, y, m):
         order = int(np.sqrt(len(m))) - 1
@@ -510,7 +474,7 @@ class ProjectMgr():
             # pitch.)
             cam2body = image.get_cam2body()
             
-            vec_list = self.projectVectors(IK, body2ned, cam2body, uv_filt)
+            vec_list = projectVectors(IK, body2ned, cam2body, uv_filt)
 
             # intersect the vectors with the surface to find the 3d points
             ned, ypr, quat = image.get_camera_pose()
@@ -574,13 +538,49 @@ class ProjectMgr():
             # pitch.)
             cam2body = image.get_cam2body()
             
-            vec_list = self.projectVectors(IK, body2ned, cam2body, image.uv_list)
+            vec_list = projectVectors(IK, body2ned, cam2body, image.uv_list)
 
             # intersect the vectors with the surface to find the 3d points
             if cam_dict == None:
                 pose = image.camera_pose
             else:
                 pose = cam_dict[image.name]
-            pts_ned = self.intersectVectorsWithGroundPlane(pose['ned'],
-                                                           ground_m, vec_list)
+            pts_ned = intersectVectorsWithGroundPlane(pose['ned'],
+                                                      ground_m, vec_list)
             image.coord_list = pts_ned
+
+# project the list of (u, v) pixels from image space into camera
+# space, remap that to a vector in ned space (for camera
+# ypr=[0,0,0], and then transform that by the camera pose, returns
+# the vector from the camera, through the pixel, into ned space
+def projectVectors(IK, body2ned, cam2body, uv_list):
+    proj_list = []
+    for uv in uv_list:
+        uvh = np.array([uv[0], uv[1], 1.0])
+        proj = body2ned.dot(cam2body).dot(IK).dot(uvh)
+        proj_norm = transformations.unit_vector(proj)
+        proj_list.append(proj_norm)
+
+    #for uv in uv_list:
+    #    print "uv:", uv
+    #    uvh = np.array([uv[0], uv[1], 1.0])
+    #    print "cam vec=", transformations.unit_vector(IR.dot(IK).dot(uvh))
+    return proj_list
+
+# given a set of vectors in the ned frame, and a starting point.
+# Find the ground intersection point.  For any vectors which point into
+# the sky, return just the original reference/starting point.
+def intersectVectorsWithGroundPlane(pose_ned, ground_m, v_list):
+    pt_list = []
+    for v in v_list:
+        # solve projection
+        p = pose_ned
+        if v[2] > 0.0:
+            d_proj = -(pose_ned[2] + ground_m)
+            factor = d_proj / v[2]
+            n_proj = v[0] * factor
+            e_proj = v[1] * factor
+            p = [ pose_ned[0] + n_proj, pose_ned[1] + e_proj, pose_ned[2] + d_proj ]
+        pt_list.append(p)
+    return pt_list
+

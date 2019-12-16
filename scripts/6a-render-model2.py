@@ -207,12 +207,15 @@ if True:
         image.distorted_uv = proj.redistort(grid_list, optimized=True)
 
         if args.direct:
-            proj_list = proj.projectVectors( IK, image.get_body2ned(),
-                                             image.get_cam2body(), grid_list )
+            proj_list = project.projectVectors( IK, image.get_body2ned(),
+                                                image.get_cam2body(),
+                                                grid_list )
         else:
             #print(image.get_body2ned(opt=True))
-            proj_list = proj.projectVectors( IK, image.get_body2ned(opt=True),
-                                             image.get_cam2body(), grid_list )
+            proj_list = project.projectVectors( IK,
+                                                image.get_body2ned(opt=True),
+                                                image.get_cam2body(),
+                                                grid_list )
         #print 'proj_list:', proj_list
 
         if args.direct:
@@ -221,16 +224,17 @@ if True:
             ned, ypr, quat = image.get_camera_pose(opt=True)
         #print('cam orig:', image.camera_pose['ned'], 'optimized:', ned)
         if args.ground:
-            pts_ned = proj.intersectVectorsWithGroundPlane(ned,
-                                                           args.ground, proj_list)
+            pts_ned = project.intersectVectorsWithGroundPlane(ned,
+                                                              args.ground,
+                                                              proj_list)
         elif args.srtm:
             pts_ned = sss.interpolate_vectors(ned, proj_list)
         elif False:
             # this never seemed that productive
             print(image.name, image.z_avg)
-            pts_ned = proj.intersectVectorsWithGroundPlane(ned,
-                                                           image.z_avg,
-                                                           proj_list)
+            pts_ned = project.intersectVectorsWithGroundPlane(ned,
+                                                              image.z_avg,
+                                                              proj_list)
         elif True:
             # intersect with our polygon surface approximation
             pts_ned = intersect_vectors(ned, proj_list, -image.z_avg)

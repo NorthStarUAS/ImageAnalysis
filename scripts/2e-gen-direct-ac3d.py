@@ -76,12 +76,12 @@ for image in image_list:
     print('grid_list:', grid_list)
     
     if not args.sba:
-        proj_list = proj.projectVectors( IK, image.get_body2ned(),
-                                         image.get_cam2body(), grid_list )
+        proj_list = project.projectVectors( IK, image.get_body2ned(),
+                                            image.get_cam2body(), grid_list )
     else:
         print(image.get_body2ned_sba())
-        proj_list = proj.projectVectors( IK, image.get_body2ned_sba(),
-                                         image.get_cam2body(), grid_list )
+        proj_list = project.projectVectors( IK, image.get_body2ned_sba(),
+                                            image.get_cam2body(), grid_list )
     print('proj_list:', proj_list)
         
     if not args.sba:
@@ -90,8 +90,8 @@ for image in image_list:
         ned = image.camera_pose_sba['ned']
     print('ned', image.camera_pose['ned'], ned)
     if args.ground:
-        pts_ned = proj.intersectVectorsWithGroundPlane(ned,
-                                                       args.ground, proj_list)
+        pts_ned = project.intersectVectorsWithGroundPlane(ned, args.ground,
+                                                          proj_list)
     else:
         pts_ned = sss.interpolate_vectors(ned, proj_list)
     print("pts_3d (ned):\n", pts_ned)

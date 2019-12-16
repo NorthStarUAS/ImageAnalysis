@@ -181,12 +181,14 @@ def build_map(proj, group_list, group_index):
             image.distorted_uv = proj.redistort(grid_list, optimized=True)
 
             if use_direct_pose:
-                proj_list = proj.projectVectors( IK, image.get_body2ned(),
-                                                 image.get_cam2body(), grid_list )
+                proj_list = project.projectVectors( IK, image.get_body2ned(),
+                                                    image.get_cam2body(),
+                                                    grid_list )
             else:
                 #print(image.get_body2ned(opt=True))
-                proj_list = proj.projectVectors( IK, image.get_body2ned(opt=True),
-                                                 image.get_cam2body(), grid_list )
+                proj_list = project.projectVectors( IK, image.get_body2ned(opt=True),
+                                                    image.get_cam2body(),
+                                                    grid_list )
             #print 'proj_list:', proj_list
 
             if use_direct_pose:
@@ -195,7 +197,7 @@ def build_map(proj, group_list, group_index):
                 ned, ypr, quat = image.get_camera_pose(opt=True)
             #print('cam orig:', image.camera_pose['ned'], 'optimized:', ned)
             if force_ground_elevation_m:
-                pts_ned = proj.intersectVectorsWithGroundPlane(ned, force_ground_elevation_m, proj_list)
+                pts_ned = project.intersectVectorsWithGroundPlane(ned, force_ground_elevation_m, proj_list)
             elif use_srtm_surface:
                 # setup SRTM ground interpolator
                 from lib import srtm
@@ -204,9 +206,7 @@ def build_map(proj, group_list, group_index):
             elif False:
                 # this never seemed that productive
                 print(image.name, image.z_avg)
-                pts_ned = proj.intersectVectorsWithGroundPlane(ned,
-                                                               image.z_avg,
-                                                               proj_list)
+                pts_ned = project.intersectVectorsWithGroundPlane(ned, image.z_avg, proj_list)
             elif True:
                 # intersect with our polygon surface approximation
                 pts_ned = intersect_vectors(interp, ned, proj_list, -image.z_avg)

@@ -88,6 +88,9 @@ parser.add_argument('--filter', default='gms',
                     choices=['gms', 'homography', 'fundamental', 'essential', 'none'])
 parser.add_argument('--min-chain-length', type=int, default=3, help='minimum match chain length (3 recommended)')
 
+# for smart matching
+parser.add_argument('--ground', type=float, required=True, help="ground elevation")
+
 # optimizer arguments
 parser.add_argument('--group', type=int, default=0, help='group number')
 parser.add_argument('--cam-calibration', action='store_true', help='include camera calibration in the optimization.')
@@ -241,7 +244,8 @@ if not state.check("STEP3a"):
     matcher_node.setFloat('min_dist', args.min_dist)
     matcher_node.setFloat('max_dist', args.max_dist)
     matcher_node.setInt('min_chain_len', args.min_chain_length)
-
+    matcher_node.setFloat('ground_m', args.ground)
+    
     # save any config changes
     proj.save()
 
