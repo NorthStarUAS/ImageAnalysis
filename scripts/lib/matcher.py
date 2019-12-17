@@ -741,9 +741,9 @@ def find_matches(image_list, K, transform="homography", sort=False,
         # skip if match has already been computed
         if i2.name in i1.match_list and i1.name in i2.match_list:
             if (mode == "smart" or mode == "bruteforce") and len(i1.match_list[i2.name]) == 0:
-                log("Retrying: ", i1.name, "vs'", i2.name, "(no matches found previously)")
+                log("Retrying: ", i1.name, "vs", i2.name, "(no matches found previously)")
             else:
-                log("Skipping: ", i1.name, "vs'", i2.name, "already done.")
+                log("Skipping: ", i1.name, "vs", i2.name, "already done.")
                 continue
 
         msg = "Matching %s vs %s - %.1f%% done: " % (i1.name, i2.name, percent * 100.0)

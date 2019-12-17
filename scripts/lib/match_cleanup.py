@@ -327,7 +327,7 @@ def triangulate_srtm(proj, matches):
     log("Estimating initial projection for each feature...")
     bad_count = 0
     bad_indices = []
-    for i, match in enumerate(tqdm(matches)):
+    for i, match in enumerate(tqdm(matches, smoothing=0.02)):
         sum = np.zeros(3)
         array = []              # fixme: temp/debug
         for m in match[2:]:
