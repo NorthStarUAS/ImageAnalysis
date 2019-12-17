@@ -100,6 +100,7 @@ parser.add_argument('--refine', action='store_true', help='refine a previous opt
 args = parser.parse_args()
 
 log("Project processed on host:", socket.gethostname())
+log("Project processed with arguments:", args)
 
 ############################################################################
 log("Step 1: setup the project", fancy=True)
