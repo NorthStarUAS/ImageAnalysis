@@ -1,0 +1,28 @@
+{
+    "K": [
+        3633.937688367866,
+        0.0,
+        1224,
+        0.0,
+        3633.937688367866,
+        1024,
+        0.0,
+        0.0,
+        1.0
+    ],
+    "ccd_height_mm": 4.65,
+    "ccd_width_mm": 6.2,
+    "dist_coeffs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+    ],
+    "focal_len_mm": 25,
+    "height_px": 2048,
+    "lens_model": "5.0mm-35175_810-45nm",
+    "make": "Sentera",
+    "model": "Zynq7030-Quad-5MP-GS",
+    "width_px": 2448
+}
