@@ -220,7 +220,7 @@ class HUD:
         self.act_rud = rudder
 
     def update_task(self, record):
-        if 'ap' in record:
+        if 'ap' in record and 'route_size' in record['ap']:
             route_size = record['ap']['route_size']
             if route_size < len(self.route):
                 print("Trimming route to size:", route_size)
