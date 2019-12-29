@@ -33,6 +33,7 @@ from lib import optimizer
 from lib import pose
 from lib import project
 from lib import render_panda3d
+from lib import srtm
 from lib import state
 
 # from the aura-props python package
