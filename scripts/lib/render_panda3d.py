@@ -202,8 +202,8 @@ def build_map(proj, group_list, group_index):
             elif use_srtm_surface:
                 # setup SRTM ground interpolator
                 from lib import srtm
-                sss = srtm.NEDGround( ref, 6000, 6000, 30 )
-                pts_ned = sss.interpolate_vectors(ned, proj_list)
+                srtm.initialize( ref, 6000, 6000, 30 )
+                pts_ned = srtm.interpolate_vectors(ned, proj_list)
             elif False:
                 # this never seemed that productive
                 print(image.name, image.z_avg)

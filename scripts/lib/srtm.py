@@ -117,9 +117,6 @@ class SRTM():
     def lla_interpolate(self, point_list):
         return self.lla_interp(point_list)
 
-    def ned_interpolate(self, point_list):
-        return self.ned_interp(point_list)
-
     def plot_raw(self):
         zzz = np.zeros((1201,1201))
         for r in range(0,1201):
@@ -139,173 +136,181 @@ class SRTM():
 # but allows areas to span corners or edges of srtm tiles and attempts
 # to stay on a fast path of regular grids, even though a regularly lla
 # grid != a regular ned grid.
-class NEDGround():
-    def __init__(self, lla_ref, width_m, height_m, step_m):
-        self.tile_dict = {}
-        self.load_tiles(lla_ref, width_m, height_m)
-        self.make_interpolator(lla_ref, width_m, height_m, step_m)
-        
-    def load_tiles(self, lla_ref, width_m, height_m):
-        log("SRTM: loading DEM tiles")
-        ll_ned = np.array([[-height_m*0.5, -width_m*0.5, 0.0]])
-        ur_ned = np.array([[height_m*0.5, width_m*0.5, 0.0]])
-        ll_lla = navpy.ned2lla(ll_ned, lla_ref[0], lla_ref[1], lla_ref[2])
-        ur_lla = navpy.ned2lla(ur_ned, lla_ref[0], lla_ref[1], lla_ref[2])
-        #print ll_lla
-        #print ur_lla
-        lat1, lon1 = lla_ll_corner( ll_lla[0], ll_lla[1] )
-        lat2, lon2 = lla_ll_corner( ur_lla[0], ur_lla[1] )
-        for lat in range(lat1, lat2+1):
-            for lon in range(lon1, lon2+1):
-                srtm = SRTM(lat, lon, '../srtm')
-                if srtm.parse():
-                    srtm.make_lla_interpolator()
-                    #srtm.plot_raw()
-                    tile_name = make_tile_name(lat, lon)
-                    self.tile_dict[tile_name] = srtm
-                
-    def make_interpolator(self, lla_ref, width_m, height_m, step_m):
-        log("SRTM: constructing NED area interpolator")
-        rows = int(height_m / step_m) + 1
-        cols = int(width_m / step_m) + 1
-        #ned_pts = np.zeros((cols, rows))
-        #for r in range(0,rows):
-        #    for c in range(0,cols):
-        #        idx = (cols*r)+c
-        #        #va = self.srtm_z[idx]
-        #        #if va == 65535 or va < 0 or va > 10000:
-        #        #    va = 0.0
-        #        #z = va
-        #        ned_pts[c,r] = 0.0
-        
-        # build regularly gridded x,y coordinate list and ned_pts array
-        n_list = np.linspace(-height_m*0.5, height_m*0.5, rows)
-        e_list = np.linspace(-width_m*0.5, width_m*0.5, cols)
-        #print "e's:", e_list
-        #print "n's:", n_list
-        ned_pts = []
-        for e in e_list:
-            for n in n_list:
-                ned_pts.append( [n, e, 0] )
+tile_dict = {}
+ned_interp = None
 
-        # convert ned_pts list to lla coordinates (so it's not
-        # necessarily an exact grid anymore, but we can now
-        # interpolate elevations out of the lla interpolators for each
-        # tile.
-        navpy_pts = navpy.ned2lla(ned_pts, lla_ref[0], lla_ref[1], lla_ref[2])
-        #print navpy_pts
-        
-        # build list of (lat, lon) points for doing actual lla
-        # elevation lookup
-        ll_pts = []
-        for i in range( len(navpy_pts[0]) ):
-            lat = navpy_pts[0][i]
-            lon = navpy_pts[1][i]
-            ll_pts.append( [ lon, lat ] )
-        #print "ll_pts:", ll_pts
+def initialize(lla_ref, width_m, height_m, step_m):
+    global tile_dict
+    if len(tile_dict):
+        log("Reinitializing SRTM interpolator which is probably not necessary")
+        tile_dict = {}
+    else:
+        log("Initializing the SRTM interpolator")
+    load_tiles(lla_ref, width_m, height_m)
+    make_interpolator(lla_ref, width_m, height_m, step_m)
 
-        # set all the elevations in the ned_ds list to the extreme
-        # minimum value. (rows,cols) might seem funny, but (ne)d is
-        # reversed from (xy)z ... don't think about it too much or
-        # you'll get a headache. :-)
-        ned_ds = np.zeros((rows,cols))
-        ned_ds[:][:] = -32768
-        #print "ned_ds:", ned_ds
-        
-        # for each tile loaded, interpolate as many elevation values
-        # as we can, then copy the good values into ned_ds.  When we
-        # finish all the loaded tiles, we should have elevations for
-        # the entire range of points.
-        for tile in self.tile_dict:
-            zs = self.tile_dict[tile].lla_interpolate(np.array(ll_pts))
-            #print zs
-            # copy the good altitudes back to the corresponding ned points
-            for r in range(0,rows):
-                for c in range(0,cols):
-                    idx = (rows*c)+r
-                    if zs[idx] > -10000:
-                        ned_ds[r,c] = zs[idx]
+def load_tiles(lla_ref, width_m, height_m):
+    log("SRTM: loading DEM tiles")
+    ll_ned = np.array([[-height_m*0.5, -width_m*0.5, 0.0]])
+    ur_ned = np.array([[height_m*0.5, width_m*0.5, 0.0]])
+    ll_lla = navpy.ned2lla(ll_ned, lla_ref[0], lla_ref[1], lla_ref[2])
+    ur_lla = navpy.ned2lla(ur_ned, lla_ref[0], lla_ref[1], lla_ref[2])
+    #print ll_lla
+    #print ur_lla
+    lat1, lon1 = lla_ll_corner( ll_lla[0], ll_lla[1] )
+    lat2, lon2 = lla_ll_corner( ur_lla[0], ur_lla[1] )
+    for lat in range(lat1, lat2+1):
+        for lon in range(lon1, lon2+1):
+            srtm = SRTM(lat, lon, '../srtm')
+            if srtm.parse():
+                srtm.make_lla_interpolator()
+                #srtm.plot_raw()
+                tile_name = make_tile_name(lat, lon)
+                tile_dict[tile_name] = srtm
 
-        # quick sanity check
+def make_interpolator(lla_ref, width_m, height_m, step_m):
+    log("SRTM: constructing NED area interpolator")
+    rows = int(height_m / step_m) + 1
+    cols = int(width_m / step_m) + 1
+    #ned_pts = np.zeros((cols, rows))
+    #for r in range(0,rows):
+    #    for c in range(0,cols):
+    #        idx = (cols*r)+c
+    #        #va = self.srtm_z[idx]
+    #        #if va == 65535 or va < 0 or va > 10000:
+    #        #    va = 0.0
+    #        #z = va
+    #        ned_pts[c,r] = 0.0
+
+    # build regularly gridded x,y coordinate list and ned_pts array
+    n_list = np.linspace(-height_m*0.5, height_m*0.5, rows)
+    e_list = np.linspace(-width_m*0.5, width_m*0.5, cols)
+    #print "e's:", e_list
+    #print "n's:", n_list
+    ned_pts = []
+    for e in e_list:
+        for n in n_list:
+            ned_pts.append( [n, e, 0] )
+
+    # convert ned_pts list to lla coordinates (so it's not
+    # necessarily an exact grid anymore, but we can now
+    # interpolate elevations out of the lla interpolators for each
+    # tile.
+    navpy_pts = navpy.ned2lla(ned_pts, lla_ref[0], lla_ref[1], lla_ref[2])
+    #print navpy_pts
+
+    # build list of (lat, lon) points for doing actual lla
+    # elevation lookup
+    ll_pts = []
+    for i in range( len(navpy_pts[0]) ):
+        lat = navpy_pts[0][i]
+        lon = navpy_pts[1][i]
+        ll_pts.append( [ lon, lat ] )
+    #print "ll_pts:", ll_pts
+
+    # set all the elevations in the ned_ds list to the extreme
+    # minimum value. (rows,cols) might seem funny, but (ne)d is
+    # reversed from (xy)z ... don't think about it too much or
+    # you'll get a headache. :-)
+    ned_ds = np.zeros((rows,cols))
+    ned_ds[:][:] = -32768
+    #print "ned_ds:", ned_ds
+
+    # for each tile loaded, interpolate as many elevation values
+    # as we can, then copy the good values into ned_ds.  When we
+    # finish all the loaded tiles, we should have elevations for
+    # the entire range of points.
+    for tile in tile_dict:
+        zs = tile_dict[tile].lla_interpolate(np.array(ll_pts))
+        #print zs
+        # copy the good altitudes back to the corresponding ned points
         for r in range(0,rows):
             for c in range(0,cols):
                 idx = (rows*c)+r
-                if ned_ds[r,c] < -10000:
-                    log("Problem interpolating elevation for:", ll_pts[idx])
-                    ned_ds[r,c] = 0.0
-        #print "ned_ds:", ned_ds
+                if zs[idx] > -10000:
+                    ned_ds[r,c] = zs[idx]
 
-        # now finally build the actual grid interpolator with evenly
-        # spaced ned n, e values and elevations interpolated out of
-        # the srtm lla interpolator.
-        self.interp = scipy.interpolate.RegularGridInterpolator((n_list, e_list), ned_ds, bounds_error=False, fill_value=-32768)
+    # quick sanity check
+    for r in range(0,rows):
+        for c in range(0,cols):
+            idx = (rows*c)+r
+            if ned_ds[r,c] < -10000:
+                log("Problem interpolating elevation for:", ll_pts[idx])
+                ned_ds[r,c] = 0.0
+    #print "ned_ds:", ned_ds
 
-        do_plot = False
-        if do_plot:
-            imshow(ned_ds, interpolation='bilinear', origin='lower', cmap=cm.gray, alpha=1.0)
-            grid(False)
-            show()
-        
-        do_test = False
-        if do_test:
-            for i in range(40):
-                ned = [(random.random()-0.5)*height_m,
-                       (random.random()-0.5)*width_m,
-                       0.0]
-                lla = navpy.ned2lla(ned, lla_ref[0], lla_ref[1], lla_ref[2])
-                #print "ned=%s, lla=%s" % (ned, lla)
-                nedz = self.interp([ned[0], ned[1]])
-                tile = make_tile_name(lla[0], lla[1])
-                llaz = self.tile_dict[tile].lla_interpolate(np.array([lla[1], lla[0]]))
-                qlog("nedz=%.2f llaz=%.2f" % (nedz, llaz))
+    # now finally build the actual grid interpolator with evenly
+    # spaced ned n, e values and elevations interpolated out of
+    # the srtm lla interpolator.
+    global ned_interp
+    ned_interp = scipy.interpolate.RegularGridInterpolator((n_list, e_list), ned_ds, bounds_error=False, fill_value=-32768)
 
-    # while error > eps: find altitude at current point, new pt = proj
-    # vector to current alt.
-    def interpolate_vector(self, ned, v):
-        #print ned
-        p = ned[:] # copy hopefully
+    do_plot = False
+    if do_plot:
+        imshow(ned_ds, interpolation='bilinear', origin='lower', cmap=cm.gray, alpha=1.0)
+        grid(False)
+        show()
 
-        # sanity check (always assume camera pose is above ground!)
-        if v[2] <= 0.0:
-            return p
-        
-        eps = 0.01
-        count = 0
-        #print "start:", p
-        #print "vec:", v
-        #print "ned:", ned
-        tmp = self.interp([p[0], p[1]])
-        if not np.isnan(tmp[0]) and tmp[0] > -32768:
-            ground = tmp[0]
-        else:
-            ground = 0.0
-        error = abs(p[2] + ground)
-        #print "  p=%s ground=%s error=%s" % (p, ground, error)
-        while error > eps and count < 25:
-            d_proj = -(ned[2] + ground)
-            factor = d_proj / v[2]
-            n_proj = v[0] * factor
-            e_proj = v[1] * factor
-            #print "proj = %s %s" % (n_proj, e_proj)
-            p = [ ned[0] + n_proj, ned[1] + e_proj, ned[2] + d_proj ]
-            #print "new p:", p
-            tmp = self.interp([p[0], p[1]])
-            if not np.isnan(tmp[0]) and tmp[0] > -32768:
-                ground = tmp[0]
-            error = abs(p[2] + ground)
-            #print "  p=%s ground=%.2f error = %.3f" % (p, ground, error)
-            count += 1
-        #print "ground:", ground[0]
-        if np.any(np.isnan(p)):
-            print('SRTM interpolation made a nan:' ,p)
+    do_test = False
+    if do_test:
+        for i in range(40):
+            ned = [(random.random()-0.5)*height_m,
+                   (random.random()-0.5)*width_m,
+                   0.0]
+            lla = navpy.ned2lla(ned, lla_ref[0], lla_ref[1], lla_ref[2])
+            #print "ned=%s, lla=%s" % (ned, lla)
+            nedz = ned_interp([ned[0], ned[1]])
+            tile = make_tile_name(lla[0], lla[1])
+            llaz = tile_dict[tile].lla_interpolate(np.array([lla[1], lla[0]]))
+            qlog("nedz=%.2f llaz=%.2f" % (nedz, llaz))
+
+# while error > eps: find altitude at current point, new pt = proj
+# vector to current alt.
+def interpolate_vector(ned, v):
+    #print ned
+    p = ned[:] # copy hopefully
+
+    # sanity check (always assume camera pose is above ground!)
+    if v[2] <= 0.0:
         return p
 
-    # return a list of (3d) ground intersection points for the give
-    # vector list and camera pose.  Vectors are already transformed
-    # into ned orientation.
-    def interpolate_vectors(self, ned, v_list):
-        pt_list = []
-        for v in v_list:
-            p = self.interpolate_vector(ned, v.flatten())
-            pt_list.append(p)
-        return pt_list
+    eps = 0.01
+    count = 0
+    #print "start:", p
+    #print "vec:", v
+    #print "ned:", ned
+    tmp = ned_interp([p[0], p[1]])
+    if not np.isnan(tmp[0]) and tmp[0] > -32768:
+        ground = tmp[0]
+    else:
+        ground = 0.0
+    error = abs(p[2] + ground)
+    #print "  p=%s ground=%s error=%s" % (p, ground, error)
+    while error > eps and count < 25:
+        d_proj = -(ned[2] + ground)
+        factor = d_proj / v[2]
+        n_proj = v[0] * factor
+        e_proj = v[1] * factor
+        #print "proj = %s %s" % (n_proj, e_proj)
+        p = [ ned[0] + n_proj, ned[1] + e_proj, ned[2] + d_proj ]
+        #print "new p:", p
+        tmp = ned_interp([p[0], p[1]])
+        if not np.isnan(tmp[0]) and tmp[0] > -32768:
+            ground = tmp[0]
+        error = abs(p[2] + ground)
+        #print "  p=%s ground=%.2f error = %.3f" % (p, ground, error)
+        count += 1
+    #print "ground:", ground[0]
+    if np.any(np.isnan(p)):
+        print('SRTM interpolation made a nan:' ,p)
+    return p
+
+# return a list of (3d) ground intersection points for the give
+# vector list and camera pose.  Vectors are already transformed
+# into ned orientation.
+def interpolate_vectors(ned, v_list):
+    pt_list = []
+    for v in v_list:
+        p = dinterpolate_vector(ned, v.flatten())
+        pt_list.append(p)
+    return pt_list

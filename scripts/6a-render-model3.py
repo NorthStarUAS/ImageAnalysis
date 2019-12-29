@@ -54,7 +54,7 @@ ref = [ ref_node.getFloat('lat_deg'),
         ref_node.getFloat('alt_m') ]
   
 # setup SRTM ground interpolator
-sss = srtm.NEDGround( ref, 6000, 6000, 30 )
+srtm.initialize( ref, 6000, 6000, 30 )
 
 width, height = proj.cam.get_image_params()
 
@@ -245,7 +245,7 @@ if True:
                                                               args.ground,
                                                               proj_list)
         elif args.srtm:
-            pts_ned = sss.interpolate_vectors(ned, proj_list)
+            pts_ned = srtm.interpolate_vectors(ned, proj_list)
         else:
             # intersect with our polygon surface approximation
             pts_ned = intersect_vectors(ned, proj_list, -image.z_avg)
