@@ -12,8 +12,10 @@ from props import getNode
 from lib import camera
 from lib import groups
 from lib import line_solver
+from lib.logger import log
 from lib import project
 from lib import match_cleanup
+from lib import srtm
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
@@ -55,6 +57,15 @@ def undistort(uv_orig):
     return uv_new[0][0]
     
 if args.method == 'srtm':
+    ref_node = getNode('/config/ned_reference', True)
+    ref = [ ref_node.getFloat('lat_deg'),
+            ref_node.getFloat('lon_deg'),
+            ref_node.getFloat('alt_m') ]
+    log("NED reference location:", ref)
+
+    # local surface approximation
+    srtm.initialize( ref, 6000, 6000, 30)
+
     match_cleanup.triangulate_srtm(proj, matches)
 
     # # lookup ned reference
