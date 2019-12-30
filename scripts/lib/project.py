@@ -26,6 +26,7 @@ from . import image
 from . import logger
 from .logger import log, qlog
 # from . import Render
+from . import srtm
 from . import state
 from . import transformations
 
@@ -132,7 +133,7 @@ class ProjectMgr():
     def detect_camera(self):
         image_dir = self.project_dir
         for file in os.listdir(image_dir):
-            if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
+            if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG') or fnmatch.fnmatch(file, '*.tif') or fnmatch.fnmatch(file, '*.TIF'):
                 image_file = os.path.join(image_dir, file)
                 camera, make, model, lens_model = \
                     exif.get_camera_info(image_file)
@@ -187,35 +188,6 @@ class ProjectMgr():
             for name in wipe_list:
                 del image.match_list[name]
 
-    # generate a n x n structure of image vs. image pair matches and
-    # return it
-    def generate_match_pairs(self, matches_direct):
-        # generate skeleton structure
-        result = []
-        for i, i1 in enumerate(self.image_list):
-            matches = []
-            for j, i2 in enumerate(self.image_list):
-                matches.append( [] )
-            result.append(matches)
-        # fill in the structure (a match = ned point followed by
-        # image/feat-index, ...)
-        for k, match in enumerate(matches_direct):
-            #print match
-            for p1 in match[1:]:
-                for p2 in match[1:]:
-                    if p1 == p2:
-                        pass
-                        #print 'skip self match'
-                    else:
-                        #print p1, 'vs', p2
-                        i = p1[0]; j = p2[0]
-                        result[i][j].append( [p1[1], p2[1], k] )
-        #for i, i1 in enumerate(self.image_list):
-        #    for j, i2 in enumerate(self.image_list):
-        #        print 'a:', self.image_list[i].match_list[j]
-        #        print 'b:', result[i][j]
-        return result
-                
     def save_images_info(self):
         # create a project dictionary and write it out as json
         if not os.path.exists(self.analysis_dir):
@@ -274,6 +246,13 @@ class ProjectMgr():
         ned_node.setFloat('lon_deg', lon_sum / count)
         ned_node.setFloat('alt_m', 0.0)
 
+    # find srtm surface altitude under each camera pose
+    def update_srtm_surfaces(self):
+        for image in self.image_list:
+            ned, ypr, quat = image.get_camera_pose()
+            surface = srtm.ned_interp([ned[0], ned[1]])
+            image.node.setFloat("srtm_surface_m", surface)
+        
     def undistort_uvlist(self, image, uv_orig):
         if len(uv_orig) == 0:
             return []

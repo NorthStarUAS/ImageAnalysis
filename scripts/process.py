@@ -202,6 +202,7 @@ srtm.initialize( ref, 6000, 6000, 30)
 # location is specfied in ned, so do this after computing the ned
 # reference point for this project.
 pose.compute_camera_poses(proj)
+proj.update_srtm_surfaces()
 
 # save the poses
 proj.save_images_info()
