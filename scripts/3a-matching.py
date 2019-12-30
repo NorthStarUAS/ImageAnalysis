@@ -10,6 +10,7 @@ from props import getNode
 from lib import camera
 from lib import matcher
 from lib import project
+from lib import srtm
 
 # working on matching features ...
 
@@ -89,6 +90,16 @@ matcher_node.setInt('min_chain_len', args.min_chain_length)
 
 # save any config changes
 proj.save()
+
+ref_node = getNode('/config/ned_reference', True)
+ref = [ ref_node.getFloat('lat_deg'),
+        ref_node.getFloat('lon_deg'),
+        ref_node.getFloat('alt_m') ]
+log("NED reference location:", ref)
+# local surface approximation
+srtm.initialize( ref, 6000, 6000, 30)
+proj.update_srtm_surfaces()
+proj.save_images_info()
 
 # camera calibration
 K = camera.get_K()
