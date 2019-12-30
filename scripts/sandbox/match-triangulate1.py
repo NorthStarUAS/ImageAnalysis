@@ -8,8 +8,11 @@ import math
 import numpy as np
 from tqdm import tqdm
 
+from props import getNode
+
 from lib import camera
 from lib import project
+from lib import srtm
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
@@ -22,8 +25,13 @@ proj.load_images_info()
 # proj.load_features(descriptors=False)
 proj.load_match_pairs()
 
-ratio_cutoff = 0.60
-grid_steps = 8
+# lookup ned reference
+ref_node = getNode("/config/ned_reference", True)
+ref = [ ref_node.getFloat('lat_deg'),
+        ref_node.getFloat('lon_deg'),
+        ref_node.getFloat('alt_m') ]
+# setup SRTM ground interpolator
+sss = srtm.NEDGround( ref, 6000, 6000, 30 )
 
 # common camera parameters
 K = camera.get_K()
@@ -49,6 +57,13 @@ for i, i1 in enumerate(proj.image_list):
         if not i2.kp_list or not len(i2.kp_list):
             i2.load_features()
 
+        # srtm based elevation
+        ned1, ypr1, quat1 = i1.get_camera_pose()
+        ned2, ypr2, quat2 = i2.get_camera_pose()
+        g1 = sss.interp( [ned1[0], ned1[1]] )
+        g2 = sss.interp( [ned2[0], ned2[1]] )
+
+        # pose/triangulation based elevation
         rvec1, tvec1 = i1.get_proj()
         rvec2, tvec2 = i2.get_proj()
         R1, jac = cv2.Rodrigues(rvec1)
@@ -70,7 +85,7 @@ for i, i1 in enumerate(proj.image_list):
         sum += np.average(points[2])*num_matches
         count += num_matches
         
-        print(" ", i1.name, "+", i2.name, "avg ground est:", np.average(points[2]))
+        print(" ", i1.name, "+", i2.name, "avg ground est: %.1f" % np.average(points[2]), "srtm: %.1f" % ((g1 + g2)*0.5) )
     if count > 0:
         print(i1.name, "estimated surface below:", "%.1f" % (sum / count))
     else:
