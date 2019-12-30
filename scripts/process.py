@@ -33,6 +33,7 @@ from lib import optimizer
 from lib import pose
 from lib import project
 from lib import render_panda3d
+from lib import srtm
 from lib import state
 
 # from the aura-props python package
@@ -188,9 +189,14 @@ else:
 # compute the project's NED reference location (based on average of
 # aircraft poses)
 proj.compute_ned_reference_lla()
-ned_node = getNode('/config/ned_reference', True)
-log("NED reference location:", ned_node.getFloat('lat_deg'),
-           ned_node.getFloat('lon_deg'), ned_node.getFloat('alt_m'))
+ref_node = getNode('/config/ned_reference', True)
+ref = [ ref_node.getFloat('lat_deg'),
+        ref_node.getFloat('lon_deg'),
+        ref_node.getFloat('alt_m') ]
+log("NED reference location:", ref)
+
+# local surface approximation
+srtm.initialize( ref, 6000, 6000, 30)
 
 # set the camera poses (fixed offset from aircraft pose) Camera pose
 # location is specfied in ned, so do this after computing the ned

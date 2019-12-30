@@ -177,7 +177,7 @@ class ProjectMgr():
             print("set of found matches.")
             time.sleep(2)
         log("Loading keypoint (pair) matches:")
-        for image in tqdm(self.image_list):
+        for image in tqdm(self.image_list, smoothing=0.05):
             image.load_matches()
             wipe_list = []
             for name in image.match_list:

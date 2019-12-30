@@ -308,20 +308,11 @@ def triangulate_srtm(proj, matches):
     K = camera.get_K(optimized=False)
     IK = np.linalg.inv(K)
     
-    # lookup ned reference
-    ref_node = getNode("/config/ned_reference", True)
-    ref = [ ref_node.getFloat('lat_deg'),
-            ref_node.getFloat('lon_deg'),
-            ref_node.getFloat('alt_m') ]
-
-    # setup SRTM ground interpolator
-    sss = srtm.NEDGround( ref, 3000, 3000, 30 )
-
     # for each image lookup the SRTM elevation under the camera
     log("Looking up SRTM base elevation for each image location...")
     for image in proj.image_list:
         ned, ypr, quat = image.get_camera_pose()
-        image.base_elev = sss.interp([ned[0], ned[1]])[0]
+        image.base_elev = srtm.ned_interp([ned[0], ned[1]])[0]
         # print(image.name, image.base_elev)
 
     log("Estimating initial projection for each feature...")

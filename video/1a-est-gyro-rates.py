@@ -14,9 +14,9 @@ from props import PropertyNode
 import props_json
 
 sys.path.append('../scripts')
-from lib import Render
+from lib import render4geotiff
 from lib import transformations
-r = Render.Render()
+r = render4geotiff.Render()
 
 d2r = math.pi / 180.0
 r2d = 180.0 / math.pi

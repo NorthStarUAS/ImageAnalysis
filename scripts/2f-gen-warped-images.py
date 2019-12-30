@@ -1,8 +1,5 @@
 #!/usr/bin/python
 
-import sys
-sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
-
 import argparse
 import commands
 import cv2
@@ -12,11 +9,10 @@ import os.path
 import random
 import navpy
 
-sys.path.append('../lib')
-import project
-import Render
-import srtm
-import transformations
+from lib import project
+from lib import Render
+from lib import srtm
+from lib import transformations
 
 # for all the images in the project image_dir, compute the camera
 # poses from the aircraft pose (and camera mounting transform).
@@ -37,7 +33,7 @@ proj.load_image_info()
 ref = proj.ned_reference_lla
 
 # setup SRTM ground interpolator
-sss = srtm.NEDGround( ref, 2000, 2000, 30 )
+srtm.initialize( ref, 2000, 2000, 30 )
 
 camw, camh = proj.cam.get_image_params()
 dist_coeffs = proj.cam.get_dist_coeffs()
@@ -56,9 +52,9 @@ for image in proj.image_list:
                                         pose=args.pose )
     #print "proj_list:\n", proj_list
     if args.pose == 'direct':
-        pts_ned = sss.interpolate_vectors(image.camera_pose, proj_list)
+        pts_ned = srtm.interpolate_vectors(image.camera_pose, proj_list)
     elif args.pose == 'sba':
-        pts_ned = sss.interpolate_vectors(image.camera_pose_sba, proj_list)
+        pts_ned = srtm.interpolate_vectors(image.camera_pose_sba, proj_list)
     # print "pts (ned):\n", pts_ned
     
     image.corner_list_ned = []

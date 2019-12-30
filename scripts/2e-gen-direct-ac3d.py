@@ -38,7 +38,7 @@ proj.load_image_info()
 ref = proj.ned_reference_lla
 
 # setup SRTM ground interpolator
-sss = srtm.NEDGround( ref, 6000, 6000, 30 )
+srtm.initialize( ref, 6000, 6000, 30 )
 
 ac3d_steps = 8
 
@@ -93,7 +93,7 @@ for image in image_list:
         pts_ned = project.intersectVectorsWithGroundPlane(ned, args.ground,
                                                           proj_list)
     else:
-        pts_ned = sss.interpolate_vectors(ned, proj_list)
+        pts_ned = srtm.interpolate_vectors(ned, proj_list)
     print("pts_3d (ned):\n", pts_ned)
 
     # convert ned to xyz and stash the result for each image
