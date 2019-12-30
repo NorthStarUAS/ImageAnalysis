@@ -7,11 +7,11 @@ from .logger import log
 
 state_path = None
 
-def init(analysis_path):
+def init(path):
     global state_path
-    if not os.path.isdir(analysis_path):
-        log("state: analysis_path missing:", analysis_path)
-    state_path = analysis_path
+    if not os.path.isdir(path):
+        log("state: path missing:", path)
+    state_path = path
 
 def check(file):
     full_file = os.path.join(state_path, file)

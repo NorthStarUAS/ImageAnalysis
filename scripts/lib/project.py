@@ -64,9 +64,6 @@ class ProjectMgr():
         # log directory
         logger.init(self.analysis_dir)
 
-        # state manager
-        state.init(self.analysis_dir)
-        
         # and make other children directories
         meta_dir = os.path.join(self.analysis_dir, "meta")
         if not os.path.exists(meta_dir):
@@ -83,7 +80,15 @@ class ProjectMgr():
                 os.makedirs(cache_dir)
             else:
                 log("Notice: cache dir doesn't exist:", cache_dir)
-            
+        state_dir = os.path.join(self.analysis_dir, "state")
+        if not os.path.exists(state_dir):
+            if create_if_needed:
+                log("project: creating state directory:", state_dir)
+                os.makedirs(state_dir)
+            else:
+                log("Notice: state dir doesn't exist:", state_dir)
+        state.init(state_dir)
+       
         # all is good
         return True
 
@@ -251,7 +256,7 @@ class ProjectMgr():
         for image in self.image_list:
             ned, ypr, quat = image.get_camera_pose()
             surface = srtm.ned_interp([ned[0], ned[1]])
-            image.node.setFloat("srtm_surface_m", surface)
+            image.node.setFloat("srtm_surface_m", float("%.1f" % surface))
         
     def undistort_uvlist(self, image, uv_orig):
         if len(uv_orig) == 0:
