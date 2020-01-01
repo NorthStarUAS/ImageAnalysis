@@ -7,6 +7,8 @@ import cv2
 import math
 import numpy as np
 from tqdm import tqdm
+import random
+import time
 
 from lib import camera
 from lib import project
@@ -177,6 +179,7 @@ for line in dist_list:
     }
     search_params = dict(checks=100)
     matcher = cv2.FlannBasedMatcher(flann_params, search_params)
+    random.seed(time.time())
     matches = matcher.knnMatch(i1.des_list, i2.des_list, k=3)
     print("Raw matches:", len(matches))
 
@@ -229,6 +232,7 @@ for line in dist_list:
                     best_dist = raw_dist
             if best_index >= 0:
                 match_stats.append( [ m[best_index], best_dist ] )
+        print("initial pairs:", len(match_stats))
 
         min_pairs = 25
         tol = int(diag*0.005)
@@ -289,6 +293,8 @@ for line in dist_list:
             if best_fitted_matches > 50:
                 break
 
-        cv2.waitKey()
+        if best_fitted_matches > 20:
+            cv2.waitKey()
+            
         if done:
             break
