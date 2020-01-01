@@ -47,20 +47,11 @@ def triangulate_ned(i1, i2):
     points /= points[3]
     return points
 
-def estimate_surface(i1, i2):
-    points = triangulate(i1, i2)
+def estimate_surface_ned(i1, i2):
+    points = triangulate_ned(i1, i2)
+    # num_matches = points.shape[1]
     if points is None:
-        return None
+        return None, None
     else:
-        return np.average(points[2])*num_matches
+        return np.average(points[2]), np.std(points[2])
     
-#     num_matches = len(i1.match_list[i2.name])
-#     sum += np.average(points[2])*num_matches
-#     count += num_matches
-
-#     print(" ", i1.name, "+", i2.name, "avg ground est: %.1f" % np.average(points[2]), "srtm: %.1f" % ((g1 + g2)*0.5) )
-    
-# if count > 0:
-#     print(i1.name, "estimated surface below:", "%.1f" % (sum / count))
-# else:
-#     print(i1.name, "no matches, no triangulation, no estimate")
