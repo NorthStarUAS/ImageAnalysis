@@ -91,7 +91,7 @@ parser.add_argument('--filter', default='gms',
 parser.add_argument('--min-chain-length', type=int, default=3, help='minimum match chain length (3 recommended)')
 
 # for smart matching
-parser.add_argument('--ground', type=float, required=True, help="ground elevation")
+parser.add_argument('--ground', type=float, help="ground elevation")
 
 # optimizer arguments
 parser.add_argument('--group', type=int, default=0, help='group number')
@@ -254,7 +254,8 @@ if not state.check("STEP3a"):
     matcher_node.setFloat('min_dist', args.min_dist)
     matcher_node.setFloat('max_dist', args.max_dist)
     matcher_node.setInt('min_chain_len', args.min_chain_length)
-    matcher_node.setFloat('ground_m', args.ground)
+    if args.ground:
+        matcher_node.setFloat('ground_m', args.ground)
     
     # save any config changes
     proj.save()
