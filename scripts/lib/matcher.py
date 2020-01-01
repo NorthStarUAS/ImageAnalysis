@@ -10,6 +10,8 @@ from matplotlib import pyplot as plt
 import numpy as np
 import time
 from tqdm import tqdm
+import random
+import time
 
 from props import getNode
 
@@ -17,8 +19,9 @@ from . import camera
 from .find_obj import explore_match
 from . import image_list
 from .logger import log, qlog
-from lib import project
+from . import project
 from . import transformations
+from . import triangulate
 
 detector_node = getNode('/config/detector', True)
 matcher_node = getNode('/config/matcher', True)
@@ -27,6 +30,10 @@ detect_scale = 0.40
 the_matcher = None
 max_distance = None
 min_pairs = 25
+
+# the flann based matcher uses random starting points so some
+# borderline matching results may change from one run to the next.
+random.seed(time.time())
 
 # Configure the matching session (setup the values in the property
 # tree and call this function before any others.  Note, putting the
@@ -348,7 +355,16 @@ def smart_pair_matches(i1, i2, review=False):
     print("h:", h, "w:", w, "diag:", diag)
     grid_steps = 8
     grid_list = gen_grid(w, h, grid_steps)
-    ground_m = matcher_node.getFloat("ground_m")
+
+    if matcher_node.hasChild("ground_m"):
+        ground_m = matcher_node.getFloat("ground_m")
+        qlog("Forced ground:", ground_m)
+    else:
+        g1 = i1.node.getFloat("srtm_surface_m")
+        g2 = i2.node.getFloat("srtm_surface_m")
+        ground_m = (g1 + g2) * 0.5
+        qlog("SRTM ground:", ground_m)
+        
     match_ratio = matcher_node.getFloat("match_ratio")
     
     if review:
@@ -437,7 +453,6 @@ def smart_pair_matches(i1, i2, review=False):
             if best_index >= 0:
                 match_stats.append( [ m[best_index], best_dist ] )
 
-        min_pairs = 25
         tol = int(diag*0.005)
         if tol < 5: tol = 5
 
@@ -693,20 +708,21 @@ def find_matches(image_list, K, transform="homography", sort=False,
             ned1, ypr1, q1 = i1.get_camera_pose()
             ned2, ypr2, q2 = i2.get_camera_pose()
             dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
-            dist = int(round(dist/2))*2 # slightly less sorted
+            dist = int(round(dist/2))*2 # discretized sorting/cache friendlier
             if dist >= min_dist and dist <= max_dist:
                 work_list.append( [dist, i, j] )
 
     if sort:
         # (optional) sort worklist from closest pairs to furthest pairs
-        # (caution, this will currently break the kp/des cache clearing)
+        # (caution, this is less cache friendly, but hopefully mitigated
+        # a bit by the discritized sorting scheme.)
         #
-        # benefits of sorting by distance: most important work is done
+        # benefits of sorting by distance: more important work is done
         # first (chance to quit early)
         #
         # benefits of sorting by order: for large memory usage, active
         # memory pool decreases as work progresses (becoming more and
-        # more system friendly.)
+        # more system friendly as the match progresses.)
         work_list = sorted(work_list, key=lambda fields: fields[0])
 
     # note: image.desc_timestamp is used to unload not recently
@@ -740,7 +756,7 @@ def find_matches(image_list, K, transform="homography", sort=False,
 
         # skip if match has already been computed
         if i2.name in i1.match_list and i1.name in i2.match_list:
-            if (mode == "smart" or mode == "bruteforce") and len(i1.match_list[i2.name]) == 0:
+            if (True or mode == "smart" or mode == "bruteforce") and len(i1.match_list[i2.name]) == 0:
                 log("Retrying: ", i1.name, "vs", i2.name, "(no matches found previously)")
             else:
                 log("Skipping: ", i1.name, "vs", i2.name, "already done.")
@@ -774,6 +790,9 @@ def find_matches(image_list, K, transform="homography", sort=False,
 
         dist_stats.append( [ dist, len(i1.match_list[i2.name]) ] )
 
+        # update surface triangulation (estimate)
+        avg, std = triangulate.estimate_surface_ned(i1, i2)
+        
         # save our work so far, and flush descriptor cache
         if time.time() >= save_time + save_interval:
             log('saving matches ...')
