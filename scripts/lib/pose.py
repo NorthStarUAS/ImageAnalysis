@@ -41,12 +41,22 @@ r2d = 180.0 / math.pi
 # +z axis = up, +yaw = nose right
 
 
+# return a sorted list of images
+def gen_image_list(image_dir):
+    images = []
+    for file in os.listdir(image_dir):
+        if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
+            images.append(file)
+    return sorted(images)
+
 # define the image aircraft poses from Sentera meta data file
 def setAircraftPoses(proj, posefile="", order='ypr', max_angle=25.0):
     log("Setting aircraft poses")
     
     analysis_dir = os.path.join(proj.project_dir, 'ImageAnalysis')
     proj.image_list = []
+
+    by_index = False
     
     f = fileinput.input(posefile)
     for line in f:
@@ -57,8 +67,17 @@ def setAircraftPoses(proj, posefile="", order='ypr', max_angle=25.0):
         if re.match('^\s*File', line):
             #print("skipping header ", line)
             continue
+        if re.match('^\s*Image', line):
+            #print("skipping header ", line)
+            by_index = True
+            file_list = gen_image_list(proj.project_dir)
+            continue
         field = line.split(',')
-        name = field[0]
+        if not by_index:
+            name = field[0]
+        else:
+            index = int(field[0]) - 1
+            name = file_list[index]
         lat_deg = float(field[1])
         lon_deg = float(field[2])
         alt_m = float(field[3])
