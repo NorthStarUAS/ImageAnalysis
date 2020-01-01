@@ -20,8 +20,8 @@ from .find_obj import explore_match
 from . import image_list
 from .logger import log, qlog
 from . import project
+from . import surface
 from . import transformations
-from . import triangulate
 
 detector_node = getNode('/config/detector', True)
 matcher_node = getNode('/config/matcher', True)
@@ -360,10 +360,14 @@ def smart_pair_matches(i1, i2, review=False):
         ground_m = matcher_node.getFloat("ground_m")
         qlog("Forced ground:", ground_m)
     else:
-        g1 = i1.node.getFloat("srtm_surface_m")
-        g2 = i2.node.getFloat("srtm_surface_m")
-        ground_m = (g1 + g2) * 0.5
-        qlog("SRTM ground:", ground_m)
+        ground_m = surface.get_estimate(i1, i2)
+        if ground_m is None:
+            g1 = i1.node.getFloat("srtm_surface_m")
+            g2 = i2.node.getFloat("srtm_surface_m")
+            ground_m = (g1 + g2) * 0.5
+            qlog("No triangulation yet, reverting to SRTM ground:", ground_m)
+        else:
+            qlog("Triangulated ground est:", ground_m)
         
     match_ratio = matcher_node.getFloat("match_ratio")
     
@@ -686,12 +690,11 @@ def bruteforce_pair_matches(i1, i2, review=False):
             return idx_pairs, rev_pairs
     return [], []
     
-def find_matches(image_list, K, transform="homography", sort=False,
-                 review=False):
+def find_matches(proj, K, transform="homography", sort=False, review=False):
     min_dist = matcher_node.getFloat('min_dist')
     max_dist = matcher_node.getFloat('max_dist')
 
-    n = len(image_list) - 1
+    n = len(proj.image_list) - 1
     n_work = float(n*(n+1)/2)
     t_start = time.time()
 
@@ -700,8 +703,8 @@ def find_matches(image_list, K, transform="homography", sort=False,
 
     log('Generating work list for range:', min_dist, '-', max_dist)
     work_list = []
-    for i, i1 in enumerate(tqdm(image_list)):
-        for j, i2 in enumerate(image_list):
+    for i, i1 in enumerate(tqdm(proj.image_list)):
+        for j, i2 in enumerate(proj.image_list):
             if j <= i:
                 continue
             # camera pose distance check
@@ -739,8 +742,8 @@ def find_matches(image_list, K, transform="homography", sort=False,
         dist = line[0]
         i = line[1]
         j = line[2]
-        i1 = image_list[i]
-        i2 = image_list[j]
+        i1 = proj.image_list[i]
+        i2 = proj.image_list[j]
 
         # eta estimation
         percent = n_count / float(len(work_list))
@@ -779,33 +782,44 @@ def find_matches(image_list, K, transform="homography", sort=False,
             i2.detect_features(detect_scale)
 
         if mode == "smart":
-            i1.match_list[i2.name], i2.match_list[i1.name] \
-                = smart_pair_matches(i1, i2, review)
+            match_fwd, match_rev = smart_pair_matches(i1, i2, review)
         elif mode == "traditional":
-            i1.match_list[i2.name], i2.match_list[i1.name] \
-                = bidirectional_pair_matches(i1, i2, review)
+            match_fwd, match_rev = bidirectional_pair_matches(i1, i2, review)
         elif mode == "bruteforce":
-            i1.match_list[i2.name], i2.match_list[i1.name] \
-                = bruteforce_pair_matches(i1, i2)
+            match_fwd, match_rev = bruteforce_pair_matches(i1, i2)
+        i1.match_list[i2.name] = match_fwd
+        i2.match_list[i1.name] = match_rev
 
-        dist_stats.append( [ dist, len(i1.match_list[i2.name]) ] )
+        dist_stats.append( [ dist, len(match_fwd) ] )
 
         # update surface triangulation (estimate)
-        avg, std = triangulate.estimate_surface_ned(i1, i2)
-        
+        avg, std = surface.update_estimate(i1, i2)
+
+        # new feature, depends on a reasonably quality initial camera
+        # pose!  caution: I've put a policy setting here in the middle
+        # of a capability for initial testing.  if we find a match,
+        # but the std dev of the altitude of the triangulated features
+        # > 25 (m) then we think this is a bad match and we delete the
+        # pairs.
+        if std and std >= 25:
+            i1.match_list[i2.name] = []
+            i2.match_list[i1.name] = []
+            log("Std dev of surface triangulation blew up, matches are probably bad so discarding them!", i1.name, i2.name, "avg:", avg, "std:", std, "count:", len(match_fwd))
+            
         # save our work so far, and flush descriptor cache
         if time.time() >= save_time + save_interval:
-            log('saving matches ...')
-            saveMatches(image_list)
+            log('saving matches and image meta data ...')
+            saveMatches(proj.image_list)
+            proj.save_images_info()
             save_time = time.time()
             time_list = []
-            for i3 in image_list:
+            for i3 in proj.image_list:
                 if not i3.des_list is None:
                     time_list.append( [i3.desc_timestamp, i3] )
             time_list = sorted(time_list, key=lambda fields: fields[0],
                                reverse=True)
             # may wish to monitor and update cache_size formula
-            cache_size = 20 + 5 * (int(math.sqrt(len(image_list))) + 1)
+            cache_size = 20 + 5 * (int(math.sqrt(len(proj.image_list))) + 1)
             flush_list = time_list[cache_size:]
             qlog("flushing keypoint/descriptor cache - size: %d (over by: %d)" % (cache_size, len(flush_list)) )
             for line in flush_list:
@@ -815,7 +829,8 @@ def find_matches(image_list, K, transform="homography", sort=False,
                 line[1].uv_list = None
 
     # and save
-    saveMatches(image_list)
+    saveMatches(proj.image_list)
+    proj.save_images_info()
     print('Pair-wise matches successfully saved.')
 
     if len(dist_stats):

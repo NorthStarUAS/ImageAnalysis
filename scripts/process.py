@@ -268,8 +268,8 @@ if not state.check("STEP3a"):
     
     # fire up the matcher
     matcher.configure()
-    matcher.find_matches(proj.image_list, K, transform=args.filter,
-                         sort=True, review=False)
+    matcher.find_matches(proj, K, transform=args.filter, sort=True,
+                         review=False)
 
     feature_count = 0
     image_count = 0

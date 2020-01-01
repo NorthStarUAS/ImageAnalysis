@@ -9,7 +9,7 @@ from props import getNode
 
 from lib import project
 from lib import srtm
-from lib import triangulate
+from lib import surface
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('--project', required=True, help='project directory')
@@ -43,7 +43,7 @@ for i, i1 in enumerate(proj.image_list):
         g2 = srtm.ned_interp( [ned2[0], ned2[1]] )
 
         # pose/triangulation based elevation
-        points = triangulate.triangulate_ned(i1, i2)
+        points = surface.triangulate_ned(i1, i2)
         if not points is None:
             num_matches = points.shape[1]
             sum += np.average(points[2])*num_matches
