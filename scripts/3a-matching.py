@@ -8,6 +8,7 @@ import os
 from props import getNode
 
 from lib import camera
+from lib.logger import log
 from lib import matcher
 from lib import project
 from lib import srtm
