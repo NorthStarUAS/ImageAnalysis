@@ -49,7 +49,7 @@ for i, i1 in enumerate(proj.image_list):
             sum += np.average(points[2])*num_matches
             count += num_matches
         
-            print(" ", i1.name, "+", i2.name, "avg ground est: %.1f" % np.average(points[2]), "srtm: %.1f" % ((g1 + g2)*0.5) )
+            print(" ", i1.name, "+", i2.name, "srtm: %.1f" % ((g1 + g2)*0.5), "triang est: %.1f" % np.average(points[2]), "triang std: %.1f" % np.std(points[2]))
     if count > 0:
         print(i1.name, "estimated surface below:", "%.1f" % (sum / count))
     else:
