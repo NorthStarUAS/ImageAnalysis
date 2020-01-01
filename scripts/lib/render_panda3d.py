@@ -234,10 +234,10 @@ def build_map(proj, group_list, group_index):
                                resolution=texture_resolution)
 
     # and the obj/mtl 3d format (hopefully for webgl use)
-    objmtl.generate_from_grid(proj, group_list[group_index],
-                               src_dir=img_src_dir,
-                               analysis_dir=proj.analysis_dir,
-                               resolution=texture_resolution)
+    #objmtl.generate_from_grid(proj, group_list[group_index],
+    #                           src_dir=img_src_dir,
+    #                           analysis_dir=proj.analysis_dir,
+    #                           resolution=texture_resolution)
     
     # call the ac3d generator
     # AC3D.generate(proj.image_list, group_list[0], src_dir=img_src_dir,
