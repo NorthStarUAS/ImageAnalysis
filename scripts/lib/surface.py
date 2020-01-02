@@ -63,8 +63,6 @@ def update_estimate(i1, i2):
     if avg is None:
         return None, None
     
-    qlog("surface est:", i1.name, i2.name, avg, std)
-
     tri1_node = i1.node.getChild("tri_surface_pairs", True)
     tri2_node = i2.node.getChild("tri_surface_pairs", True)
     
@@ -108,8 +106,9 @@ def update_estimate(i1, i2):
     if count2 > 0:
         i2.node.setFloat("tri_surface_m", float("%.1f" % (sum2 / count2)))
 
-    # in case the caller is interested
-    return avg, std
+    # in case the caller is interested. notice: work is done in NED so
+    # returning the negative of the down
+    return -avg, std
 
 # return the average of estimated surfaces below the image pair
 def get_estimate(i1, i2):
