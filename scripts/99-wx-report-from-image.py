@@ -8,6 +8,8 @@ import os
 import piexif
 from libxmp.utils import file_to_dict
 
+from lib import srtm
+
 parser = argparse.ArgumentParser(description="Lookup a weather report for the location/time an image was captured.")
 parser.add_argument("--image", required=False, help="geotagged image")
 parser.add_argument("--lat", required=False, type=float, help="image lat")
@@ -151,3 +153,10 @@ else:
                 " A%.0f=\n" % (inhg*100)
         )
 
+ref = [ lat, lon, 0.0 ]
+print("NED reference location:", ref)
+
+# local surface approximation
+srtm.initialize( ref, 6000, 6000, 30)
+surface = srtm.ned_interp([0, 0])
+print("SRTM surface elevation below image: %.1f m (egm96)" % surface)
