@@ -365,9 +365,9 @@ def smart_pair_matches(i1, i2, review=False):
             g1 = i1.node.getFloat("srtm_surface_m")
             g2 = i2.node.getFloat("srtm_surface_m")
             ground_m = (g1 + g2) * 0.5
-            qlog("No triangulation yet, reverting to SRTM ground:", ground_m)
+            qlog("  no triangulation found, using SRTM ground: %.1f" % ground_m)
         else:
-            qlog("Triangulated ground est:", ground_m)
+            qlog("  triangulated ground est: %.1f" % ground_m)
         
     match_ratio = matcher_node.getFloat("match_ratio")
     
@@ -794,6 +794,8 @@ def find_matches(proj, K, transform="homography", sort=False, review=False):
 
         # update surface triangulation (estimate)
         avg, std = surface.update_estimate(i1, i2)
+        if avg and std:
+            qlog(" ", i1.name, i2.name, "surface est: %.1f" % avg, "std: %.1f" % std)
 
         # new feature, depends on a reasonably quality initial camera
         # pose!  caution: I've put a policy setting here in the middle
