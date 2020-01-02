@@ -21,7 +21,6 @@ from props import root, getNode
 import props_json
 
 from . import camera
-from . import exif
 from . import image
 from . import logger
 from .logger import log, qlog
@@ -136,6 +135,7 @@ class ProjectMgr():
         #root.pretty_print()
 
     def detect_camera(self):
+        from . import exif      # only import if we call this fucntion
         image_dir = self.project_dir
         for file in os.listdir(image_dir):
             if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG') or fnmatch.fnmatch(file, '*.tif') or fnmatch.fnmatch(file, '*.TIF'):
