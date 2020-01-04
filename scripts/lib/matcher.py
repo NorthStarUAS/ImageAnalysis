@@ -365,9 +365,9 @@ def smart_pair_matches(i1, i2, review=False):
             g1 = i1.node.getFloat("srtm_surface_m")
             g2 = i2.node.getFloat("srtm_surface_m")
             ground_m = (g1 + g2) * 0.5
-            qlog("  no triangulation found, using SRTM ground: %.1f" % ground_m)
+            qlog("  STRM ground (no triangulation yet): %.1f" % ground_m)
         else:
-            qlog("  triangulated ground est: %.1f" % ground_m)
+            qlog("  Triangulated ground est: %.1f" % ground_m)
         
     match_ratio = matcher_node.getFloat("match_ratio")
     
@@ -812,7 +812,7 @@ def find_matches(proj, K, transform="homography", sort=False, review=False):
         if time.time() >= save_time + save_interval:
             log('saving matches and image meta data ...')
             saveMatches(proj.image_list)
-            proj.save_images_info()
+            surface.save(proj.analysis_dir)
             save_time = time.time()
             time_list = []
             for i3 in proj.image_list:
@@ -832,7 +832,7 @@ def find_matches(proj, K, transform="homography", sort=False, review=False):
 
     # and save
     saveMatches(proj.image_list)
-    proj.save_images_info()
+    surface.save(proj.analysis_dir)
     print('Pair-wise matches successfully saved.')
 
     if len(dist_stats):

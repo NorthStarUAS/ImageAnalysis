@@ -72,4 +72,4 @@ for i, i1 in enumerate(proj.image_list):
     else:
         print(i1.name, "no matches, no triangulation, no estimate")
 
-proj.save_images_info()
+# proj.save_images_info()
