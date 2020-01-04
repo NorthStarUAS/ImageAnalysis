@@ -13,11 +13,9 @@ import numpy.matlib as npm
 import os
 from props import getNode
 
-import sys
-sys.path.append('../lib')
-import groups
-import project
-import transformations
+from lib import groups
+from lib import project
+from lib import transformations
 
 r2d = 180.0 / math.pi
 d2r = math.pi / 180.0
@@ -32,6 +30,7 @@ print("Loading image info...")
 proj.load_images_info()
 
 group_list = groups.load(proj.analysis_dir)
+print(group_list)
 
 # compute an average transform between original camera attitude estimate
 # and optimized camera attitude estimate
