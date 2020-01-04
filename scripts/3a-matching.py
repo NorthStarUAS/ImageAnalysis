@@ -99,7 +99,7 @@ ref = [ ref_node.getFloat('lat_deg'),
 log("NED reference location:", ref)
 # local surface approximation
 srtm.initialize( ref, 6000, 6000, 30)
-proj.update_srtm_surfaces()
+surface.update_srtm_elevations(proj)
 proj.save_images_info()
 
 # camera calibration

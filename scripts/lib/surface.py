@@ -2,11 +2,18 @@
 
 import cv2
 import numpy as np
+import os
+
+from props import getNode
+import props_json
 
 from . import camera
 from . import image
 from .logger import log, qlog
 from . import project
+from . import srtm
+
+surface_node = getNode("/surface", True)
 
 # compute the 3d triangulation of the matches between a pair of images
 def triangulate_ned(i1, i2):
@@ -62,9 +69,11 @@ def update_estimate(i1, i2):
     avg, std = estimate_surface_ned(i1, i2)
     if avg is None:
         return None, None
-    
-    tri1_node = i1.node.getChild("tri_surface_pairs", True)
-    tri2_node = i2.node.getChild("tri_surface_pairs", True)
+
+    i1_node = surface_node.getChild(i1.name, True)
+    i2_node = surface_node.getChild(i2.name, True)
+    tri1_node = i1_node.getChild("tri_surface_pairs", True)
+    tri2_node = i2_node.getChild("tri_surface_pairs", True)
     
     # update pairwise info in the property tree
     weight = len(i1.match_list[i2.name])
@@ -91,7 +100,7 @@ def update_estimate(i1, i2):
             sum1 += surf * weight
             count1 += weight
     if count1 > 0:
-        i1.node.setFloat("tri_surface_m", float("%.1f" % (sum1 / count1)))
+        i1_node.setFloat("tri_surface_m", float("%.1f" % (sum1 / count1)))
 
     sum2 = 0
     count2 = 0
@@ -104,27 +113,49 @@ def update_estimate(i1, i2):
             sum2 += surf * weight
             count2 += weight
     if count2 > 0:
-        i2.node.setFloat("tri_surface_m", float("%.1f" % (sum2 / count2)))
+        i2_node.setFloat("tri_surface_m", float("%.1f" % (sum2 / count2)))
 
     # in case the caller is interested. notice: work is done in NED so
-    # returning the negative of the down
+    # returning the negative of the downbb
     return -avg, std
 
 # return the average of estimated surfaces below the image pair
 def get_estimate(i1, i2):
-    tri1_node = i1.node.getChild("tri_surface_pairs", True)
-    tri2_node = i2.node.getChild("tri_surface_pairs", True)
+    i1_node = surface_node.getChild(i1.name, True)
+    i2_node = surface_node.getChild(i2.name, True)
+    tri1_node = i1_node.getChild("tri_surface_pairs", True)
+    tri2_node = i2_node.getChild("tri_surface_pairs", True)
 
     count = 0
     sum = 0
-    if i1.node.hasChild("tri_surface_m"):
-        sum += i1.node.getFloat("tri_surface_m")
+    if i1_node.hasChild("tri_surface_m"):
+        sum += i1_node.getFloat("tri_surface_m")
         count += 1
-    if i2.node.hasChild("tri_surface_m"):
-        sum += i2.node.getFloat("tri_surface_m")
+    if i2_node.hasChild("tri_surface_m"):
+        sum += i2_node.getFloat("tri_surface_m")
         count += 1
         
     if count > 0:
         return sum / count
+
+    # no triangulation estimate yet, fall back to SRTM lookup
+    
     else:
         return None
+
+# find srtm surface altitude under each camera pose
+def update_srtm_elevations(proj):
+    for image in proj.image_list:
+        ned, ypr, quat = image.get_camera_pose()
+        surface = srtm.ned_interp([ned[0], ned[1]])
+        image_node = surface_node.getChild(image.name, True)
+        image_node.setFloat("srtm_surface_m", float("%.1f" % surface))
+        
+def load(analysis_dir):
+    surface_file = os.path.join(analysis_dir, "surface.json")
+    props_json.load(surface_file, surface_node)
+
+def save(analysis_dir):
+    surface_file = os.path.join(analysis_dir, "surface.json")
+    props_json.save(surface_file, surface_node)
+    

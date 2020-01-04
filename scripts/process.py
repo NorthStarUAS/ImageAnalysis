@@ -35,6 +35,7 @@ from lib import project
 from lib import render_panda3d
 from lib import srtm
 from lib import state
+from lib import surface
 
 # from the aura-props python package
 from props import getNode, PropertyNode
@@ -202,7 +203,7 @@ srtm.initialize( ref, 6000, 6000, 30)
 # location is specfied in ned, so do this after computing the ned
 # reference point for this project.
 pose.compute_camera_poses(proj)
-proj.update_srtm_surfaces()
+surface.update_srtm_elevations(proj)
 
 # save the poses
 proj.save_images_info()
@@ -220,6 +221,7 @@ log("Step 3: feature matching", fancy=True)
 if not state.check("STEP3a"):
     proj.load_images_info()
     proj.load_match_pairs()
+    surface.load(proj.analysis_dir)
 
     # setup project detector parameters
     detector_node = getNode('/config/detector', True)

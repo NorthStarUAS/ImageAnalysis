@@ -25,7 +25,6 @@ from . import image
 from . import logger
 from .logger import log, qlog
 # from . import Render
-from . import srtm
 from . import state
 from . import transformations
 
@@ -251,13 +250,6 @@ class ProjectMgr():
         ned_node.setFloat('lon_deg', lon_sum / count)
         ned_node.setFloat('alt_m', 0.0)
 
-    # find srtm surface altitude under each camera pose
-    def update_srtm_surfaces(self):
-        for image in self.image_list:
-            ned, ypr, quat = image.get_camera_pose()
-            surface = srtm.ned_interp([ned[0], ned[1]])
-            image.node.setFloat("srtm_surface_m", float("%.1f" % surface))
-        
     def undistort_uvlist(self, image, uv_orig):
         if len(uv_orig) == 0:
             return []
