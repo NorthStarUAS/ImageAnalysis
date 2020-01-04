@@ -6,7 +6,6 @@
 import copy
 import cv2
 import math
-from matplotlib import pyplot as plt
 import numpy as np
 import time
 from tqdm import tqdm
@@ -698,17 +697,14 @@ def find_matches(proj, K, transform="homography", sort=False, review=False):
     n_work = float(n*(n+1)/2)
     t_start = time.time()
 
-    # camera separation vs. matches stats
-    dist_stats = []
-
     log('Generating work list for range:', min_dist, '-', max_dist)
     work_list = []
     for i, i1 in enumerate(tqdm(proj.image_list)):
+        ned1, ypr1, q1 = i1.get_camera_pose()
         for j, i2 in enumerate(proj.image_list):
             if j <= i:
                 continue
             # camera pose distance check
-            ned1, ypr1, q1 = i1.get_camera_pose()
             ned2, ypr2, q2 = i2.get_camera_pose()
             dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
             dist = int(round(dist/2))*2 # discretized sorting/cache friendlier
@@ -790,8 +786,6 @@ def find_matches(proj, K, transform="homography", sort=False, review=False):
         i1.match_list[i2.name] = match_fwd
         i2.match_list[i1.name] = match_rev
 
-        dist_stats.append( [ dist, len(match_fwd) ] )
-
         # update surface triangulation (estimate)
         avg, std = surface.update_estimate(i1, i2)
         if avg and std:
@@ -835,11 +829,6 @@ def find_matches(proj, K, transform="homography", sort=False, review=False):
     surface.save(proj.analysis_dir)
     print('Pair-wise matches successfully saved.')
 
-    if len(dist_stats):
-        dist_stats = np.array(dist_stats)
-        plt.plot(dist_stats[:,0], dist_stats[:,1], 'ro')
-        plt.show()
-    
 def saveMatches(image_list):
     for image in image_list:
         image.save_matches()
