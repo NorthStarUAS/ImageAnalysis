@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 from props import getNode
 
+from lib import groups
 from lib import project
 from lib import srtm
 from lib import surface
@@ -27,10 +28,8 @@ proj.load_match_pairs()
 print("Collecting stats:")
 dist_stats = []
 segments = []
-points = []
 for i, i1 in enumerate(tqdm(proj.image_list)):
     ned1, ypr1, quat1 = i1.get_camera_pose()
-    points.append( (ned1[1], ned1[0]) )
     for j, i2 in enumerate(proj.image_list):
         if i <= j:
             continue
@@ -52,8 +51,30 @@ lc = mc.LineCollection(segments)
 ax.add_collection(lc)
 ax.autoscale()
 ax.axis('equal')
+
+remain_list = {}
+for i1 in proj.image_list:
+    remain_list[i1.name] = True
+    
+group_list = groups.load(proj.analysis_dir)
+for group in group_list:
+    points = []
+    for name in group:
+        i1 = proj.findImageByName(name)
+        if name in remain_list:
+            del remain_list[name]
+        ned1, ypr1, quat1 = i1.get_camera_pose()
+        points.append( (ned1[1], ned1[0]) )
+    points = np.array(points)
+    ax.plot(points[:,0], points[:,1], '*')
+
+points = []
+for name in remain_list:
+    i1 = proj.findImageByName(name)
+    ned1, ypr1, quat1 = i1.get_camera_pose()
+    points.append( (ned1[1], ned1[0]) )
 points = np.array(points)
-ax.plot(points[:,0], points[:,1], '*', c='g')
+ax.plot(points[:,0], points[:,1], '*')
 
 plt.show()
 
