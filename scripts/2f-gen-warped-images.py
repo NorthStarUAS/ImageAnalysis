@@ -21,7 +21,7 @@ from lib import transformations
 # adjustment work.)
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--pose', required=True, default='direct',
                     choices=(['direct', 'sba']), help='select pose')
 

@@ -43,7 +43,7 @@ import props_json
 
 parser = argparse.ArgumentParser(description='Create an empty project.')
 
-parser.add_argument('--project', required=True, help='Directory with a set of aerial images.')
+parser.add_argument('project', help='Directory with a set of aerial images.')
 
 # camera setup options
 parser.add_argument('--camera', help='camera config file')

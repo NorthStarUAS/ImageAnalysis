@@ -18,7 +18,7 @@ from lib import match_cleanup
 from lib import srtm
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--group', type=int, default=0, help='group number')
 parser.add_argument('--method', default='srtm', choices=['srtm', 'triangulate'])
 args = parser.parse_args()

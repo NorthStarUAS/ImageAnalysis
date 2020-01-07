@@ -44,7 +44,7 @@ def diff_stats(pts1, pts2):
 
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--stddev', required=True, type=int, default=6, help='how many stddevs above the mean to consider')
 args = parser.parse_args()
 

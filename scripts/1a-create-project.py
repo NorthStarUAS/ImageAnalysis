@@ -8,7 +8,7 @@ from lib import project
 # initialize a new project workspace
 
 parser = argparse.ArgumentParser(description='Create an empty project.')
-parser.add_argument('--project', required=True, help='Directory with a set of aerial images.')
+parser.add_argument('project', help='Directory with a set of aerial images.')
 
 args = parser.parse_args()
 

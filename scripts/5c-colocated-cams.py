@@ -16,7 +16,7 @@ import match_culling as cull
 r2d = 180.0 / math.pi
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 args = parser.parse_args()
 
 proj = project.ProjectMgr(args.project)

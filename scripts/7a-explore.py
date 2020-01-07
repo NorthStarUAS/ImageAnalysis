@@ -32,7 +32,7 @@ from explore import reticle
 from explore import surface
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
-parser.add_argument('--project', help='project directory')
+parser.add_argument('project', help='project directory')
 args = parser.parse_args()
 
 if False:

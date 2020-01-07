@@ -45,7 +45,7 @@ def meta_stats(report):
     return average, stddev
 
 parser = argparse.ArgumentParser(description='Compute Delauney triangulation of matches.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--stddev', default=5, type=int, help='standard dev threshold')
 parser.add_argument('--checkpoint', action='store_true', help='auto save results after each iteration')
 parser.add_argument('--show', action='store_true', help='show most extreme reprojection errors with matches.')

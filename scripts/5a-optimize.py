@@ -21,7 +21,7 @@ d2r = math.pi / 180.0
 r2d = 180.0 / math.pi
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--group', type=int, default=0, help='group number')
 parser.add_argument('--refine', action='store_true', help='refine a previous optimization.')
 parser.add_argument('--cam-calibration', action='store_true', help='include camera calibration in the optimization.')

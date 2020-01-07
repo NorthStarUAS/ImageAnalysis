@@ -12,9 +12,7 @@ from lib import project
 # specified method and parameters
 
 parser = argparse.ArgumentParser(description='Set the aircraft poses from flight data.')
-parser.add_argument('--project', required=True, help='project directory')
-#parser.add_argument('--meta', help='use the specified image-metadata.txt file (lat,lon,alt,yaw,pitch,roll)')
-#parser.add_argument('--pix4d', help='use the specified pix4d csv file (lat,lon,alt,roll,pitch,yaw)')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--max-angle', type=float, default=25.0, help='max pitch or roll angle for image inclusion')
 
 args = parser.parse_args()

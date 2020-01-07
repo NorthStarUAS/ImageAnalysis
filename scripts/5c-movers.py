@@ -18,7 +18,7 @@ import project
 import match_culling as cull
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--stddev', type=float, default=3, help='how many stddevs above the mean for auto discarding features')
 parser.add_argument('--strong', action='store_true', help='remove entire match chain, not just the worst offending element.')
 parser.add_argument('--interactive', action='store_true', help='interactively review reprojection errors from worst to best and select for deletion or keep.')

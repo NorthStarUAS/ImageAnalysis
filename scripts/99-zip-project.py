@@ -9,7 +9,7 @@ from zipfile import ZipFile
 from lib import project
 
 parser = argparse.ArgumentParser(description='Make a redistributable zip archive of a project.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--output', required=True, help='specify output /path/file')
 args = parser.parse_args()
 

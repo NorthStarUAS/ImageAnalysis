@@ -31,7 +31,7 @@ ac3d_steps = 8
 r2d = 180 / math.pi
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--group', type=int, default=0, help='group index')
 parser.add_argument('--texture-resolution', type=int, default=512, help='texture resolution (should be 2**n, so numbers like 256, 512, 1024, etc.')
 parser.add_argument('--srtm', action='store_true', help='use srtm elevation')

@@ -15,7 +15,7 @@ sys.path.append('../lib')
 import project
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 
 args = parser.parse_args()
 proj = project.ProjectMgr(args.project)

@@ -14,7 +14,7 @@ d2r = math.pi / 180.0
 r2d = 180.0 / math.pi
 
 parser = argparse.ArgumentParser(description='Create a pix4d.csv file for a folder of geotagged images.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--force-altitude', type=float, help='Fudge altitude geotag for stupid dji phantom 4 pro v2.0')
 parser.add_argument('--force-heading', type=float, help='Force heading for every image')
 parser.add_argument('--yaw-from-groundtrack', action='store_true', help='estimate yaw angle from ground track')

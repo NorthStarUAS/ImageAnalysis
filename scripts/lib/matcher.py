@@ -751,7 +751,7 @@ def find_matches(proj, K, transform="homography", sort=False, review=False):
             t_end = t_start
         t_remain = t_end - t_elapsed
 
-        mode = "smart"     # smart, traditional, bruteforce
+        mode = "traditional"     # smart, traditional, bruteforce
 
         # skip if match has already been computed
         if i2.name in i1.match_list and i1.name in i2.match_list:

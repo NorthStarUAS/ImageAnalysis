@@ -12,7 +12,7 @@ from lib import project
 # working on matching features ...
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--order', default='sequential',
                     choices=['sequential', 'fewest-matches'],
                     help='sort order')

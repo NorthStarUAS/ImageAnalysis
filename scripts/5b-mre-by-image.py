@@ -17,7 +17,7 @@ from lib import project
 from lib import match_culling as cull
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--group', type=int, default=0, help='group number')
 parser.add_argument('--stddev', type=float, default=5, help='how many stddevs above the mean for auto discarding features')
 parser.add_argument('--initial-pose', action='store_true', help='work on initial pose, not optimized pose')

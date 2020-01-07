@@ -410,6 +410,8 @@ class Optimizer():
                 # bound focal length
                 lower.append(self.K[0,0]*(1-tol))
                 upper.append(self.K[0,0]*(1+tol))
+                #lower.append(self.K[0,0]*0.9)
+                #upper.append(self.K[0,0]*1.1)
                 cu = self.K[0,2]
                 cv = self.K[1,2]
                 lower.append(cu*(1-tol))

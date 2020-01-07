@@ -16,7 +16,7 @@ from lib import match_culling as cull
 r2d = 180.0 / math.pi
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--group', type=int, default=0, help='group index')
 parser.add_argument('--min-angle', type=float, default=1.0, help='max feature angle')
 args = parser.parse_args()

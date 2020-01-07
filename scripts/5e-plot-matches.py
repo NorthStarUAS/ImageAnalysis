@@ -19,7 +19,7 @@ import transformations
 # plot sba results
 
 parser = argparse.ArgumentParser(description='Plot SBA solution.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 
 args = parser.parse_args()
 

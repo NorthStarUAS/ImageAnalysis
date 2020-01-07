@@ -14,7 +14,7 @@ from lib import project
 # set all the various camera configuration parameters
 
 parser = argparse.ArgumentParser(description='Set camera configuration.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--camera', help='camera config file')
 parser.add_argument('--yaw-deg', type=float, default=0.0,
                     help='camera yaw mounting offset from aircraft')

@@ -25,7 +25,7 @@ from lib import project
 # Basic description of censure/star algorithm: http://www.researchgate.net/publication/221304099_CenSurE_Center_Surround_Extremas_for_Realtime_Feature_Detection_and_Matching
 
 parser = argparse.ArgumentParser(description='I want to vignette.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--scale', type=float, default=0.2, help='preview scale')
 parser.add_argument('--nofit', action='store_true', help='skip fitting the ideal function and just process the averate as the mask')
 args = parser.parse_args()

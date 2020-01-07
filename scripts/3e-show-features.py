@@ -13,7 +13,7 @@ from lib import project
 # specified method and parameters
 
 parser = argparse.ArgumentParser(description='Load the project\'s images.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--image', help='show specific image')
 parser.add_argument('--index', type=int, help='show specific image by index')
 

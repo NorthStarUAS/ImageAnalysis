@@ -14,7 +14,7 @@ from lib import camera
 from lib import project
 
 parser = argparse.ArgumentParser(description='New camera configuration.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--config', default='../cameras', help='camera config directory')
 parser.add_argument('--ccd-width', type=float)
 parser.add_argument('--force', action='store_true', help='force overwrite of an existing config file')
@@ -26,7 +26,7 @@ proj = project.ProjectMgr(args.project)
 image_dir = args.project
 image_file = None
 for file in os.listdir(image_dir):
-    if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
+    if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG') or fnmatch.fnmatch(file, '*.tif') or fnmatch.fnmatch(file, '*.TIF'):
         image_file = os.path.join(image_dir, file)
         print("Found a suitable image:", image_file)
         break

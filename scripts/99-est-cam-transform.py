@@ -21,7 +21,7 @@ r2d = 180.0 / math.pi
 d2r = math.pi / 180.0
 
 parser = argparse.ArgumentParser(description='Set the aircraft poses from flight data.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 
 args = parser.parse_args()
 

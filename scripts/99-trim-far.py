@@ -21,7 +21,7 @@ import project
 # and it's not very general for that purpose either.
 
 parser = argparse.ArgumentParser(description='Load the project\'s images.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--delete-further-than', type=float, help='delete images furhter than this distance from center')
 args = parser.parse_args()
 # print args

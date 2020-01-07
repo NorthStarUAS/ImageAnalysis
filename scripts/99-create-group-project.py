@@ -6,8 +6,8 @@ import fnmatch
 import os
 import shutil
 parser = argparse.ArgumentParser(description='Create an group project.')
-parser.add_argument('--project', required=True, help='Directory with a set of aerial images.')
-parser.add_argument('source', metavar='source-projects', nargs='+',
+parser.add_argument('project', help='Directory with a set of aerial images.')
+parser.add_argument('source', metavar='src-project', nargs='+',
                     help='input projects')
 args = parser.parse_args()
 

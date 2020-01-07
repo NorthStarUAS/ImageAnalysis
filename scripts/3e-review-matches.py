@@ -22,7 +22,7 @@ from lib import project
 import match_culling as cull
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--stddev', type=float, default=5, help='how many stddevs above the mean for auto discarding features')
 
 args = parser.parse_args()

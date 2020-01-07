@@ -14,7 +14,7 @@ from lib import camera
 from lib import project
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
-parser.add_argument('--project', required=True, help='project directory')
+parser.add_argument('project', help='project directory')
 parser.add_argument('--scale', type=float, default=0.4, help='scale image before processing')
 parser.add_argument('--ground', type=float, required=True, help="ground elevation")
 args = parser.parse_args()
