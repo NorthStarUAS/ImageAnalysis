@@ -1,10 +1,10 @@
 # Streamline processing of an image set with defaults:
 
-  Run: ./process.py --project /path/to/images/folder
+  Run: ./process.py /path/to/images/folder
 
   <wait a while>
 
-  Run: ./7a-explore.py --project /path/to/images/folder
+  Run: ./7a-explore.py /path/to/images/folder
 
 
 # Individual scripts (the harder way)
@@ -182,9 +182,9 @@ taken.  There is a helper script which can automate this process:
   connectivity is achieved by ensuring your images overlap.  70%
   overlap with neighbors is the industry recommendation.
 
-# 5. Assemble Scene / Bundle Adjustment
+# 4. Assemble Scene / Bundle Adjustment
 
-  ## 5a-optimize.py
+  ## 4a-optimize.py
 
   Takes initial direct georeference scene layout and runs bundle
   adjustment.  Currently this is the best code to run.  From the
@@ -194,7 +194,7 @@ taken.  There is a helper script which can automate this process:
   clusters when they match in multiple pairs, but this seems to affect
   the optimizer's ability to find a robust solution.
 
-  ## 5c-mre-by-image.py
+  ## 4c-mre-by-image.py
 
   Compute the mre of the assembled scene (optionally delete worst
   outliers)
@@ -203,10 +203,9 @@ taken.  There is a helper script which can automate this process:
   matches.  Type 'd' to delete (from matches_direct) and any other key
   to skip.  Type 'q' to quit and delete the marked matches.
 
-  After this you will want to rerun the 4a-groups.py, then 5a-sba2.py
-  script to reoptimize the fit.
+  After this you will want to rerun the 4a-optimize --refine script again.
 
-  ## 5c-colocated-feats.py
+  ## 4c-colocated-feats.py
 
   When the vectors from a feature back to the corresponding images are
   nearly colinear, this can lead to stability and solver issues.  Very
