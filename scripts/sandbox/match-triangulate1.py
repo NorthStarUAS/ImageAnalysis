@@ -43,7 +43,7 @@ for i, i1 in enumerate(proj.image_list):
         g2 = srtm.ned_interp( [ned2[0], ned2[1]] )
 
         # pose/triangulation based elevation
-        points = smart.triangulate_ned(i1, i2)
+        points = smart.triangulate_features(i1, i2)
         if not points is None:
             num_matches = points.shape[1]
             sum += np.average(points[2])*num_matches

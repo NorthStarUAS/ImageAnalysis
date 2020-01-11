@@ -1,4 +1,9 @@
-# code to trianglulate image features (in 3d) based on camera poses
+# code to estimate world surface elevation and EKF yaw error from
+# image direct pose informaation.
+
+# - trianglulate image features (in 3d) based on camera poses
+# - use essential/fundamental matrix + camera pose to estimate yaw error
+# - use affine transformation + camera pose to estimate yaw error
 
 import cv2
 import numpy as np
@@ -16,7 +21,7 @@ from . import srtm
 surface_node = getNode("/surface", True)
 
 # compute the 3d triangulation of the matches between a pair of images
-def triangulate_ned(i1, i2):
+def triangulate_features(i1, i2):
     # quick sanity checks
     if i1 == i2:
         return None
@@ -42,7 +47,7 @@ def triangulate_ned(i1, i2):
     R2, jac = cv2.Rodrigues(rvec2)
     PROJ2 = np.concatenate((R2, tvec2), axis=1)
 
-    # setup data structurs of cv2 call
+    # setup data structures for cv2 call
     uv1 = []; uv2 = []; indices = []
     for pair in i1.match_list[i2.name]:
         p1 = i1.kp_list[ pair[0] ].pt
@@ -55,18 +60,21 @@ def triangulate_ned(i1, i2):
     points /= points[3]
     return points
 
-def estimate_surface_ned(i1, i2):
-    points = triangulate_ned(i1, i2)
+def estimate_surface_elevation(i1, i2):
+    points = triangulate_features(i1, i2)
     # num_matches = points.shape[1]
     if points is None:
         return None, None
     else:
-        return np.average(points[2]), np.std(points[2])
+        # points are are triangulated in the NED coordinates, so
+        # invert the vertical (down) average before returning the
+        # answer.
+        return -np.average(points[2]), np.std(points[2])
 
 # compute the pairwise surface estimate and then update the property
 # tree records
 def update_estimate(i1, i2):
-    avg, std = estimate_surface_ned(i1, i2)
+    avg, std = estimate_surface_elevation(i1, i2)
     if avg is None:
         return None, None
 
@@ -79,10 +87,10 @@ def update_estimate(i1, i2):
     weight = len(i1.match_list[i2.name])
     pair1_node = tri1_node.getChild(i2.name, True)
     pair2_node = tri2_node.getChild(i1.name, True)
-    pair1_node.setFloat("surface_m", float("%.1f" % -avg))
+    pair1_node.setFloat("surface_m", float("%.1f" % avg))
     pair1_node.setInt("weight", weight)
     pair1_node.setFloat("stddev", float("%.1f" % std))
-    pair2_node.setFloat("surface_m", float("%.1f" % -avg))
+    pair2_node.setFloat("surface_m", float("%.1f" % avg))
     pair2_node.setInt("weight", weight)
     pair2_node.setFloat("stddev", float("%.1f" % std))
 
@@ -115,9 +123,7 @@ def update_estimate(i1, i2):
     if count2 > 0:
         i2_node.setFloat("tri_surface_m", float("%.1f" % (sum2 / count2)))
 
-    # in case the caller is interested. notice: work is done in NED so
-    # returning the negative of the downbb
-    return -avg, std
+    return avg, std
 
 # return the average of estimated surfaces below the image pair
 def get_estimate(i1, i2):
