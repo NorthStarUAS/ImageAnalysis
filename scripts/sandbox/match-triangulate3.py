@@ -10,8 +10,8 @@ import numpy as np
 from props import getNode
 
 from lib import project
+from lib import smart
 from lib import srtm
-from lib import surface
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('project', help='project directory')
@@ -30,18 +30,18 @@ ref = [ ref_node.getFloat('lat_deg'),
 # setup SRTM ground interpolator
 srtm.initialize( ref, 6000, 6000, 30 )
 
-surface.load(proj.analysis_dir)
+smart.load(proj.analysis_dir)
 
 print('Computing pair triangulations:')
 for i, i1 in enumerate(proj.image_list):
     ned, ypr, quat = i1.get_camera_pose()
     srtm_elev = srtm.ned_interp( [ned[0], ned[1]] )
-    i1_node = surface.surface_node.getChild(i1.name, True)
+    i1_node = smart.surface_node.getChild(i1.name, True)
     i1_node.setFloat("srtm_surface_m", "%.1f" % srtm_elev)
     for j, i2 in enumerate(proj.image_list):
         if j > i:
-            surface.update_estimate(i1, i2)
+            smart.update_estimate(i1, i2)
 
-surface.surface_node.pretty_print()
-surface.save(proj.analysis_dir)
+smart.surface_node.pretty_print()
+smart.save(proj.analysis_dir)
 

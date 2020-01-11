@@ -19,7 +19,7 @@ from .find_obj import explore_match
 from . import image_list
 from .logger import log, qlog
 from . import project
-from . import surface
+from . import smart
 from . import transformations
 
 detector_node = getNode('/config/detector', True)
@@ -359,7 +359,7 @@ def smart_pair_matches(i1, i2, review=False):
         ground_m = matcher_node.getFloat("ground_m")
         qlog("Forced ground:", ground_m)
     else:
-        ground_m = surface.get_estimate(i1, i2)
+        ground_m = smart.get_estimate(i1, i2)
         if ground_m is None:
             g1 = i1.node.getFloat("srtm_surface_m")
             g2 = i2.node.getFloat("srtm_surface_m")
@@ -787,7 +787,7 @@ def find_matches(proj, K, transform="homography", sort=False, review=False):
         i2.match_list[i1.name] = match_rev
 
         # update surface triangulation (estimate)
-        avg, std = surface.update_estimate(i1, i2)
+        avg, std = smart.update_estimate(i1, i2)
         if avg and std:
             qlog(" ", i1.name, i2.name, "surface est: %.1f" % avg, "std: %.1f" % std)
 
@@ -806,7 +806,7 @@ def find_matches(proj, K, transform="homography", sort=False, review=False):
         if time.time() >= save_time + save_interval:
             log('saving matches and image meta data ...')
             saveMatches(proj.image_list)
-            surface.save(proj.analysis_dir)
+            smart.save(proj.analysis_dir)
             save_time = time.time()
             time_list = []
             for i3 in proj.image_list:
@@ -824,9 +824,9 @@ def find_matches(proj, K, transform="homography", sort=False, review=False):
                 line[1].des_list = None
                 line[1].uv_list = None
 
-    # and save
+    # and the final save
     saveMatches(proj.image_list)
-    surface.save(proj.analysis_dir)
+    smart.save(proj.analysis_dir)
     print('Pair-wise matches successfully saved.')
 
 def saveMatches(image_list):

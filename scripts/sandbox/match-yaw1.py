@@ -72,14 +72,6 @@ def find_essential(i1, i2):
     K = camera.get_K()
     IK = np.linalg.inv(K)
 
-    # get poses
-    rvec1, tvec1 = i1.get_proj()
-    rvec2, tvec2 = i2.get_proj()
-    R1, jac = cv2.Rodrigues(rvec1)
-    PROJ1 = np.concatenate((R1, tvec1), axis=1)
-    R2, jac = cv2.Rodrigues(rvec2)
-    PROJ2 = np.concatenate((R2, tvec2), axis=1)
-
     # setup data structurs of cv2 call
     uv1 = []; uv2 = []; indices = []
     for pair in i1.match_list[i2.name]:
@@ -145,11 +137,11 @@ def find_essential(i1, i2):
 def find_affine(i1, i2):
     # quick sanity checks
     if i1 == i2:
-        return None, None
+        return None, None, None
     if not i2.name in i1.match_list:
-        return None, None
+        return None, None, None
     if len(i1.match_list[i2.name]) == 0:
-        return None, None
+        return None, None, None
 
     if not i1.kp_list or not len(i1.kp_list):
         i1.load_features()
@@ -206,20 +198,7 @@ def find_affine(i1, i2):
 
     # aircraft yaw (est) + affine course + yaw error = ground course
     
-    # use affine matrix to project center of i1 into 
-    # Rbody2ned = i1.get_body2ned()
-    # cam2body = i1.get_cam2body()
-    # body2cam = i1.get_body2cam()
-    # est_dir = Rbody2ned.dot(cam2body).dot(R).dot(tvec)
-    # est_dir = est_dir / np.linalg.norm(est_dir) # normalize
-    # print('est dir:', est_dir.tolist())
-    # crs_fit = 90 - math.atan2(-est_dir[0], -est_dir[1]) * r2d
-    # if crs_fit < 0: crs_fit += 360
-    # if crs_fit > 360: crs_fit -= 360
-    # print('est crs_fit: %.1f' % crs_fit)
-    # print("est yaw error: %.1f" % (crs_fit - crs_gps))
-
-    return yaw_error, dist
+    return yaw_error, dist, crs_aff
 
 def decomposeAffine(affine):
     tx = affine[0][2]
@@ -252,12 +231,13 @@ for i, i1 in enumerate(proj.image_list):
     i1_node.setFloat("srtm_surface_m", "%.1f" % srtm_elev)
     for j, i2 in enumerate(proj.image_list):
         if i != j:
-            yaw_error, dist = find_affine(i1, i2)
+            yaw_error, dist, crs_affine = find_affine(i1, i2)
             if not yaw_error is None:
                 tri_node = i1_node.getChild("yaw_pairs", True)
                 pair_node = tri_node.getChild(i2.name, True)
                 pair_node.setFloat("yaw_error", "%.1f" % yaw_error)
                 pair_node.setFloat("dist_m", "%.1f" % dist)
+                pair_node.setFloat("relative_crs", "%.1f" % crs_affine)
             
 surface.surface_node.pretty_print()
 #surface.save(proj.analysis_dir)

@@ -15,7 +15,6 @@ from props import getNode
 from lib import groups
 from lib import project
 from lib import srtm
-from lib import surface
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('project', help='project directory')

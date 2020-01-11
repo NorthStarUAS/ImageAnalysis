@@ -24,5 +24,6 @@
     "lens_model": "2.7mm",
     "make": "Mobius",
     "model": "UMN 003",
-    "width_px": 1920
+    "width_px": 1920,
+    "comment": "Mjolnir Nose Cam"
 }
