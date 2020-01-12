@@ -6,6 +6,7 @@
 # - use affine transformation + camera pose to estimate yaw error
 
 import cv2
+import math
 import numpy as np
 import os
 
@@ -17,6 +18,9 @@ from . import image
 from .logger import log, qlog
 from . import project
 from . import srtm
+
+r2d = 180 / math.pi
+d2r = math.pi / 180
 
 surface_node = getNode("/surface", True)
 
@@ -60,6 +64,58 @@ def triangulate_features(i1, i2):
     points /= points[3]
     return points
 
+# find (forward) affine transformation between feature pairs
+def find_affine(i1, i2):
+    # quick sanity checks
+    if i1 == i2:
+        return None
+    if not i2.name in i1.match_list:
+        return None
+    if len(i1.match_list[i2.name]) == 0:
+        return None
+
+    if not i1.kp_list or not len(i1.kp_list):
+        i1.load_features()
+    if not i2.kp_list or not len(i2.kp_list):
+        i2.load_features()
+
+    # affine transformation from i2 uv coordinate system to i1
+    uv1 = []; uv2 = []; indices = []
+    for pair in i1.match_list[i2.name]:
+        uv1.append( i1.kp_list[ pair[0] ].pt )
+        uv2.append( i2.kp_list[ pair[1] ].pt )
+    uv1 = np.float32([uv1])
+    uv2 = np.float32([uv2])
+    affine, status = \
+        cv2.estimateAffinePartial2D(uv2, uv1)
+    return affine
+
+# return individual components of affine transform: rot, tx, ty, sx,
+# sy (units are degrees and pixels)
+def decomposeAffine(affine):
+    tx = affine[0][2]
+    ty = affine[1][2]
+
+    a = affine[0][0]
+    b = affine[0][1]
+    c = affine[1][0]
+    d = affine[1][1]
+
+    sx = math.sqrt( a*a + b*b )
+    if a < 0.0:
+        sx = -sx
+    sy = math.sqrt( c*c + d*d )
+    if d < 0.0:
+        sy = -sy
+
+    angle_deg = math.atan2(-b,a) * 180.0/math.pi
+    if angle_deg < -180.0:
+        angle_deg += 360.0
+    if angle_deg > 180.0:
+        angle_deg -= 360.0
+    return (angle_deg, tx, ty, sx, sy)
+
+# average of the triangulated points (converted to positive elevation)
 def estimate_surface_elevation(i1, i2):
     points = triangulate_features(i1, i2)
     # num_matches = points.shape[1]
@@ -70,6 +126,66 @@ def estimate_surface_elevation(i1, i2):
         # invert the vertical (down) average before returning the
         # answer.
         return -np.average(points[2]), np.std(points[2])
+
+# Estimate image pose yaw error (based on found pairs affine
+# transform, original image pose, and gps positions; assumes a mostly
+# nadir camara pose.)  After computering affine transform, project
+# image 2 center uv into image1 uv space and compute approximate
+# course in local uv space, then add this to direct pose yaw estimate
+# and compare to gps course.
+def estimate_yaw_error(i1, i2):
+    affine = find_affine(i1, i2)
+    if  affine is None:
+        return None, None, None, None
+
+    # fyi ...
+    # print(i1.name, 'vs', i2.name)
+    # print(" affine:\n", affine)
+    (rot, tx, ty, sx, sy) = decomposeAffine(affine)
+    # print(" ", rot, tx, ty, sx, sy)
+    if abs(ty) > 0:
+        weight = abs(ty / tx)
+    else:
+        weight = abs(tx)
+
+    # ground course between camera poses
+    (ned1, ypr1, quat1) = i1.get_camera_pose()
+    (ned2, ypr2, quat2) = i2.get_camera_pose()
+    diff = np.array(ned2) - np.array(ned1)
+    dist = np.linalg.norm( diff )
+    dir = diff / dist
+    print(" dist:", dist, 'ned dir:', dir[0], dir[1], dir[2])
+    crs_gps = 90 - math.atan2(dir[0], dir[1]) * r2d
+    if crs_gps < 0: crs_gps += 360
+    if crs_gps > 360: crs_gps -= 360
+
+    # center pixel of i2 in i1's uv coordinate system
+    (w, h) = camera.get_image_params()
+    cx = int(w*0.5)
+    cy = int(h*0.5)
+    print("center:", [cx, cy])
+    newc = affine.dot(np.float32([cx, cy, 1.0]))[:2]
+    cdiff = [ newc[0] - cx, cy - newc[1] ]
+    #print("new center:", newc)
+    #print("center diff:", cdiff)
+
+    # estimated course based on i1 pose and [local uv coordinate
+    # system] affine transform
+    crs_aff = 90 - math.atan2(cdiff[1], cdiff[0]) * r2d
+    (_, air_ypr1, _) = i1.get_aircraft_pose()
+    #print(" aircraft yaw: %.1f" % air_ypr1[0])
+    #print(" affine course: %.1f" % crs_aff)
+    #print(" ground course: %.1f" % crs_gps)
+    crs_fit = air_ypr1[0] + crs_aff
+    
+    yaw_error = crs_gps - crs_fit
+    if yaw_error < -180: yaw_error += 360
+    if yaw_error > 180: yaw_error -= 360
+    print(" estimated yaw error: %.1f" % yaw_error)
+
+    # aircraft yaw (est) + affine course + yaw error = ground course
+    
+    return yaw_error, dist, crs_aff, weight
 
 # compute the pairwise surface estimate and then update the property
 # tree records
@@ -158,10 +274,10 @@ def update_srtm_elevations(proj):
         image_node.setFloat("srtm_surface_m", float("%.1f" % surface))
         
 def load(analysis_dir):
-    surface_file = os.path.join(analysis_dir, "surface.json")
+    surface_file = os.path.join(analysis_dir, "smart.json")
     props_json.load(surface_file, surface_node)
 
 def save(analysis_dir):
-    surface_file = os.path.join(analysis_dir, "surface.json")
+    surface_file = os.path.join(analysis_dir, "smart.json")
     props_json.save(surface_file, surface_node)
     
