@@ -40,7 +40,7 @@ for i, i1 in enumerate(proj.image_list):
     i1_node.setFloat("srtm_surface_m", "%.1f" % srtm_elev)
     for j, i2 in enumerate(proj.image_list):
         if j > i:
-            smart.update_estimate(i1, i2)
+            smart.update_surface_estimate(i1, i2)
 
 smart.surface_node.pretty_print()
 smart.save(proj.analysis_dir)

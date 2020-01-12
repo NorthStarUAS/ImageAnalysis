@@ -787,7 +787,7 @@ def find_matches(proj, K, transform="homography", sort=False, review=False):
         i2.match_list[i1.name] = match_rev
 
         # update surface triangulation (estimate)
-        avg, std = smart.update_estimate(i1, i2)
+        avg, std = smart.update_surface_estimate(i1, i2)
         if avg and std:
             qlog(" ", i1.name, i2.name, "surface est: %.1f" % avg, "std: %.1f" % std)
 

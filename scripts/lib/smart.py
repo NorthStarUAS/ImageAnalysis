@@ -92,7 +92,7 @@ def find_affine(i1, i2):
 
 # return individual components of affine transform: rot, tx, ty, sx,
 # sy (units are degrees and pixels)
-def decomposeAffine(affine):
+def decompose_affine(affine):
     tx = affine[0][2]
     ty = affine[1][2]
 
@@ -141,7 +141,7 @@ def estimate_yaw_error(i1, i2):
     # fyi ...
     # print(i1.name, 'vs', i2.name)
     # print(" affine:\n", affine)
-    (rot, tx, ty, sx, sy) = decomposeAffine(affine)
+    (rot, tx, ty, sx, sy) = decompose_affine(affine)
     # print(" ", rot, tx, ty, sx, sy)
     if abs(ty) > 0:
         weight = abs(ty / tx)
@@ -189,7 +189,7 @@ def estimate_yaw_error(i1, i2):
 
 # compute the pairwise surface estimate and then update the property
 # tree records
-def update_estimate(i1, i2):
+def update_surface_estimate(i1, i2):
     avg, std = estimate_surface_elevation(i1, i2)
     if avg is None:
         return None, None
@@ -240,6 +240,37 @@ def update_estimate(i1, i2):
         i2_node.setFloat("tri_surface_m", float("%.1f" % (sum2 / count2)))
 
     return avg, std
+
+# compute the pairwise surface estimate and then update the property
+# tree records
+def update_yaw_error_estimate(i1, i2):
+    yaw_error, dist, crs_affine, weight = estimate_yaw_error(i1, i2)
+    if yaw_error is None:
+        return None, None
+
+    i1_node = surface_node.getChild(i1.name, True)
+    yaw_node = i1_node.getChild("yaw_pairs", True)
+    
+    # update pairwise info in the property tree
+    pair_node = yaw_node.getChild(i2.name, True)
+    pair_node.setFloat("yaw_error", "%.1f" % yaw_error)
+    pair_node.setFloat("dist_m", "%.1f" % dist)
+    pair_node.setFloat("relative_crs", "%.1f" % crs_affine)
+    pair_node.setFloat("weight", "%.1f" % weight)
+
+    sum = 0
+    count = 0
+    for child in yaw_node.getChildren():
+        pair_node = yaw_node.getChild(child)
+        yaw_error = pair_node.getFloat("yaw_error")
+        weight = pair_node.getInt("weight")
+        sum += yaw_error * weight
+        count += weight
+    if count > 0:
+        i1_node.setFloat("yaw_error", float("%.1f" % (sum / count)))
+        return sum / count
+    else:
+        return None
 
 # return the average of estimated surfaces below the image pair
 def get_estimate(i1, i2):

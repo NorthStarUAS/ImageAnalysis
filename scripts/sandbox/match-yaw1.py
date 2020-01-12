@@ -136,15 +136,7 @@ for i, i1 in enumerate(proj.image_list):
     i1_node = smart.surface_node.getChild(i1.name, True)
     i1_node.setFloat("srtm_surface_m", "%.1f" % srtm_elev)
     for j, i2 in enumerate(proj.image_list):
-        if i != j:
-            yaw_error, dist, crs_affine, weight = smart.estimate_yaw_error(i1, i2)
-            if not yaw_error is None:
-                tri_node = i1_node.getChild("yaw_pairs", True)
-                pair_node = tri_node.getChild(i2.name, True)
-                pair_node.setFloat("yaw_error", "%.1f" % yaw_error)
-                pair_node.setFloat("dist_m", "%.1f" % dist)
-                pair_node.setFloat("relative_crs", "%.1f" % crs_affine)
-                pair_node.setFloat("weight", "%.1f" % weight)
+        yaw_error = smart.update_yaw_error_estimate(i1, i2)
             
 smart.surface_node.pretty_print()
 smart.save(proj.analysis_dir)
