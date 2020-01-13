@@ -246,7 +246,7 @@ def update_surface_estimate(i1, i2):
 def update_yaw_error_estimate(i1, i2):
     yaw_error, dist, crs_affine, weight = estimate_yaw_error(i1, i2)
     if yaw_error is None:
-        return None, None
+        return 0
 
     i1_node = surface_node.getChild(i1.name, True)
     yaw_node = i1_node.getChild("yaw_pairs", True)
@@ -270,10 +270,10 @@ def update_yaw_error_estimate(i1, i2):
         i1_node.setFloat("yaw_error", float("%.1f" % (sum / count)))
         return sum / count
     else:
-        return None
+        return 0
 
 # return the average of estimated surfaces below the image pair
-def get_estimate(i1, i2):
+def get_surface_estimate(i1, i2):
     i1_node = surface_node.getChild(i1.name, True)
     i2_node = surface_node.getChild(i2.name, True)
     tri1_node = i1_node.getChild("tri_surface_pairs", True)

@@ -359,7 +359,7 @@ def smart_pair_matches(i1, i2, review=False):
         ground_m = matcher_node.getFloat("ground_m")
         qlog("Forced ground:", ground_m)
     else:
-        ground_m = smart.get_estimate(i1, i2)
+        ground_m = smart.get_surface_estimate(i1, i2)
         if ground_m is None:
             g1 = i1.node.getFloat("srtm_surface_m")
             g2 = i2.node.getFloat("srtm_surface_m")
@@ -751,7 +751,7 @@ def find_matches(proj, K, transform="homography", sort=False, review=False):
             t_end = t_start
         t_remain = t_end - t_elapsed
 
-        mode = "traditional"     # smart, traditional, bruteforce
+        mode = "smart"     # smart, traditional, bruteforce
 
         # skip if match has already been computed
         if i2.name in i1.match_list and i1.name in i2.match_list:
@@ -790,6 +790,8 @@ def find_matches(proj, K, transform="homography", sort=False, review=False):
         avg, std = smart.update_surface_estimate(i1, i2)
         if avg and std:
             qlog(" ", i1.name, i2.name, "surface est: %.1f" % avg, "std: %.1f" % std)
+        yaw_error = smart.update_yaw_error_estimate(i1, i2)
+        yaw_error = smart.update_yaw_error_estimate(i2, i1)
 
         # new feature, depends on a reasonably quality initial camera
         # pose!  caution: I've put a policy setting here in the middle
