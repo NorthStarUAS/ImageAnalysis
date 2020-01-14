@@ -292,9 +292,11 @@ def get_surface_estimate(i1, i2):
         return sum / count
 
     # no triangulation estimate yet, fall back to SRTM lookup
-    
-    else:
-        return None
+    g1 = i1_node.getFloat("srtm_surface_m")
+    g2 = i2_node.getFloat("srtm_surface_m")
+    ground_m = (g1 + g2) * 0.5
+    qlog("  SRTM ground (no triangulation yet): %.1f" % ground_m)
+    return ground_m
 
 # find srtm surface altitude under each camera pose
 def update_srtm_elevations(proj):

@@ -360,13 +360,13 @@ def smart_pair_matches(i1, i2, review=False):
         qlog("Forced ground:", ground_m)
     else:
         ground_m = smart.get_surface_estimate(i1, i2)
-        if ground_m is None:
-            g1 = i1.node.getFloat("srtm_surface_m")
-            g2 = i2.node.getFloat("srtm_surface_m")
-            ground_m = (g1 + g2) * 0.5
-            qlog("  STRM ground (no triangulation yet): %.1f" % ground_m)
-        else:
-            qlog("  Triangulated ground est: %.1f" % ground_m)
+        # if ground_m is None:
+        #     g1 = i1.node.getFloat("srtm_surface_m")
+        #     g2 = i2.node.getFloat("srtm_surface_m")
+        #     ground_m = (g1 + g2) * 0.5
+        #     qlog("  SRTM ground (no triangulation yet): %.1f" % ground_m)
+        # else:
+        qlog("  Ground estimate: %.1f" % ground_m)
         
     match_ratio = matcher_node.getFloat("match_ratio")
     
