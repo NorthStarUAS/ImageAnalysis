@@ -4,6 +4,7 @@
 
 import argparse
 import datetime
+import fnmatch
 import os
 import piexif
 from libxmp.utils import file_to_dict
@@ -11,10 +12,7 @@ from libxmp.utils import file_to_dict
 from lib import srtm
 
 parser = argparse.ArgumentParser(description="Lookup a weather report for the location/time an image was captured.")
-parser.add_argument("--image", required=False, help="geotagged image")
-parser.add_argument("--lat", required=False, type=float, help="image lat")
-parser.add_argument("--lon", required=False, type=float, help="image lon")
-parser.add_argument("--unixtime", required=False, type=int, help="unix sec")
+parser.add_argument("project", help="geotagged image")
 args = parser.parse_args()
 
 def dms_to_decimal(degrees, minutes, seconds, sign=' '):
@@ -44,18 +42,15 @@ fio.close()
 if not len(apikey):
     print("Cannot lookup weather because no forecastio apikey found.")
     quit()
-    
-alt = 0
-if args.image:
-    exif_dict = piexif.load(args.image)
-    if False:
-        for ifd in exif_dict:
-            if ifd == str("thumbnail"):
-                print("thumb thumb thumbnail")
-                continue
-            print(ifd, ":")
-            for tag in exif_dict[ifd]:
-                print(ifd, tag, piexif.TAGS[ifd][tag]["name"], exif_dict[ifd][tag])
+
+files = []
+for file in sorted(os.listdir(args.project)):
+    if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
+        files.append(file)
+
+def get_image_info(file):
+    full_path = os.path.join(args.project, file)
+    exif_dict = piexif.load(full_path)
 
     elat = exif_dict['GPS'][piexif.GPSIFD.GPSLatitude]
     lat = dms_to_decimal(elat[0], elat[1], elat[2],
@@ -81,14 +76,33 @@ if args.image:
         dt = datetime.datetime(int(year), int(month), int(day),
                                int(hour), int(minute), int(second))
         unix_sec = float(dt.strftime('%s'))
+    return lat, lon, alt, unix_sec
 
-else:
-    lat = args.lat
-    lon = args.lon
-    unix_sec = args.unixtime
-
-print('pos, time:', lat, lon, alt, unix_sec)
+if len(files) == 0:
+    print("No image files found at:", args.project)
+    quit()
     
+lat1, lon1, alt1,  unix_sec1 = get_image_info(files[0]) # first
+lat2, lon2, alt2,  unix_sec2 = get_image_info(files[-1]) # last
+lat = (lat1 + lat2) * 0.5
+lon = (lon1 + lon2) * 0.5
+unix_sec = int((unix_sec1 + unix_sec2) * 0.5)
+
+ref = [ lat1, lon1, 0.0 ]
+print("NED reference location:", ref)
+# local surface approximation
+srtm.initialize( ref, 6000, 6000, 30)
+surface = srtm.ned_interp([0, 0])
+print("SRTM surface elevation below first image: %.1fm %.1fft (egm96)" %
+      (surface, surface / 0.3048) )
+
+print("start pos, time:", lat1, lon1, alt1, unix_sec1)
+print("midpoint: ", lat, lon, unix_sec)
+print("end pos, time:", lat2, lon2, alt2, unix_sec2)
+print("flight duration (not including landing maneuver): %.1f min" %
+      ((unix_sec2 - unix_sec1) / 60.0) )
+
+# lookup the data for the midpoint of the flight (just because ... ?)
 if unix_sec < 1:
     print("Cannot lookup weather because gps didn't report unix time.")
 else:
@@ -146,17 +160,10 @@ else:
             cov = currently['cloudCover']
             print("- Cloud Cover: %.0f%%" % (cov * 100.0))
         print("- METAR: KXYZ " + d.strftime("%d%H%M") + "Z" +
-                " %03d%02dKT" % (round(wind_deg/10)*10, wind_kts) +
+                " %03d%02dKT" % (round(wind_deg/10)*10, round(wind_kts)) +
                 " " + ("%.1f" % vis).rstrip('0').rstrip(".") + "SM" +
                 " " + ("%.0f" % tempC).replace('-', 'M') + "/" +
                 ("%.0f" % dewC).replace('-', 'M') +
                 " A%.0f=\n" % (inhg*100)
         )
 
-ref = [ lat, lon, 0.0 ]
-print("NED reference location:", ref)
-
-# local surface approximation
-srtm.initialize( ref, 6000, 6000, 30)
-surface = srtm.ned_interp([0, 0])
-print("SRTM surface elevation below image: %.1f m (egm96)" % surface)
