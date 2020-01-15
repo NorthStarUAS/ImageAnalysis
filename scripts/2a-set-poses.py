@@ -27,11 +27,11 @@ image_dir = args.project
 pix4d_file = os.path.join(image_dir, 'pix4d.csv')
 meta_file = os.path.join(image_dir, 'image-metadata.txt')
 if os.path.exists(pix4d_file):
-    pose.setAircraftPoses(proj, pix4d_file, order='rpy',
-                          max_angle=args.max_angle)
+    pose.set_aircraft_poses(proj, pix4d_file, order='rpy',
+                            max_angle=args.max_angle)
 elif os.path.exists(meta_file):
-    pose.setAircraftPoses(proj, meta_file, order='ypr',
-                          max_angle=args.max_angle)
+    pose.set_aircraft_poses(proj, meta_file, order='ypr',
+                            max_angle=args.max_angle)
 else:
     print("Error: no pose file found in image directory:", image_dir)
     quit()

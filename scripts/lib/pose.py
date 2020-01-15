@@ -40,7 +40,6 @@ r2d = 180.0 / math.pi
 # +y axis = right, +pitch = nose down
 # +z axis = up, +yaw = nose right
 
-
 # return a sorted list of images
 def gen_image_list(image_dir):
     images = []
@@ -50,7 +49,7 @@ def gen_image_list(image_dir):
     return sorted(images)
 
 # define the image aircraft poses from Sentera meta data file
-def setAircraftPoses(proj, posefile="", order='ypr', max_angle=25.0):
+def set_aircraft_poses(proj, posefile="", order='ypr', max_angle=25.0):
     log("Setting aircraft poses")
     
     analysis_dir = os.path.join(proj.project_dir, 'ImageAnalysis')
@@ -114,22 +113,12 @@ def setAircraftPoses(proj, posefile="", order='ypr', max_angle=25.0):
 def compute_camera_poses(proj):
     log("Setting camera poses (offset from aircraft pose.)")
     
-    mount_node = getNode("/config/camera/mount", True)
-    ref_node = getNode("/config/ned_reference", True)
     images_node = getNode("/images", True)
-
-    camera_yaw = mount_node.getFloat("yaw_deg")
-    camera_pitch = mount_node.getFloat("pitch_deg")
-    camera_roll = mount_node.getFloat("roll_deg")
-    print(camera_yaw, camera_pitch, camera_roll)
-    body2cam = transformations.quaternion_from_euler(camera_yaw * d2r,
-                                                     camera_pitch * d2r,
-                                                     camera_roll * d2r,
-                                                     "rzyx")
-
+    ref_node = getNode("/config/ned_reference", True)
     ref_lat = ref_node.getFloat("lat_deg")
     ref_lon = ref_node.getFloat("lon_deg")
     ref_alt = ref_node.getFloat("alt_m")
+    body2cam = camera.get_body2cam()
 
     for image in proj.image_list:
         ac_pose_node = image.node.getChild("aircraft_pose", True)
@@ -141,7 +130,7 @@ def compute_camera_poses(proj):
         ned2body = []
         for i in range(4):
             ned2body.append( ac_pose_node.getFloatEnum("quat", i) )
-        
+
         ned2cam = transformations.quaternion_multiply(ned2body, body2cam)
         (yaw_rad, pitch_rad, roll_rad) = transformations.euler_from_quaternion(ned2cam, "rzyx")
         ned = navpy.lla2ned( aircraft_lat, aircraft_lon, aircraft_alt,

@@ -1,11 +1,18 @@
 #!/usr/bin/python
 
+import math
 import numpy as np
 
 from props import getNode
 
+from .logger import log
+from . import transformations
+
 # camera parameters are stored in the global property tree, but this
 # class provides convenient getter/setter functions
+
+d2r = math.pi / 180.0
+r2d = 180.0 / math.pi
 
 camera_node = getNode('/config/camera', True)
 
@@ -128,6 +135,15 @@ def get_mount_params():
     return [ mount_node.getFloat('yaw_deg'),
              mount_node.getFloat('pitch_deg'),
              mount_node.getFloat('roll_deg') ]
+
+def get_body2cam():
+    yaw_deg, pitch_deg, roll_deg = get_mount_params()
+    log("camera mount offset:", yaw_deg, pitch_deg, roll_deg)
+    body2cam = transformations.quaternion_from_euler(yaw_deg * d2r,
+                                                     pitch_deg * d2r,
+                                                     roll_deg * d2r,
+                                                     "rzyx")
+    return body2cam
 
 # def derive_other_params():
 #     K = get_K()

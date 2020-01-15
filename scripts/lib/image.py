@@ -18,7 +18,8 @@ from props import getNode
 from .logger import log, qlog
 from . import transformations
 
-d2r = math.pi / 180.0           # a helpful constant
+d2r = math.pi / 180.0
+r2d = 180.0 / math.pi
 
 detector = None
 
@@ -405,12 +406,10 @@ class Image():
                                                      'rzyx')
         return quat
 
-    def set_aircraft_pose(self,
-                          lat_deg, lon_deg, alt_m,
-                          yaw_deg, pitch_deg, roll_deg,
-                          flight_time=-1.0):
+    def set_aircraft_pose(self, lat_deg, lon_deg, alt_m,
+                          yaw_deg, pitch_deg, roll_deg, flight_time=-1.0):
         # computed from euler angles
-        quat = self.ypr_to_quat(yaw_deg, pitch_deg, roll_deg)
+        ned2body = self.ypr_to_quat(yaw_deg, pitch_deg, roll_deg)
         ac_pose_node = self.node.getChild('aircraft_pose', True)
         ac_pose_node.setFloat('lat_deg', lat_deg)
         ac_pose_node.setFloat('lon_deg', lon_deg)
@@ -420,16 +419,42 @@ class Image():
         ac_pose_node.setFloat('roll_deg', roll_deg)
         ac_pose_node.setLen('quat', 4)
         for i in range(4):
-            ac_pose_node.setFloatEnum('quat', i, quat[i])
+            ac_pose_node.setFloatEnum('quat', i, ned2body[i])
         if flight_time > 0.0:
             self.node.setFloat("flight_time", flight_time)
-            
+
+    # update the aircraft pose (quat) and camera pose with a yaw error
+    # etimate (bias)
+    def set_aircraft_yaw_error_estimate(self, yaw_error_deg):
+        # update the aircraft pose quaternion
+        ac_pose_node = self.node.getChild('aircraft_pose', True)
+        ac_pose_node.setFloat("yaw_error_deg", yaw_error_deg)
+        yaw_deg = ac_pose_node.getFloat('yaw_deg')
+        pitch_deg = ac_pose_node.getFloat('pitch_deg')
+        roll_deg = ac_pose_node.getFloat('roll_deg')
+        ned2body = self.ypr_to_quat(yaw_deg + yaw_error_deg, pitch_deg,
+                                    roll_deg)
+        ac_pose_node.setLen('quat', 4)
+        for i in range(4):
+            ac_pose_node.setFloatEnum('quat', i, ned2body[i])
+
+        # update the camera pose
+        body2cam = camera.get_body2cam()
+        ned2cam = transformations.quaternion_multiply(ned2body, body2cam)
+        (yaw_rad, pitch_rad, roll_rad) = transformations.euler_from_quaternion(ned2cam, "rzyx")
+        cam_pose_node.setFloat('yaw_deg', yaw_rad * r2d)
+        cam_pose_node.setFloat('pitch_deg', pitch_rad * r2d)
+        cam_pose_node.setFloat('roll_deg', roll_rad * r2d)
+        cam_pose_node.setLen('quat', 4)
+        for i in range(4):
+            cam_pose_node.setFloatEnum('quat', i, ned2cam[i])
+
     # ned = [n_m, e_m, d_m] relative to the project ned reference point
     # ypr = [yaw_deg, pitch_deg, roll_deg] in the ned coordinate frame
     # note that the matrix derived from 'quat' is inv(R) is transpose(R)
     def set_camera_pose(self, ned, yaw_deg, pitch_deg, roll_deg, opt=False):
         # computed from euler angles
-        quat = self.ypr_to_quat(yaw_deg, pitch_deg, roll_deg)
+        ned2cam = self.ypr_to_quat(yaw_deg, pitch_deg, roll_deg)
         if opt:
             cam_pose_node = self.node.getChild('camera_pose_opt', True)
             cam_pose_node.setBool('valid', True)
@@ -442,7 +467,7 @@ class Image():
         cam_pose_node.setFloat('roll_deg', roll_deg)
         cam_pose_node.setLen('quat', 4)
         for i in range(4):
-            cam_pose_node.setFloatEnum('quat', i, quat[i])
+            cam_pose_node.setFloatEnum('quat', i, ned2cam[i])
         #cam_pose_node.pretty_print('  ')
         
     # set the camera pose using rvec, tvec (rodrigues) which is the

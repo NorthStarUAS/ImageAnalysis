@@ -174,15 +174,16 @@ else:
     
 # load existing image meta data in case this isn't a first run
 proj.load_images_info()
+print(proj.image_list)
 
 pix4d_file = os.path.join(args.project, 'pix4d.csv')
 meta_file = os.path.join(args.project, 'image-metadata.txt')
 if os.path.exists(pix4d_file):
-    pose.setAircraftPoses(proj, pix4d_file, order='rpy',
-                          max_angle=args.max_angle)
+    pose.set_aircraft_poses(proj, pix4d_file, order='rpy',
+                            max_angle=args.max_angle)
 elif os.path.exists(meta_file):
-    pose.setAircraftPoses(proj, meta_file, order='ypr',
-                          max_angle=args.max_angle)
+    pose.set_aircraft_poses(proj, meta_file, order='ypr',
+                            max_angle=args.max_angle)
 else:
     log("Error: no pose file found in image directory:", args.project)
     quit()
@@ -196,19 +197,20 @@ ref = [ ref_node.getFloat('lat_deg'),
         ref_node.getFloat('alt_m') ]
 log("NED reference location:", ref)
 
-# local surface approximation
-srtm.initialize( ref, 6000, 6000, 30)
-
 # set the camera poses (fixed offset from aircraft pose) Camera pose
 # location is specfied in ned, so do this after computing the ned
 # reference point for this project.
 pose.compute_camera_poses(proj)
+
+# local surface approximation
+srtm.initialize( ref, 6000, 6000, 30)
 smart.update_srtm_elevations(proj)
+smart.save(proj.analysis_dir)
 
 # save the poses
 proj.save_images_info()
 
-# save change to ned reference
+# save initial proejct config (mainly the ned reference)
 proj.save()
 
 state.update("STEP2")
