@@ -689,7 +689,8 @@ def bruteforce_pair_matches(i1, i2, review=False):
             return idx_pairs, rev_pairs
     return [], []
     
-def find_matches(proj, K, transform="homography", sort=False, review=False):
+def find_matches(proj, K, strategy="smart", transform="homography",
+                 sort=False, review=False):
     min_dist = matcher_node.getFloat('min_dist')
     max_dist = matcher_node.getFloat('max_dist')
 
@@ -751,11 +752,9 @@ def find_matches(proj, K, transform="homography", sort=False, review=False):
             t_end = t_start
         t_remain = t_end - t_elapsed
 
-        mode = "smart"     # smart, traditional, bruteforce
-
         # skip if match has already been computed
         if i2.name in i1.match_list and i1.name in i2.match_list:
-            if (True or mode == "smart" or mode == "bruteforce") and len(i1.match_list[i2.name]) == 0:
+            if (True or strategy == "smart" or strategy == "bruteforce") and len(i1.match_list[i2.name]) == 0:
                 log("Retrying: ", i1.name, "vs", i2.name, "(no matches found previously)")
             else:
                 log("Skipping: ", i1.name, "vs", i2.name, "already done.")
@@ -777,11 +776,11 @@ def find_matches(proj, K, transform="homography", sort=False, review=False):
         if i2.kp_list is None or i2.des_list is None or not len(i2.kp_list) or not len(i2.des_list):
             i2.detect_features(detect_scale)
 
-        if mode == "smart":
+        if strategy == "smart":
             match_fwd, match_rev = smart_pair_matches(i1, i2, review)
-        elif mode == "traditional":
+        elif strategy == "traditional":
             match_fwd, match_rev = bidirectional_pair_matches(i1, i2, review)
-        elif mode == "bruteforce":
+        elif strategy == "bruteforce":
             match_fwd, match_rev = bruteforce_pair_matches(i1, i2)
         i1.match_list[i2.name] = match_fwd
         i2.match_list[i1.name] = match_rev
@@ -801,11 +800,11 @@ def find_matches(proj, K, transform="homography", sort=False, review=False):
         # but the std dev of the altitude of the triangulated features
         # > 25 (m) then we think this is a bad match and we delete the
         # pairs.
-        if std and std >= 25:
+        if std and std >= 50 and len(i1.match_list[i2.name]) < 75:
+            log("Std dev of surface triangulation blew up, matches are probably bad so discarding them!", i1.name, i2.name, "avg:", avg, "std:", std, "count:", len(match_fwd))
+            showMatchOrient(i1, i2, i1.match_list[i2.name])
             i1.match_list[i2.name] = []
             i2.match_list[i1.name] = []
-            log("Std dev of surface triangulation blew up, matches are probably bad so discarding them!", i1.name, i2.name, "avg:", avg, "std:", std, "count:", len(match_fwd))
-            
         # save our work so far, and flush descriptor cache
         if time.time() >= save_time + save_interval:
             log('saving matches and image meta data ...')
@@ -836,6 +835,163 @@ def find_matches(proj, K, transform="homography", sort=False, review=False):
 def saveMatches(image_list):
     for image in image_list:
         image.save_matches()
+
+# for visualizing matches
+def decomposeAffine(affine):
+    tx = affine[0][2]
+    ty = affine[1][2]
+
+    a = affine[0][0]
+    b = affine[0][1]
+    c = affine[1][0]
+    d = affine[1][1]
+
+    sx = math.sqrt( a*a + b*b )
+    if a < 0.0:
+        sx = -sx
+    sy = math.sqrt( c*c + d*d )
+    if d < 0.0:
+        sy = -sy
+
+    rotate_deg = math.atan2(-b,a) * 180.0/math.pi
+    if rotate_deg < -180.0:
+        rotate_deg += 360.0
+    if rotate_deg > 180.0:
+        rotate_deg -= 360.0
+    return (rotate_deg, tx, ty, sx, sy)
+
+# pasted from stackoverflow.com ....
+def rotateAndScale(img, degreesCCW=30, scaleFactor=1.0 ):
+    (oldY,oldX) = img.shape[:2]
+
+    # rotate about center of image.
+    M = cv2.getRotationMatrix2D(center=(oldX/2,oldY/2), angle=degreesCCW,
+                                scale=scaleFactor)
+
+    # choose a new image size.
+    newX, newY = oldX * scaleFactor, oldY * scaleFactor
+
+    # include this if you want to prevent corners being cut off
+    r = np.deg2rad(degreesCCW)
+    newX, newY = (abs(np.sin(r)*newY) + abs(np.cos(r)*newX),
+                  abs(np.sin(r)*newX) + abs(np.cos(r)*newY))
+
+    # the warpAffine function call, below, basically works like this:
+    # 1. apply the M transformation on each pixel of the original image
+    # 2. save everything that falls within the upper-left "dsize" portion of the resulting image.
+
+    # So I will find the translation that moves the result to the
+    # center of that region.
+    (tx, ty) = ((newX-oldX)/2, (newY-oldY)/2)
+    M[0,2] += tx #third column of matrix holds translation, which takes effect after rotation.
+    M[1,2] += ty
+
+    rotatedImg = cv2.warpAffine(img, M, dsize=(int(newX),int(newY)))
+    return rotatedImg, M
+
+def copyKeyPoint(k):
+    return cv2.KeyPoint(x=k.pt[0], y=k.pt[1],
+                        _size=k.size, _angle=k.angle,
+                        _response=k.response, _octave=k.octave,
+                        _class_id=k.class_id)
+    
+def showMatchOrient(i1, i2, idx_pairs, status=None, orient='relative'):
+    #print " -- idx_pairs = " + str(idx_pairs)
+    img1 = i1.load_gray()
+    img2 = i2.load_gray()
+
+    # compute the affine transformation between points.  This is
+    # used to determine relative orientation of the two images,
+    # and possibly estimate outliers if no status array is
+    # provided.
+
+    src = []
+    dst = []
+    for pair in idx_pairs:
+        src.append( i1.kp_list[pair[0]].pt )
+        dst.append( i2.kp_list[pair[1]].pt )
+    affine, status = \
+        cv2.estimateAffinePartial2D(np.array([src]).astype(np.float32),
+                                    np.array([dst]).astype(np.float32))
+    print('affine:', affine)
+    if affine is None:
+        affine = np.array([[1.0, 0.0, 0.0],
+                           [0.0, 1.0, 0.0]])
+        # auto reject any pairs where we can't determine a proper affine transformation at all
+        status = np.zeros(len(idx_pairs), np.bool_)
+        return status, ord(' ')
+    (rot, tx, ty, sx, sy) = decomposeAffine(affine)
+    print(' ', rot, tx, ty, sx, sy)
+
+    if status is None:
+        status = np.ones(len(idx_pairs), np.bool_)
+        # for each src point, compute dst_est[i] = src[i] * affine
+        error = []
+        for i, p in enumerate(src):
+            p_est = affine.dot( np.hstack((p, 1.0)) )[:2]
+            # print('p est:', p_est, 'act:', dst[i])
+            #np1 = np.array(i1.coord_list[pair[0]])
+            #np2 = np.array(i2.coord_list[pair[1]])
+            d = np.linalg.norm(p_est - dst[i])
+            # print('dist:', d)
+            error.append(d)
+        # print('errors:', error)
+        error = np.array(error)
+        avg = np.mean(error)
+        std = np.std(error)
+        print('avg:', avg, 'std:', std)
+
+        # mark the potential outliers
+        for i in range(len(idx_pairs)):
+            if error[i] > avg + 3*std:
+                status[i] = False
+
+    print('orientation:', orient)
+    if orient == 'relative':
+        # estimate relative orientation between features
+        yaw1 = 0
+        yaw2 = rot
+    elif orient == 'aircraft':
+        yaw1 = i1.aircraft_pose['ypr'][0]
+        yaw2 = i2.aircraft_pose['ypr'][0]
+    elif orient == 'camera':
+        yaw1 = i1.camera_pose['ypr'][0]
+        yaw2 = i2.camera_pose['ypr'][0]
+    elif orient == 'sba':
+        yaw1 = i1.camera_pose_sba['ypr'][0]
+        yaw2 = i2.camera_pose_sba['ypr'][0]
+    else:
+        yaw1 = 0.0
+        yaw2 = 0.0
+    print( yaw1, yaw2)
+    h, w = img1.shape[:2]
+    scale = 790.0/float(w)
+    si1, M1 = rotateAndScale(img1, yaw1, scale)
+    si2, M2 = rotateAndScale(img2, yaw2, scale)
+
+    kp_pairs = []
+    for p in idx_pairs:
+        kp1 = copyKeyPoint(i1.kp_list[p[0]])
+        p1 = M1.dot( np.hstack((kp1.pt, 1.0)) )[:2]
+        kp1.pt = (p1[0], p1[1])
+        kp2 = copyKeyPoint(i2.kp_list[p[1]])
+        p2 = M2.dot( np.hstack((kp2.pt, 1.0)) )[:2]
+        kp2.pt = (p2[0], p2[1])
+        # print p1, p2
+        kp_pairs.append( (kp1, kp2) )
+
+    key = explore_match('find_obj', si1, si2, kp_pairs,
+                        hscale=1.0, wscale=1.0, status=status)
+
+    # status structure represents in/outlier choices of user.
+    # explore_match() modifies the status array in place.
+
+    cv2.destroyAllWindows()
+
+    # status is an array of booleans that parallels the pair array
+    # and represents the users choice to keep or discard the
+    # respective pairs.
+    return status, key
 
 
 #########################################################################
@@ -890,162 +1046,6 @@ class Matcher():
         # and represents the users choice to keep or discard the
         # respective pairs.
         return status
-
-    # pasted from stackoverflow.com ....
-    def rotateAndScale(self, img, degreesCCW=30, scaleFactor=1.0 ):
-        (oldY,oldX) = img.shape[:2]
-        
-        # rotate about center of image.
-        M = cv2.getRotationMatrix2D(center=(oldX/2,oldY/2), angle=degreesCCW,
-                                    scale=scaleFactor)
-
-        # choose a new image size.
-        newX, newY = oldX * scaleFactor, oldY * scaleFactor
-        
-        # include this if you want to prevent corners being cut off
-        r = np.deg2rad(degreesCCW)
-        newX, newY = (abs(np.sin(r)*newY) + abs(np.cos(r)*newX),
-                      abs(np.sin(r)*newX) + abs(np.cos(r)*newY))
-
-        # the warpAffine function call, below, basically works like this:
-        # 1. apply the M transformation on each pixel of the original image
-        # 2. save everything that falls within the upper-left "dsize" portion of the resulting image.
-
-        # So I will find the translation that moves the result to the
-        # center of that region.
-        (tx, ty) = ((newX-oldX)/2, (newY-oldY)/2)
-        M[0,2] += tx #third column of matrix holds translation, which takes effect after rotation.
-        M[1,2] += ty
-
-        rotatedImg = cv2.warpAffine(img, M, dsize=(int(newX),int(newY)))
-        return rotatedImg, M
-
-    def copyKeyPoint(self, k):
-        return cv2.KeyPoint(x=k.pt[0], y=k.pt[1],
-                            _size=k.size, _angle=k.angle,
-                            _response=k.response, _octave=k.octave,
-                            _class_id=k.class_id)
-    
-    def decomposeAffine(self, affine):
-        tx = affine[0][2]
-        ty = affine[1][2]
-
-        a = affine[0][0]
-        b = affine[0][1]
-        c = affine[1][0]
-        d = affine[1][1]
-
-        sx = math.sqrt( a*a + b*b )
-        if a < 0.0:
-            sx = -sx
-        sy = math.sqrt( c*c + d*d )
-        if d < 0.0:
-            sy = -sy
-
-        rotate_deg = math.atan2(-b,a) * 180.0/math.pi
-        if rotate_deg < -180.0:
-            rotate_deg += 360.0
-        if rotate_deg > 180.0:
-            rotate_deg -= 360.0
-        return (rotate_deg, tx, ty, sx, sy)
-
-    def showMatchOrient(self, i1, i2, idx_pairs, status=None, orient='relative'):
-        #print " -- idx_pairs = " + str(idx_pairs)
-        img1 = i1.load_gray()
-        img2 = i2.load_gray()
-
-        # compute the affine transformation between points.  This is
-        # used to determine relative orientation of the two images,
-        # and possibly estimate outliers if no status array is
-        # provided.
-        
-        src = []
-        dst = []
-        for pair in idx_pairs:
-            src.append( i1.kp_list[pair[0]].pt )
-            dst.append( i2.kp_list[pair[1]].pt )
-        affine, status = \
-            cv2.estimateAffinePartial2D(np.array([src]).astype(np.float32),
-                                        np.array([dst]).astype(np.float32))
-        print('affine:', affine)
-        if affine is None:
-            affine = np.array([[1.0, 0.0, 0.0],
-                               [0.0, 1.0, 0.0]])
-            # auto reject any pairs where we can't determine a proper affine transformation at all
-            status = np.zeros(len(idx_pairs), np.bool_)
-            return status, ord(' ')
-        (rot, tx, ty, sx, sy) = self.decomposeAffine(affine)
-        print(' ', rot, tx, ty, sx, sy)
-
-        if status is None:
-            status = np.ones(len(idx_pairs), np.bool_)
-            # for each src point, compute dst_est[i] = src[i] * affine
-            error = []
-            for i, p in enumerate(src):
-                p_est = affine.dot( np.hstack((p, 1.0)) )[:2]
-                # print('p est:', p_est, 'act:', dst[i])
-                #np1 = np.array(i1.coord_list[pair[0]])
-                #np2 = np.array(i2.coord_list[pair[1]])
-                d = np.linalg.norm(p_est - dst[i])
-                # print('dist:', d)
-                error.append(d)
-            # print('errors:', error)
-            error = np.array(error)
-            avg = np.mean(error)
-            std = np.std(error)
-            print('avg:', avg, 'std:', std)
-
-            # mark the potential outliers
-            for i in range(len(idx_pairs)):
-                if error[i] > avg + 3*std:
-                    status[i] = False
-                
-        print('orientation:', orient)
-        if orient == 'relative':
-            # estimate relative orientation between features
-            yaw1 = 0
-            yaw2 = rot
-        elif orient == 'aircraft':
-            yaw1 = i1.aircraft_pose['ypr'][0]
-            yaw2 = i2.aircraft_pose['ypr'][0]
-        elif orient == 'camera':
-            yaw1 = i1.camera_pose['ypr'][0]
-            yaw2 = i2.camera_pose['ypr'][0]
-        elif orient == 'sba':
-            yaw1 = i1.camera_pose_sba['ypr'][0]
-            yaw2 = i2.camera_pose_sba['ypr'][0]
-        else:
-            yaw1 = 0.0
-            yaw2 = 0.0
-        print( yaw1, yaw2)
-        h, w = img1.shape[:2]
-        scale = 790.0/float(w)
-        si1, M1 = self.rotateAndScale(img1, yaw1, scale)
-        si2, M2 = self.rotateAndScale(img2, yaw2, scale)
-
-        kp_pairs = []
-        for p in idx_pairs:
-            kp1 = self.copyKeyPoint(i1.kp_list[p[0]])
-            p1 = M1.dot( np.hstack((kp1.pt, 1.0)) )[:2]
-            kp1.pt = (p1[0], p1[1])
-            kp2 = self.copyKeyPoint(i2.kp_list[p[1]])
-            p2 = M2.dot( np.hstack((kp2.pt, 1.0)) )[:2]
-            kp2.pt = (p2[0], p2[1])
-            # print p1, p2
-            kp_pairs.append( (kp1, kp2) )
-
-        key = explore_match('find_obj', si1, si2, kp_pairs,
-                            hscale=1.0, wscale=1.0, status=status)
-        
-        # status structure represents in/outlier choices of user.
-        # explore_match() modifies the status array in place.
-        
-        cv2.destroyAllWindows()
-
-        # status is an array of booleans that parallels the pair array
-        # and represents the users choice to keep or discard the
-        # respective pairs.
-        return status, key
 
     def showMatches(self, i1):
         for key in i1.match_list:

@@ -79,6 +79,8 @@ parser.add_argument('--star-suppress-nonmax-size', default=5)
 parser.add_argument('--reject-margin', default=0, help='reject features within this distance of the image outer edge margin')
 
 # feature matching arguments
+parser.add_argument('--match-strategy', default='smart',
+                    choices=['smart', 'traditional', 'bruteforce'])
 parser.add_argument('--match-ratio', default=0.75, type=float,
                     help='match ratio')
 parser.add_argument('--min-pairs', default=25, type=int,
@@ -273,8 +275,8 @@ if not state.check("STEP3a"):
     
     # fire up the matcher
     matcher.configure()
-    matcher.find_matches(proj, K, transform=args.filter, sort=True,
-                         review=False)
+    matcher.find_matches(proj, K, strategy=args.match_strategy,
+                         transform=args.filter, sort=True, review=False)
 
     feature_count = 0
     image_count = 0
