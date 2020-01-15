@@ -54,7 +54,6 @@ def setAircraftPoses(proj, posefile="", order='ypr', max_angle=25.0):
     log("Setting aircraft poses")
     
     analysis_dir = os.path.join(proj.project_dir, 'ImageAnalysis')
-    proj.image_list = []
 
     by_index = False
     
@@ -104,12 +103,11 @@ def setAircraftPoses(proj, posefile="", order='ypr', max_angle=25.0):
             continue
 
         base, ext = os.path.splitext(name)
-        img = image.Image(analysis_dir, base)
+        img = proj.findImageByName(base)
         img.set_aircraft_pose(lat_deg, lon_deg, alt_m,
                               yaw_deg, pitch_deg, roll_deg,
                               flight_time)
         log("pose:", name, "yaw=%.1f pitch=%.1f roll=%.1f" % (yaw_deg, pitch_deg, roll_deg))
-        proj.image_list.append(img)
 
 # for each image, compute the estimated camera pose in NED space from
 # the aircraft body pose and the relative camera orientation

@@ -145,23 +145,26 @@ class ProjectMgr():
         return camera, make, model, lens_model
         
     def load_images_info(self):
+        # wipe image list (so we don't double load)
+        self.image_list = []
+        
+        # scan project directory for images and build the master
+        # images list
+        for file in sorted(os.listdir(self.project_dir)):
+            if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
+                name, ext = os.path.splitext(file)
+                i = image.Image(self.analysis_dir, name)
+                self.image_list.append( i )
+                
         # load image meta info
-        result = False
-        meta_dir = os.path.join(self.analysis_dir, 'meta')
+        meta_dir = os.path.join(self.analysis_dir, "meta")
         images_node = getNode("/images", True)
-
         for file in os.listdir(meta_dir):
             if fnmatch.fnmatch(file, '*.json'):
                 name, ext = os.path.splitext(file)
                 image_node = images_node.getChild(name, True)
                 props_json.load(os.path.join(meta_dir, file), image_node)
         # images_node.pretty_print()
-                
-        # wipe image list (so we don't double load)
-        self.image_list = []
-        for name in images_node.getChildren():
-            img = image.Image(self.analysis_dir, name)
-            self.image_list.append( img )
 
     def load_features(self, descriptors=False):
         if descriptors:
