@@ -118,14 +118,18 @@ def decompose_affine(affine):
 # average of the triangulated points (converted to positive elevation)
 def estimate_surface_elevation(i1, i2):
     points = triangulate_features(i1, i2)
+    (ned1, ypr1, quat1) = i1.get_camera_pose()
+    (ned2, ypr2, quat2) = i2.get_camera_pose()
+    diff = np.array(ned2) - np.array(ned1)
+    dist_m = np.linalg.norm( diff )
     # num_matches = points.shape[1]
     if points is None:
-        return None, None
+        return None, None, dist_m
     else:
         # points are are triangulated in the NED coordinates, so
         # invert the vertical (down) average before returning the
         # answer.
-        return -np.average(points[2]), np.std(points[2])
+        return -np.average(points[2]), np.std(points[2]), dist_m
 
 # Estimate image pose yaw error (based on found pairs affine
 # transform, original image pose, and gps positions; assumes a mostly
@@ -190,7 +194,7 @@ def estimate_yaw_error(i1, i2):
 # compute the pairwise surface estimate and then update the property
 # tree records
 def update_surface_estimate(i1, i2):
-    avg, std = estimate_surface_elevation(i1, i2)
+    avg, std, dist_m = estimate_surface_elevation(i1, i2)
     if avg is None:
         return None, None
 
@@ -206,9 +210,11 @@ def update_surface_estimate(i1, i2):
     pair1_node.setFloat("surface_m", float("%.1f" % avg))
     pair1_node.setInt("weight", weight)
     pair1_node.setFloat("stddev", float("%.1f" % std))
+    pair1_node.setInt("dist_m", dist_m)
     pair2_node.setFloat("surface_m", float("%.1f" % avg))
     pair2_node.setInt("weight", weight)
     pair2_node.setFloat("stddev", float("%.1f" % std))
+    pair2_node.setInt("dist_m", dist_m)
 
     # update the average surface values
     cutoff_std = 25             # more than this suggests a bad set of matches
@@ -220,7 +226,7 @@ def update_surface_estimate(i1, i2):
         surf = pair_node.getFloat("surface_m")
         weight = pair_node.getInt("weight")
         stddev = pair_node.getFloat("stddev")
-        if stddev < cutoff_std:
+        if dist_m > 10 and stddev < cutoff_std:
             sum1 += surf * weight
             count1 += weight
     if count1 > 0:
@@ -233,7 +239,7 @@ def update_surface_estimate(i1, i2):
         surf = pair_node.getFloat("surface_m")
         weight = pair_node.getInt("weight")
         stddev = pair_node.getFloat("stddev")
-        if stddev < cutoff_std:
+        if dist_m > 10 and stddev < cutoff_std:
             sum2 += surf * weight
             count2 += weight
     if count2 > 0:

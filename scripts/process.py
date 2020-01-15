@@ -203,6 +203,7 @@ pose.compute_camera_poses(proj)
 
 # local surface approximation
 srtm.initialize( ref, 6000, 6000, 30)
+smart.load(proj.analysis_dir)
 smart.update_srtm_elevations(proj)
 smart.save(proj.analysis_dir)
 
