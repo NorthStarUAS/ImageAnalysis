@@ -15,6 +15,7 @@ import sys
 
 from props import getNode
 
+from . import camera
 from .logger import log, qlog
 from . import transformations
 
@@ -442,6 +443,7 @@ class Image():
         body2cam = camera.get_body2cam()
         ned2cam = transformations.quaternion_multiply(ned2body, body2cam)
         (yaw_rad, pitch_rad, roll_rad) = transformations.euler_from_quaternion(ned2cam, "rzyx")
+        cam_pose_node = self.node.getChild('camera_pose', True)
         cam_pose_node.setFloat('yaw_deg', yaw_rad * r2d)
         cam_pose_node.setFloat('pitch_deg', pitch_rad * r2d)
         cam_pose_node.setFloat('roll_deg', roll_rad * r2d)

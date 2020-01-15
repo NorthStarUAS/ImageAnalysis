@@ -22,7 +22,7 @@ from . import srtm
 r2d = 180 / math.pi
 d2r = math.pi / 180
 
-surface_node = getNode("/surface", True)
+smart_node = getNode("/smart", True)
 
 # compute the 3d triangulation of the matches between a pair of images
 def triangulate_features(i1, i2):
@@ -194,8 +194,8 @@ def update_surface_estimate(i1, i2):
     if avg is None:
         return None, None
 
-    i1_node = surface_node.getChild(i1.name, True)
-    i2_node = surface_node.getChild(i2.name, True)
+    i1_node = smart_node.getChild(i1.name, True)
+    i2_node = smart_node.getChild(i2.name, True)
     tri1_node = i1_node.getChild("tri_surface_pairs", True)
     tri2_node = i2_node.getChild("tri_surface_pairs", True)
     
@@ -248,7 +248,7 @@ def update_yaw_error_estimate(i1, i2):
     if yaw_error is None:
         return 0
 
-    i1_node = surface_node.getChild(i1.name, True)
+    i1_node = smart_node.getChild(i1.name, True)
     yaw_node = i1_node.getChild("yaw_pairs", True)
     
     # update pairwise info in the property tree
@@ -264,8 +264,13 @@ def update_yaw_error_estimate(i1, i2):
         pair_node = yaw_node.getChild(child)
         yaw_error = pair_node.getFloat("yaw_error")
         weight = pair_node.getInt("weight")
-        sum += yaw_error * weight
-        count += weight
+        dist_m = pair_node.getFloat("dist_m")
+        if dist_m > 5 and yaw_error < 20:
+            sum += yaw_error * weight
+            count += weight
+        else:
+            log("yaw error ignored:", i1.name, i2.name, "%.1fm" % dist_m,
+                "%.1f(deg)" % yaw_error)
     if count > 0:
         i1_node.setFloat("yaw_error", float("%.1f" % (sum / count)))
         return sum / count
@@ -274,8 +279,8 @@ def update_yaw_error_estimate(i1, i2):
 
 # return the average of estimated surfaces below the image pair
 def get_surface_estimate(i1, i2):
-    i1_node = surface_node.getChild(i1.name, True)
-    i2_node = surface_node.getChild(i2.name, True)
+    i1_node = smart_node.getChild(i1.name, True)
+    i2_node = smart_node.getChild(i2.name, True)
     tri1_node = i1_node.getChild("tri_surface_pairs", True)
     tri2_node = i2_node.getChild("tri_surface_pairs", True)
 
@@ -303,14 +308,21 @@ def update_srtm_elevations(proj):
     for image in proj.image_list:
         ned, ypr, quat = image.get_camera_pose()
         surface = srtm.ned_interp([ned[0], ned[1]])
-        image_node = surface_node.getChild(image.name, True)
+        image_node = smart_node.getChild(image.name, True)
         image_node.setFloat("srtm_surface_m", float("%.1f" % surface))
+
+def set_yaw_error_estimates(proj):
+    for image in proj.image_list:
+        image_node = smart_node.getChild(image.name, True)
+        yaw_node = image_node.getChild("yaw_pairs", True)
+        yaw_error_deg = yaw_node.getFloat("yaw_error")
+        image.set_aircraft_yaw_error_estimate(yaw_error_deg)
         
 def load(analysis_dir):
     surface_file = os.path.join(analysis_dir, "smart.json")
-    props_json.load(surface_file, surface_node)
+    props_json.load(surface_file, smart_node)
 
 def save(analysis_dir):
     surface_file = os.path.join(analysis_dir, "smart.json")
-    props_json.save(surface_file, surface_node)
+    props_json.save(surface_file, smart_node)
     

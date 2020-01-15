@@ -138,7 +138,6 @@ def get_mount_params():
 
 def get_body2cam():
     yaw_deg, pitch_deg, roll_deg = get_mount_params()
-    log("camera mount offset:", yaw_deg, pitch_deg, roll_deg)
     body2cam = transformations.quaternion_from_euler(yaw_deg * d2r,
                                                      pitch_deg * d2r,
                                                      roll_deg * d2r,

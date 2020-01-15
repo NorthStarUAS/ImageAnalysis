@@ -174,7 +174,6 @@ else:
     
 # load existing image meta data in case this isn't a first run
 proj.load_images_info()
-print(proj.image_list)
 
 pix4d_file = os.path.join(args.project, 'pix4d.csv')
 meta_file = os.path.join(args.project, 'image-metadata.txt')
@@ -224,7 +223,8 @@ if not state.check("STEP3a"):
     proj.load_images_info()
     proj.load_match_pairs()
     smart.load(proj.analysis_dir)
-
+    smart.set_yaw_error_estimates(proj)
+    
     # setup project detector parameters
     detector_node = getNode('/config/detector', True)
     detector_node.setString('detector', args.detector)

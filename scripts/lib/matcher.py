@@ -790,8 +790,10 @@ def find_matches(proj, K, transform="homography", sort=False, review=False):
         avg, std = smart.update_surface_estimate(i1, i2)
         if avg and std:
             qlog(" ", i1.name, i2.name, "surface est: %.1f" % avg, "std: %.1f" % std)
-        yaw_error = smart.update_yaw_error_estimate(i1, i2)
-        yaw_error = smart.update_yaw_error_estimate(i2, i1)
+        yaw1_error = smart.update_yaw_error_estimate(i1, i2)
+        i1.set_aircraft_yaw_error_estimate(yaw1_error)
+        yaw2_error = smart.update_yaw_error_estimate(i2, i1)
+        i2.set_aircraft_yaw_error_estimate(yaw2_error)
 
         # new feature, depends on a reasonably quality initial camera
         # pose!  caution: I've put a policy setting here in the middle
