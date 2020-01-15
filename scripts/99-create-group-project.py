@@ -5,6 +5,9 @@ import csv
 import fnmatch
 import os
 import shutil
+
+import props_json
+
 parser = argparse.ArgumentParser(description='Create an group project.')
 parser.add_argument('project', help='Directory with a set of aerial images.')
 parser.add_argument('source', metavar='src-project', nargs='+',
@@ -80,7 +83,15 @@ config_src = os.path.join(args.source[0], "ImageAnalysis", "config.json")
 config_dest = os.path.join(analysis_dir, "config.json")
 if os.path.exists(config_src):
     shutil.copyfile(config_src, config_dest)
-    
+
+# assemble the collective smart.json file
+smart_node = getNode("/smart", True)
+for p in args.source:
+    smart_src = os.path.join(p, "ImageAnalysis", "smart.json")
+    props_json.load(smart_src, smart_node)
+smart_dst = os.path.join(project_dir, "ImageAnalysis", "smart.json")
+props_json.save(smart_dst, smart_node)
+
 # populate the meta directory
 print("Populating the meta directory with symbolic links.")
 for p in args.source:
