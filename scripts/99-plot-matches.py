@@ -14,6 +14,7 @@ from props import getNode
 
 from lib import groups
 from lib import project
+from lib import smart
 from lib import srtm
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
@@ -74,6 +75,32 @@ for name in remain_list:
     points.append( (ned1[1], ned1[0]) )
 points = np.array(points)
 ax.plot(points[:,0], points[:,1], '*')
+
+# smart system plots
+srtm_list = []
+tri_list = []
+yaw_list = []
+smart.load(proj.analysis_dir)
+for i1 in proj.image_list:
+    i1_node = smart.smart_node.getChild(i1.name, True)
+    srtm_list.append( i1_node.getFloat("srtm_surface_m") )
+    tri_list.append( i1_node.getFloat("tri_surface_m") )
+    yaw_list.append( i1_node.getFloat("yaw_error") )
+
+plt.figure()
+plt.plot(srtm_list, label="SRTM")
+plt.plot(tri_list, label="Triangulation")
+plt.title("Surface elevation below image")
+plt.xlabel("Image Index")
+plt.ylabel("Elevation (m)")
+plt.legend()
+
+plt.figure()
+plt.title("Yaw Error")
+plt.plot(yaw_list)
+plt.xlabel("Image Index")
+plt.ylabel("Angle (deg)")
+plt.legend()
 
 plt.show()
 
