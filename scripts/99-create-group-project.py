@@ -6,6 +6,7 @@ import fnmatch
 import os
 import shutil
 
+from props import getNode
 import props_json
 
 parser = argparse.ArgumentParser(description='Create an group project.')
@@ -85,6 +86,7 @@ if os.path.exists(config_src):
     shutil.copyfile(config_src, config_dest)
 
 # assemble the collective smart.json file
+print("Combining all the smart.json files")
 smart_node = getNode("/smart", True)
 for p in args.source:
     smart_src = os.path.join(p, "ImageAnalysis", "smart.json")
