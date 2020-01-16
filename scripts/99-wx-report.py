@@ -83,6 +83,11 @@ if len(files) == 0:
     quit()
     
 lat1, lon1, alt1,  unix_sec1 = get_image_info(files[0]) # first
+if abs(lat1) < 0.01 and abs(lon1) < 0.01:
+    print("first image in list geotag fail")
+    print("sorry, probably you should just remove the image manually ...")
+    print("and then start everything over from scratch.")
+    quit()
 lat2, lon2, alt2,  unix_sec2 = get_image_info(files[-1]) # last
 lat = (lat1 + lat2) * 0.5
 lon = (lon1 + lon2) * 0.5
