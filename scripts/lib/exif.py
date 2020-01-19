@@ -38,7 +38,17 @@ def dms_to_decimal(degrees, minutes, seconds, sign=' '):
     )
 
 def get_pose(image_file):
+    # exif data
     exif_dict = piexif.load(image_file)
+    # extend xmp tags
+    xmp_top = file_to_dict(image_file)
+    xmp = {}
+    for key in xmp_top:
+        for v in xmp_top[key]:
+            xmp[v[0]] = v[1]
+    #for key in xmp:
+    #    print(key, xmp[key])
+        
     
     # for ifd in exif_dict:
     #     if ifd == str("thumbnail"):
@@ -48,15 +58,26 @@ def get_pose(image_file):
     #     for tag in exif_dict[ifd]:
     #         print(ifd, tag, piexif.TAGS[ifd][tag]["name"], exif_dict[ifd][tag])
 
-    elat = exif_dict['GPS'][piexif.GPSIFD.GPSLatitude]
-    lat = dms_to_decimal(elat[0], elat[1], elat[2],
-                         exif_dict['GPS'][piexif.GPSIFD.GPSLatitudeRef].decode('utf-8'))
-    elon = exif_dict['GPS'][piexif.GPSIFD.GPSLongitude]
-    lon = dms_to_decimal(elon[0], elon[1], elon[2],
-                         exif_dict['GPS'][piexif.GPSIFD.GPSLongitudeRef].decode('utf-8'))
-    #print(lon)
-    ealt = exif_dict['GPS'][piexif.GPSIFD.GPSAltitude]
-    alt = ealt[0] / ealt[1]
+    if 'drone-dji:GpsLatitude' in xmp:
+        lat_deg = float(xmp['drone-dji:GpsLatitude'])
+    else:
+        elat = exif_dict['GPS'][piexif.GPSIFD.GPSLatitude]
+        lat_deg = dms_to_decimal(elat[0], elat[1], elat[2],
+                                 exif_dict['GPS'][piexif.GPSIFD.GPSLatitudeRef].decode('utf-8'))
+        
+    if 'drone-dji:GpsLongitude' in xmp:
+        lon_deg = float(xmp['drone-dji:GpsLongitude'])
+    else:
+        elon = exif_dict['GPS'][piexif.GPSIFD.GPSLongitude]
+        lon_deg = dms_to_decimal(elon[0], elon[1], elon[2],
+                                 exif_dict['GPS'][piexif.GPSIFD.GPSLongitudeRef].decode('utf-8'))
+        
+    if 'drone-dji:AbsoluteAltitude' in xmp:
+        alt_m = float(xmp['drone-dji:AbsoluteAltitude'])
+    else:
+        ealt = exif_dict['GPS'][piexif.GPSIFD.GPSAltitude]
+        alt_m = ealt[0] / ealt[1]
+        
     #exif_dict[GPS + 'MapDatum'])
     #print('lon ref', exif_dict['GPS'][piexif.GPSIFD.GPSLongitudeRef])
 
@@ -73,20 +94,21 @@ def get_pose(image_file):
         unixtime = None
     #print('pos:', lat, lon, alt, heading)
     
-    # check for dji image heading tag
-    xmp_top = file_to_dict(image_file)
-    xmp = {}
-    for key in xmp_top:
-        for v in xmp_top[key]:
-            xmp[v[0]] = v[1]
-    #for key in xmp:
-    #    print(key, xmp[key])
-        
     if 'drone-dji:GimbalYawDegree' in xmp:
         yaw_deg = float(xmp['drone-dji:GimbalYawDegree'])
         while yaw_deg < 0:
             yaw_deg += 360
     else:
         yaw_deg = None
+
+    if 'drone-dji:GimbalPitchDegree' in xmp:
+        pitch_deg = float(xmp['drone-dji:GimbalPitchDegree'])
+    else:
+        pitch_deg = None
+
+    if 'drone-dji:GimbalRollDegree' in xmp:
+        roll_deg = float(xmp['drone-dji:GimbalRollDegree'])
+    else:
+        roll_deg = None
         
-    return lon, lat, alt, unixtime, yaw_deg
+    return lon_deg, lat_deg, alt_m, unixtime, yaw_deg, pitch_deg, roll_deg
