@@ -141,7 +141,15 @@ cam_node = getNode('/config/camera', True)
 tmp_node = PropertyNode()
 if props_json.load(camera_file, tmp_node):
     props_json.overlay(cam_node, tmp_node)
-    camera.set_mount_params(args.yaw_deg, args.pitch_deg, args.roll_deg)
+    if cam_node.getString("make") == "DJI":
+        # phantom, et al.
+        camera.set_mount_params(0.0, 0.0, 0.0)
+    elif cam_node.getString("make") == "Hasselblad":
+        # mavic pro
+        camera.set_mount_params(0.0, 0.0, 0.0)
+    else:
+        # assume a nadir camera rigidly mounted to airframe
+        camera.set_mount_params(args.yaw_deg, args.pitch_deg, args.roll_deg)
     # note: dist_coeffs = array[5] = k1, k2, p1, p2, k3
     # ... and save
     proj.save()
@@ -174,9 +182,6 @@ elif os.path.exists(meta_file):
 else:
     pose.make_pix4d(args.project, args.force_altitude)
     
-# load existing image meta data in case this isn't a first run
-proj.load_images_info()
-
 pix4d_file = os.path.join(args.project, 'pix4d.csv')
 meta_file = os.path.join(args.project, 'image-metadata.txt')
 if os.path.exists(pix4d_file):
@@ -188,6 +193,11 @@ elif os.path.exists(meta_file):
 else:
     log("Error: no pose file found in image directory:", args.project)
     quit()
+# save the initial meta .json file for each posed image
+proj.save_images_info()
+
+# now, load the image meta data and init the proj.image_list
+proj.load_images_info()
 
 # compute the project's NED reference location (based on average of
 # aircraft poses)
