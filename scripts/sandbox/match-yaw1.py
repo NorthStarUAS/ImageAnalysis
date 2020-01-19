@@ -133,11 +133,9 @@ print("Computing affine matrix for pairs:")
 for i, i1 in enumerate(proj.image_list):
     ned, ypr, quat = i1.get_camera_pose()
     srtm_elev = srtm.ned_interp( [ned[0], ned[1]] )
-    i1_node = smart.surface_node.getChild(i1.name, True)
-    i1_node.setFloat("srtm_surface_m", "%.1f" % srtm_elev)
+    i1_node = smart.smart_node.getChild(i1.name, True)
     for j, i2 in enumerate(proj.image_list):
         yaw_error = smart.update_yaw_error_estimate(i1, i2)
             
-smart.surface_node.pretty_print()
 smart.save(proj.analysis_dir)
 

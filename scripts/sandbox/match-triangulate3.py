@@ -34,14 +34,15 @@ smart.load(proj.analysis_dir)
 
 print('Computing pair triangulations:')
 for i, i1 in enumerate(proj.image_list):
+    print("doing:", i1.name)
     ned, ypr, quat = i1.get_camera_pose()
     srtm_elev = srtm.ned_interp( [ned[0], ned[1]] )
-    i1_node = smart.surface_node.getChild(i1.name, True)
+    i1_node = smart.smart_node.getChild(i1.name, True)
     i1_node.setFloat("srtm_surface_m", "%.1f" % srtm_elev)
     for j, i2 in enumerate(proj.image_list):
         if j > i:
             smart.update_surface_estimate(i1, i2)
 
-smart.surface_node.pretty_print()
+#smart.smart_node.pretty_print()
 smart.save(proj.analysis_dir)
 
