@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 import geojson
 
-from props import root, getNode
+from props import getNode
 import props_json
 
 from . import camera
@@ -148,23 +148,25 @@ class ProjectMgr():
         # wipe image list (so we don't double load)
         self.image_list = []
         
-        # scan project directory for images and build the master
-        # images list
-        for file in sorted(os.listdir(self.project_dir)):
-            if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
-                name, ext = os.path.splitext(file)
-                i = image.Image(self.analysis_dir, name)
-                self.image_list.append( i )
-                
         # load image meta info
         meta_dir = os.path.join(self.analysis_dir, "meta")
         images_node = getNode("/images", True)
-        for file in os.listdir(meta_dir):
+        for file in sorted(os.listdir(meta_dir)):
             if fnmatch.fnmatch(file, '*.json'):
                 name, ext = os.path.splitext(file)
                 image_node = images_node.getChild(name, True)
                 props_json.load(os.path.join(meta_dir, file), image_node)
+                i1 = image.Image(self.analysis_dir, name)
+                self.image_list.append( i1 )
+
         # images_node.pretty_print()
+        # scan project directory for images and build the master
+        # images list
+        # for file in sorted(os.listdir(self.project_dir)):
+        #     if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
+        #         name, ext = os.path.splitext(file)
+        #         i = image.Image(self.analysis_dir, name)
+        #         self.image_list.append( i )
 
     def load_features(self, descriptors=False):
         if descriptors:
