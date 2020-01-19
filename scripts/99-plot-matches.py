@@ -73,8 +73,9 @@ for name in remain_list:
     i1 = proj.findImageByName(name)
     ned1, ypr1, quat1 = i1.get_camera_pose()
     points.append( (ned1[1], ned1[0]) )
-points = np.array(points)
-ax.plot(points[:,0], points[:,1], '*')
+if len(points):
+    points = np.array(points)
+    ax.plot(points[:,0], points[:,1], '*')
 
 # smart system plots
 srtm_list = []
@@ -100,7 +101,6 @@ plt.title("Yaw Error")
 plt.plot(yaw_list)
 plt.xlabel("Image Index")
 plt.ylabel("Angle (deg)")
-plt.legend()
 
 plt.show()
 
