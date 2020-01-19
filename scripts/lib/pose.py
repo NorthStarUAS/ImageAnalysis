@@ -18,6 +18,9 @@ from . import image
 from .logger import log
 from . import transformations
 
+from props import getNode
+import props_json
+
 # this should really be a parameter.  Any aircraft poses that exceed
 # this value for either roll or pitch will be ignored.  Oblique photos
 # combined with lens distortion become really difficult for the
@@ -52,7 +55,9 @@ def gen_image_list(image_dir):
 def set_aircraft_poses(proj, posefile="", order='ypr', max_angle=25.0):
     log("Setting aircraft poses")
     
-    analysis_dir = os.path.join(proj.project_dir, 'ImageAnalysis')
+    #analysis_dir = os.path.join(proj.project_dir, 'ImageAnalysis')
+    meta_dir = os.path.join(proj.analysis_dir, 'meta')
+    images_node = getNode("/images", True)
 
     by_index = False
     
@@ -96,16 +101,25 @@ def set_aircraft_poses(proj, posefile="", order='ypr', max_angle=25.0):
         if not os.path.isfile( os.path.join(proj.project_dir, name) ):
             log("No image file:", name, "skipping ...")
             continue
-        if abs(roll_deg) > max_angle or abs(pitch_deg) > max_angle:
+        if camera.camera_node.getString("make") == "DJI" or camera.camera_node.getString("make") == "Hasselblad":
+            # camera is on a gimbal so check if pitch is nearly nadir (-90)
+            if pitch_deg > -45:
+                log("gimbal not looking down:", name, "roll:", roll_deg, "pitch:", pitch_deg)
+                continue
+        elif abs(roll_deg) > max_angle or abs(pitch_deg) > max_angle:
             # fairly 'extreme' attitude, skip image
             log("extreme attitude:", name, "roll:", roll_deg, "pitch:", pitch_deg)
             continue
 
         base, ext = os.path.splitext(name)
-        img = proj.findImageByName(base)
-        img.set_aircraft_pose(lat_deg, lon_deg, alt_m,
-                              yaw_deg, pitch_deg, roll_deg,
-                              flight_time)
+        i1 = image.Image(proj.analysis_dir, base)
+        i1.set_aircraft_pose(lat_deg, lon_deg, alt_m,
+                             yaw_deg, pitch_deg, roll_deg,
+                             flight_time)
+        image_node = images_node.getChild(base, True)
+        image_path = os.path.join(meta_dir, base + '.json')
+        props_json.save(image_path, image_node)
+  
         log("pose:", name, "yaw=%.1f pitch=%.1f roll=%.1f" % (yaw_deg, pitch_deg, roll_deg))
 
 # for each image, compute the estimated camera pose in NED space from
@@ -121,6 +135,7 @@ def compute_camera_poses(proj):
     body2cam = camera.get_body2cam()
 
     for image in proj.image_list:
+        print("camera pose:", image.name)
         ac_pose_node = image.node.getChild("aircraft_pose", True)
         #cam_pose_node = images_node.getChild(name + "/camera_pose", True)
         
@@ -163,16 +178,22 @@ def make_pix4d(image_dir, force_altitude=None, force_heading=None, yaw_from_grou
     for file in files:
         full_name = os.path.join(image_dir, file)
         # print(full_name)
-        lon, lat, alt, unixtime, yaw_deg = exif.get_pose(full_name)
+        lon_deg, lat_deg, alt_m, unixtime, yaw_deg, pitch_deg, roll_deg = exif.get_pose(full_name)
 
-        line = [file, lat, lon]
+        line = [file, lat_deg, lon_deg]
         if not force_altitude:
-            line.append(alt)
+            line.append(alt_m)
         else:
             line.append(force_altitude)
 
-        line.append(0)          # assume zero pitch
-        line.append(0)          # assume zero roll
+        if roll_deg is None:
+            line.append(0)      # assume zero roll
+        else:
+            line.append(roll_deg)
+        if pitch_deg is None:
+            line.append(0)      # assume zero pitch
+        else:
+            line.append(pitch_deg)
         if force_heading is not None:
             line.append(force_heading)
         elif yaw_deg is not None:
