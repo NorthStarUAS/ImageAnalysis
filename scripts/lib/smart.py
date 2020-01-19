@@ -271,7 +271,7 @@ def update_yaw_error_estimate(i1, i2):
         yaw_error = pair_node.getFloat("yaw_error")
         weight = pair_node.getInt("weight")
         dist_m = pair_node.getFloat("dist_m")
-        if dist_m > 5 and yaw_error < 20:
+        if dist_m > 5 and abs(yaw_error) < 20:
             sum += yaw_error * weight
             count += weight
         else:
