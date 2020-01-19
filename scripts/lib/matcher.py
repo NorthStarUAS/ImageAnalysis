@@ -698,6 +698,18 @@ def find_matches(proj, K, strategy="smart", transform="homography",
     n_work = float(n*(n+1)/2)
     t_start = time.time()
 
+    intervals = []
+    for i in range(len(proj.image_list)-1):
+        ned1, ypr1, q1 = proj.image_list[i].get_camera_pose()
+        ned2, ypr2, q2 = proj.image_list[i+1].get_camera_pose()
+        dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
+        intervals.append(dist)
+        print(i, dist)
+    median_int = int(round(np.median(intervals)))
+    log("Median pair interval:", median_int)
+
+    # propose max_dist = median_int * 4
+
     log('Generating work list for range:', min_dist, '-', max_dist)
     work_list = []
     for i, i1 in enumerate(tqdm(proj.image_list)):
@@ -708,7 +720,7 @@ def find_matches(proj, K, strategy="smart", transform="homography",
             # camera pose distance check
             ned2, ypr2, q2 = i2.get_camera_pose()
             dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
-            dist = int(round(dist/2))*2 # discretized sorting/cache friendlier
+            dist = int(round(dist/median_int))*median_int # discretized sorting/cache friendlier
             if dist >= min_dist and dist <= max_dist:
                 work_list.append( [dist, i, j] )
 
@@ -800,9 +812,9 @@ def find_matches(proj, K, strategy="smart", transform="homography",
         # but the std dev of the altitude of the triangulated features
         # > 25 (m) then we think this is a bad match and we delete the
         # pairs.
-        if std and std >= 50 and len(i1.match_list[i2.name]) < 75:
+        if std and std >= 50 and len(i1.match_list[i2.name]) < 100:
             log("Std dev of surface triangulation blew up, matches are probably bad so discarding them!", i1.name, i2.name, "avg:", avg, "std:", std, "count:", len(match_fwd))
-            showMatchOrient(i1, i2, i1.match_list[i2.name])
+            #showMatchOrient(i1, i2, i1.match_list[i2.name])
             i1.match_list[i2.name] = []
             i2.match_list[i1.name] = []
         # save our work so far, and flush descriptor cache
