@@ -13,11 +13,8 @@ import numpy as np
 
 from props import getNode
 
-from lib import camera
+from lib import histogram
 from lib import project
-from lib import smart
-from lib import srtm
-from lib import transformations
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('project', help='project directory')
@@ -27,19 +24,6 @@ proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 # proj.load_features(descriptors=False)
 proj.load_match_pairs()
-
-r2d = 180 / math.pi
-d2r = math.pi / 180
-
-# lookup ned reference
-ref_node = getNode("/config/ned_reference", True)
-ref = [ ref_node.getFloat('lat_deg'),
-        ref_node.getFloat('lon_deg'),
-        ref_node.getFloat('alt_m') ]
-# setup SRTM ground interpolator
-srtm.initialize( ref, 6000, 6000, 30 )
-
-smart.load(proj.analysis_dir)
 
 # histogram matching from:
 # https://stackoverflow.com/questions/32655686/histogram-matching-of-two-images-in-python-2-x
@@ -68,102 +52,28 @@ def hist_match(source, template):
 
     return interp_t_values[bin_idx].reshape(oldshape)
 
-# compute the histogram for the image
-def get_histogram_rgb(image):
-    print(image.name)
+histogram.make_histograms(proj.image_list)
+histogram.make_templates(proj.image_list, dist_cutoff=40, self_weight=0.1)
+
+histograms = histogram.histograms
+templates = histogram.templates
+for image in proj.image_list:
     rgb = image.load_rgb()
-    scaled = cv2.resize(rgb, (0,0), fx=0.25, fy=0.25)
-    g, b, r = cv2.split(scaled)
-    
-    g_hist = np.bincount(g.ravel(), minlength=256)
-    b_hist = np.bincount(b.ravel(), minlength=256)
-    r_hist = np.bincount(r.ravel(), minlength=256)
-    bins = np.arange(256)
-    print(g_hist.shape, g_hist)
-    return (g_hist.astype("float"),
-            b_hist.astype("float"),
-            r_hist.astype("float"))
-
-print("Load and scale images (rgb):")
-for i, i1 in enumerate(proj.image_list):
-    i1.hist = get_histogram_rgb(i1)
-    
-print("Computing histogram templates:")
-for i, i1 in enumerate(proj.image_list):
-    src_g = None
-    src_b = None
-    src_r = None
-    src_weights = 0.0
-    
-    ned1, ypr1, quat1 = i1.get_camera_pose()
-    for i2_name in i1.match_list:
-        i2 = proj.findImageByName(i2_name)
-        ned2, ypr2, quat2 = i2.get_camera_pose()
-        diff = np.array(ned2) - np.array(ned1)
-        dist_m = np.linalg.norm( diff )
-        if dist_m <= 1:
-            weight = 1
-        else:
-            weight = 1 / dist_m
-        print(i1.name, i2.name, dist_m, weight)
-        if src_g is None:
-            src_g = i2.hist[0] * weight
-            src_b = i2.hist[1] * weight
-            src_r = i2.hist[2] * weight
-        else:
-            src_g += i2.hist[0] * weight
-            src_b += i2.hist[1] * weight
-            src_r += i2.hist[2] * weight
-        src_weights += weight
-
-    # include ourselves at some relative weight to the surrounding pairs
-    weight = 0.25 * src_weights
-    if src_g is None:
-        src_g = i1.hist[0] * weight
-        src_b = i1.hist[1] * weight
-        src_r = i1.hist[2] * weight
-    else:
-        src_g += i2.hist[0] * weight
-        src_b += i2.hist[1] * weight
-        src_r += i2.hist[2] * weight
-    src_weights += weight
-
-    # normalize
-    src_g = src_g / src_weights
-    src_b = src_b / src_weights
-    src_r = src_r / src_weights
-
-    # cumulative sums (normalized)
-    g_quantiles = np.cumsum(src_g)
-    b_quantiles = np.cumsum(src_b)
-    r_quantiles = np.cumsum(src_r)
-    g_quantiles /= g_quantiles[-1]
-    b_quantiles /= b_quantiles[-1]
-    r_quantiles /= r_quantiles[-1]
-    i1.template = (g_quantiles, b_quantiles, r_quantiles)
-
-    # plt.figure()
-    # plt.plot(np.arange(256), g_quantiles, 'g')
-    # plt.plot(np.arange(256), b_quantiles, 'b')
-    # plt.plot(np.arange(256), r_quantiles, 'r')
-    # plt.show()
-    
-    rgb = i1.load_rgb()
     scaled = cv2.resize(rgb, (0,0), fx=0.25, fy=0.25)
     g, b, r = cv2.split(scaled)
 
     # interpolate linearly to find the pixel values in the template image
     # that correspond most closely to the quantiles in the source image
-    src_g_quantiles = np.cumsum(i1.hist[0])
-    src_b_quantiles = np.cumsum(i1.hist[1])
-    src_r_quantiles = np.cumsum(i1.hist[2])
+    src_g_quantiles = np.cumsum(histograms[image.name][0])
+    src_b_quantiles = np.cumsum(histograms[image.name][1])
+    src_r_quantiles = np.cumsum(histograms[image.name][2])
     src_g_quantiles /= src_g_quantiles[-1]
     src_b_quantiles /= src_b_quantiles[-1]
     src_r_quantiles /= src_r_quantiles[-1]
     
-    interp_g_values = np.interp(src_g_quantiles, g_quantiles, np.arange(256))
-    interp_b_values = np.interp(src_b_quantiles, b_quantiles, np.arange(256))
-    interp_r_values = np.interp(src_r_quantiles, r_quantiles, np.arange(256))
+    interp_g_values = np.interp(src_g_quantiles, templates[image.name][0], np.arange(256))
+    interp_b_values = np.interp(src_b_quantiles, templates[image.name][1], np.arange(256))
+    interp_r_values = np.interp(src_r_quantiles, templates[image.name][2], np.arange(256))
 
     g = interp_g_values[g].reshape(g.shape).astype('uint8')
     b = interp_b_values[b].reshape(b.shape).astype('uint8')
@@ -173,5 +83,4 @@ for i, i1 in enumerate(proj.image_list):
     cv2.imshow('scaled', scaled)
     cv2.imshow('result', result)
     cv2.waitKey()
-    
 
