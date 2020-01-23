@@ -22,8 +22,6 @@ args = parser.parse_args()
 
 proj = project.ProjectMgr(args.project)
 proj.load_images_info()
-# proj.load_features(descriptors=False)
-proj.load_match_pairs()
 
 # histogram matching from:
 # https://stackoverflow.com/questions/32655686/histogram-matching-of-two-images-in-python-2-x
@@ -52,34 +50,18 @@ def hist_match(source, template):
 
     return interp_t_values[bin_idx].reshape(oldshape)
 
-histogram.make_histograms(proj.image_list)
-histogram.make_templates(proj.image_list, dist_cutoff=40, self_weight=0.1)
-
+if not histogram.load(proj.analysis_dir):
+    histogram.make_histograms(proj.image_list)
+    
+histogram.make_templates(proj.image_list, dist_cutoff=50, self_weight=1.0)
+histogram.save(proj.analysis_dir)
+    
 histograms = histogram.histograms
 templates = histogram.templates
 for image in proj.image_list:
     rgb = image.load_rgb()
     scaled = cv2.resize(rgb, (0,0), fx=0.25, fy=0.25)
-    g, b, r = cv2.split(scaled)
-
-    # interpolate linearly to find the pixel values in the template image
-    # that correspond most closely to the quantiles in the source image
-    src_g_quantiles = np.cumsum(histograms[image.name][0])
-    src_b_quantiles = np.cumsum(histograms[image.name][1])
-    src_r_quantiles = np.cumsum(histograms[image.name][2])
-    src_g_quantiles /= src_g_quantiles[-1]
-    src_b_quantiles /= src_b_quantiles[-1]
-    src_r_quantiles /= src_r_quantiles[-1]
-    
-    interp_g_values = np.interp(src_g_quantiles, templates[image.name][0], np.arange(256))
-    interp_b_values = np.interp(src_b_quantiles, templates[image.name][1], np.arange(256))
-    interp_r_values = np.interp(src_r_quantiles, templates[image.name][2], np.arange(256))
-
-    g = interp_g_values[g].reshape(g.shape).astype('uint8')
-    b = interp_b_values[b].reshape(b.shape).astype('uint8')
-    r = interp_r_values[r].reshape(r.shape).astype('uint8')
-
-    result = cv2.merge( (g, b, r) )
+    result = histogram.match_neighbors(scaled, image.name)
     cv2.imshow('scaled', scaled)
     cv2.imshow('result', result)
     cv2.waitKey()
