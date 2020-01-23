@@ -53,7 +53,15 @@ if os.path.exists(annotations_json):
 annotations_csv = os.path.join(proj.analysis_dir, 'annotations.csv')
 if os.path.exists(annotations_csv):
     append(annotations_csv)
-
+# histogram
+hist_file = os.path.join(proj.analysis_dir, 'histogram')
+if os.path.exists(hist_file):
+    append(hist_file)
+# smart
+smart_json = os.path.join(proj.analysis_dir, 'smart.json')
+if os.path.exists(smart_json):
+    append(smart_json)
+    
 meta_dir = os.path.join(proj.analysis_dir, 'meta')
 if not os.path.isdir(meta_dir):
     print("Cannot find:", meta_dir)
