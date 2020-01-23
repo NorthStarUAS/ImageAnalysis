@@ -204,7 +204,8 @@ def update_surface_estimate(i1, i2):
     tri2_node = i2_node.getChild("tri_surface_pairs", True)
     
     # update pairwise info in the property tree
-    weight = len(i1.match_list[i2.name])
+    #weight = len(i1.match_list[i2.name])
+    weight = dist_m * dist_m
     pair1_node = tri1_node.getChild(i2.name, True)
     pair2_node = tri2_node.getChild(i1.name, True)
     pair1_node.setFloat("surface_m", float("%.1f" % avg))
@@ -226,7 +227,7 @@ def update_surface_estimate(i1, i2):
         surf = pair_node.getFloat("surface_m")
         weight = pair_node.getInt("weight")
         stddev = pair_node.getFloat("stddev")
-        if dist_m > 10 and stddev < cutoff_std:
+        if stddev < cutoff_std:
             sum1 += surf * weight
             count1 += weight
     if count1 > 0:
@@ -239,7 +240,7 @@ def update_surface_estimate(i1, i2):
         surf = pair_node.getFloat("surface_m")
         weight = pair_node.getInt("weight")
         stddev = pair_node.getFloat("stddev")
-        if dist_m > 10 and stddev < cutoff_std:
+        if stddev < cutoff_std:
             sum2 += surf * weight
             count2 += weight
     if count2 > 0:
@@ -271,12 +272,12 @@ def update_yaw_error_estimate(i1, i2):
         yaw_error = pair_node.getFloat("yaw_error")
         weight = pair_node.getInt("weight")
         dist_m = pair_node.getFloat("dist_m")
-        if dist_m > 5 and abs(yaw_error) < 20:
+        if dist_m > 5 and abs(yaw_error) < 25:
             sum += yaw_error * weight
             count += weight
-        else:
-            log("yaw error ignored:", i1.name, i2.name, "%.1fm" % dist_m,
-                "%.1f(deg)" % yaw_error)
+        #else:
+        #    log("yaw error ignored:", i1.name, i2.name, "%.1fm" % dist_m,
+        #        "%.1f(deg)" % yaw_error)
     if count > 0:
         i1_node.setFloat("yaw_error", float("%.1f" % (sum / count)))
         return sum / count
