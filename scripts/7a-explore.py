@@ -26,6 +26,7 @@ from direct.task import Task
 from panda3d.core import LineSegs, NodePath, OrthographicLens, PNMImage, Texture, Filename, Shader, WindowProperties
 from direct.gui.DirectGui import YesNoDialog
 
+from lib import histogram
 from lib import project
 from explore import annotations
 from explore import reticle
@@ -74,6 +75,9 @@ ned_ref = [ ref_node.getFloat('lat_deg'),
             ref_node.getFloat('alt_m') ]
 
 tcache = {}
+
+# histogram matching
+do_histogram = histogram.load(proj.analysis_dir)
 
 # adaptive equalizer
 clahe = cv2.createCLAHE(clipLimit=1.0, tileGridSize=(8,8))
@@ -274,6 +278,9 @@ class MyApp(ShowBase):
             else:
                 rgb = cv2.imread(image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
                 rgb = np.flipud(rgb)
+                # histogram matching
+                if do_histogram:
+                    rgb = histogram.match_neighbors(rgb, base)
                 # vignette correction
                 if not self.vignette_mask_small is None:
                     rgb = rgb.astype('uint16') + self.vignette_mask_small
@@ -500,6 +507,8 @@ class MyApp(ShowBase):
                         #print(image)
                         rgb = cv2.imread(image_file, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
                         rgb = np.flipud(rgb)
+                        if do_histogram:
+                            rgb = histogram.match_neighbors(rgb, base)
                         # vignette correction
                         if not self.vignette_mask is None:
                             rgb = rgb.astype('uint16') + self.vignette_mask
