@@ -691,9 +691,6 @@ def bruteforce_pair_matches(i1, i2, review=False):
     
 def find_matches(proj, K, strategy="smart", transform="homography",
                  sort=False, review=False):
-    min_dist = matcher_node.getFloat('min_dist')
-    max_dist = matcher_node.getFloat('max_dist')
-
     n = len(proj.image_list) - 1
     n_work = float(n*(n+1)/2)
     t_start = time.time()
@@ -708,7 +705,14 @@ def find_matches(proj, K, strategy="smart", transform="homography",
     median_int = int(round(np.median(intervals)))
     log("Median pair interval:", median_int)
 
-    # propose max_dist = median_int * 4
+    if matcher_node.hasChild("min_dist"):
+        min_dist = matcher_node.getFloat("min_dist")
+    else:
+        min_dist = 0
+    if matcher_node.hasChild("max_dist"):
+        max_dist = matcher_node.getFloat("max_dist")
+    else:
+        max_dist = median_int * 4
 
     log('Generating work list for range:', min_dist, '-', max_dist)
     work_list = []
