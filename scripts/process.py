@@ -85,9 +85,9 @@ parser.add_argument('--match-ratio', default=0.75, type=float,
                     help='match ratio')
 parser.add_argument('--min-pairs', default=25, type=int,
                     help='minimum matches between image pairs to keep')
-parser.add_argument('--min-dist', default=0, type=float,
+parser.add_argument('--min-dist', type=float,
                     help='minimum 2d camera distance for pair comparison')
-parser.add_argument('--max-dist', default=75, type=float,
+parser.add_argument('--max-dist', type=float,
                     help='maximum 2d camera distance for pair comparison')
 parser.add_argument('--filter', default='gms',
                     choices=['gms', 'homography', 'fundamental', 'essential', 'none'])
@@ -268,8 +268,10 @@ if not state.check("STEP3a"):
     matcher_node.setFloat('match_ratio', args.match_ratio)
     matcher_node.setString('filter', args.filter)
     matcher_node.setInt('min_pairs', args.min_pairs)
-    matcher_node.setFloat('min_dist', args.min_dist)
-    matcher_node.setFloat('max_dist', args.max_dist)
+    if args.min_dist:
+        matcher_node.setFloat('min_dist', args.min_dist)
+    if args.max_dist:
+        matcher_node.setFloat('max_dist', args.max_dist)
     matcher_node.setInt('min_chain_len', args.min_chain_length)
     if args.ground:
         matcher_node.setFloat('ground_m', args.ground)
@@ -361,10 +363,10 @@ if not state.check("STEP3d"):
 
 
 ############################################################################
-log("Step 5: Optimization (fit)", fancy=True)
+log("Step 4: Optimization (fit)", fancy=True)
 ############################################################################
 
-if not state.check("STEP5"):
+if not state.check("STEP4"):
     proj.load_images_info()
 
     log("Loading source matches:", matches_name)
@@ -401,11 +403,11 @@ if not state.check("STEP5"):
     log("Writing optimized (fitted) matches:", matches_name)
     pickle.dump(matches, open(matches_name, 'wb'))
 
-    state.update("STEP5")
+    state.update("STEP4")
 
 
 ############################################################################
-log("Step 6: Create the map", fancy=True)
+log("Step 5: Create the map", fancy=True)
 ############################################################################
 
 if not state.check("STEP6"):
