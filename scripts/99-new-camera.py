@@ -35,9 +35,9 @@ if not image_file:
     quit()
 
 # auto detect camera from image meta data
-camera, make, model, lens_model = proj.detect_camera()
-camera_file = os.path.join("..", "cameras", camera + ".json")
-print("Camera:", camera, camera_file)
+camera_name, make, model, lens_model = proj.detect_camera()
+camera_file = os.path.join("..", "cameras", camera_name + ".json")
+print("Camera:", camera_name, camera_file)
 
 exif = pyexiv2.ImageMetadata(image_file)
 exif.read()
@@ -102,12 +102,11 @@ cu = width * 0.5
 cv = height * 0.5
 print('cu cv = %.2f %.2f' % (cu, cv))
 
-cam = camera.Camera()
-cam.set_defaults()
-cam.set_meta(make, model, lens_model)
-cam.set_lens_params(ccd_width, ccd_height, focal_len_mm)
-cam.set_K(fx, fy, cu, cv)
-cam.set_image_params(width, height)
+camera.set_defaults()
+camera.set_meta(make, model, lens_model)
+camera.set_lens_params(ccd_width, ccd_height, focal_len_mm)
+camera.set_K(fx, fy, cu, cv)
+camera.set_image_params(width, height)
 
 if os.path.exists(camera_file):
     print("Camera config file already exists:", camera_file)
