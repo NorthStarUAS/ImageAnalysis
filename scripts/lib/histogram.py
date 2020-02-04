@@ -7,6 +7,8 @@ import numpy as np
 import os
 import pickle
 
+from .logger import log
+
 histograms = {}
 templates = {}
 
@@ -121,9 +123,11 @@ def load(analysis_dir):
     global templates
     hist_file = os.path.join(analysis_dir, "histogram")
     if os.path.isfile(hist_file):
+        log("Loading histogram templates:", hist_file)
         (histograms, templates) = pickle.load(open(hist_file, "rb"))
         return True
     else:
+        log("no histogram templates found...")
         return False
 
 def save(analysis_dir):
