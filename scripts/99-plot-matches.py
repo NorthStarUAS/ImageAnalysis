@@ -8,6 +8,7 @@ import argparse
 from matplotlib import pyplot as plt
 from matplotlib import collections as mc
 import numpy as np
+from scipy.interpolate import interp1d
 from tqdm import tqdm
 
 from props import getNode
@@ -87,20 +88,34 @@ for i1 in proj.image_list:
     srtm_list.append( i1_node.getFloat("srtm_surface_m") )
     tri_list.append( i1_node.getFloat("tri_surface_m") )
     yaw_list.append( i1_node.getFloat("yaw_error") )
+    
+y = np.array(tri_list)
+idx = np.flatnonzero(y)
+x = np.arange(len(tri_list))
+interp = interp1d(x[idx], y[idx], bounds_error=False, fill_value="extrapolate")
+ynew = interp(x)
 
 plt.figure()
 plt.plot(srtm_list, label="SRTM")
-plt.plot(tri_list, label="Triangulation")
+#plt.plot(tri_list, label="Triangulation")
+plt.plot(ynew, label="Triangulation (with interp)")
 plt.title("Surface elevation below image")
 plt.xlabel("Image Index")
 plt.ylabel("Elevation (m)")
 plt.legend()
 
+y = np.array(yaw_list)
+idx = np.flatnonzero(y)
+x = np.arange(len(yaw_list))
+interp = interp1d(x[idx], y[idx], bounds_error=False, fill_value="extrapolate")
+ynew = interp(x)
+
 plt.figure()
 plt.title("Yaw Error")
-plt.plot(yaw_list)
+#plt.plot(yaw_list)
+plt.plot(ynew)
 plt.xlabel("Image Index")
-plt.ylabel("Angle (deg)")
+plt.ylabel("Angle (with interp) (deg)")
 
 plt.show()
 
