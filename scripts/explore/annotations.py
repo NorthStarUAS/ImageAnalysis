@@ -51,10 +51,10 @@ class Annotations():
             f.close()
             for m in lla_list:
                 if type(m) is dict:
-                    print("m is dict")
+                    # print("m is dict")
                     self.add_marker_dict( m )
                 elif type(m) is list:
-                    print("m is list")
+                    # print("m is list")
                     ned = navpy.lla2ned(m[0], m[1], m[2],
                                         self.ned_ref[0],
                                         self.ned_ref[1],
