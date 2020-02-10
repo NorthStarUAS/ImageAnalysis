@@ -240,7 +240,7 @@ class MyApp(ShowBase):
                 # print('load:', file)
                 files.append(file)
         print('Loading models:')
-        for file in tqdm(files, ascii=True):
+        for file in tqdm(files, ascii=(os.name=='nt')):
             # load and reparent each egg file
             pandafile = Filename.fromOsSpecific(os.path.join(path, file))
             model = self.loader.loadModel(pandafile)
@@ -262,7 +262,7 @@ class MyApp(ShowBase):
         # possibly apply vignette correction and adaptive histogram
         # equalization.
         print('Loading base textures:')
-        for i, model in enumerate(tqdm(self.models, ascii=True)):
+        for i, model in enumerate(tqdm(self.models, ascii=(os.name=='nt'))):
             base, ext = os.path.splitext(model.getName())
             image_file = None
             dir = os.path.join(proj.analysis_dir, 'models')
