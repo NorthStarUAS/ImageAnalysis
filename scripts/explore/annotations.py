@@ -1,7 +1,7 @@
 import csv
 import json
+import numpy as np
 import os
-import random
 
 import navpy
 
@@ -18,9 +18,10 @@ class Annotations():
         self.project_dir = project_dir
         self.ned_ref = ned_ref
         self.tk_root = tk_root
-        random.seed()
         self.icon = loader.loadTexture('explore/marker-icon-2x.png')
         self.view_size = 100
+        self.id_prefix = "<edit me>"
+        self.next_id = 0
         self.markers = []
         self.nodes = []
         self.load()
@@ -33,28 +34,62 @@ class Annotations():
         # print(n, e, d, lla)
         return lla
 
-    def add_marker(self, ned, comment):
-        marker = { "ned": ned, "comment": comment }
+    def add_marker(self, ned, comment, id):
+        marker = { "ned": ned, "comment": comment, "id": id }
         self.markers.append(marker)
         
     def add_marker_dict(self, m):
         ned = navpy.lla2ned(m['lat_deg'], m['lon_deg'], m['alt_m'],
                             self.ned_ref[0], self.ned_ref[1], self.ned_ref[2])
-        self.add_marker(ned, m['comment'])
+        if m['alt_m'] < 1.0:
+            # estimate surface elevation if needed
+            pos = np.array([ned[1], ned[0]]) # x, y order
+            norm = np.linalg.norm(pos)
+            if norm > 0:
+                v = pos / norm
+                # walk towards the center 1m at a time until we get onto
+                # the interpolation surface
+                while True:
+                    z = self.surface.get_elevation(pos[0], pos[1])
+                    print("pos:", pos, "v:", v, "z:", z)
+                    if z < -1.0:
+                        ned[2] = z
+                        break
+                    elif np.linalg.norm(pos) < 5:
+                        # getting too close to the (ned) ned reference pt, failed
+                        break
+                    else:
+                        pos -= v
+            print("ned updated:", ned)
+        if 'id' in m:
+            id = m['id']
+            if id >= self.next_id:
+                self.next_id = id + 1
+        else:
+            id = self.next_id
+            self.next_id += 1
+        self.add_marker(ned, m['comment'], id)
         
     def load(self):
         file = os.path.join(self.project_dir, 'annotations.json')
         if os.path.exists(file):
             print('Loading saved annotations:', file)
             f = open(file, 'r')
-            lla_list = json.load(f)
+            root = json.load(f)
+            if type(root) is dict:
+                if 'id_prefix' in root:
+                    self.id_prefix = root['id_prefix']
+                if 'markers' in root:
+                    lla_list = root['markers']
+            else:
+                lla_list = root
             f.close()
             for m in lla_list:
                 if type(m) is dict:
-                    # print("m is dict")
+                    #print("m is dict")
                     self.add_marker_dict( m )
                 elif type(m) is list:
-                    # print("m is list")
+                    #print("m is list")
                     ned = navpy.lla2ned(m[0], m[1], m[2],
                                         self.ned_ref[0],
                                         self.ned_ref[1],
@@ -78,22 +113,27 @@ class Annotations():
             jm = { 'lat_deg': lla[0],
                    'lon_deg': lla[1],
                    'alt_m': float("%.2f" % (lla[2])),
-                   'comment': m['comment'] }
+                   'comment': m['comment'],
+                   'id': m['id'] }
             lla_list.append(jm)
         f = open(filename, 'w')
-        json.dump(lla_list, f, indent=4)
+        root = { 'id_prefix': self.id_prefix,
+                 'markers': lla_list }
+        json.dump(root, f, indent=4)
         f.close()
 
         # write simple csv version
         filename = os.path.join(self.project_dir, 'annotations.csv')
         with open(filename, 'w') as f:
-            fieldnames = ['lat_deg', 'lon_deg', 'alt_m', 'comment']
+            fieldnames = ['id', 'lat_deg', 'lon_deg', 'alt_m', 'comment']
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             for jm in lla_list:
-                writer.writerow(jm)
+                tmp = dict(jm)  # copy
+                tmp['id'] = "%s%03d" % (self.id_prefix, jm['id'])
+                writer.writerow(tmp)
 
-    def edit(self, ned, comment="", exists=False):
+    def edit(self, id, ned, comment="", exists=False):
         lla = self.ned2lla(ned[0], ned[1], ned[2])
         new = Toplevel(self.tk_root)
         self.edit_result = "cancel"
@@ -115,8 +155,26 @@ class Annotations():
         new.protocol("WM_DELETE_WINDOW", on_cancel)
         if not exists:
             new.title("New marker")
+            f = Frame(new)
+            f.pack(side=TOP, fill=X)
+            w = Label(f, text="ID: ")
+            w.pack(side=LEFT)
+            ep = Entry(f)
+            ep.insert(0, self.id_prefix)
+            ep.pack(side=LEFT)
+            w = Label(f, text=" %03d" % self.next_id)
+            w.pack(side=LEFT)
         else:
             new.title("Edit marker")
+            f = Frame(new)
+            f.pack(side=TOP, fill=X)
+            w = Label(f, text="ID: ")
+            w.pack(side=LEFT)
+            ep = Entry(f)
+            ep.insert(0, self.id_prefix)
+            ep.pack(side=LEFT)
+            w = Label(f, text=" %03d" % id)
+            w.pack(side=LEFT)
         f = Frame(new)
         f.pack(side=TOP, fill=X)
         w = Label(f, text="Lat: %.8f" % lla[0])
@@ -129,8 +187,9 @@ class Annotations():
         f.pack(side=TOP, fill=X)
         w = Label(f, text="Alt(m): %.1f" % lla[2])
         w.pack(side=LEFT)
+        
         f = Frame(new)
-        f.pack(side=TOP)
+        f.pack(side=TOP, fill=X)
         l = Label(f, text="Comment:")
         l.pack(side=LEFT)
         e = Entry(f)
@@ -147,6 +206,8 @@ class Annotations():
         bx = Button(f, text="Cancel", command=on_cancel)
         bx.pack(side=LEFT, fill=X)
         new.mainloop()
+        if self.edit_result == "ok":
+            self.id_prefix = ep.get()
         print("after main loop:", self.edit_result, e.get())
         return self.edit_result, e.get()
 
@@ -178,9 +239,10 @@ class Annotations():
                 # break
         if found >= 0:
             print("Found existing marker:", found)
+            id = self.markers[found]['id']
             ned = self.markers[found]['ned']
             comment = self.markers[found]['comment']
-            result, comment = self.edit(ned, comment, exists=True)
+            result, comment = self.edit(id, ned, comment, exists=True)
             if result == 'ok':
                 self.markers[found]['comment'] = comment
                 dirty = True
@@ -189,9 +251,11 @@ class Annotations():
                 dirty = True
         else:
             z = self.surface.get_elevation(x, y)
-            result, comment = self.edit( [y, x, z], exists=False)
+            result, comment = self.edit(self.next_id, [y, x, z], exists=False)
             if result == 'ok':
-                self.add_marker( [y, x, z], comment )
+                id = self.next_id
+                self.next_id += 1
+                self.add_marker( [y, x, z], comment, id )
                 dirty = True
         if dirty:
             self.rebuild(self.view_size)
