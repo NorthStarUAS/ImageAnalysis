@@ -87,7 +87,8 @@ print('Reading feature locations from optimized match points ...')
 global_raw_points = []
 global_raw_values = []
 for match in matches:
-    if match[1] == args.group:  # used by current group
+    # if match[1] == args.group:  # used by current group
+    if match[1] >= 0:  # used by a group
         ned = match[0]
         diff = abs(-ned[2] - avg)
         if diff < 5*std:
