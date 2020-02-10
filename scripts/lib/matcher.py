@@ -702,8 +702,9 @@ def find_matches(proj, K, strategy="smart", transform="homography",
         dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
         intervals.append(dist)
         print(i, dist)
-    median_int = int(round(np.median(intervals)))
-    log("Median pair interval:", median_int)
+    median = np.median(intervals)
+    log("Median pair interval: %.1f m" % median)
+    median_int = int(round(median))
 
     if matcher_node.hasChild("min_dist"):
         min_dist = matcher_node.getFloat("min_dist")
@@ -716,7 +717,7 @@ def find_matches(proj, K, strategy="smart", transform="homography",
 
     log('Generating work list for range:', min_dist, '-', max_dist)
     work_list = []
-    for i, i1 in enumerate(tqdm(proj.image_list)):
+    for i, i1 in enumerate(tqdm(proj.image_list, smoothing=0.05)):
         ned1, ypr1, q1 = i1.get_camera_pose()
         for j, i2 in enumerate(proj.image_list):
             if j <= i:
