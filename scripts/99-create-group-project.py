@@ -3,6 +3,7 @@
 import argparse
 import csv
 import fnmatch
+import json
 import os
 import shutil
 
@@ -93,6 +94,19 @@ for p in args.source:
     props_json.load(smart_src, smart_node)
 smart_dst = os.path.join(project_dir, "ImageAnalysis", "smart.json")
 props_json.save(smart_dst, smart_node)
+
+# assemble the collective annotations.json file
+print("Combining any annotations.json files")
+ann_node = getNode("/annotations", True)
+ann_list = []
+for p in args.source:
+    ann_src = os.path.join(p, "annotations.json")
+    if os.path.exists(ann_src):
+        f = open(ann_src, 'r')
+        ann_list += json.load(f)
+ann_dst = os.path.join(project_dir, "annotations.json")
+f = open(ann_dst, 'w')
+json.dump(ann_list, f, indent=4)
 
 # populate the meta directory
 print("Populating the meta directory with symbolic links.")
