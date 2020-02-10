@@ -106,16 +106,17 @@ plt.legend()
 
 y = np.array(yaw_list)
 idx = np.flatnonzero(y)
-x = np.arange(len(yaw_list))
-interp = interp1d(x[idx], y[idx], bounds_error=False, fill_value="extrapolate")
-ynew = interp(x)
+if idx.shape[0] > 0:
+    x = np.arange(len(yaw_list))
+    interp = interp1d(x[idx], y[idx], bounds_error=False, fill_value="extrapolate")
+    ynew = interp(x)
 
-plt.figure()
-plt.title("Yaw Error")
-#plt.plot(yaw_list)
-plt.plot(ynew)
-plt.xlabel("Image Index")
-plt.ylabel("Angle (with interp) (deg)")
+    plt.figure()
+    plt.title("Yaw Error")
+    #plt.plot(yaw_list)
+    plt.plot(ynew)
+    plt.xlabel("Image Index")
+    plt.ylabel("Angle (with interp) (deg)")
 
 plt.show()
 
