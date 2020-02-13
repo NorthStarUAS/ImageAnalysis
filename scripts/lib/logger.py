@@ -2,6 +2,7 @@
 
 from datetime import datetime
 import os
+import socket                   # gethostname()
 
 logfile = None
 logbuf = []
@@ -10,15 +11,7 @@ def init(analysis_path):
     global logfile
     if not os.path.isdir(analysis_path):
         log("logger: analysis_path missing:", analysis_path)
-    use_log_dir = False
-    if use_log_dir:
-        logdir = os.path.join(analysis_path, "log")
-        if not os.path.isdir(logdir):
-            log("logger: creating log directory:", logdir)
-            os.makedirs(logdir)
-        logfile = os.path.join(logdir, "messages")
-    else:
-        logfile = os.path.join(analysis_path, "messages")
+    logfile = os.path.join(analysis_path, "messages-" + socket.gethostname())
 
 # log a message to messages files (and to stdout by default)
 def log(*args, quiet=False, fancy=False):
