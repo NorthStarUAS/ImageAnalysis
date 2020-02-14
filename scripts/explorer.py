@@ -111,8 +111,7 @@ class MyApp(ShowBase):
         # modules
         self.surface = surface.Surface(proj.analysis_dir)
         self.annotations = annotations.Annotations(self.render, self.surface,
-                                                   args.project,
-                                                   ned_ref, tk_root)
+                                                   proj, ned_ref, tk_root)
         self.reticle = reticle.Reticle(self.render, self.surface, ned_ref)
 
         #self.messenger.toggleVerbose()
