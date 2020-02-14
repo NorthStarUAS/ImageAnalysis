@@ -71,7 +71,15 @@ class Annotations():
         self.add_marker(ned, m['comment'], id)
         
     def load(self):
-        file = os.path.join(self.project_dir, 'annotations.json')
+        oldfile = os.path.join(self.project_dir, 'annotations.json')
+        file = os.path.join(self.project_dir, 'ImageAnalysis', 'annotations.json')
+        if os.path.exists(oldfile):
+            print("Moving annotations file to new location...")
+            os.rename(oldfile, file)
+            oldcsv = os.path.join(self.project_dir, 'annotations.csv')
+            newcsv = os.path.join(self.project_dir, 'ImageAnalysis', 'annotations.csv')
+            if os.path.exists(oldcsv):
+                os.rename(oldcsv, newcsv)
         if os.path.exists(file):
             print('Loading saved annotations:', file)
             f = open(file, 'r')
@@ -104,7 +112,7 @@ class Annotations():
             print('No annotations file found.')
 
     def save(self):
-        filename = os.path.join(self.project_dir, 'annotations.json')
+        filename = os.path.join(self.project_dir, 'ImageAnalysis', 'annotations.json')
         print('Saving annotations:', filename)
         lla_list = []
         for m in self.markers:
@@ -122,8 +130,8 @@ class Annotations():
         json.dump(root, f, indent=4)
         f.close()
 
-        # write simple csv version
-        filename = os.path.join(self.project_dir, 'annotations.csv')
+        # write out simple csv version
+        filename = os.path.join(self.project_dir, 'ImageAnalysis', 'annotations.csv')
         with open(filename, 'w') as f:
             fieldnames = ['id', 'lat_deg', 'lon_deg', 'alt_m', 'comment']
             writer = csv.DictWriter(f, fieldnames=fieldnames)
