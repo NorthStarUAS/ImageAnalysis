@@ -2,6 +2,7 @@ import csv
 import json
 import numpy as np
 import os
+import pathlib
 
 import navpy
 
@@ -12,10 +13,10 @@ from direct.gui.DirectGui import *
 from tkinter import *
 
 class Annotations():
-    def __init__(self, render, surface, project_dir, ned_ref, tk_root):
+    def __init__(self, render, surface, proj, ned_ref, tk_root):
         self.render = render
         self.surface = surface
-        self.project_dir = project_dir
+        self.proj = proj
         self.ned_ref = ned_ref
         self.tk_root = tk_root
         self.icon = loader.loadTexture('explore/marker-icon-2x.png')
@@ -71,13 +72,13 @@ class Annotations():
         self.add_marker(ned, m['comment'], id)
         
     def load(self):
-        oldfile = os.path.join(self.project_dir, 'annotations.json')
-        file = os.path.join(self.project_dir, 'ImageAnalysis', 'annotations.json')
+        oldfile = os.path.join(self.proj.project_dir, 'annotations.json')
+        file = os.path.join(self.proj.analysis_dir, 'annotations.json')
         if os.path.exists(oldfile):
             print("Moving annotations file to new location...")
             os.rename(oldfile, file)
-            oldcsv = os.path.join(self.project_dir, 'annotations.csv')
-            newcsv = os.path.join(self.project_dir, 'ImageAnalysis', 'annotations.csv')
+            oldcsv = os.path.join(self.proj.project_dir, 'annotations.csv')
+            newcsv = os.path.join(self.proj.analysis_dir, 'annotations.csv')
             if os.path.exists(oldcsv):
                 os.rename(oldcsv, newcsv)
         if os.path.exists(file):
@@ -111,8 +112,39 @@ class Annotations():
         else:
             print('No annotations file found.')
 
+    def save_kml(self):
+        import simplekml
+        import scipy
+        kml = simplekml.Kml()
+        
+        # markers
+        for m in self.markers:
+            ned = m['ned']
+            lla = self.ned2lla( ned[0], ned[1], ned[2] )
+            name = "%s%03d" % (self.id_prefix, m['id'])
+            kml.newpoint(name=name,
+                         coords=[(lla[1], lla[0], lla[2])],
+                         description=m['comment'])  # lon, lat, elevation
+        # area
+        points = []
+        for i in self.proj.image_list:
+            ned, ypr, quat = i.get_camera_pose(opt=True)
+            lla = self.ned2lla( ned[0], ned[1], ned[2] )
+            points.append([lla[1], lla[0]])
+        hull = scipy.spatial.ConvexHull(points)
+        poly = hull.points[hull.vertices].tolist()
+        poly.append(poly[0])    # close the loop
+        ls = kml.newlinestring(name=pathlib.Path(self.proj.project_dir).name,
+                               coords=poly)
+        ls.style.linestyle.color = simplekml.Color.blue
+            
+        kmlname = os.path.join(self.proj.analysis_dir, 'annotations.kml')
+        print('Saving annotations.kml:', kmlname)
+        kml.save(kmlname)
+        
     def save(self):
-        filename = os.path.join(self.project_dir, 'ImageAnalysis', 'annotations.json')
+        self.save_kml()
+        filename = os.path.join(self.proj.analysis_dir, 'annotations.json')
         print('Saving annotations:', filename)
         lla_list = []
         for m in self.markers:
@@ -131,7 +163,7 @@ class Annotations():
         f.close()
 
         # write out simple csv version
-        filename = os.path.join(self.project_dir, 'ImageAnalysis', 'annotations.csv')
+        filename = os.path.join(self.proj.analysis_dir, 'annotations.csv')
         with open(filename, 'w') as f:
             fieldnames = ['id', 'lat_deg', 'lon_deg', 'alt_m', 'comment']
             writer = csv.DictWriter(f, fieldnames=fieldnames)
