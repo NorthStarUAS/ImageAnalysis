@@ -100,11 +100,11 @@ print("Combining any annotations.json files")
 ann_node = getNode("/annotations", True)
 ann_list = []
 for p in args.source:
-    ann_src = os.path.join(p, "annotations.json")
+    ann_src = os.path.join(p, "ImageAnalysis", "annotations.json")
     if os.path.exists(ann_src):
         f = open(ann_src, 'r')
         ann_list += json.load(f)
-ann_dst = os.path.join(project_dir, "annotations.json")
+ann_dst = os.path.join(project_dir, "ImageAnalysis", "annotations.json")
 f = open(ann_dst, 'w')
 json.dump(ann_list, f, indent=4)
 
