@@ -53,6 +53,7 @@ if os.path.exists(annotations_json):
 annotations_csv = os.path.join(proj.analysis_dir, 'annotations.csv')
 if os.path.exists(annotations_csv):
     append(annotations_csv)
+
 # histogram
 hist_file = os.path.join(proj.analysis_dir, 'histogram')
 if os.path.exists(hist_file):
