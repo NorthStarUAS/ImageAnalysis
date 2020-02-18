@@ -25,6 +25,10 @@ cache_dir = os.path.join(analysis_dir, "cache")
 
 if not os.path.isdir(project_dir):
     os.makedirs(project_dir)
+else:
+    print("Project directory already exists:", project_dir)
+    print("aborting ...")
+    quit()
 
 if not os.path.isdir(analysis_dir):
     os.makedirs(analysis_dir)
