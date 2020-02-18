@@ -97,6 +97,7 @@ class Reticle():
         if hasattr(self, 'text2'):
             self.text2.destroy()
      
-    def update(self, cam_pos, view_size):
+    def update(self, cam_pos, view_size, draw):
         self.delete()
-        self.build(cam_pos, view_size)
+        if draw:
+            self.build(cam_pos, view_size)

@@ -33,7 +33,7 @@ from explore import reticle
 from explore import surface
 
 parser = argparse.ArgumentParser(description='ImageAnalysis Map Explorer.')
-parser.add_argument('project', help='project directory')
+parser.add_argument('project', nargs='?', help='project directory')
 args = parser.parse_args()
 
 if False:
@@ -113,6 +113,7 @@ class MyApp(ShowBase):
         self.annotations = annotations.Annotations(self.render, self.surface,
                                                    proj, ned_ref, tk_root)
         self.reticle = reticle.Reticle(self.render, self.surface, ned_ref)
+        self.draw_reticle = True
 
         #self.messenger.toggleVerbose()
 
@@ -140,6 +141,7 @@ class MyApp(ShowBase):
         self.accept('9', self.image_select, [9])
         self.accept('f', self.toggle_filter)
         self.accept('m', self.toggle_view_mode)
+        self.accept('r', self.toggle_reticle)
         self.accept(',', self.update_sequential_num, [-1])
         self.accept('.', self.update_sequential_num, [1])
         self.accept('escape', self.quit)
@@ -239,7 +241,7 @@ class MyApp(ShowBase):
                 # print('load:', file)
                 files.append(file)
         print('Loading models:')
-        for file in tqdm(files, ascii=(os.name=='nt')):
+        for file in tqdm(files, smoothing=0.05, ascii=(os.name=='nt')):
             # load and reparent each egg file
             pandafile = Filename.fromOsSpecific(os.path.join(path, file))
             model = self.loader.loadModel(pandafile)
@@ -261,7 +263,7 @@ class MyApp(ShowBase):
         # possibly apply vignette correction and adaptive histogram
         # equalization.
         print('Loading base textures:')
-        for i, model in enumerate(tqdm(self.models, ascii=(os.name=='nt'))):
+        for i, model in enumerate(tqdm(self.models, smoothing=0.05, ascii=(os.name=='nt'))):
             base, ext = os.path.splitext(model.getName())
             image_file = None
             dir = os.path.join(proj.analysis_dir, 'models')
@@ -337,6 +339,9 @@ class MyApp(ShowBase):
             print("view_size:", self.view_size)
             self.annotations.rebuild(self.view_size)
 
+    def toggle_reticle(self):
+        self.draw_reticle = not self.draw_reticle
+        
     def toggle_filter(self):
         if self.filter == 'shader':
             self.filter = 'none'
@@ -384,7 +389,7 @@ class MyApp(ShowBase):
         self.lens.setFilmSize(self.view_size*base.getAspectRatio(),
                               self.view_size)
         # reticle
-        self.reticle.update(self.cam_pos, self.view_size)
+        self.reticle.update(self.cam_pos, self.view_size, self.draw_reticle)
         
         # annotations
         props = base.win.getProperties()
