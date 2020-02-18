@@ -4,16 +4,33 @@ Aerial imagery analysis, processing, and presentation scripts.
 
 # Brief Overview
 
-This image analysis toolset started as two independent efforts to
+This image analysis tool-set started as two independent efforts to
 build a better (faster, free-er, more robust) image stitching system
-for aerial surveying compared to what was commercially available.  As
-a consequence of work, location, and project focus changes, portions
-of these two efforts were combined and then a large amount of
-subsequent work has been performed.  'A lot' has been learned in the
-mean time, not limited to: how hard the problem is, how good the
-commercial tools actual are, mastering many techniques and strategies
-related to the underlying task of image stitching, applying these
-techniques to some loosely related, but interesting problems.
+for aerial surveying.  The accumulated knowledge of these two projects
+were merged to form a single project going forward.  Over time, this
+project has evolved into a full blown aerial survey and mapping system
+that supports a variety of research projects with specific needs
+(use-cases) not well supported by existing commercially tool.  The
+ImageAnalysis project improves over most existing systems in several
+distinct ways:
+
+- The final orthographic map as presented as a big pile of original
+  images; all sized, scaled, rotated, stretched, and fitted to each
+  other perfectly.  All the original images, perspectives, and full
+  pixel resolution are preserved and can be examind in the context of
+  the full map.  For our projects, this is a powerful tool for
+  "finding a needle in a haystack" type tasks.
+
+- New robust match finding strategies have been developed that find a
+  significantly higher number of image match pairs in traditionally
+  challenging environments such as forests or mature crop fields.  We
+  regularly out-perform well known commercial packages in terms of
+  fitting more of your images together correctly into the final map.
+
+- All the code is licensed with the MIT open-source license and
+  written in python to be as open and accessible as possible.  We are
+  developing this project in a research lab and wish to be open and
+  share the knowledge and tools we develop.
 
 The project goals remain:
 
@@ -25,8 +42,8 @@ The project goals remain:
   and scipy.
 
 - continue to develop and refine offshoot projects that support our
-  UAS Lab projects: such as EKF validation, augmented reality, movie +
-  flight data time correlation.
+  UAS Lab projects: such as EKF validation, augmented reality,
+  movie/flight-data time correlation.
 
 - develop extensions and improvements in support of ongoing research
   project.  (Such as: invasive species surveys, mapping, and ground
@@ -47,6 +64,10 @@ are a few things I have been working recently.
 
 - Continuing visual presentation improvements
 
+- Signficant improvements finding matches in challenging areas (that
+  break many commercial tools), areas such as forests and mature crop
+  fields when imaged from a low altitude.
+
 - Continuing work on image connection grouping optimizations to
   improve solver (optimizer) results and reduce artifacts.
 
@@ -58,14 +79,14 @@ are a few things I have been working recently.
 
 - [done] Continued improvement of python3 support
 
+- [done] A scene exploration tool that knows all the views covering
+  any point, can geolocate any selected point in an image, can
+  import/export kml/csv for sharing results or to export to other
+  mapping tools.
+
 # Future Road Map
 
 Briefly, near term development goals include:
-
-- [first release available] A scene exploration tool that knows all
-  the views covering any point, can geolocate any selected point in an
-  image, can import/export shape files or feature databases for map
-  creation or validation.
 
 - Continue work on real-time shader language techniques to highlight
   different types of (color) features in the imagery.
@@ -109,7 +130,14 @@ Wish list items:
 ## scripts
 
    A series of front-end scripts that primarily pair with the lib
-   directory for feature detection, matching, and scene assembly.
+   directory for feature detection, matching, and scene assembly.  For
+   making maps the process is actually quite simple:
+
+   - run "process.py /path/to/images" This will process all the images
+     and create the map.
+     
+   - run "explorer.py /path/to/images" This will launch the
+     interactive explorer tool to view your map.
    
 ## scripts/lib
 
@@ -162,4 +190,4 @@ Wish list items:
 ## installation hints
 
   - sudo pip3 install opencv-contrib-python
-  - sudo pip3 install --pre --extra-index-url https://archive.panda3d.org/ panda3d
+  - sudo pip3 install panda3d
