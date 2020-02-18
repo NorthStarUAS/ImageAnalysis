@@ -29,7 +29,7 @@ def merge_duplicates(proj):
     # other attributes important during feature matching, yet ultimately
     # resolve to the same uv coordinate in an image.
     log("Indexing features by unique uv coordinates:")
-    for image in tqdm(proj.image_list):
+    for image in tqdm(proj.image_list, smoothing=0.05):
         # pass one, build a tmp structure of unique keypoints (by uv) and
         # the index of the first instance.
         image.kp_remap = {}
@@ -59,7 +59,7 @@ def merge_duplicates(proj):
     # the entire match set and collapses them down to eliminate any
     # redundancy.
     log("Merging keypoints with duplicate uv coordinates:")
-    for i, i1 in enumerate(tqdm(proj.image_list, smoothing=0.5)):
+    for i, i1 in enumerate(tqdm(proj.image_list, smoothing=0.05)):
         for key in i1.match_list:
             matches = i1.match_list[key]
             count = 0
@@ -195,7 +195,7 @@ def make_match_structure(proj):
     log("Constructing unified match structure:")
     # create an initial pair-wise match list
     matches_direct = []
-    for i, img in enumerate(tqdm(proj.image_list)):
+    for i, img in enumerate(tqdm(proj.image_list, smoothing=0.05)):
         # print img.name
         for key in img.match_list:
             j = proj.findIndexByName(key)
@@ -233,7 +233,7 @@ def link_matches(proj, matches_direct):
         count += 1
         matches_new = []
         matches_lookup = {}
-        for i, match in enumerate(tqdm(matches_direct)):
+        for i, match in enumerate(tqdm(matches_direct, smoothing=0.05)):
             # scan if any of these match points have been previously seen
             # and record the match index
             index = -1
