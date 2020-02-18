@@ -750,7 +750,7 @@ def find_matches(proj, K, strategy="smart", transform="homography",
     # process the work list
     n_count = 0
     save_time = time.time()
-    save_interval = 120     # seconds
+    save_interval = 300     # seconds
     log("Processing worklist matches:")
     for line in tqdm(work_list, smoothing=0.05):
         dist = line[0]
