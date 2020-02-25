@@ -79,7 +79,7 @@ parser.add_argument('--star-suppress-nonmax-size', default=5)
 parser.add_argument('--reject-margin', default=0, help='reject features within this distance of the image outer edge margin')
 
 # feature matching arguments
-parser.add_argument('--match-strategy', default='smart',
+parser.add_argument('--match-strategy', default='traditional',
                     choices=['smart', 'traditional', 'bruteforce'])
 parser.add_argument('--match-ratio', default=0.75, type=float,
                     help='match ratio')
