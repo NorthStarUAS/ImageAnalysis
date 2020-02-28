@@ -2,7 +2,7 @@
     "K": [
         3666.666504,
         0.0,
-        2432.0,
+        2736.0,
         0.0,
         3666.666504,
         1824.0,
@@ -11,7 +11,7 @@
         1.0
     ],
     "ccd_height_mm": 8.755200388412527,
-    "ccd_width_mm": 11.67360051788337,
+    "ccd_width_mm": 13.132800582618792,
     "dist_coeffs": [
         0.0,
         0.0,
@@ -21,8 +21,13 @@
     ],
     "focal_len_mm": 8.8,
     "height_px": 3648,
-    "lens_model": "unknown",
+    "lens_model": "None",
     "make": "DJI",
     "model": "FC6310S",
-    "width_px": 4864
+    "mount": {
+        "pitch_deg": 0.0,
+        "roll_deg": 0.0,
+        "yaw_deg": 0.0
+    },
+    "width_px": 5472
 }
