@@ -4,7 +4,6 @@ import argparse
 import math
 import os
 
-from auracore import wgs84      # github.com/AuraUAS/aura-core
 from props import getNode
 
 from lib import pose
