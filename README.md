@@ -4,6 +4,8 @@ Aerial imagery analysis, processing, and presentation scripts.
 
 ![map](screenshots/bates.jpg "2812 Images Stitched Together")
 
+![map](screenshots/bates-3d-skin.jpg "3D surface/skin")
+
 # Brief Overview
 
 This image analysis tool-set started as two independent efforts to
