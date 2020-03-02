@@ -2,6 +2,8 @@
 
 Aerial imagery analysis, processing, and presentation scripts.
 
+![map](screenshots/bates.jpg "2812 Images Stitched Together")
+
 # Brief Overview
 
 This image analysis tool-set started as two independent efforts to
