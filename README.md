@@ -6,6 +6,8 @@ Aerial imagery analysis, processing, and presentation scripts.
 
 ![map](screenshots/bates-3d-skin.jpg "3D surface/skin")
 
+![map](screenshots/oriental-bittersweet.jpg "Advantage of maintaining oblique perspectives in final map")
+
 # Brief Overview
 
 This image analysis tool-set started as two independent efforts to
