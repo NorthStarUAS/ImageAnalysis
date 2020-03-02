@@ -2,9 +2,20 @@
 
 Aerial imagery analysis, processing, and presentation scripts.
 
+# Screen shots
+
+- A mosaic of 2812 images from a Phantom 4 Pro v2 mission
+
 ![map](screenshots/bates.jpg "2812 Images Stitched Together")
 
+- A 3d surface rendering of the same area
+
 ![map](screenshots/bates-3d-skin.jpg "3D surface/skin")
+
+- A zoom in showing all the original detail and oblique perspective
+  from the original imagery because the mapping tool simply draws the
+  original images in a big pile all sized, oriented, stretched, and
+  aligned perfectly.
 
 ![map](screenshots/oriental-bittersweet.jpg "Advantage of maintaining oblique perspectives in final map")
 
