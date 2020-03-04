@@ -183,6 +183,7 @@ class Image():
     def load_matches(self):
         try:
             self.match_list = pickle.load( open( self.match_file, "rb" ) )
+            self.matches_clean = True
             #print(self.match_list)
         except:
             print(self.match_file + ":\n" + "  matches load error: " \
@@ -219,6 +220,7 @@ class Image():
     def save_matches(self):
         try:
             pickle.dump(self.match_list, open(self.match_file, 'wb'))
+            self.matches_clean = True
         except IOError as e:
             print(self.match_file + ": error saving file: " \
                 + str(sys.exc_info()[1]))

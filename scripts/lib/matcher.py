@@ -802,6 +802,10 @@ def find_matches(proj, K, strategy="smart", transform="homography",
         i1.match_list[i2.name] = match_fwd
         i2.match_list[i1.name] = match_rev
 
+        # mark these images as matches_dirty
+        i1.matches_clean = False
+        i2.matches_clean = False
+
         # update surface triangulation (estimate)
         avg, std = smart.update_surface_estimate(i1, i2)
         if avg and std:
@@ -822,10 +826,11 @@ def find_matches(proj, K, strategy="smart", transform="homography",
             #showMatchOrient(i1, i2, i1.match_list[i2.name])
             i1.match_list[i2.name] = []
             i2.match_list[i1.name] = []
+            
         # save our work so far, and flush descriptor cache
         if time.time() >= save_time + save_interval:
             log('saving matches and image meta data ...')
-            saveMatches(proj.image_list)
+            saveMatches(proj.image_list, check_if_dirty=True)
             smart.save(proj.analysis_dir)
             save_time = time.time()
             time_list = []
@@ -849,9 +854,12 @@ def find_matches(proj, K, strategy="smart", transform="homography",
     smart.save(proj.analysis_dir)
     print('Pair-wise matches successfully saved.')
 
-def saveMatches(image_list):
+def saveMatches(image_list, check_if_dirty=False):
     for image in image_list:
-        image.save_matches()
+        if check_if_dirty and not image.matches_clean:
+            image.save_matches()
+        else:
+            image.save_matches()
 
 # for visualizing matches
 def decomposeAffine(affine):
