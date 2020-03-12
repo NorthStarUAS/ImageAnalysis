@@ -856,8 +856,9 @@ def find_matches(proj, K, strategy="smart", transform="homography",
 
 def saveMatches(image_list, check_if_dirty=False):
     for image in image_list:
-        if check_if_dirty and not image.matches_clean:
-            image.save_matches()
+        if check_if_dirty:
+            if not image.matches_clean:
+                image.save_matches()
         else:
             image.save_matches()
 
