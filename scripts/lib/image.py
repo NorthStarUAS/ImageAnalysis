@@ -37,6 +37,7 @@ class Image():
         self.kp_usage = []
         self.des_list = None      # opencv descriptor list
         self.match_list = {}
+        self.matches_clean = True
 
         self.uv_list = []       # the 'undistorted' uv coordinates of all kp's
         
@@ -297,7 +298,13 @@ class Image():
 
         qlog("Detecting features/descriptors for:", self.name)
         rgb = self.load_rgb(equalize=True)
-        
+        cam_w, cam_h = camera.get_image_params()
+        w, h = self.get_size()
+        if w != cam_w or h != cam_h:
+            log("Error: image dimensions", w, h, "do not match camera config",
+                cam_w, cam_h, "cannot continue safely.")
+            log("Please track down and fix the camera config vs. image size issue.")
+            quit()
         # scale image for feature detection.  Note that with feature
         # detection, often less is more ... scaling to a smaller image
         # can allow the feature detector to see bigger scale features.
