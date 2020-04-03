@@ -35,6 +35,7 @@ parser.add_argument('project', help='project directory')
 parser.add_argument('--group', type=int, default=0, help='group index')
 parser.add_argument('--texture-resolution', type=int, default=512, help='texture resolution (should be 2**n, so numbers like 256, 512, 1024, etc.')
 parser.add_argument('--srtm', action='store_true', help='use srtm elevation')
+parser.add_argument('--median', action='store_true', help='use median')
 parser.add_argument('--ground', type=float, help='force ground elevation in meters')
 parser.add_argument('--direct', action='store_true', help='use direct pose')
 
@@ -71,9 +72,12 @@ ned_list = []
 for match in matches:
     if match[1] == args.group:  # used by current group
         ned_list.append(match[0])
+print("size of ned_list:", len(ned_list))
 avg = -np.mean(np.array(ned_list)[:,2])
+median = -np.median(np.array(ned_list)[:,2])
 std = np.std(np.array(ned_list)[:,2])
 print("Average elevation: %.2f" % avg)
+print("Median elevation: %.2f" % median)
 print("Standard deviation: %.2f" % std)
 
 # sort through points
@@ -227,6 +231,10 @@ if True:
         if args.ground:
             pts_ned = project.intersectVectorsWithGroundPlane(ned,
                                                               args.ground,
+                                                              proj_list)
+        if args.median:
+            pts_ned = project.intersectVectorsWithGroundPlane(ned,
+                                                              median,
                                                               proj_list)
         elif args.srtm:
             pts_ned = srtm.interpolate_vectors(ned, proj_list)
