@@ -45,7 +45,7 @@ abspath = os.path.abspath(args.video)
 filename, ext = os.path.splitext(abspath)
 dirname = os.path.dirname(args.video)
 output_csv = filename + ".csv"
-output_avi = filename + "_smooth.avi"
+output_avi = filename + "_horiz.avi"
 local_config = os.path.join(dirname, "camera.json")
 
 config = PropertyNode()
@@ -121,6 +121,7 @@ def horizon(frame):
     if True:
         # Otsu thresholding
         ret2, thresh = cv2.threshold(b, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        print('ret2:', ret2)
         cv2.imshow('otsu mask', thresh)
     else:
         # global thresholding
@@ -139,14 +140,21 @@ def horizon(frame):
     lines = cv2.HoughLines(edges, 1, theta_res, threshold)
     if not lines is None:
         for rho,theta in lines[0]:
+            print("theta:", theta * r2d, "roll:", 90 - theta * r2d)
+            # this will be wrong, but maybe approximate right a little bit
+            if np.abs(theta) > 0.00001:
+                m = -(np.cos(theta) / np.sin(theta))
+                b = rho / np.sin(theta)
             a = np.cos(theta)
             b = np.sin(theta)
             x0 = a*rho
             y0 = b*rho
-            x1 = int(x0 + 1000*(-b))
-            y1 = int(y0 + 1000*(a))
-            x2 = int(x0 - 1000*(-b))
-            y2 = int(y0 - 1000*(a))
+            print("p0:", x0, y0)
+            len2 = 1000
+            x1 = int(x0 + len2*(-b))
+            y1 = int(y0 + len2*(a))
+            x2 = int(x0 - len2*(-b))
+            y2 = int(y0 - len2*(a))
             cv2.line(frame,(x1,y1),(x2,y2),(255,0,255),2)
     cv2.imshow("horizon", frame)
         
@@ -183,15 +191,8 @@ for frame in reader.nextFrame():
     # test horizon detection
     horizon(frame_undist)
     
-    gray = cv2.cvtColor(frame_undist, cv2.COLOR_BGR2GRAY)
-        
-    rows, cols, depth = frame_undist.shape
-
-    #cv2.imshow('undistorted', frame_undist)
-
-    #output.write(res1)
     if args.write:
-        output.write(final)
+        output.write(frame_undist)
     if 0xFF & cv2.waitKey(5) == 27:
         break
 
