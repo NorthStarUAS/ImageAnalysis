@@ -14,9 +14,7 @@ from props import PropertyNode
 import props_json
 
 sys.path.append('../scripts')
-from lib import render4geotiff
 from lib import transformations
-r = render4geotiff.Render()
 
 d2r = math.pi / 180.0
 r2d = 180.0 / math.pi
@@ -79,6 +77,9 @@ print('dist:', dist)
 
 K = K * args.scale
 K[2,2] = 1.0
+cu = K[0,2]
+cv = K[1,2]
+IK = np.linalg.inv(K)
 
 metadata = skvideo.io.ffprobe(args.video)
 #print(metadata.keys())
@@ -107,20 +108,25 @@ if args.write:
     #outfourcc = cv2.VideoWriter_fourcc(*'XVID')
     output = cv2.VideoWriter(output_avi, outfourcc, fps, (w, h))
 
+def ClosestPointOnLine(a, b, p):
+    ap = p - a
+    ab = b - a
+    return a + np.dot(ap,ab) / np.dot(ab,ab) * ab
+
+# locate horizon and estimate relative roll/pitch of the camera
 def horizon(frame):
-    print("horizon")
     # attempt to threshold on high blue values (blue<->white)
     b, g, r = cv2.split(frame)
     cv2.imshow("b", b)
     #cv2.imshow("g", g)
     #cv2.imshow("r", r)
-    print("shape:", frame.shape)
+    #print("shape:", frame.shape)
     #print("blue range:", np.min(b), np.max(b))
     #print('ave:', np.average(b), np.average(g), np.average(r))
 
     # Otsu thresholding on blue channel
     ret2, thresh = cv2.threshold(b, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-    print('ret2:', ret2)
+    #print('ret2:', ret2)
     cv2.imshow('otsu mask', thresh)
 
     # dilate the mask a small bit
@@ -149,10 +155,15 @@ def horizon(frame):
     #theta_res = np.pi/180       # 1 degree
     theta_res = np.pi/1800      # 0.1 degree
     threshold = int(frame.shape[1] / 8)
-    lines = cv2.HoughLines(edges, 1, theta_res, threshold)
-    if not lines is None:
-        for rho,theta in lines[0]:
-            print("theta:", theta * r2d, "roll:", 90 - theta * r2d)
+    if True:
+        # Standard hough transform.  Presumably returns lines sorted
+        # by most dominant first
+        lines = cv2.HoughLines(edges, 1, theta_res, threshold)
+        for line in lines[:1]:  # just the 1st/most dominant
+            print(line[0])
+            rho, theta = line[0]
+            #print("theta:", theta * r2d)
+            roll = 90 - theta*r2d
             # this will be wrong, but maybe approximate right a little bit
             if np.abs(theta) > 0.00001:
                 m = -(np.cos(theta) / np.sin(theta))
@@ -167,7 +178,44 @@ def horizon(frame):
             y1 = int(y0 + len2*(a))
             x2 = int(x0 - len2*(-b))
             y2 = int(y0 - len2*(a))
-            cv2.line(frame,(x1,y1),(x2,y2),(255,0,255),2)
+            cv2.line(frame,(x1,y1),(x2,y2),(255,0,255),2,cv2.LINE_AA)
+            p0 = ClosestPointOnLine(np.array([x1,y1]),
+                                    np.array([x2,y2]),
+                                    np.array([cu,cv]))
+            uvh = np.array([p0[0], p0[1], 1.0])
+            proj = IK.dot(uvh)
+            #print("proj:", proj, proj/np.linalg.norm(proj))
+            dot_product = np.dot(np.array([0,0,1]), proj/np.linalg.norm(proj))
+            pitch = np.arccos(dot_product) * r2d
+            if p0[1] < cv:
+                pitch = -pitch
+            print("roll: %.1f pitch: %.1f" % (roll, pitch))
+            cv2.circle(frame,(int(p0[0]), int(p0[1])),10,(255,0,255), 2, cv2.LINE_AA)
+            cv2.line(frame,(int(p0[0]), int(p0[1])), (int(cu),int(cv)),(255,0,255),1,cv2.LINE_AA)
+            
+    else:
+        # probabalistic hough transform (faster?)
+        lines = cv2.HoughLinesP(edges, 1, theta_res, threshold, maxLineGap=50)
+        if not lines is None:
+            for line in lines[:1]:
+                for x0,y0,x1,y1 in line:
+                    #print("theta:", theta * r2d, "roll:", 90 - theta * r2d)
+                    # this will be wrong, but maybe approximate right a little bit
+                    #if np.abs(theta) > 0.00001:
+                    #    m = -(np.cos(theta) / np.sin(theta))
+                    #    b = rho / np.sin(theta)
+                    #a = np.cos(theta)
+                    #b = np.sin(theta)
+                    #x0 = a*rho
+                    #y0 = b*rho
+                    #print("p0:", x0, y0)
+                    #len2 = 1000
+                    #x1 = int(x0 + len2*(-b))
+                    #y1 = int(y0 + len2*(a))
+                    #x2 = int(x0 - len2*(-b))
+                    #y2 = int(y0 - len2*(a))
+                    cv2.line(frame,(x0,y0),(x1,y1),(255,0,255),2,cv2.LINE_AA)
+        
     cv2.imshow("horizon", frame)
         
 counter = 0
