@@ -16,15 +16,7 @@ import props_json
 sys.path.append('../scripts')
 from lib import transformations
 
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
-
-match_ratio = 0.75
-max_features = 500
-smooth = 0.005
-catchup = 0.02
-affine_minpts = 7
-tol = 2.0
+import horizon
 
 parser = argparse.ArgumentParser(description='Estimate gyro biases from movie.')
 parser.add_argument('video', help='video file')
@@ -42,12 +34,11 @@ skip_frames = args.skip_frames
 abspath = os.path.abspath(args.video)
 filename, ext = os.path.splitext(abspath)
 dirname = os.path.dirname(args.video)
-output_csv = filename + ".csv"
-output_avi = filename + "_horiz.avi"
+output_csv = filename + "_horiz.csv"
+output_video = filename + "_horiz" + ext
 local_config = os.path.join(dirname, "camera.json")
 
 config = PropertyNode()
-
 if args.camera:
     # seed the camera calibration and distortion coefficients from a
     # known camera config
@@ -100,126 +91,35 @@ print('total frames:', total_frames)
 print("Opening ", args.video)
 reader = skvideo.io.FFmpegReader(args.video, inputdict={}, outputdict={})
 
-if args.write:
-    #outfourcc = cv2.cv.CV_FOURCC('F', 'M', 'P', '4')
-    outfourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
-    #outfourcc = cv2.cv.CV_FOURCC('X', 'V', 'I', 'D')
-    #outfourcc = cv2.cv.CV_FOURCC('X', '2', '6', '4')
-    #outfourcc = cv2.VideoWriter_fourcc(*'XVID')
-    output = cv2.VideoWriter(output_avi, outfourcc, fps, (w, h))
+csvfile = open(output_csv, 'w')
+fieldnames=['frame', 'time', 'camera roll (deg)',
+            'camera pitch (deg)']
+csv_writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+csv_writer.writeheader()
 
-def ClosestPointOnLine(a, b, p):
-    ap = p - a
-    ab = b - a
-    return a + np.dot(ap,ab) / np.dot(ab,ab) * ab
+inputdict = {
+    '-r': str(fps)
+}
 
-# locate horizon and estimate relative roll/pitch of the camera
-def horizon(frame):
-    # attempt to threshold on high blue values (blue<->white)
-    b, g, r = cv2.split(frame)
-    cv2.imshow("b", b)
-    #cv2.imshow("g", g)
-    #cv2.imshow("r", r)
-    #print("shape:", frame.shape)
-    #print("blue range:", np.min(b), np.max(b))
-    #print('ave:', np.average(b), np.average(g), np.average(r))
+lossless = {
+    # See all options: https://trac.ffmpeg.org/wiki/Encode/H.264
+    '-vcodec': 'libx264',  # use the h.264 codec
+    '-crf': '0',           # set the constant rate factor to 0, (lossless)
+    '-preset': 'veryslow', # maximum compression
+    '-r': str(fps)         # match input fps
+}
 
-    # Otsu thresholding on blue channel
-    ret2, thresh = cv2.threshold(b, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-    #print('ret2:', ret2)
-    cv2.imshow('otsu mask', thresh)
+sane = {
+    # See all options: https://trac.ffmpeg.org/wiki/Encode/H.264
+    '-vcodec': 'libx264',  # use the h.264 codec
+    '-crf': '17',          # visually lossless (or nearly so)
+    '-preset': 'medium',   # default compression
+    '-r': str(fps)         # match input fps
+}
 
-    # dilate the mask a small bit
-    kernel = np.ones((5,5), np.uint8)
-    thresh = cv2.dilate(thresh, kernel, iterations=1)
-  
-    # global thresholding on blue channel before edge detection
-    #thresh = cv2.inRange(frame, (210, 0, 0), (255, 255, 255))
-    #cv2.imshow('global mask', thresh)
-        
-    preview = cv2.bitwise_and(frame, frame, mask=thresh)
-    cv2.imshow("threshold", preview)
+video_writer = skvideo.io.FFmpegWriter(output_video, inputdict=inputdict, outputdict=sane)
 
-    # the lower the 1st canny number the more total edges are accepted
-    # the lower the 2nd canny number the less hard the edges need to
-    # be to accept an edge
-    edges = cv2.Canny(b, 50, 150)
-    #edges = cv2.Canny(b, 200, 600)
-    cv2.imshow("edges", edges)
-
-    # Use the blue mask (Otsu) to filter out edge noise in area we
-    # don't care about (to improve performance of the hough transform)
-    edges = cv2.bitwise_and(edges, edges, mask=thresh)
-    cv2.imshow("masked edges", edges)
-    
-    #theta_res = np.pi/180       # 1 degree
-    theta_res = np.pi/1800      # 0.1 degree
-    threshold = int(frame.shape[1] / 8)
-    if True:
-        # Standard hough transform.  Presumably returns lines sorted
-        # by most dominant first
-        lines = cv2.HoughLines(edges, 1, theta_res, threshold)
-        for line in lines[:1]:  # just the 1st/most dominant
-            print(line[0])
-            rho, theta = line[0]
-            #print("theta:", theta * r2d)
-            roll = 90 - theta*r2d
-            # this will be wrong, but maybe approximate right a little bit
-            if np.abs(theta) > 0.00001:
-                m = -(np.cos(theta) / np.sin(theta))
-                b = rho / np.sin(theta)
-            a = np.cos(theta)
-            b = np.sin(theta)
-            x0 = a*rho
-            y0 = b*rho
-            print("p0:", x0, y0)
-            len2 = 1000
-            x1 = int(x0 + len2*(-b))
-            y1 = int(y0 + len2*(a))
-            x2 = int(x0 - len2*(-b))
-            y2 = int(y0 - len2*(a))
-            cv2.line(frame,(x1,y1),(x2,y2),(255,0,255),2,cv2.LINE_AA)
-            p0 = ClosestPointOnLine(np.array([x1,y1]),
-                                    np.array([x2,y2]),
-                                    np.array([cu,cv]))
-            uvh = np.array([p0[0], p0[1], 1.0])
-            proj = IK.dot(uvh)
-            #print("proj:", proj, proj/np.linalg.norm(proj))
-            dot_product = np.dot(np.array([0,0,1]), proj/np.linalg.norm(proj))
-            pitch = np.arccos(dot_product) * r2d
-            if p0[1] < cv:
-                pitch = -pitch
-            print("roll: %.1f pitch: %.1f" % (roll, pitch))
-            cv2.circle(frame,(int(p0[0]), int(p0[1])),10,(255,0,255), 2, cv2.LINE_AA)
-            cv2.line(frame,(int(p0[0]), int(p0[1])), (int(cu),int(cv)),(255,0,255),1,cv2.LINE_AA)
-            
-    else:
-        # probabalistic hough transform (faster?)
-        lines = cv2.HoughLinesP(edges, 1, theta_res, threshold, maxLineGap=50)
-        if not lines is None:
-            for line in lines[:1]:
-                for x0,y0,x1,y1 in line:
-                    #print("theta:", theta * r2d, "roll:", 90 - theta * r2d)
-                    # this will be wrong, but maybe approximate right a little bit
-                    #if np.abs(theta) > 0.00001:
-                    #    m = -(np.cos(theta) / np.sin(theta))
-                    #    b = rho / np.sin(theta)
-                    #a = np.cos(theta)
-                    #b = np.sin(theta)
-                    #x0 = a*rho
-                    #y0 = b*rho
-                    #print("p0:", x0, y0)
-                    #len2 = 1000
-                    #x1 = int(x0 + len2*(-b))
-                    #y1 = int(y0 + len2*(a))
-                    #x2 = int(x0 - len2*(-b))
-                    #y2 = int(y0 - len2*(a))
-                    cv2.line(frame,(x0,y0),(x1,y1),(255,0,255),2,cv2.LINE_AA)
-        
-    cv2.imshow("horizon", frame)
-        
 counter = 0
-
 for frame in reader.nextFrame():
     frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
     counter += 1
@@ -250,10 +150,17 @@ for frame in reader.nextFrame():
         frame_undist = frame_scale    
 
     # test horizon detection
-    horizon(frame_undist)
+    roll, pitch = horizon.horizon(frame_undist, IK, cu, cv)
     
+    row = {'frame': counter,
+           'time': "%.4f" % (counter / fps),
+           'camera roll (deg)': "%.1f" % roll,
+           'camera pitch (deg)': "%.1f" % pitch}
+    csv_writer.writerow(row)
+
     if args.write:
-        output.write(frame_undist)
+        #write the frame as RGB not BGR
+        video_writer.writeFrame(frame_undist[:,:,::-1])
     if 0xFF & cv2.waitKey(5) == 27:
         break
 
