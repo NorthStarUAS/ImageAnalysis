@@ -119,6 +119,14 @@ sane = {
 
 video_writer = skvideo.io.FFmpegWriter(output_video, inputdict=inputdict, outputdict=sane)
 
+#frame = cv2.imread("/home/curt/Downloads/Frame1.png")
+#frame_scale = cv2.resize(frame, (0,0), fx=scale, fy=scale,
+#                         interpolation=cv2.INTER_AREA)
+#cv2.imshow('scaled orig', frame_scale)
+#frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
+#cv2.imshow("undist", frame_undist)
+#cv2.waitKey()
+
 counter = 0
 for frame in reader.nextFrame():
     frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
@@ -139,23 +147,24 @@ for frame in reader.nextFrame():
     frame_scale = cv2.resize(frame, (0,0), fx=scale, fy=scale,
                              interpolation=method)
     cv2.imshow('scaled orig', frame_scale)
-    shape = frame_scale.shape
-    tol = shape[1] / 100.0
-    if tol < 1.0: tol = 1.0
-
-    distort = True
-    if distort:
-        frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
-    else:
-        frame_undist = frame_scale    
+    frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
 
     # test horizon detection
-    roll, pitch = horizon.horizon(frame_undist, IK, cu, cv)
-    
+    lines = horizon.horizon(frame_undist)
+    if not lines is None:
+        #best_line = horizon.track_best(lines)
+        best_line = lines[0]
+        roll, pitch = horizon.get_camera_attitude(best_line, IK, cu, cv)
+        horizon.draw(frame_undist, best_line, IK, cu, cv)
+    else:
+        roll = None
+        pitch = None
+    cv2.imshow("horizon", frame_undist)
+
     row = {'frame': counter,
            'time': "%.4f" % (counter / fps),
-           'camera roll (deg)': "%.1f" % roll,
-           'camera pitch (deg)': "%.1f" % pitch}
+           'camera roll (deg)': roll,
+           'camera pitch (deg)': pitch}
     csv_writer.writerow(row)
 
     if args.write:
