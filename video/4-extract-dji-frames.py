@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # extract srt form of subtitles from dji movie (caption setting needs
 # to be turned on when movie is recorded)
@@ -21,9 +21,12 @@ from scipy import interpolate # strait up linear interpolation, nothing fancy
 
 from auracore import wgs84
 from aurauas_flightdata import flight_loader, flight_interp
+from props import PropertyNode
+import props_json
 
 parser = argparse.ArgumentParser(description='extract and geotag dji movie frames.')
 parser.add_argument('--video', required=True, help='input video')
+parser.add_argument('--camera', help='select camera calibration file')
 parser.add_argument('--cam-mount', choices=['forward', 'down', 'rear'],
                     default='down',
                     help='approximate camera mounting orientation')
@@ -37,6 +40,11 @@ parser.add_argument('--heading', type=float, required=True, help='fixed heading 
 args = parser.parse_args()
 
 r2d = 180.0 / math.pi
+match_ratio = 0.75
+scale = 0.4
+filter_method = 'homography'
+tol = 3.0
+overlap = 0.25
 
 class Fraction(fractions.Fraction):
     """Only create Fractions from floats.
@@ -78,6 +86,103 @@ def decimal_to_dms(decimal):
     remainder, minutes = math.modf(remainder * 60)
     return [Fraction(n) for n in (degrees, minutes, remainder * 60)]
 
+# find affine transform between matching keypoints in pixel
+# coordinate space.  fullAffine=True means unconstrained to
+# include best warp/shear.  fullAffine=False means limit the
+# matrix to only best rotation, translation, and scale.
+def findAffine(src, dst, fullAffine=False):
+    affine_minpts = 7
+    #print("src:", src)
+    #print("dst:", dst)
+    if len(src) >= affine_minpts:
+        # affine = cv2.estimateRigidTransform(np.array([src]), np.array([dst]), fullAffine)
+        affine, status = \
+            cv2.estimateAffinePartial2D(np.array([src]).astype(np.float32),
+                                        np.array([dst]).astype(np.float32))
+    else:
+        affine = None
+    #print str(affine)
+    return affine
+
+def decomposeAffine(affine):
+    if affine is None:
+        return (0.0, 0.0, 0.0, 1.0, 1.0)
+
+    tx = affine[0][2]
+    ty = affine[1][2]
+
+    a = affine[0][0]
+    b = affine[0][1]
+    c = affine[1][0]
+    d = affine[1][1]
+
+    sx = math.sqrt( a*a + b*b )
+    if a < 0.0:
+        sx = -sx
+    sy = math.sqrt( c*c + d*d )
+    if d < 0.0:
+        sy = -sy
+
+    rotate_deg = math.atan2(-b,a) * 180.0/math.pi
+    if rotate_deg < -180.0:
+        rotate_deg += 360.0
+    if rotate_deg > 180.0:
+        rotate_deg -= 360.0
+    return (rotate_deg, tx, ty, sx, sy)
+
+def filterMatches(kp1, kp2, matches):
+    mkp1, mkp2 = [], []
+    idx_pairs = []
+    used = np.zeros(len(kp2), np.bool_)
+    for m in matches:
+        if len(m) == 2 and m[0].distance < m[1].distance * match_ratio:
+            #print " dist[0] = %d  dist[1] = %d" % (m[0].distance, m[1].distance)
+            m = m[0]
+            # FIXME: ignore the bottom section of movie for feature detection
+            #if kp1[m.queryIdx].pt[1] > h*0.75:
+            #    continue
+            if not used[m.trainIdx]:
+                used[m.trainIdx] = True
+                mkp1.append( kp1[m.queryIdx] )
+                mkp2.append( kp2[m.trainIdx] )
+                idx_pairs.append( (m.queryIdx, m.trainIdx) )
+    p1 = np.float32([kp.pt for kp in mkp1])
+    p2 = np.float32([kp.pt for kp in mkp2])
+    kp_pairs = zip(mkp1, mkp2)
+    return p1, p2, kp_pairs, idx_pairs, mkp1
+
+def filterFeatures(p1, p2, K, method):
+    inliers = 0
+    total = len(p1)
+    space = ""
+    status = []
+    M = None
+    if len(p1) < 7:
+        # not enough points
+        return None, np.zeros(total), [], []
+    if method == 'homography':
+        M, status = cv2.findHomography(p1, p2, cv2.LMEDS, tol)
+    elif method == 'fundamental':
+        M, status = cv2.findFundamentalMat(p1, p2, cv2.LMEDS, tol)
+    elif method == 'essential':
+        M, status = cv2.findEssentialMat(p1, p2, K, cv2.LMEDS, threshold=tol)
+    elif method == 'none':
+        M = None
+        status = np.ones(total)
+    newp1 = []
+    newp2 = []
+    for i, flag in enumerate(status):
+        if flag:
+            newp1.append(p1[i])
+            newp2.append(p2[i])
+    p1 = np.float32(newp1)
+    p2 = np.float32(newp2)
+    inliers = np.sum(status)
+    total = len(status)
+    #print '%s%d / %d  inliers/matched' % (space, np.sum(status), len(status))
+    return M, status, np.float32(newp1), np.float32(newp2)
+
+
 # pathname work
 abspath = os.path.abspath(args.video)
 basename, ext = os.path.splitext(abspath)
@@ -86,6 +191,26 @@ dirname = basename + "_frames"
 print("basename:", basename)
 print("srtname:", srtname)
 print("dirname:", dirname)
+
+local_config = os.path.join(dirname, "camera.json")
+config = PropertyNode()
+if args.camera:
+    # seed the camera calibration and distortion coefficients from a
+    # known camera config
+    print('Setting camera config from:', args.camera)
+    props_json.load(args.camera, config)
+    config.setString('name', args.camera)
+    props_json.save(local_config, config)
+elif os.path.exists(local_config):
+    # load local config file if it exists
+    props_json.load(local_config, config)
+K_list = []
+for i in range(9):
+    K_list.append( config.getFloatEnum('K', i) )
+K = np.copy(np.array(K_list)).reshape(3,3)
+dist = []
+for i in range(5):
+    dist.append( config.getFloatEnum("dist_coeffs", i) )
 
 # check for required input files
 if not os.path.isfile(args.video):
@@ -102,6 +227,14 @@ else:
 
 # output directory
 os.makedirs(dirname, exist_ok=True)
+
+# setup feature detection
+detector = cv2.SIFT_create(nfeatures=1000)
+FLANN_INDEX_KDTREE = 1  # bug: flann enums are missing
+FLANN_INDEX_LSH    = 6
+flann_params = { 'algorithm': FLANN_INDEX_KDTREE,
+                 'trees': 5 }
+matcher = cv2.FlannBasedMatcher(flann_params, {}) # bug : need to pass empty dict (#1329)
 
 # read and parse srt file, setup data interpolator
 need_interpolate = False
@@ -221,6 +354,8 @@ counter = 0
 img_counter = args.start_counter
 last_lat = 0
 last_lon = 0
+kp_list_ref = []
+des_list_ref = []
 for frame in reader.nextFrame():
     frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
     time = float(counter) / fps
@@ -244,13 +379,54 @@ for frame in reader.nextFrame():
         lat_deg = lats[counter - 1]
         lon_deg = lons[counter - 1]
         alt_m = heights[counter - 1]
+        
     if abs(lat_deg) < 0.001 and abs(lon_deg) < 0.001:
         continue
+    
+    write_frame = False
+
+    # by distance camera has moved
     (c1, c2, dist_m) = wgs84.geo_inverse(lat_deg, lon_deg, last_lat, last_lon)
     print("dist:", dist_m)
     #if time >= last_time + args.interval and dist_m >= args.distance:
     if dist_m >= args.distance:
-        last_time = time
+        write_frame = True
+        
+    # by visual overlap
+    method = cv2.INTER_AREA
+    frame_scale = cv2.resize(frame, (0,0), fx=scale, fy=scale,
+                             interpolation=method)
+    cv2.imshow('frame', frame_scale)
+    gray = cv2.cvtColor(frame_scale, cv2.COLOR_BGR2GRAY)
+    (h, w) = gray.shape
+    kp_list = detector.detect(gray)
+    kp_list, des_list = detector.compute(gray, kp_list)
+    if not (des_list_ref is None) and not (des_list is None) and len(des_list_ref) and len(des_list):
+        matches = matcher.knnMatch(des_list, trainDescriptors=des_list_ref, k=2)
+        p1, p2, kp_pairs, idx_pairs, mkp1 = filterMatches(kp_list, kp_list_ref, matches)
+        M, status, newp1, newp2 = filterFeatures(p1, p2, K, filter_method)
+        filtered = []
+        for i, flag in enumerate(status):
+            if flag:
+                filtered.append(mkp1[i])
+        affine = findAffine(p2, p1, fullAffine=False)
+        if affine is None:
+            write_frame = True
+        else:
+            (rot, tx, ty, sx, sy) = decomposeAffine(affine)
+            xperc = abs(tx) / w
+            yperc = abs(ty) / h
+            perc = math.sqrt(xperc*xperc + yperc*yperc)
+            print("pixel dist:", tx, ty, "%.1f%% %.1f%%" % (xperc*100, yperc*100))
+            if perc >= overlap:
+                write_frame = True
+    else:
+        # first frame
+        write_frame = True
+    cv2.waitKey(1)
+    
+    if write_frame:
+        print("WRITE FRAME")
         file = os.path.join(dirname, "img_%04d" % img_counter + ".jpg")
         img_counter += 1
         cv2.imwrite(file, frame)
@@ -270,7 +446,13 @@ for frame in reader.nextFrame():
         exif.write()
         head, tail = os.path.split(file)
         f.write("%s,%.8f,%.8f,%.4f,%.4f,%.4f,%.4f,%.2f\n" % (tail, lat_deg, lon_deg, alt_m, args.heading, 0.0, 0.0, time))
+        # by distance
         last_lat = lat_deg
         last_lon = lon_deg
-        
+        # by time
+        last_time = time
+        # by overlap
+        kp_list_ref = kp_list
+        des_list_ref = des_list
+
 f.close()
