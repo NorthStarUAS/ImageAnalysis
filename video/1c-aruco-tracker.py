@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 # scan a flight movie and track aruco markers to estimate
 # twist rate and x, y deflection
