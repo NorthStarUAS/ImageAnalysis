@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # remove all match references to a specific image ... can be used as a
 # blunt hammer when something is going wrong with that image

@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # after optimizing camera poses and feature locations, let's estimate
 # the average transform between the original aircraft pose (estimated

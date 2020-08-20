@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # determine the connected groups of images.  Images without
 # connections to each other cannot be correctly placed.

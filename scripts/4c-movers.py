@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # Load the original match file and the fitted match file and find the
 # features that moved the furthest and review them.

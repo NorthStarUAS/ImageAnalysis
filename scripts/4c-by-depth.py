@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # When solving a bundle adjustment problem with pair-wise feature
 # matches (i.e. no 3+ way matches), the bad matches will often find a

@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # do pairwise triangulation to estimate local surface height, but try
 # to also build up a tracking structure so we could use and refine

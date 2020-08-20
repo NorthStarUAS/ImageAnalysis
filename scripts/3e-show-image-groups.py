@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # use graphviz library to generate a visualization of the image (feature)
 # connectivity in the image set.

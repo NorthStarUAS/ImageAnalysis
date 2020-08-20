@@ -406,7 +406,8 @@ class Optimizer():
                 lower.append( -np.inf )
                 upper.append( np.inf )
             if self.optimize_calib == 'global':
-                tol = 0.0000001
+                #tol = 0.0000001
+                tol = 0.2
                 # bound focal length
                 lower.append(self.K[0,0]*(1-tol))
                 upper.append(self.K[0,0]*(1+tol))

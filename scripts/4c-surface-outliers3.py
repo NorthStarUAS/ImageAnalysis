@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 # compute neighbors in pixel space, then compute 'cone' shape metric
 # in 3d sba space.  Outliers will typically be separted from their
@@ -25,9 +25,6 @@
 # delauney triangulation.  Delauney triangulation was cool until we
 # had to deal with multiple copies of the same uv coordinates.
 
-import sys
-sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
-
 import argparse
 import commands
 import cPickle as pickle
@@ -40,6 +37,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os.path
 import scipy.spatial
+import sys
 
 sys.path.append('../lib')
 import project

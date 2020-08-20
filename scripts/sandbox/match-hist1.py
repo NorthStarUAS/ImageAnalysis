@@ -16,7 +16,7 @@ from props import getNode
 from lib import histogram
 from lib import project
 
-parser = argparse.ArgumentParser(description='Keypoint projection.')
+parser = argparse.ArgumentParser(description='Preprocessing for simple weighted histogram equalization.')
 parser.add_argument('project', help='project directory')
 args = parser.parse_args()
 

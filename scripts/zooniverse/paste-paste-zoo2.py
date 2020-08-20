@@ -185,9 +185,14 @@ with open(args.classifications, 'r') as fclass:
             x = round(val["x"])
             y = round(val["y"])
             if "r" in val:
+                # palmer task
                 r = round(val["r"])
             else:
+                # ob task
                 r = 1
+                # only pass through tool 0
+                if val["tool"] > 0:
+                    continue
             print(x, y, r)
             deets = val["details"]
             density = deets[0]["value"]
@@ -312,11 +317,11 @@ for project_path in by_project:
         print("pts_ned:", pts_ned)
         ned_list += pts_ned
 
-        if False:
+        if True:
             fullpath = os.path.join(project_path, srcname)
             rgb = cv2.imread(fullpath, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)
             for pt in pt_list:
-                cv2.circle(rgb, (pt[0], pt[1]), 20, green, -1)
+                cv2.circle(rgb, (pt[0], pt[1]), 20, green, 5)
             preview = cv2.resize(rgb, None, fx=scale, fy=scale)
             h, w = preview.shape[:2]
             print(w, h)

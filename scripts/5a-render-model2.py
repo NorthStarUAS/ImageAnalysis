@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # for all the images in the fitted group, generate a 2d polygon
 # surface fit.  Then project the individual images onto this surface

@@ -1,7 +1,4 @@
-#!/usr/bin/python3
-
-import sys
-#sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
+#!/usr/bin/env python3
 
 import argparse
 #import commands
@@ -11,6 +8,7 @@ import numpy as np
 import os.path
 import random
 import navpy
+import sys
 
 sys.path.append('../lib')
 import ac3d

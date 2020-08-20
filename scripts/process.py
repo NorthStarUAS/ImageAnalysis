@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # This is the master ImageAnalysis processing script.  For DJI and
 # Sentera cameras it should typically be able to run through with
@@ -37,8 +37,7 @@ from lib import smart
 from lib import srtm
 from lib import state
 
-# from the aura-props python package
-from props import getNode, PropertyNode
+from props import getNode, PropertyNode # from the aura-props python package
 import props_json
 
 parser = argparse.ArgumentParser(description='Create an empty project.')

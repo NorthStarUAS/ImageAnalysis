@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # Run the optimization step to place all the features and camera poses
 # in a way that minimizes the mean reprojection error for the

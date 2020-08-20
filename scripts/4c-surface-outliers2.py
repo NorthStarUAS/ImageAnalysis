@@ -1,12 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 # compute neighbors in pixel space, then compute 'cone' shape metric
 # in 3d sba space.  Outliers will typically be separted from their
 # neighbors in 3d space ... i.e. long cone depth relative to base
 # size.
-
-import sys
-sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
 
 import argparse
 import commands
@@ -20,6 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os.path
 import scipy.spatial
+import sys
 
 sys.path.append('../lib')
 import project

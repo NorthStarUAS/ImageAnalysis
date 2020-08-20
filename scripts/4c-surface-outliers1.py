@@ -1,7 +1,4 @@
-#!/usr/bin/python
-
-import sys
-sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
+#!/usr/bin/env python3
 
 import argparse
 import commands
@@ -15,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os.path
 import scipy.spatial
+import sys
 
 sys.path.append('../lib')
 import project

@@ -1,7 +1,4 @@
-#!/usr/bin/python
-
-import sys
-sys.path.insert(0, "/usr/local/lib/python2.7/site-packages/")
+#!/usr/bin/env python3
 
 import argparse
 import cPickle as pickle
@@ -10,6 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import os.path
+import sys
 
 sys.path.append('../lib')
 import project

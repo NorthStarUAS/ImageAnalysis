@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # For all the feature matches and camera poses, estimate a mean
 # reprojection error

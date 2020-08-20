@@ -3,15 +3,11 @@
 block_cipher = None
 
 
-a = Analysis(['7a-explore.py'],
-             pathex=['H:\\Projects\\ImageAnalysis\\scripts'],
+a = Analysis(['explorer.py'],
+             pathex=['Z:\\Projects\\ImageAnalysis\\scripts'],
              binaries=[
-                 ('C:\\Users\curt\Anaconda3\Lib\site-packages\panda3d\cgGL.dll', '.'),
-                 ('C:\\Users\curt\Anaconda3\Lib\site-packages\panda3d\libpandagl.dll', '.'),
-                 ('C:\\Users\curt\Anaconda3\Lib\site-packages\panda3d\libpandaegg.dll', '.'),
-                 ('C:\\Users\curt\Anaconda3\Lib\site-packages\panda3d\libp3assimp.dll', '.'),
-                 ('C:\\Users\curt\Anaconda3\Lib\site-packages\panda3d\libp3ptloader.dll', '.'),
-                 ('C:\\Users\curt\Anaconda3\Lib\site-packages\panda3d\libp3windisplay.dll', '.')
+                 ('C:\\Users\curt\Anaconda3\*.dll', '.'),
+                 ('C:\\Users\curt\Anaconda3\Lib\site-packages\panda3d\*.dll', '.')
              ],
              datas=[
                  ('C:\\Users\curt\Anaconda3\Lib\site-packages\panda3d\etc\*.prc', 'etc'),
@@ -33,7 +29,7 @@ exe = EXE(pyz,
           a.scripts,
           [],
           exclude_binaries=True,
-          name='7a-explore',
+          name='explorer',
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
@@ -45,4 +41,4 @@ coll = COLLECT(exe,
                a.datas,
                strip=False,
                upx=True,
-               name='7a-explore')
+               name='explorer')
