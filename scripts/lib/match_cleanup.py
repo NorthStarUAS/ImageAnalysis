@@ -12,6 +12,7 @@ from . import camera
 from .logger import log, qlog
 from . import matcher
 from . import project
+from . import smart
 from . import srtm
 
 # Reset all match point locations to their original direct
@@ -304,16 +305,23 @@ def link_matches(proj, matches_direct):
 
     return matches_direct
 
-def triangulate_srtm(proj, matches):
+def triangulate_smart(proj, matches):
     K = camera.get_K(optimized=False)
     IK = np.linalg.inv(K)
     
     # for each image lookup the SRTM elevation under the camera
-    log("Looking up SRTM base elevation for each image location...")
+    log("Looking up [smart] base elevation for each image location...")
+    smart.load(proj.analysis_dir)
     for image in proj.image_list:
-        ned, ypr, quat = image.get_camera_pose()
-        image.base_elev = srtm.ned_interp([ned[0], ned[1]])[0]
-        # print(image.name, image.base_elev)
+        image_node = smart.smart_node.getChild(image.name, True)
+        if image_node.hasChild("tri_surface_m"):
+            image.base_elev = image_node.getFloat("tri_surface_m")
+        else:
+            ned, ypr, quat = image.get_camera_pose()
+            image.base_elev = srtm.ned_interp([ned[0], ned[1]])[0]
+            if image.base_elev > -ned[2] - 1:
+                image.base_elev = -ned[2] - 1
+        #print(image.name, image.base_elev, -ned[2])
 
     log("Estimating initial projection for each feature...")
     bad_count = 0
