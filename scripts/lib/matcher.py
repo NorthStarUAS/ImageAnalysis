@@ -6,6 +6,7 @@
 import copy
 import cv2
 import math
+from matplotlib import pyplot as plt
 import numpy as np
 import time
 from tqdm import tqdm
@@ -29,6 +30,8 @@ detect_scale = 0.40
 the_matcher = None
 max_distance = None
 min_pairs = 25
+
+d2r = math.pi / 180.0
 
 # the flann based matcher uses random starting points so some
 # borderline matching results may change from one run to the next.
@@ -139,6 +142,15 @@ def filter_by_transform(K, i1, i2, transform):
             matches.remove(pair)
     return clean
 
+# return a count of unique matches
+def count_unique(i1, i2, matches_fit):
+    idx_pairs = []
+    for m in matches_fit:
+        idx_pairs.append( [m.queryIdx, m.trainIdx] )
+    idx_pairs = filter_duplicates(i1, i2, idx_pairs)
+    return len(idx_pairs)
+
+    
 # Filter duplicate features.  SIFT (for example) can detect the same
 # feature at different scales/orientations which can lead to duplicate
 # match pairs, or possibly one feature in image1 matching two or more
@@ -344,7 +356,7 @@ def gen_grid(w, h, steps):
             grid_list.append( [u, v] )
     return grid_list
 
-def smart_pair_matches(i1, i2, review=False):
+def smart_pair_matches(i1, i2, review=False, est_rotation=False):
     # common camera parameters
     K = camera.get_K()
     IK = np.linalg.inv(K)
@@ -355,9 +367,12 @@ def smart_pair_matches(i1, i2, review=False):
     grid_steps = 8
     grid_list = gen_grid(w, h, grid_steps)
 
+    # consider estimated yaw error and estimated surface elevation
+    # from previous successful matches.
+    
     if matcher_node.hasChild("ground_m"):
         ground_m = matcher_node.getFloat("ground_m")
-        qlog("Forced ground:", ground_m)
+        log("Forced ground:", ground_m)
     else:
         ground_m = smart.get_surface_estimate(i1, i2)
         # if ground_m is None:
@@ -366,8 +381,19 @@ def smart_pair_matches(i1, i2, review=False):
         #     ground_m = (g1 + g2) * 0.5
         #     qlog("  SRTM ground (no triangulation yet): %.1f" % ground_m)
         # else:
-        qlog("  Ground estimate: %.1f" % ground_m)
+        log("  Ground estimate: %.1f" % ground_m)
         
+    i1_yaw_error = smart.get_yaw_error_estimate(i1)
+    i2_yaw_error = smart.get_yaw_error_estimate(i2)
+    # inherit partner yaw error if none computed yet.
+    if abs(i1_yaw_error) < 0.0001 and abs(i2_yaw_error) > 0.0001:
+        i1_yaw_error = i2_yaw_error
+    if abs(i1_yaw_error) > 0.0001 and abs(i2_yaw_error) < 0.0001:
+        i2_yaw_error = i1_yaw_error
+    print("smart yaw errors:", i1_yaw_error, i2_yaw_error)
+    R2 = transformations.rotation_matrix(i2_yaw_error*d2r, [1, 0, 0])[:3,:3]
+    print("R2:\n", R2)
+    
     match_ratio = matcher_node.getFloat("match_ratio")
     
     if review:
@@ -379,14 +405,35 @@ def smart_pair_matches(i1, i2, review=False):
     # into image 1 uv coordinates.  Compute an estimated 'ideal'
     # homography relationship between the two images as a starting
     # search point for feature matches.
-    
-    proj_list = project.projectVectors( IK, i2.get_body2ned(),
+
+    if est_rotation:
+        print("body2ned:\n", i2.get_body2ned())
+        smart_body2ned = np.dot(i2.get_body2ned(), R2)
+        print("smart body2ned:\n", smart_body2ned)
+    else:
+        smart_body2ned = i2.get_body2ned()
+
+    proj_list = project.projectVectors( IK, smart_body2ned,
                                         i2.get_cam2body(),
                                         grid_list )
     ned2, ypr2, quat2 = i2.get_camera_pose()
+    if -ned2[2] > ground_m:
+        ground_m = -ned2[2] - 2
     pts_ned = project.intersectVectorsWithGroundPlane(ned2, ground_m,
                                                       proj_list)
-    rvec1, tvec1 = i1.get_proj()
+    if False and review:
+        plot_list = []
+        for p in pts_ned:
+            plot_list.append( [p[1], p[0]] )
+        plot_list = np.array(plot_list)
+        plt.figure()
+        plt.plot(plot_list[:,0], plot_list[:,1], 'ro')
+        plt.show()
+                            
+    if est_rotation:
+        rvec1, tvec1 = i1.get_proj(opt=False, yaw_error_est=i1_yaw_error)
+    else:
+        rvec1, tvec1 = i1.get_proj(opt=False)
     reproj_points, jac = cv2.projectPoints(np.array(pts_ned), rvec1, tvec1,
                                            K, dist_coeffs)
     reproj_list = reproj_points.reshape(-1,2).tolist()
@@ -406,13 +453,21 @@ def smart_pair_matches(i1, i2, review=False):
     H, status = cv2.findHomography(np.array([reproj_list]).astype(np.float32),
                                    np.array([grid_list]).astype(np.float32),
                                    0)
-    #print("Preliminary H:", H)
+    if review:
+        # draw what we estimated
+        print("Preliminary H:", H)
+        i1_new = cv2.warpPerspective(rgb1, H, (rgb1.shape[1], rgb1.shape[0]))
+        blend = cv2.addWeighted(i1_new, 0.5, rgb2, 0.5, 0)
+        blend = cv2.resize(blend, (int(w*detect_scale), int(h*detect_scale)))
+        cv2.imshow('blend', blend)
+        print("Press a key:")
+        cv2.waitKey()
 
     matches = raw_matches(i1, i2, k=3)
     print("Raw matches:", len(matches))
 
     best_fitted_matches = 20    # don't proceed if we can't beat this value
-    matches_fit = []
+    matches_best = []
     
     src_pts = np.float32([i1.kp_list[i].pt for i in range(len(i1.kp_list))]).reshape(-1, 1, 2)
     dst_pts = np.float32([i2.kp_list[i].pt for i in range(len(i2.kp_list))]).reshape(-1, 1, 2)
@@ -459,7 +514,7 @@ def smart_pair_matches(i1, i2, review=False):
         tol = int(diag*0.005)
         if tol < 5: tol = 5
 
-        cutoffs = [ 16, 32, 64, 128, 256, 512, 1024 ]
+        cutoffs = [ 32, 64, 128, 256, 512, 1024, 2048 ]
         dist_bins = [[] for i in range(len(cutoffs))]
         print("bins:", len(dist_bins))
         for line in match_stats:
@@ -477,10 +532,16 @@ def smart_pair_matches(i1, i2, review=False):
                 dst = np.float32([dst_pts[m.trainIdx] for m in dist_matches]).reshape(1, -1, 2)
                 H_test, status = cv2.findHomography(src, dst, cv2.RANSAC, tol)
                 num_fit = np.count_nonzero(status)
-                if num_fit > best_fitted_matches:
+                matches_fit = []
+                matches_dist = []
+                for i, m in enumerate(dist_matches):
+                    if status[i]:
+                        matches_fit.append(m)
+                        matches_dist.append(m.distance)
+                num_unique = count_unique(i1, i2, matches_fit)
+                print(" fit:", num_fit, "unique:", num_unique)
+                if num_unique > best_fitted_matches:
                     done = False
-                    matches_fit = []
-                    matches_dist = []
                     # affine, astatus = \
                     #     cv2.estimateAffinePartial2D(np.array([src]).astype(np.float32),
                     #                                 np.array([dst]).astype(np.float32))
@@ -490,14 +551,12 @@ def smart_pair_matches(i1, i2, review=False):
                     # print("Translation (pixels):", tx, ty)
                     # print("Skew:", sx, sy)
                     H = np.copy(H_test)
+                    matches_best = list(matches_fit) # copy
                     # print("H:", H)
-                    for i, m in enumerate(dist_matches):
-                        if status[i]:
-                            matches_fit.append(m)
-                            matches_dist.append(m.distance)
-                    best_fitted_matches = len(matches_fit)
+                    best_fitted_matches = num_unique
                     print("Filtered matches:", len(dist_matches),
-                          "Fitted matches:", len(matches_fit))
+                          "Fitted matches:", len(matches_fit),
+                          "Unique matches:", num_unique)
                     #print("metric cutoff:", best_metric)
                     matches_dist = np.array(matches_dist)
                     print("avg match quality:", np.average(matches_dist))
@@ -505,9 +564,9 @@ def smart_pair_matches(i1, i2, review=False):
                     if review:
                         i1_new = cv2.warpPerspective(rgb1, H, (rgb1.shape[1], rgb1.shape[0]))
                         blend = cv2.addWeighted(i1_new, 0.5, rgb2, 0.5, 0)
-                        blend = cv2.resize(blend, (int(w*args.scale), int(h*args.scale)))
+                        blend = cv2.resize(blend, (int(w*detect_scale), int(h*detect_scale)))
+                        #draw_inlier(rgb1, rgb2, i1.kp_list, i2.kp_list, matches_fit, 'ONLY_LINES', args.scale)
                         cv2.imshow('blend', blend)
-                        draw_inlier(rgb1, rgb2, i1.kp_list, i2.kp_list, matches_fit, 'ONLY_LINES', args.scale)
 
             # check for diminishing returns and bail early
             #print(best_fitted_matches)
@@ -515,14 +574,15 @@ def smart_pair_matches(i1, i2, review=False):
             #    break
 
         if review:
+            print("Press a key:")
             cv2.waitKey()
             
         if done:
             break
         
-    if len(matches_fit) >= min_pairs:
+    if len(matches_best) >= min_pairs:
         idx_pairs = []
-        for m in matches_fit:
+        for m in matches_best:
             idx_pairs.append( [m.queryIdx, m.trainIdx] )
         idx_pairs = filter_duplicates(i1, i2, idx_pairs)
         if len(idx_pairs) >= min_pairs:
@@ -705,6 +765,8 @@ def find_matches(proj, K, strategy="smart", transform="homography",
     median = np.median(intervals)
     log("Median pair interval: %.1f m" % median)
     median_int = int(round(median))
+    if median_int == 0:
+        median_int = 1
 
     if matcher_node.hasChild("min_dist"):
         min_dist = matcher_node.getFloat("min_dist")
@@ -794,7 +856,9 @@ def find_matches(proj, K, strategy="smart", transform="homography",
             i2.detect_features(detect_scale)
 
         if strategy == "smart":
-            match_fwd, match_rev = smart_pair_matches(i1, i2, review)
+            review = False
+            #match_fwd, match_rev = smart_pair_matches(i1, i2, review, False)
+            match_fwd, match_rev = smart_pair_matches(i1, i2, review, True)
         elif strategy == "traditional":
             match_fwd, match_rev = bidirectional_pair_matches(i1, i2, review)
         elif strategy == "bruteforce":
