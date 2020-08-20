@@ -7,6 +7,7 @@
 
 import argparse
 import cv2
+import datetime
 import skvideo.io               # pip3 install scikit-video
 import math
 import fractions
@@ -24,6 +25,8 @@ from aurauas_flightdata import flight_loader, flight_interp
 from props import PropertyNode
 import props_json
 
+import djilog
+
 parser = argparse.ArgumentParser(description='extract and geotag dji movie frames.')
 parser.add_argument('--video', required=True, help='input video')
 parser.add_argument('--camera', help='select camera calibration file')
@@ -35,8 +38,8 @@ parser.add_argument('--distance', type=float, default=5.0, help='extraction dist
 parser.add_argument('--start-time', type=float, help='begin frame grabbing at this time.')
 parser.add_argument('--end-time', type=float, help='end frame grabbing at this time.')
 parser.add_argument('--start-counter', type=int, default=1, help='first image counter')
-parser.add_argument('--ground', type=float, required=True, help='ground altitude in meters')
-parser.add_argument('--heading', type=float, required=True, help='fixed heading drone was flown at')
+parser.add_argument('--ground', type=float, help='ground altitude in meters')
+parser.add_argument('--djicsv', help='name of dji exported csv log file from the flight, see https://www.phantomhelp.com/logviewer/upload/')
 args = parser.parse_args()
 
 r2d = 180.0 / math.pi
@@ -45,6 +48,9 @@ scale = 0.4
 filter_method = 'homography'
 tol = 3.0
 overlap = 0.25
+
+djicsv = djilog.djicsv()
+djicsv.load(args.djicsv)
 
 class Fraction(fractions.Fraction):
     """Only create Fractions from floats.
@@ -236,96 +242,8 @@ flann_params = { 'algorithm': FLANN_INDEX_KDTREE,
                  'trees': 5 }
 matcher = cv2.FlannBasedMatcher(flann_params, {}) # bug : need to pass empty dict (#1329)
 
-# read and parse srt file, setup data interpolator
-need_interpolate = False
-times = []
-lats = []
-lons = []
-heights = []
-ts = 0
-lat = 0
-lon = 0
-height = 0
-with open(srtname, 'r') as f:
-    state = 0
-    for line in f:
-        if line.rstrip() == "":
-            state = 0
-        elif state == 0:
-            counter = int(line.rstrip())
-            state += 1
-            # print(counter)
-        elif state == 1:
-            time_range = line.rstrip()
-            (start, end) = time_range.split(' --> ')
-            (shr, smin, ssec_txt) = start.split(':')
-            (ssec, ssubsec) = ssec_txt.split(',')
-            (ehr, emin, esec_txt) = end.split(':')
-            (esec, esubsec) = esec_txt.split(',')
-            ts = int(shr)*3600 + int(smin)*60 + int(ssec) + int(ssubsec)/1000
-            te = int(ehr)*3600 + int(emin)*60 + int(esec) + int(esubsec)/1000
-            print(ts, te)
-            state += 1
-        elif state == 2:
-            # check for phantom (old) versus mavic2 (new) record
-            data_line = line.rstrip()
-            if re.search('\<font.*\>', data_line):
-                # mavic 2
-                state += 1
-            else:
-                # phantom
-                need_interpolate = True
-                m = re.search('(?<=GPS \()(.+)\)', data_line)
-                (lon_txt, lat_txt, alt) = m.group(0).split(', ')
-                m = re.search('(?<=, H )([\d\.]+)', data_line)
-                if lat_txt != 'n/a':
-                    lat = float(lat_txt)
-                if lon_txt != 'n/a':
-                    lon = float(lon_txt)
-                height = float(m.group(0))
-                # print('gps:', lat, lon, height)
-                times.append(ts)
-                lats.append(lat)
-                lons.append(lon)
-                heights.append(height)
-                state = 0
-        elif state == 3:
-            # mavic 2 datetimem line
-            datetime = line.rstrip()
-            state += 1
-        elif state == 4:
-            # mavic 2 big data line
-            data_line = line.rstrip()
-            m = re.search('latitude : ([+-]?\d*\.\d*)', data_line)
-            if m:
-                lat = float(m.group(1))
-            else:
-                lat = None
-            m = re.search('longt?itude : ([+-]?\d*\.\d*)', data_line)
-            if m:
-                lon = float(m.group(1))
-            else:
-                lon = None
-            m = re.search('altitude.*: ([+-]?\d*\.\d*)', data_line)
-            if m:
-                alt = float(m.group(1))
-            else:
-                alt = None
-            times.append(datetime)
-            lats.append(lat)
-            lons.append(lon)
-            heights.append(alt)
-        else:
-            pass
-
-if need_interpolate:
-    print('setting up interpolators')
-    interp_lats = interpolate.interp1d(times, lats,
-                                       bounds_error=False, fill_value=0.0)
-    interp_lons = interpolate.interp1d(times, lons,
-                                       bounds_error=False, fill_value=0.0)
-    interp_heights = interpolate.interp1d(times, heights,
-                                          bounds_error=False, fill_value=0.0)
+srt = djilog.djisrt()
+srt.load(srtname)
 
 # fetch video metadata
 metadata = skvideo.io.ffprobe(args.video)
@@ -360,26 +278,37 @@ for frame in reader.nextFrame():
     frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
     time = float(counter) / fps
     counter += 1
-    print("frame: ", counter, "%.3f" % time)
+    print("frame:", counter, "time:", "%.3f" % time)
 
     if args.start_time and time < args.start_time:
         continue
     if args.end_time and time > args.end_time:
         break
 
-    if need_interpolate:
-        lat_deg = interp_lats(time)
-        lon_deg = interp_lons(time)
-        alt_m = interp_heights(time) + args.ground
+    if srt.need_interpolate:
+        lat_deg = srt.interp_lats(time)
+        lon_deg = srt.interp_lons(time)
+        alt_m = srt.interp_heights(time) + args.ground
     else:
-        if counter - 1 >= len(times):
+        if counter - 1 >= len(srt.times):
             print("MORE FRAMES THAN SRT ENTRIS")
             continue
-        datetime = times[counter - 1]
-        lat_deg = lats[counter - 1]
-        lon_deg = lons[counter - 1]
-        alt_m = heights[counter - 1]
-        
+        time_str = srt.times[counter - 1]
+        lat_deg = srt.lats[counter - 1]
+        lon_deg = srt.lons[counter - 1]
+        alt_m = srt.heights[counter - 1]
+        # compute unix version of timestamp (here in local tz)
+        main_str, t1, t2 = time_str.split(",")
+        fraction = (float(t1)*1000 + float(t2)) / 1000000
+        print("dt:", time_str)
+        date_time_obj = datetime.datetime.strptime(main_str, '%Y-%m-%d %H:%M:%S')
+        unix_sec = float(date_time_obj.strftime('%s')) + fraction
+        print("from local:", unix_sec)
+        record = djicsv.query(unix_sec)
+        roll = record['roll']
+        pitch = record['pitch']
+        yaw = record['yaw']
+        if yaw < 0: yaw += 360.0
     if abs(lat_deg) < 0.001 and abs(lon_deg) < 0.001:
         continue
     
@@ -434,7 +363,7 @@ for frame in reader.nextFrame():
         exif = pyexiv2.ImageMetadata(file)
         exif.read()
         print(lat_deg, lon_deg, alt_m)
-        exif['Exif.Image.DateTime'] = datetime
+        exif['Exif.Image.DateTime'] = time_str
         GPS = 'Exif.GPSInfo.GPS'
         exif[GPS + 'AltitudeRef']  = '0' if alt_m >= 0 else '1'
         exif[GPS + 'Altitude']     = Fraction(alt_m)
@@ -445,7 +374,7 @@ for frame in reader.nextFrame():
         exif[GPS + 'MapDatum']     = 'WGS-84'
         exif.write()
         head, tail = os.path.split(file)
-        f.write("%s,%.8f,%.8f,%.4f,%.4f,%.4f,%.4f,%.2f\n" % (tail, lat_deg, lon_deg, alt_m, args.heading, 0.0, 0.0, time))
+        f.write("%s,%.8f,%.8f,%.4f,%.4f,%.4f,%.4f,%.2f\n" % (tail, lat_deg, lon_deg, alt_m, yaw, pitch, roll, time))
         # by distance
         last_lat = lat_deg
         last_lon = lon_deg
