@@ -325,7 +325,7 @@ if not state.check("STEP3c"):
 
     log("Loading source matches:", matches_name)
     matches_grouped = pickle.load( open(matches_name, 'rb') )
-    match_cleanup.triangulate_srtm(proj, matches_grouped)
+    match_cleanup.triangulate_smart(proj, matches_grouped)
     log("Writing triangulated group file:", matches_name)
     pickle.dump(matches_grouped, open(matches_name, "wb"))
 
