@@ -10,6 +10,7 @@ import random
 
 from props import getNode
 
+from lib import camera
 from lib import project
 
 # for all the images in the project image_dir, detect features using the
@@ -36,7 +37,7 @@ proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 
 # camera paramters
-K = proj.cam.get_K(optimized=True)
+K = camera.get_K(optimized=True)
 cu = K[0,2]
 cv = K[1,2]
 print("Project cu = %.2f  cv = %.2f:" % (cu, cv) )
@@ -125,7 +126,7 @@ if not args.nofit:
         return i
 
     # generate the ideal vignette mask based on polynomial fit
-    w, h = proj.cam.get_image_params()
+    w, h = camera.get_image_params()
     print("original shape:", h, w)
     vmask = np.zeros((h, w, 3), np.uint8)
 
