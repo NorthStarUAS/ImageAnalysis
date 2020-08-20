@@ -66,7 +66,7 @@ if args.method == 'srtm':
     # local surface approximation
     srtm.initialize( ref, 6000, 6000, 30)
 
-    match_cleanup.triangulate_srtm(proj, matches)
+    match_cleanup.triangulate_smart(proj, matches)
 
     # # lookup ned reference
     # ref_node = getNode("/config/ned_reference", True)
