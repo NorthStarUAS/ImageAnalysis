@@ -235,8 +235,8 @@ class Image():
         detector_node = getNode('/config/detector', True)
         if detector_node.getString('detector') == 'SIFT':
             max_features = detector_node.getInt('sift_max_features')
-            #detector = cv2.xfeatures2d.SIFT_create(nfeatures=max_features)
-            detector = cv2.xfeatures2d.SIFT_create()
+            #detector = cv2.SIFT_create(nfeatures=max_features)
+            detector = cv2.SIFT_create()
         elif detector_node.getString('detector') == 'SURF':
             threshold = detector_node.getFloat('surf_hessian_threshold')
             nOctaves = detector_node.getInt('surf_noctaves')
@@ -543,9 +543,13 @@ class Image():
 
     # compute rvec and tvec (used to build the camera projection
     # matrix for things like cv2.triangulatePoints) from camera pose
-    def get_proj(self, opt=False):
+    def get_proj(self, opt=False, yaw_error_est=0.0):
         body2cam = self.get_body2cam()
         ned2body = self.get_ned2body(opt)
+        if abs(yaw_error_est) > 0.001 and not opt:
+           R1 = transformations.rotation_matrix(yaw_error_est*d2r, [1, 0, 0])[:3,:3]
+           est_body2ned = np.dot(self.get_body2ned(), R1)
+           ned2body = est_body2ned.T
         R = body2cam.dot( ned2body )
         rvec, jac = cv2.Rodrigues(R)
         ned, ypr, quat = self.get_camera_pose(opt)
