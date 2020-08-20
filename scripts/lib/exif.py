@@ -6,8 +6,12 @@ import datetime
 import piexif
 from libxmp.utils import file_to_dict
 
+from .logger import log
+
 def get_camera_info(image_file):
     camera = ""
+    make = ""
+    model = ""
     exif_dict = piexif.load(image_file)
     if piexif.ImageIFD.Make in exif_dict['0th']:
         make = exif_dict['0th'][piexif.ImageIFD.Make].decode('utf-8').rstrip('\x00')
@@ -74,6 +78,8 @@ def get_pose(image_file):
         
     if 'drone-dji:AbsoluteAltitude' in xmp:
         alt_m = float(xmp['drone-dji:AbsoluteAltitude'])
+        if alt_m < 0:
+            log("image meta data is reporting negative absolute alitude!")
     else:
         ealt = exif_dict['GPS'][piexif.GPSIFD.GPSAltitude]
         alt_m = ealt[0] / ealt[1]
