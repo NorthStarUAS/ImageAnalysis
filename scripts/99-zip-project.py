@@ -61,6 +61,7 @@ if os.path.exists(annotations_kml):
 hist_file = os.path.join(proj.analysis_dir, 'histogram')
 if os.path.exists(hist_file):
     append(hist_file)
+
 # smart
 smart_json = os.path.join(proj.analysis_dir, 'smart.json')
 if os.path.exists(smart_json):
