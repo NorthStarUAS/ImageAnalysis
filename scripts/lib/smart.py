@@ -272,7 +272,7 @@ def update_yaw_error_estimate(i1, i2):
         yaw_error = pair_node.getFloat("yaw_error")
         weight = pair_node.getInt("weight")
         dist_m = pair_node.getFloat("dist_m")
-        if dist_m > 5 and abs(yaw_error) < 25:
+        if dist_m >= 0.5 and abs(yaw_error) <= 30:
             sum += yaw_error * weight
             count += weight
         #else:
@@ -284,6 +284,13 @@ def update_yaw_error_estimate(i1, i2):
     else:
         return 0
 
+def get_yaw_error_estimate(i1):
+    i1_node = smart_node.getChild(i1.name, True)
+    if i1_node.hasChild("yaw_error"):
+        return i1_node.getFloat("yaw_error")
+    else:
+        return 0.0
+    
 # return the average of estimated surfaces below the image pair
 def get_surface_estimate(i1, i2):
     i1_node = smart_node.getChild(i1.name, True)
