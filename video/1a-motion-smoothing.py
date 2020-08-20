@@ -29,7 +29,7 @@ affine_minpts = 7
 tol = 2.0
 
 parser = argparse.ArgumentParser(description='Estimate gyro biases from movie.')
-parser.add_argument('--movie', required=True, help='movie file')
+parser.add_argument('video', help='video file')
 parser.add_argument('--camera', help='select camera calibration file')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
 parser.add_argument('--skip-frames', type=int, default=0, help='skip n initial frames')
@@ -37,17 +37,16 @@ parser.add_argument('--no-equalize', action='store_true', help='disable image eq
 parser.add_argument('--draw-keypoints', action='store_true', help='draw keypoints on output')
 parser.add_argument('--draw-masks', action='store_true', help='draw stabilization masks')
 parser.add_argument('--write-smooth', action='store_true', help='write out the smoothed video')
-parser.add_argument('--stop-count', type=int, default=1, help='how many non-frames to absorb before we decide the movie is over')
 args = parser.parse_args()
 
-#file = args.movie
+#file = args.video
 scale = args.scale
 skip_frames = args.skip_frames
 
 # pathname work
-abspath = os.path.abspath(args.movie)
+abspath = os.path.abspath(args.video)
 filename, ext = os.path.splitext(abspath)
-dirname = os.path.dirname(args.movie)
+dirname = os.path.dirname(args.video)
 output_csv = filename + ".csv"
 output_avi = filename + "_smooth.avi"
 local_config = os.path.join(dirname, "camera.json")
@@ -84,7 +83,7 @@ print('dist:', dist)
 K = K * args.scale
 K[2,2] = 1.0
 
-metadata = skvideo.io.ffprobe(args.movie)
+metadata = skvideo.io.ffprobe(args.video)
 #print(metadata.keys())
 print(json.dumps(metadata["video"], indent=4))
 fps_string = metadata['video']['@avg_frame_rate']
@@ -100,8 +99,8 @@ print('codec:', codec)
 print('output size:', w, 'x', h)
 print('total frames:', total_frames)
 
-print("Opening ", args.movie)
-reader = skvideo.io.FFmpegReader(args.movie, inputdict={}, outputdict={})
+print("Opening ", args.video)
+reader = skvideo.io.FFmpegReader(args.video, inputdict={}, outputdict={})
 
 if args.write_smooth:
     #outfourcc = cv2.cv.CV_FOURCC('F', 'M', 'P', '4')
@@ -500,8 +499,6 @@ sy_sum = 1.0
 abs_rot = 0.0
 abs_x = 0.0
 abs_y = 0.0
-
-stop_count = 0
 
 if not args.no_equalize:
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
