@@ -417,7 +417,7 @@ def smart_pair_matches(i1, i2, review=False, est_rotation=False):
                                         i2.get_cam2body(),
                                         grid_list )
     ned2, ypr2, quat2 = i2.get_camera_pose()
-    if -ned2[2] > ground_m:
+    if -ned2[2] < ground_m:
         ground_m = -ned2[2] - 2
     pts_ned = project.intersectVectorsWithGroundPlane(ned2, ground_m,
                                                       proj_list)
