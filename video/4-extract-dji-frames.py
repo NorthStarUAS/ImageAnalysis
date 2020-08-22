@@ -34,7 +34,7 @@ parser.add_argument('--cam-mount', choices=['forward', 'down', 'rear'],
                     default='down',
                     help='approximate camera mounting orientation')
 parser.add_argument('--interval', type=float, default=1.0, help='extraction interval')
-parser.add_argument('--distance', type=float, default=5.0, help='extraction distnace interval')
+parser.add_argument('--distance', type=float, help='max extraction distance interval')
 parser.add_argument('--start-time', type=float, help='begin frame grabbing at this time.')
 parser.add_argument('--end-time', type=float, help='end frame grabbing at this time.')
 parser.add_argument('--start-counter', type=int, default=1, help='first image counter')
@@ -318,7 +318,7 @@ for frame in reader.nextFrame():
     (c1, c2, dist_m) = wgs84.geo_inverse(lat_deg, lon_deg, last_lat, last_lon)
     print("dist:", dist_m)
     #if time >= last_time + args.interval and dist_m >= args.distance:
-    if dist_m >= args.distance:
+    if args.distance and dist_m >= args.distance:
         write_frame = True
         
     # by visual overlap
