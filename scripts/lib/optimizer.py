@@ -85,7 +85,7 @@ class Optimizer():
         self.cam_method = 'ned_quat'
         if self.cam_method == 'rvec_tvec':
             self.ncp = 6           # 3 tvec values, 3 rvec values
-        elif self.cam_method = 'ned_quat':
+        elif self.cam_method == 'ned_quat':
             self.ncp = 7            # 3 ned values, 4 quat values
         self.cam2body = np.array( [[0, 0, 1],
                                    [1, 0, 0],
