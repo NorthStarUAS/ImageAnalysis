@@ -77,11 +77,20 @@ class Optimizer():
         #self.optimize_calib = 'global' # global camera optimization
         self.optimize_calib = 'none' # no camera calibration optimization
         #self.ftol = 1e-2              # stop condition - extra coarse
-        #self.ftol = 1e-3              # stop condition - quicker
-        self.ftol = 1e-4              # stop condition - better
+        self.ftol = 1e-3              # stop condition - quicker
+        #self.ftol = 1e-4              # stop condition - better
         self.min_chain_len = 2        # use whatever matches are defind upstream
         self.with_bounds = True
-        self.ncp = 6
+        #self.cam_method = 'rvec_tvec'
+        self.cam_method = 'ned_quat'
+        if self.cam_method == 'rvec_tvec':
+            self.ncp = 6           # 3 tvec values, 3 rvec values
+        elif self.cam_method = 'ned_quat':
+            self.ncp = 7            # 3 ned values, 4 quat values
+        self.cam2body = np.array( [[0, 0, 1],
+                                   [1, 0, 0],
+                                   [0, 1, 0]], dtype=float )
+        self.body2cam = np.linalg.inv(self.cam2body)
 
     # plot range
     def my_plot_range(self, data, stats=False):
@@ -98,17 +107,22 @@ class Optimizer():
     # for lack of a better function name, input rvec, tvec, and return
     # corresponding ypr and ned values
     def rvectvec2yprned(self, rvec, tvec):
-        cam2body = np.array( [[0, 0, 1],
-                              [1, 0, 0],
-                              [0, 1, 0]], dtype=float )
         Rned2cam, jac = cv2.Rodrigues(rvec)
-        Rned2body = cam2body.dot(Rned2cam)
+        Rned2body = self.cam2body.dot(Rned2cam)
         Rbody2ned = np.matrix(Rned2body).T
         ypr = transformations.euler_from_matrix(Rbody2ned, 'rzyx')
         pos = -np.matrix(Rned2cam).T * np.matrix(tvec).T
         ned = np.squeeze(np.asarray(pos.T[0]))
         return ypr, ned
 
+    def nedquat2rvectvec(self, ned, quat):
+        body2ned = transformations.quaternion_matrix(np.array(quat))[:3,:3]
+        ned2body = body2ned.T
+        R = self.body2cam.dot( ned2body )
+        rvec, jac = cv2.Rodrigues(R)
+        tvec = -np.matrix(R) * np.matrix(ned).T
+        return rvec, tvec
+    
     # compute the sparsity matrix (dependency relationships between
     # observations and parameters the optimizer can manipulate.)
     # Because of the extreme number of parameters and observations, a
@@ -175,12 +189,18 @@ class Optimizer():
         # cams_3d = np.zeros((n_cameras, 3)) # for plotting
         by_cam = []             # for debugging data set problems
         for i, cam in enumerate(camera_params):
-            rvec = cam[:3]
-            tvec = cam[3:6]
-            # ypr, ned = self.rvectvec2yprned(rvec, tvec)
-            # cams_3d[i] = ned # for plotting
             if len(by_camera_point_indices[i]) == 0:
                 continue
+            if self.cam_method == 'rvec_tvec':
+                rvec = cam[:3]
+                tvec = cam[3:6]
+            elif self.cam_method == 'ned_quat':
+                ned = cam[:3]
+                quat = cam[3:7]
+                rvec, tvec = self.nedquat2rvectvec(ned, quat)
+                #print(i, ned, quat)
+            # ypr, ned = self.rvectvec2yprned(rvec, tvec)
+            # cams_3d[i] = ned # for plotting
             proj_points, jac = cv2.projectPoints(points_3d[by_camera_point_indices[i]], rvec, tvec, K, distCoeffs)
             sum += len(proj_points.ravel())
             cam_error = (by_camera_points_2d[i] - proj_points).ravel()
@@ -284,8 +304,12 @@ class Optimizer():
         self.camera_params = np.empty(self.n_cameras * self.ncp)
         for cam_idx, global_index in enumerate(placed_images):
             image = proj.image_list[global_index]
-            rvec, tvec = image.get_proj(optimized)
-            self.camera_params[cam_idx*self.ncp:cam_idx*self.ncp+self.ncp] = np.append(rvec, tvec)
+            if self.cam_method == 'rvec_tvec':
+                rvec, tvec = image.get_proj(optimized)
+                self.camera_params[cam_idx*self.ncp:cam_idx*self.ncp+self.ncp] = np.append(rvec, tvec)
+            elif self.cam_method == 'ned_quat':
+                ned, ypr, quat = image.get_camera_pose(optimized)
+                self.camera_params[cam_idx*self.ncp:cam_idx*self.ncp+self.ncp] = np.append(ned, quat)
 
         # count number of 3d points and observations
         self.n_points = 0
@@ -391,11 +415,11 @@ class Optimizer():
             for i in range(self.n_cameras):
                 # unlimit the camera params
                 for j in range(self.ncp):
-                    if False and j >= 3 and j <= 5:
-                        # bound the altitude of camera (pretend we
-                        # trust dji to +/- 1m)
-                        lower.append( self.camera_params[i*self.ncp + j] - 1 )
-                        upper.append( self.camera_params[i*self.ncp + j] + 1 )
+                    if self.cam_method == 'ned_quat' and j < 3:
+                        # bound the position of the camera to +/- 3
+                        # meters of reported position
+                        lower.append( self.camera_params[i*self.ncp + j] - 3 )
+                        upper.append( self.camera_params[i*self.ncp + j] + 3 )
                     else:
                         lower.append( -np.inf )
                         upper.append( np.inf )
@@ -509,19 +533,24 @@ class Optimizer():
             image = proj.image_list[image_index]
             ned_orig, ypr_orig, quat_orig = image.get_camera_pose()
             # print('optimized cam:', cam)
-            rvec = cam[0:3]
-            tvec = cam[3:6]
-            Rned2cam, jac = cv2.Rodrigues(rvec)
-            cam2body = image.get_cam2body()
-            Rned2body = cam2body.dot(Rned2cam)
-            Rbody2ned = np.matrix(Rned2body).T
-            (yaw, pitch, roll) = transformations.euler_from_matrix(Rbody2ned, 'rzyx')
-            #print "orig ypr =", image.camera_pose['ypr']
-            #print "new ypr =", [yaw/d2r, pitch/d2r, roll/d2r]
-            pos = -np.matrix(Rned2cam).T * np.matrix(tvec).T
-            newned = pos.T[0].tolist()[0]
-            log(image.name, ned_orig, '->', newned, 'dist:', np.linalg.norm(np.array(ned_orig) - np.array(newned)))
-            image.set_camera_pose( newned, yaw*r2d, pitch*r2d, roll*r2d, opt=True )
+            if self.cam_method == 'rvec_tvec':
+                rvec = cam[0:3]
+                tvec = cam[3:6]
+                Rned2cam, jac = cv2.Rodrigues(rvec)
+                cam2body = image.get_cam2body()
+                Rned2body = cam2body.dot(Rned2cam)
+                Rbody2ned = np.matrix(Rned2body).T
+                (yaw_rad, pitch_rad, roll_rad) = transformations.euler_from_matrix(Rbody2ned, 'rzyx')
+                #print "orig ypr =", image.camera_pose['ypr']
+                #print "new ypr =", [yaw/d2r, pitch/d2r, roll/d2r]
+                pos = -np.matrix(Rned2cam).T * np.matrix(tvec).T
+                ned = pos.T[0].tolist()[0]
+            elif self.cam_method == 'ned_quat':
+                ned = cam[0:3]
+                quat = cam[3:7]
+                (yaw_rad, pitch_rad, roll_rad) = transformations.euler_from_quaternion(quat, "rzyx")
+            log(image.name, ned_orig, '->', ned, 'dist:', np.linalg.norm(np.array(ned_orig) - np.array(ned)))
+            image.set_camera_pose( ned, yaw_rad*r2d, pitch_rad*r2d, roll_rad*r2d, opt=True )
             image.placed = True
         proj.save_images_info()
 
