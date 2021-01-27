@@ -66,7 +66,7 @@ chain and viewable with the 7a-explore map viewer.
   Equipment: Skywalker 1900, Sony A6000 w/ 20mm prime lens<br>
   Description: Palmer amaramanth survey.  Flown in very strong gusty winds.
 
-- <b>Download: [avon-park.zip](https://drive.google.com/open?id=1MA-kt5hHmbX290M59KI0pBwV-bA6GVPs)</b><br>
+- <b>Download: [avon-park.zip](https://drive.google.com/file/d/1cIgT1YTbuteyqUTp8YWm4vg74oTvMg8B/view?usp=sharing)</b><br>
   Approximate Size: 3Gb<br>
   Date Flown: 6 June, 2014<br>
   Location: Avon Park, FL<br>
