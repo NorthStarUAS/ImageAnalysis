@@ -16,14 +16,18 @@
 # /home/curt/Aerial Surveys/Palmer Amaranth/Houston Co, MN/mavic-33-20200812/DJI_0622_frames/img_0459.jpg
 
 import argparse
-import numpy as np
 import cv2
+import numpy as np
+import os
 
 import classifier
 
 parser = argparse.ArgumentParser(description='Leaf detector.')
 parser.add_argument('image', help='image file')
 args = parser.parse_args()
+
+win = os.path.basename(args.image)
+selected_contour = None
 
 img = cv2.imread(args.image)
 img = cv2.resize(img, None, fx=0.5, fy=0.5)
@@ -37,7 +41,7 @@ kernel5 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
 hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 hue, sat, val = cv2.split(hsv)
 # green hue = 60
-green_mask = cv2.inRange(hsv, (40, 0, 200), (80, 255, 255))
+green_mask = cv2.inRange(hsv, (35, 0, 200), (85, 255, 255))
 green_mask = cv2.erode(green_mask, kernel3, iterations=2)
 green_mask = cv2.dilate(green_mask, kernel3, iterations=2)
 cv2.imshow("Green Mask", green_mask)
@@ -113,7 +117,7 @@ for contour in contours:
         else:
             label_list.append(0)
 
-def draw_prediction(image, contour_list, label_list):
+def draw_prediction(image, contour_list, label_list, selected_contour=None):
     colors_hex = ['#ff6f0e', '#9467bd', '#1f77b4', '#d62728',
                   '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22',
                   '#17becf', '#2ca02c' ]
@@ -126,20 +130,51 @@ def draw_prediction(image, contour_list, label_list):
 
     print("drawing contours...")
     for i, contour in enumerate(contour_list):
-        if label_list[i] < len(colors):
+        if i == selected_contour:
+            color = (255, 255, 255)
+        elif label_list[i] < len(colors):
             color = colors[label_list[i]]
         else:
-            color = (255, 255, 255)
+            color = (64, 64, 64)
         cv2.drawContours(image, [contour], -1, color, 2)
-        #cv2.drawContours(image, poly_list, -1, (255,0,255), 2)
         
-    cv2.imshow('Leaves Detected', image)
+    cv2.imshow(win, image)
+
+def find_closest(x, y):
+    print(x, y)
+    min_dist = None
+    min_index = None
+    for i, contour in enumerate(contour_list):
+        cx,cy,w,h = cv2.boundingRect(contour)
+        dist = abs(cx+w*0.5 - x) + abs(cy+h*0.5 - y)
+        #print(i, dist)
+        if min_dist is None or dist < min_dist:
+            min_dist = dist
+            min_index = i
+    #print(min_index)
+    return min_index
+
+def onmouse(event, x, y, flags, params):
+    global selected_contour
+    if event == cv2.EVENT_LBUTTONDOWN:
+        # show region detail
+        selected_contour = find_closest(x, y)
+        draw_prediction(img, contour_list, label_list, selected_contour)
 
 model = classifier.LeafClassifier("palmer1")
 model.predict(label_list, classifier_list)
+draw_prediction(img, contour_list, label_list, selected_contour)
+
+print("win:", win)
+cv2.setMouseCallback(win, onmouse)
 
 while True:
-    draw_prediction(img, contour_list, label_list)
+    draw_prediction(img, contour_list, label_list, selected_contour)
     keyb = cv2.waitKey()
-    if keyb == ord('q'):
+    if keyb >= ord('0') and keyb <= ord('9'):
+        if not selected_contour is None:
+            label_list[selected_contour] = keyb - ord('0')
+            selected_contour = None
+            draw_prediction(img, contour_list, label_list, selected_contour)
+    elif keyb == ord('q'):
         quit()
