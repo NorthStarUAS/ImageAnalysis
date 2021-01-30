@@ -21,7 +21,7 @@ import numpy as np
 # pip3 install --pre --extra-index-url https://archive.panda3d.org/ panda3d
 # pip3 install panda3d
 
-from direct.showbase.ShowBase import ShowBase
+from direct.showbase.ShowBase import ShowBase # pip install panda3d
 from direct.task import Task
 from panda3d.core import LineSegs, NodePath, OrthographicLens, PNMImage, Texture, Filename, Shader, WindowProperties
 from direct.gui.DirectGui import YesNoDialog
@@ -100,7 +100,7 @@ class MyApp(ShowBase):
         self.lens.setFilmSize(20, 15)
         base.camNode.setLens(self.lens)
 
-        self.cam_pos = [ 0.0, 0.0, 1000.0 ]
+        self.cam_pos = [ 0.0, 0.0, 10000.0 ]
         self.camera.setPos(self.cam_pos[0], self.cam_pos[1], self.cam_pos[2])
         self.camera.setHpr(0, -90.0, 0)
         self.view_size = 100.0
