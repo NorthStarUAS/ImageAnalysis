@@ -4,7 +4,7 @@
 
 import datetime
 import piexif
-from libxmp.utils import file_to_dict
+from libxmp.utils import file_to_dict # pip install python-xmp-toolkit
 
 from .logger import log
 
@@ -104,16 +104,24 @@ def get_pose(image_file):
         yaw_deg = float(xmp['drone-dji:GimbalYawDegree'])
         while yaw_deg < 0:
             yaw_deg += 360
+    elif 'Camera:Yaw' in xmp:
+        yaw_deg = float(xmp['Camera:Yaw'])
+        while yaw_deg < 0:
+            yaw_deg += 360
     else:
         yaw_deg = None
 
     if 'drone-dji:GimbalPitchDegree' in xmp:
         pitch_deg = float(xmp['drone-dji:GimbalPitchDegree'])
+    elif 'Camera:Pitch' in xmp:
+        pitch_deg = float(xmp['Camera:Pitch'])
     else:
         pitch_deg = None
 
     if 'drone-dji:GimbalRollDegree' in xmp:
         roll_deg = float(xmp['drone-dji:GimbalRollDegree'])
+    elif 'Camera:Roll' in xmp:
+        roll_deg = float(xmp['Camera:Roll'])
     else:
         roll_deg = None
         
