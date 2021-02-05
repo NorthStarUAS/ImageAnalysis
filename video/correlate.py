@@ -38,7 +38,7 @@ def sync_clocks(data, interp, movie_log, hz=60, cam_mount='forward',
     xmax = x.max()
     print("movie range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin))
     movie_len = xmax - xmin
-    for x in np.linspace(xmin, xmax, movie_len*hz):
+    for x in np.linspace(xmin, xmax, int(round(movie_len*hz))):
         if cam_mount == 'forward' or cam_mount == 'down':
             movie_interp.append( [x, movie_spl_roll(x)] )
             #movie_interp.append( [x, -movie_spl_yaw(x)] ) # test, fixme
@@ -54,7 +54,7 @@ def sync_clocks(data, interp, movie_log, hz=60, cam_mount='forward',
         y_spline = interp.group['imu'].interp['r'] # down facing camera
 
     time = flight_max - flight_min
-    for x in np.linspace(flight_min, flight_max, time*hz):
+    for x in np.linspace(flight_min, flight_max, int(round(time*hz))):
         flight_interp.append( [x, y_spline(x)] )
         #print "flight len:", len(flight_interp)
 
@@ -106,7 +106,7 @@ def sync_clocks(data, interp, movie_log, hz=60, cam_mount='forward',
     frsum = 0.0
     count = 0
     qratio = 1.0
-    for x in np.linspace(tmin, tmax, (tmax-tmin)*hz):
+    for x in np.linspace(tmin, tmax, int(round((tmax-tmin)*hz))):
         mqsum += abs(movie_spl_pitch(x-time_shift))
         mrsum += abs(movie_spl_yaw(x-time_shift))
         imu = interp.query(x, 'imu')
