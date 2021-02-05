@@ -16,6 +16,7 @@ import props_json
 sys.path.append('../scripts')
 from lib import transformations
 
+import camera
 import horizon
 
 parser = argparse.ArgumentParser(description='Estimate gyro biases from movie.')
@@ -38,34 +39,16 @@ output_csv = filename + "_horiz.csv"
 output_video = filename + "_horiz" + ext
 local_config = os.path.join(dirname, "camera.json")
 
-config = PropertyNode()
-if args.camera:
-    # seed the camera calibration and distortion coefficients from a
-    # known camera config
-    print('Setting camera config from:', args.camera)
-    props_json.load(args.camera, config)
-    config.setString('name', args.camera)
-    props_json.save(local_config, config)
-elif os.path.exists(local_config):
-    # load local config file if it exists
-    props_json.load(local_config, config)
-    
-name = config.getString('name')
-cam_yaw = config.getFloatEnum('mount_ypr', 0)
-cam_pitch = config.getFloatEnum('mount_ypr', 1)
-cam_roll = config.getFloatEnum('mount_ypr', 2)
-K_list = []
-for i in range(9):
-    K_list.append( config.getFloatEnum('K', i) )
-K = np.copy(np.array(K_list)).reshape(3,3)
-dist = []
-for i in range(5):
-    dist.append( config.getFloatEnum("dist_coeffs", i) )
-
-print('Camera:', name)
+camera = camera.VirtualCamera()
+camera.load(args.camera, local_config)
+cam_yaw, cam_pitch, cam_roll = camera.get_ypr()
+K = camera.get_K()
+dist = camera.get_dist()
+print('Camera:', camera.get_name())
 print('K:\n', K)
 print('dist:', dist)
 
+# ajdust effective K to account for scaling
 K = K * args.scale
 K[2,2] = 1.0
 cu = K[0,2]
