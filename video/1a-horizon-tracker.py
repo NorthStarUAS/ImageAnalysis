@@ -40,7 +40,7 @@ output_video = filename + "_horiz" + ext
 local_config = os.path.join(dirname, "camera.json")
 
 camera = camera.VirtualCamera()
-camera.load(args.camera, local_config, arg.scale)
+camera.load(args.camera, local_config, args.scale)
 K = camera.get_K()
 dist = camera.get_dist()
 print('Camera:', camera.get_name())
@@ -50,6 +50,10 @@ print('dist:', dist)
 cu = K[0,2]
 cv = K[1,2]
 IK = np.linalg.inv(K)
+
+# helpful constants
+d2r = math.pi / 180.0
+r2d = 180.0 / math.pi
 
 metadata = skvideo.io.ffprobe(args.video)
 #print(metadata.keys())
@@ -71,8 +75,9 @@ print("Opening ", args.video)
 reader = skvideo.io.FFmpegReader(args.video, inputdict={}, outputdict={})
 
 csvfile = open(output_csv, 'w')
-fieldnames=['frame', 'time', 'camera roll (deg)',
-            'camera pitch (deg)']
+fieldnames = [ 'frame', 'video time',
+               'camera roll (deg)', 'camera pitch (deg)',
+               'roll rate (rad/sec)', 'pitch rate (rad/sec)' ]
 csv_writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 csv_writer.writeheader()
 
@@ -107,6 +112,8 @@ video_writer = skvideo.io.FFmpegWriter(output_video, inputdict=inputdict, output
 #cv2.waitKey()
 
 counter = 0
+last_roll = None
+last_pitch = None
 for frame in reader.nextFrame():
     frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
     counter += 1
@@ -122,7 +129,6 @@ for frame in reader.nextFrame():
     print("Frame %d" % counter)
 
     method = cv2.INTER_AREA
-    #method = cv2.INTER_LANCZOS4
     frame_scale = cv2.resize(frame, (0,0), fx=scale, fy=scale,
                              interpolation=method)
     cv2.imshow('scaled orig', frame_scale)
@@ -134,17 +140,34 @@ for frame in reader.nextFrame():
         #best_line = horizon.track_best(lines)
         best_line = lines[0]
         roll, pitch = horizon.get_camera_attitude(best_line, IK, cu, cv)
+        if last_roll is None or last_pitch is None:
+            roll_rate = 0
+            pitch_rate = 0
+        else:
+            df = counter - last_counter
+            roll_rate = (roll - last_roll) * fps * d2r
+            pitch_rate = (pitch - last_pitch) * fps * d2r
+        last_counter = counter
+        last_roll = roll
+        last_pitch = pitch
         horizon.draw(frame_undist, best_line, IK, cu, cv)
+        row = {'frame': counter,
+               'video time': "%.4f" % (counter / fps),
+               'camera roll (deg)': "%.2f" % roll,
+               'camera pitch (deg)': "%.2f" % pitch,
+               'roll rate (rad/sec)': "%.3f" % roll_rate,
+               'pitch rate (rad/sec)': "%.3f" % pitch_rate }
+        csv_writer.writerow(row)
     else:
         roll = None
         pitch = None
+        roll_rate = 0.0
+        pitch_rate = 0.0
+        last_counter = None
+        last_roll = None
+        last_pitch = None
     cv2.imshow("horizon", frame_undist)
 
-    row = {'frame': counter,
-           'time': "%.4f" % (counter / fps),
-           'camera roll (deg)': roll,
-           'camera pitch (deg)': pitch}
-    csv_writer.writerow(row)
 
     if args.write:
         #write the frame as RGB not BGR
@@ -152,5 +175,6 @@ for frame in reader.nextFrame():
     if 0xFF & cv2.waitKey(5) == 27:
         break
 
+csvfile.close()
 cv2.destroyAllWindows()
 
