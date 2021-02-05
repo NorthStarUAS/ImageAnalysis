@@ -6,6 +6,7 @@
 # offsets for the camera mount relative to the IMU/EKF solution.
 
 import argparse
+import math
 import numpy as np
 import os
 import pandas as pd
@@ -75,19 +76,26 @@ horiz_data.set_index('video time', inplace=True, drop=False)
 
 # resample horizon data
 horiz_interp = []
-horiz_roll = interpolate.interp1d(horiz_data['video time'],
-                                  horiz_data['roll rate (rad/sec)'],
-                                  bounds_error=False, fill_value=0.0)
+horiz_p = interpolate.interp1d(horiz_data['video time'],
+                               horiz_data['roll rate (rad/sec)'],
+                               bounds_error=False, fill_value=0.0)
+horiz_q = interpolate.interp1d(horiz_data['video time'],
+                               horiz_data['pitch rate (rad/sec)'],
+                               bounds_error=False, fill_value=0.0)
+horiz_phi = interpolate.interp1d(horiz_data['video time'],
+                                 horiz_data['camera roll (deg)'],
+                                 bounds_error=False, fill_value=0.0)
+horiz_the = interpolate.interp1d(horiz_data['video time'],
+                                 horiz_data['camera pitch (deg)'],
+                                 bounds_error=False, fill_value=0.0)
 xmin = horiz_data['video time'].min()
 xmax = horiz_data['video time'].max()
 print("video range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin))
 horiz_len = xmax - xmin
 for x in np.linspace(xmin, xmax, int(round(horiz_len*hz))):
     if args.cam_mount == 'forward' or args.cam_mount == 'down':
-        horiz_interp.append( [x, horiz_roll(x)] )
-    else:
-        # down, but makes no sense in this context!
-        horiz_interp.append( [x, -horiz_roll(x)] )
+        horiz_interp.append( [x, horiz_p(x), horiz_q(x),
+                              horiz_phi(x), horiz_the(x)] )
 print("horizon data len:", len(horiz_interp))
 
 # resample flight data
@@ -98,17 +106,22 @@ print("flight range = %.3f - %.3f (%.3f)" % (flight_min, flight_max,
 flight_interp = []
 if args.cam_mount == 'forward' or args.cam_mount == 'rear':
     # forward/rear facing camera
-    y_interp = interp.group['imu'].interp['p']
+    p_interp = interp.group['imu'].interp['p']
+    q_interp = interp.group['imu'].interp['q']
 elif args.cam_mount == 'left' or args.cam_mount == 'right':
     # it might be interesting to support an out-the-wing view
     print("Not currently supported camera orientation, sorry!")
     quit()
-else:
-    # down facing camera (which makes no sense for a horizon detector!)    
-    y_interp = interp.group['imu'].interp['r']
 flight_len = flight_max - flight_min
+phi_interp = interp.group['filter'].interp['phi']
+the_interp = interp.group['filter'].interp['the']
+psix_interp = interp.group['filter'].interp['psix']
+psiy_interp = interp.group['filter'].interp['psiy']
+ 
 for x in np.linspace(flight_min, flight_max, int(round(flight_len*hz))):
-    flight_interp.append( [x, y_interp(x)] )
+    flight_interp.append( [x, p_interp(x), q_interp(x),
+                           phi_interp(x), the_interp(x),
+                           psix_interp(x), psiy_interp(x)] )
 print("flight len:", len(flight_interp))
 
 # find the time correlation of video vs flight data
@@ -117,3 +130,36 @@ time_shift = \
                            horiz_data, horiz_interp, horiz_len,
                            hz=hz, cam_mount=args.cam_mount,
                            force_time_shift=args.time_shift, plot=args.plot)
+
+# optimizer stuffs
+from scipy.optimize import least_squares
+
+tmin = np.amax( [xmin + time_shift, flight_min ] )
+tmax = np.amin( [xmax + time_shift, flight_max ] )
+tlen = tmax - tmin
+print("overlap range (flight sec):", tmin, " - ", tmax)
+
+def errorFunc(xk):
+    # compute error function using global data structures
+    result = []
+    for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
+        hphi = horiz_phi(x)
+        hthe = horiz_the(x)
+        fphi = phi_interp(x)
+        fthe = the_interp(x)
+        psix = psix_interp(x)
+        psiy = psiy_interp(x)
+        fpsi = math.atan2(psiy, psix)
+        result.append(hphi - fphi)
+    return np.array(result)
+
+initial = [0, 0, 0]
+res = least_squares(errorFunc, initial
+                    #bounds=bounds,
+                    #args=(config,data['imu'],data['gps'],data['filter']),
+                    #options={'disp': True, 'maxiter': 5},
+                    #options={'disp': True},
+                    #callback=printParams
+                    )
+print(res)
+

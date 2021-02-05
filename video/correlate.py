@@ -210,12 +210,6 @@ def sync_horizon(flight_data, flight_interp,
     print("start time diff:", start_diff)
     time_shift = start_diff + shift_sec
 
-    tmin = np.amax( [np.amin(video_interp[:,0]) + time_shift,
-                    np.amin(flight_interp[:,0]) ] )
-    tmax = np.amin( [np.amax(video_interp[:,0]) + time_shift,
-                    np.amax(flight_interp[:,0]) ] )
-    print("overlap range (flight sec):", tmin, " - ", tmax)
-
     print("correlated time shift:", time_shift)
     if force_time_shift:
         time_shift = force_time_shift
