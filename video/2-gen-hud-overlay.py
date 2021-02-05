@@ -9,16 +9,13 @@ import navpy
 import numpy as np
 import os
 import re
-import sys
 
 from props import PropertyNode
 import props_json
 
 from aurauas_flightdata import flight_loader, flight_interp
 
-sys.path.append('../scripts')
-from lib import transformations
-
+import camera
 import correction
 import correlate
 import hud
@@ -83,38 +80,16 @@ ext = 'mp4'
 tmp_movie = filename + "_tmp." + ext
 output_movie = filename + "_hud.mov"
 
-config = PropertyNode()
-
-if args.camera:
-    # seed the camera calibration and distortion coefficients from a
-    # known camera config
-    print('Setting camera config from:', args.camera)
-    props_json.load(args.camera, config)
-    config.setString('name', args.camera)
-    props_json.save(local_config, config)
-elif os.path.exists(local_config):
-    # load local config file if it exists
-    props_json.load(local_config, config)
-    
-name = config.getString('name')
-config.setLen('mount_ypr', 3, 0.0)
-cam_yaw = config.getFloatEnum('mount_ypr', 0)
-cam_pitch = config.getFloatEnum('mount_ypr', 1)
-cam_roll = config.getFloatEnum('mount_ypr', 2)
-
-K_list = []
-for i in range(9):
-    K_list.append( config.getFloatEnum('K', i) )
-K = np.copy(np.array(K_list)).reshape(3,3)
-dist = []
-for i in range(5):
-    dist.append( config.getFloatEnum("dist_coeffs", i) )
-
-print('Camera:', name)
+camera = camera.VirtualCamera()
+camera.load(args.camera, local_config)
+cam_yaw, cam_pitch, cam_roll = camera.get_ypr()
+K = camera.get_K()
+dist = camera.get_dist()
+print('Camera:', camera.get_name())
 print('K:\n', K)
 print('dist:', dist)
 
-# adjust K for output scale.
+# ajdust effective K to account for scaling
 K = K * args.scale
 K[2,2] = 1.0
 
@@ -160,11 +135,6 @@ print("ground est:", ground_m)
 # overlay hud(s)
 hud1 = hud_glass.HUD(K)
 hud2 = hud.HUD(K)
-
-# these are fixed tranforms between ned and camera reference systems
-proj2ned = np.array( [[0, 0, 1], [1, 0, 0], [0, 1, 0]],
-                     dtype=float )
-ned2proj = np.linalg.inv(proj2ned)
 
 #cam_ypr = [-3.0, -12.0, -3.0] # yaw, pitch, roll
 #ref = [44.7260320000, -93.0771072000, 0]
@@ -355,44 +325,11 @@ for frame in reader.nextFrame():
     while 'imu' in record and record['imu']['time'] < time:
         record = iter.next()
         hud1.update_task(record)
-    
-    body2cam = transformations.quaternion_from_euler( cam_yaw * d2r,
-                                                      cam_pitch * d2r,
-                                                      cam_roll * d2r,
-                                                      'rzyx')
 
-    # this function modifies the parameters you pass in so, avoid
-    # getting our data changed out from under us, by forcing copies (a
-    # = b, wasn't sufficient, but a = float(b) forced a copy.
-    tmp_yaw = float(yaw_rad)
-    tmp_pitch = float(pitch_rad)
-    tmp_roll = float(roll_rad)    
-    ned2body = transformations.quaternion_from_euler(tmp_yaw,
-                                                     tmp_pitch,
-                                                     tmp_roll,
-                                                     'rzyx')
-    body2ned = transformations.quaternion_inverse(ned2body)
-
-    #print 'ned2body(q):', ned2body
-    ned2cam_q = transformations.quaternion_multiply(ned2body, body2cam)
-    ned2cam = np.matrix(transformations.quaternion_matrix(np.array(ned2cam_q))[:3,:3]).T
-    #print 'ned2cam:', ned2cam
-    R = ned2proj.dot( ned2cam )
-    rvec, jac = cv2.Rodrigues(R)
     ned = navpy.lla2ned( lat_deg, lon_deg, filt_alt,
                          ref[0], ref[1], ref[2] )
-    if args.correction:
-        ned[0] += correction.north_interp(time)
-        ned[1] += correction.east_interp(time)
-        ned[2] += correction.down_interp(time)
     #print 'ned:', ned
-    tvec = -np.matrix(R) * np.matrix(ned).T
-    R, jac = cv2.Rodrigues(rvec)
-    # is this R the same as the earlier R?
-    PROJ = np.concatenate((R, tvec), axis=1)
-    #print 'PROJ:', PROJ
-    #print lat_deg, lon_deg, altitude, ref[0], ref[1], ref[2]
-    #print ned
+    PROJ = camera.get_PROJ(ned, yaw_rad, pitch_rad, roll_rad)
 
     method = cv2.INTER_AREA
     #method = cv2.INTER_LANCZOS4
@@ -472,24 +409,24 @@ for frame in reader.nextFrame():
             cam_yaw -= 0.5
         else:
             cam_yaw += 0.5
-        config.setFloatEnum('mount_ypr', 0, cam_yaw)
-        props_json.save(local_config, config)
+        camera.set_yaw(cam_yaw)
+        camera.save(local_config)
         shift_mod_hack = False
     elif key == ord('p'):
         if shift_mod_hack:
             cam_pitch -= 0.5
         else:
             cam_pitch += 0.5
-        config.setFloatEnum('mount_ypr', 1, cam_pitch)
-        props_json.save(local_config, config)
+        camera_set_pitch(cam_pitch)
+        camera.save(local_config)
         shift_mod_hack = False
     elif key == ord('r'):
         if shift_mod_hack:
             cam_roll += 0.5
         else:
             cam_roll -= 0.5
-        config.setFloatEnum('mount_ypr', 2, cam_roll)
-        props_json.save(local_config, config)
+        camera.set_roll(cam_roll)
+        camera.save(local_config)
         shift_mod_hack = False
     elif key == ord('-'):
         time_shift -= 1.0/60.0

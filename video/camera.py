@@ -1,14 +1,29 @@
+import cv2
+import math
 import numpy as np
 import os
 
 from props import PropertyNode
 import props_json
 
+import sys
+sys.path.append('../scripts')
+from lib import transformations
+
+# helpful constants
+d2r = math.pi / 180.0
+r2d = 180.0 / math.pi
+
+# these are fixed tranforms between ned and camera reference systems
+proj2ned = np.array( [[0, 0, 1], [1, 0, 0], [0, 1, 0]],
+                     dtype=float )
+ned2proj = np.linalg.inv(proj2ned)
+
 class VirtualCamera:
     config = PropertyNode()
     K = None
     dist = None
-    
+
     def __init__(self):
         pass
 
@@ -28,6 +43,9 @@ class VirtualCamera:
             self.config.setString('name', camera_config)
             props_json.save(local_config, self.config)
 
+    def save(self, local_config):
+        props_json.save(local_config, config)
+        
     def get_name(self):
         return self.config.getString('name')
 
@@ -51,3 +69,47 @@ class VirtualCamera:
         cam_pitch = self.config.getFloatEnum('mount_ypr', 1)
         cam_roll = self.config.getFloatEnum('mount_ypr', 2)
         return cam_yaw, cam_pitch, cam_roll
+
+    def set_yaw(self, cam_yaw):
+        self.config.setFloatEnum('mount_ypr', 0, cam_yaw)
+        
+    def set_pitch(self, cam_pitch):
+        self.config.setFloatEnum('mount_ypr', 1, cam_yaw)
+        
+    def set_roll(self, cam_roll):
+        self.config.setFloatEnum('mount_ypr', 2, cam_yaw)
+
+    def get_PROJ(self, ned, yaw_rad, pitch_rad, roll_rad):
+        cam_yaw, cam_pitch, cam_roll = self.get_ypr()
+        body2cam = transformations.quaternion_from_euler( cam_yaw * d2r,
+                                                          cam_pitch * d2r,
+                                                          cam_roll * d2r,
+                                                          'rzyx')
+
+        # this function modifies the parameters you pass in so, avoid
+        # getting our data changed out from under us, by forcing copies
+        # (a = b, wasn't sufficient, but a = float(b) forced a copy.
+        tmp_yaw = float(yaw_rad)
+        tmp_pitch = float(pitch_rad)
+        tmp_roll = float(roll_rad)    
+        ned2body = transformations.quaternion_from_euler(tmp_yaw,
+                                                         tmp_pitch,
+                                                         tmp_roll,
+                                                         'rzyx')
+        #body2ned = transformations.quaternion_inverse(ned2body)
+
+        #print 'ned2body(q):', ned2body
+        ned2cam_q = transformations.quaternion_multiply(ned2body, body2cam)
+        ned2cam = np.matrix(transformations.quaternion_matrix(np.array(ned2cam_q))[:3,:3]).T
+        #print 'ned2cam:', ned2cam
+        R = ned2proj.dot( ned2cam )
+        rvec, jac = cv2.Rodrigues(R)
+        tvec = -np.matrix(R) * np.matrix(ned).T
+        R, jac = cv2.Rodrigues(rvec)
+        # is this R the same as the earlier R?
+        PROJ = np.concatenate((R, tvec), axis=1)
+        #print 'PROJ:', PROJ
+        #print lat_deg, lon_deg, altitude, ref[0], ref[1], ref[2]
+        #print ned
+        
+        return PROJ

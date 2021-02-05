@@ -41,7 +41,6 @@ local_config = os.path.join(dirname, "camera.json")
 
 camera = camera.VirtualCamera()
 camera.load(args.camera, local_config)
-cam_yaw, cam_pitch, cam_roll = camera.get_ypr()
 K = camera.get_K()
 dist = camera.get_dist()
 print('Camera:', camera.get_name())
@@ -51,6 +50,7 @@ print('dist:', dist)
 # ajdust effective K to account for scaling
 K = K * args.scale
 K[2,2] = 1.0
+
 cu = K[0,2]
 cv = K[1,2]
 IK = np.linalg.inv(K)
