@@ -81,17 +81,13 @@ tmp_movie = filename + "_tmp." + ext
 output_movie = filename + "_hud.mov"
 
 camera = camera.VirtualCamera()
-camera.load(args.camera, local_config)
+camera.load(args.camera, local_config, args.scale)
 cam_yaw, cam_pitch, cam_roll = camera.get_ypr()
 K = camera.get_K()
 dist = camera.get_dist()
 print('Camera:', camera.get_name())
 print('K:\n', K)
 print('dist:', dist)
-
-# ajdust effective K to account for scaling
-K = K * args.scale
-K[2,2] = 1.0
 
 if args.correction:
     correction.load(args.correction)
@@ -133,7 +129,7 @@ else:
 print("ground est:", ground_m)
 
 # overlay hud(s)
-hud1 = hud_glass.HUD(K)
+hud1 = hud_glass.HUD()
 hud2 = hud.HUD(K)
 
 #cam_ypr = [-3.0, -12.0, -3.0] # yaw, pitch, roll
@@ -329,7 +325,7 @@ for frame in reader.nextFrame():
     ned = navpy.lla2ned( lat_deg, lon_deg, filt_alt,
                          ref[0], ref[1], ref[2] )
     #print 'ned:', ned
-    PROJ = camera.get_PROJ(ned, yaw_rad, pitch_rad, roll_rad)
+    camera.update_PROJ(ned, yaw_rad, pitch_rad, roll_rad)
 
     method = cv2.INTER_AREA
     #method = cv2.INTER_LANCZOS4
@@ -348,7 +344,7 @@ for frame in reader.nextFrame():
         hud1.update_events(data['event'])
     if 'mission' in data:
         hud1.update_test_index(excite_mode, test_index)
-    hud1.update_proj(PROJ)
+    hud1.update_camera(camera)
     hud1.update_cam_att(cam_yaw, cam_pitch, cam_roll)
     hud1.update_ned(ned, args.flight_track_seconds)
     hud1.update_lla([lat_deg, lon_deg, altitude_m])
@@ -417,7 +413,7 @@ for frame in reader.nextFrame():
             cam_pitch -= 0.5
         else:
             cam_pitch += 0.5
-        camera_set_pitch(cam_pitch)
+        camera.set_pitch(cam_pitch)
         camera.save(local_config)
         shift_mod_hack = False
     elif key == ord('r'):
@@ -452,4 +448,3 @@ if result == 0 and not args.keep_tmp_movie:
     print("removing temp movie:", tmp_movie)
     os.remove(tmp_movie)
     print("output movie:", output_movie)
-

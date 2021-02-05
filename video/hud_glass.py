@@ -13,6 +13,7 @@ sys.path.append('../scripts')
 from lib import transformations
 
 import airports
+import camera
 
 # helpful constants
 d2r = math.pi / 180.0
@@ -35,9 +36,8 @@ white = (255, 255, 255)
 gray50 = (128, 128, 128)
 
 class HUD:
-    def __init__(self, K):
-        self.K = K
-        self.PROJ = None
+    def __init__(self):
+        self.camera = None
         self.cam_yaw = 0.0
         self.cam_pitch = 0.0
         self.cam_roll = 0.0
@@ -168,8 +168,8 @@ class HUD:
     def update_features(self, feature_list):
         self.features = feature_list
         
-    def update_proj(self, PROJ):
-        self.PROJ = PROJ
+    def update_camera(self, camera):
+        self.camera = camera
 
     def update_cam_att(self, cam_yaw, cam_pitch, cam_roll):
         self.cam_yaw = cam_yaw
@@ -343,32 +343,6 @@ class HUD:
 
         return sun_ned, moon_ned
 
-    # project from ned coordinates to image uv coordinates using
-    # camera K and PROJ matrices
-    def project_ned(self, ned):
-        uvh = self.K.dot( self.PROJ.dot( [ned[0], ned[1], ned[2], 1.0] ).T )
-        if uvh[2] > 0.2:
-            uvh /= uvh[2]
-            uv = ( int(round(np.squeeze(uvh[0,0]))),
-                   int(round(np.squeeze(uvh[1,0]))) )
-            return uv
-        else:
-            return None
-
-    # project from camera 3d coordinates to image uv coordinates using
-    # camera K matrix
-    def project_xyz(self, v):
-        uvh = self.K.dot( [v[0], v[1], v[2]] )
-        # print(uvh)
-        if uvh[2] > 0.2:
-            uvh /= uvh[2]
-            uv = ( int(round(uvh[0])),
-                   int(round(uvh[1])) )
-            # print(uv)
-            return uv
-        else:
-            return None
-
     # transform roll, pitch offset angles into world coordinates and
     # the project back into image uv coordinates
     def ar_helper(self, q0, a0, a1):
@@ -376,9 +350,9 @@ class HUD:
                                                    'rzyx')
         q = transformations.quaternion_multiply(q1, q0)
         v = transformations.quaternion_transform(q, [1.0, 0.0, 0.0])
-        uv = self.project_ned( [self.ned[0] + v[0],
-                                self.ned[1] + v[1],
-                                self.ned[2] + v[2]] )
+        uv = self.camera.project_ned( [self.ned[0] + v[0],
+                                       self.ned[1] + v[1],
+                                       self.ned[2] + v[2]] )
         return uv
 
     # transform roll, pitch offset angles into camera coordinates and
@@ -398,7 +372,7 @@ class HUD:
                                                     'rzyx' )
         q = transformations.quaternion_multiply(q1, body2cam)
         v = transformations.quaternion_transform(q, [0.0, 0.0, 1.0])
-        uv = self.project_xyz( v )
+        uv = self.camera.project_xyz( v )
         return uv
 
     def draw_horizon(self):
@@ -414,12 +388,12 @@ class HUD:
         for i in range(divs):
             p1 = pts[i]
             p2 = pts[i+1]
-            uv1 = self.project_ned( [self.ned[0] + p1[0],
-                                     self.ned[1] + p1[1],
-                                     self.ned[2] + p1[2]] )
-            uv2 = self.project_ned( [self.ned[0] + p2[0],
-                                     self.ned[1] + p2[1],
-                                     self.ned[2] + p2[2]] )
+            uv1 = self.camera.project_ned( [self.ned[0] + p1[0],
+                                            self.ned[1] + p1[1],
+                                            self.ned[2] + p1[2]] )
+            uv2 = self.camera.project_ned( [self.ned[0] + p2[0],
+                                            self.ned[1] + p2[1],
+                                            self.ned[2] + p2[2]] )
             if uv1 != None and uv2 != None:
                 cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.LINE_AA)
@@ -928,15 +902,15 @@ class HUD:
                         self.color, thickness, cv2.LINE_AA)
 
     def draw_ned_point(self, ned, label=None, scale=1, vert='above'):
-        uv = self.project_ned([ned[0], ned[1], ned[2]])
+        uv = self.camera.project_ned([ned[0], ned[1], ned[2]])
         if uv != None:
             cv2.circle(self.frame, uv, 4+self.line_width, self.color,
                        self.line_width, cv2.LINE_AA)
         if label:
             if vert == 'above':
-                uv = self.project_ned([ned[0], ned[1], ned[2] - 0.02])
+                uv = self.camera.project_ned([ned[0], ned[1], ned[2] - 0.02])
             else:
-                uv = self.project_ned([ned[0], ned[1], ned[2] + 0.02])
+                uv = self.camera.project_ned([ned[0], ned[1], ned[2] + 0.02])
             if uv != None:
                 self.draw_label(label, uv, scale, self.line_width, vert=vert)
 
@@ -976,30 +950,38 @@ class HUD:
             a = (float(i) * 360/float(divs)) * d2r
             n = math.cos(a)
             e = math.sin(a)
-            uv1 = self.project_ned([self.ned[0] + n,
-                                    self.ned[1] + e,
-                                    self.ned[2] - 0.0])
-            uv2 = self.project_ned([self.ned[0] + n,
-                                    self.ned[1] + e,
-                                    self.ned[2] - 0.02])
+            uv1 = self.camera.project_ned([self.ned[0] + n,
+                                           self.ned[1] + e,
+                                           self.ned[2] - 0.0])
+            uv2 = self.camera.project_ned([self.ned[0] + n,
+                                           self.ned[1] + e,
+                                           self.ned[2] - 0.02])
             if uv1 != None and uv2 != None:
                 cv2.line(self.frame, uv1, uv2, self.color, self.line_width,
                          cv2.LINE_AA)
 
         # North
-        uv = self.project_ned([self.ned[0] + 1.0, self.ned[1] + 0.0, self.ned[2] - 0.03])
+        uv = self.camera.project_ned([self.ned[0] + 1.0,
+                                      self.ned[1] + 0.0,
+                                      self.ned[2] - 0.03])
         if uv != None:
             self.draw_label('N', uv, 1, self.line_width, vert='above')
         # South
-        uv = self.project_ned([self.ned[0] - 1.0, self.ned[1] + 0.0, self.ned[2] - 0.03])
+        uv = self.camera.project_ned([self.ned[0] - 1.0,
+                                      self.ned[1] + 0.0,
+                                      self.ned[2] - 0.03])
         if uv != None:
             self.draw_label('S', uv, 1, self.line_width, vert='above')
         # East
-        uv = self.project_ned([self.ned[0] + 0.0, self.ned[1] + 1.0, self.ned[2] - 0.03])
+        uv = self.camera.project_ned([self.ned[0] + 0.0,
+                                      self.ned[1] + 1.0,
+                                      self.ned[2] - 0.03])
         if uv != None:
             self.draw_label('E', uv, 1, self.line_width, vert='above')
         # West
-        uv = self.project_ned([self.ned[0] + 0.0, self.ned[1] - 1.0, self.ned[2] - 0.03])
+        uv = self.camera.project_ned([self.ned[0] + 0.0,
+                                      self.ned[1] - 1.0,
+                                      self.ned[2] - 0.03])
         if uv != None:
             self.draw_label('W', uv, 1, self.line_width, vert='above')
 
@@ -1037,10 +1019,10 @@ class HUD:
             self.draw_lla_point([ apt[1], apt[2], apt[3] ], apt[0])
 
     def draw_gate(self, ned1, ned2, ned3, ned4):
-        uv1 = self.project_ned(ned1)
-        uv2 = self.project_ned(ned2)
-        uv3 = self.project_ned(ned3)
-        uv4 = self.project_ned(ned4)
+        uv1 = self.camera.project_ned(ned1)
+        uv2 = self.camera.project_ned(ned2)
+        uv3 = self.camera.project_ned(ned3)
+        uv4 = self.camera.project_ned(ned4)
         if uv1 != None and uv2 != None and uv3 != None and uv4 != None:
             cv2.line(self.frame, uv1, uv2, white, self.line_width,
                      cv2.LINE_AA)
@@ -1198,9 +1180,9 @@ class HUD:
         for i in range(3):
             self.vel_filt[i] = (1.0 - tf) * self.vel_filt[i] + tf * vel[i]
 
-        uv = self.project_ned([self.ned[0] + self.vel_filt[0],
-                               self.ned[1] + self.vel_filt[1],
-                               self.ned[2] + self.vel_filt[2]])
+        uv = self.camera.project_ned([self.ned[0] + self.vel_filt[0],
+                                      self.ned[1] + self.vel_filt[1],
+                                      self.ned[2] + self.vel_filt[2]])
         if uv != None:
             cv2.circle(self.frame, uv, 5, self.color, self.line_width, cv2.LINE_AA)
 
@@ -1481,7 +1463,7 @@ class HUD:
             dist = math.sqrt(dn*dn + de*de + dd*dd)
             dist_list.append(dist)
             if dist > 5:
-                uv = self.project_ned([ned[0], ned[1], ned[2]])
+                uv = self.camera.project_ned([ned[0], ned[1], ned[2]])
             else:
                 uv = None
             uv_list.append(uv)
@@ -1519,7 +1501,7 @@ class HUD:
     def draw_features(self):
         uv_list = []
         for ned in self.features:
-            uv = self.project_ned([ned[0], ned[1], ned[2]])
+            uv = self.camera.project_ned([ned[0], ned[1], ned[2]])
             if uv != None:
                 uv_list.append(uv)
         for uv in uv_list:
@@ -1549,7 +1531,7 @@ class HUD:
             dd = self.ned[2] - ned[2]
             dist = math.sqrt(dn*dn + de*de + dd*dd)
             dist_list.append(dist)
-            uv = self.project_ned( ned )
+            uv = self.camera.project_ned( ned )
             uv_list.append(uv)
         for i in range(len(uv_list)):
             dist = dist_list[i]

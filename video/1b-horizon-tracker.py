@@ -40,16 +40,12 @@ output_video = filename + "_horiz" + ext
 local_config = os.path.join(dirname, "camera.json")
 
 camera = camera.VirtualCamera()
-camera.load(args.camera, local_config)
+camera.load(args.camera, local_config, arg.scale)
 K = camera.get_K()
 dist = camera.get_dist()
 print('Camera:', camera.get_name())
 print('K:\n', K)
 print('dist:', dist)
-
-# ajdust effective K to account for scaling
-K = K * args.scale
-K[2,2] = 1.0
 
 cu = K[0,2]
 cv = K[1,2]

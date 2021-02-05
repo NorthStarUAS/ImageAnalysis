@@ -23,11 +23,12 @@ class VirtualCamera:
     config = PropertyNode()
     K = None
     dist = None
-
+    PROJ = None
+    
     def __init__(self):
         pass
 
-    def load(self, camera_config, local_config):
+    def load(self, camera_config, local_config, scale=1.0):
         if camera_config is None:
             if os.path.exists(local_config):
                 # load local config file if it exists
@@ -42,9 +43,15 @@ class VirtualCamera:
             props_json.load(camera_config, self.config)
             self.config.setString('name', camera_config)
             props_json.save(local_config, self.config)
+        self.get_K()
+        if scale:
+            # adjust effective K to account for scaling
+            self.K = self.K * scale
+            self.K[2,2] = 1.0
+        self.config.setLen('mount_ypr', 3, 0)
 
     def save(self, local_config):
-        props_json.save(local_config, config)
+        props_json.save(local_config, self.config)
         
     def get_name(self):
         return self.config.getString('name')
@@ -74,12 +81,12 @@ class VirtualCamera:
         self.config.setFloatEnum('mount_ypr', 0, cam_yaw)
         
     def set_pitch(self, cam_pitch):
-        self.config.setFloatEnum('mount_ypr', 1, cam_yaw)
+        self.config.setFloatEnum('mount_ypr', 1, cam_pitch)
         
     def set_roll(self, cam_roll):
-        self.config.setFloatEnum('mount_ypr', 2, cam_yaw)
+        self.config.setFloatEnum('mount_ypr', 2, cam_roll)
 
-    def get_PROJ(self, ned, yaw_rad, pitch_rad, roll_rad):
+    def update_PROJ(self, ned, yaw_rad, pitch_rad, roll_rad):
         cam_yaw, cam_pitch, cam_roll = self.get_ypr()
         body2cam = transformations.quaternion_from_euler( cam_yaw * d2r,
                                                           cam_pitch * d2r,
@@ -107,9 +114,36 @@ class VirtualCamera:
         tvec = -np.matrix(R) * np.matrix(ned).T
         R, jac = cv2.Rodrigues(rvec)
         # is this R the same as the earlier R?
-        PROJ = np.concatenate((R, tvec), axis=1)
+        self.PROJ = np.concatenate((R, tvec), axis=1)
         #print 'PROJ:', PROJ
         #print lat_deg, lon_deg, altitude, ref[0], ref[1], ref[2]
         #print ned
         
-        return PROJ
+        return self.PROJ
+
+    # project from ned coordinates to image uv coordinates using
+    # camera K and PROJ matrices
+    def project_ned(self, ned):
+        uvh = self.K.dot( self.PROJ.dot( [ned[0], ned[1], ned[2], 1.0] ).T )
+        if uvh[2] > 0.2:
+            uvh /= uvh[2]
+            uv = ( int(round(np.squeeze(uvh[0,0]))),
+                   int(round(np.squeeze(uvh[1,0]))) )
+            return uv
+        else:
+            return None
+
+    # project from camera 3d coordinates to image uv coordinates using
+    # camera K matrix
+    def project_xyz(self, v):
+        uvh = self.K.dot( [v[0], v[1], v[2]] )
+        # print(uvh)
+        if uvh[2] > 0.2:
+            uvh /= uvh[2]
+            uv = ( int(round(uvh[0])),
+                   int(round(uvh[1])) )
+            # print(uv)
+            return uv
+        else:
+            return None
+
