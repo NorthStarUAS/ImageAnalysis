@@ -10,9 +10,6 @@ import numpy as np
 import os
 import re
 
-from props import PropertyNode
-import props_json
-
 from aurauas_flightdata import flight_loader, flight_interp
 
 import camera
@@ -34,8 +31,8 @@ render_h = 1080
 experimental_overlay = False
 
 parser = argparse.ArgumentParser(description='correlate movie data to flight data.')
-parser.add_argument('--flight', help='load specified aura flight log')
-parser.add_argument('--movie', required=True, help='original movie')
+parser.add_argument('--flight', required=True, help='load specified aura flight log')
+parser.add_argument('--video', required=True, help='original video')
 parser.add_argument('--camera', help='select camera calibration file')
 parser.add_argument('--cam-mount', choices=['forward', 'down', 'rear'],
                     default='forward',
@@ -65,10 +62,10 @@ args = parser.parse_args()
 counter = 0
 
 # pathname work
-abspath = os.path.abspath(args.movie)
+abspath = os.path.abspath(args.video)
 filename, ext = os.path.splitext(abspath)
-dirname = os.path.dirname(args.movie)
-movie_log = filename + ".csv"
+dirname = os.path.dirname(args.video)
+video_log = filename + ".csv"
 local_config = dirname + "/camera.json"
 
 # combinations that seem to work on linux
@@ -109,7 +106,7 @@ if len(data['imu']) == 0 and len(data['gps']) == 0:
 interp = flight_interp.InterpolationGroup(data)
 iter = flight_interp.IterateGroup(data)
 time_shift, flight_min, flight_max = \
-    correlate.sync_clocks(data, interp, movie_log, hz=args.resample_hz,
+    correlate.sync_clocks(data, interp, video_log, hz=args.resample_hz,
                           cam_mount=args.cam_mount,
                           force_time_shift=args.time_shift, plot=args.plot)
 
@@ -151,7 +148,7 @@ if args.features:
 else:
     feats = []
 
-metadata = skvideo.io.ffprobe(args.movie)
+metadata = skvideo.io.ffprobe(args.video)
 #print(metadata.keys())
 #print(json.dumps(metadata["video"], indent=4))
 fps_string = metadata['video']['@avg_frame_rate']
@@ -167,8 +164,8 @@ print('output size:', w, 'x', h)
 hud1.set_render_size(w, h)
 hud2.set_render_size(w, h)
 
-print("Opening ", args.movie)
-reader = skvideo.io.FFmpegReader(args.movie, inputdict={}, outputdict={})
+print("Opening ", args.video)
+reader = skvideo.io.FFmpegReader(args.video, inputdict={}, outputdict={})
 
 inputdict = {
     '-r': str(fps)
@@ -442,7 +439,7 @@ cv2.destroyAllWindows()
 # ex: ffmpeg -i opencv.avi -i orig.mov -c copy -map 0:v -map 1:a final.avi
 
 from subprocess import call
-result = call(["ffmpeg", "-i", tmp_movie, "-i", args.movie, "-c", "copy", "-map", "0:v", "-map", "1:a", output_movie])
+result = call(["ffmpeg", "-i", tmp_movie, "-i", args.video, "-c", "copy", "-map", "0:v", "-map", "1:a", output_movie])
 print("ffmpeg result code:", result)
 if result == 0 and not args.keep_tmp_movie:
     print("removing temp movie:", tmp_movie)

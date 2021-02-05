@@ -10,7 +10,7 @@ r2d = 180.0 / math.pi
 # cam_mount: set approximate camera orienation (forward, down, and
 #   rear supported)
 
-def sync_clocks(data, interp, movie_log, hz=60, cam_mount='forward',
+def sync_clocks(data, interp, video_log, hz=60, cam_mount='forward',
                 force_time_shift=None, plot=True):
     flight_min = data['imu'][0]['time']
     flight_max = data['imu'][-1]['time']
@@ -18,7 +18,7 @@ def sync_clocks(data, interp, movie_log, hz=60, cam_mount='forward',
 
     # load movie log
     movie = []
-    with open(movie_log, 'r') as f:
+    with open(video_log, 'r') as f:
         reader = csv.DictReader(f)
         for row in reader:
             record = [ float(row['frame']), float(row['time']),
@@ -163,6 +163,135 @@ def sync_clocks(data, interp, movie_log, hz=60, cam_mount='forward',
         plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
         plt.legend()
 
+        plt.show()
+
+    return time_shift, flight_min, flight_max
+
+# the sync_clocks version of this carries a lot of history, for now
+# let's create a new version of this optimized for syncing against
+# horizon data (uses estimated roll rate from video versus imu roll
+# rate for correlation.
+import pandas as pd
+def sync_horizon(data, interp, video_log, hz=60, cam_mount='forward',
+                 force_time_shift=None, plot=True):
+    flight_min = data['imu'][0]['time']
+    flight_max = data['imu'][-1]['time']
+    print("flight range = %.3f - %.3f (%.3f)" % (flight_min, flight_max, flight_max-flight_min))
+
+    # load video log
+
+    # frame,video time,camera roll (deg),camera pitch (deg),
+    # roll rate (rad/sec),pitch rate (rad/sec)
+    video_data = pd.read_csv(video_log)
+    video_data.set_index('video time', inplace=True, drop=False)
+
+    # resample video data
+    video_interp = []
+    video_roll = interpolate.interp1d(video_data['video time'],
+                                      video_data['roll rate (rad/sec)'],
+                                      bounds_error=False, fill_value=0.0)
+    xmin = video_data['video time'].min()
+    xmax = video_data['video time'].max()
+    print("video range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin))
+    video_len = xmax - xmin
+    for x in np.linspace(xmin, xmax, int(round(video_len*hz))):
+        if cam_mount == 'forward' or cam_mount == 'down':
+            video_interp.append( [x, video_roll(x)] )
+        else:
+            video_interp.append( [x, -video_roll(x)] )
+    print("video len:", len(video_interp))
+
+    # resample flight data
+    flight_interp = []
+    if cam_mount == 'forward' or cam_mount == 'rear':
+        y_spline = interp.group['imu'].interp['p'] # forward/rear facing camera
+    else:
+        y_spline = interp.group['imu'].interp['r'] # down facing camera
+
+    time = flight_max - flight_min
+    for x in np.linspace(flight_min, flight_max, int(round(time*hz))):
+        flight_interp.append( [x, y_spline(x)] )
+    print("flight len:", len(flight_interp))
+
+    # compute best correlation between video and flight data logs
+    video_interp = np.array(video_interp, dtype=float)
+    flight_interp = np.array(flight_interp, dtype=float)
+
+    do_butter_smooth = False
+    if do_butter_smooth:
+        # maybe filtering video estimate helps something?
+        import scipy.signal as signal
+        b, a = signal.butter(2, 10.0/(200.0/2))
+        flight_butter = signal.filtfilt(b, a, flight_interp[:,1])
+        video_butter = signal.filtfilt(b, a, video_interp[:,1])
+        ycorr = np.correlate(flight_butter, video_butter, mode='full')
+    else:
+        ycorr = np.correlate(flight_interp[:,1], video_interp[:,1], mode='full')
+
+    # display some stats/info
+    max_index = np.argmax(ycorr)
+    print("max index:", max_index)
+
+    # shift = np.argmax(ycorr) - len(flight_interp)
+    # print "shift (pos):", shift
+    # start_diff = flight_interp[0][0] - video_interp[0][0]
+    # print "start time diff:", start_diff
+    # time_shift = start_diff - (shift/hz)
+    # print "video time shift:", time_shift
+
+    # need to subtract video_len off peak point time because of how
+    # correlate works and shifts against every possible overlap
+    shift_sec = np.argmax(ycorr) / hz - video_len
+    print("shift (sec):", shift_sec)
+    print(flight_interp[0][0], video_interp[0][0])
+    start_diff = flight_interp[0][0] - video_interp[0][0]
+    print("start time diff:", start_diff)
+    time_shift = start_diff + shift_sec
+
+    tmin = np.amax( [np.amin(video_interp[:,0]) + time_shift,
+                    np.amin(flight_interp[:,0]) ] )
+    tmax = np.amin( [np.amax(video_interp[:,0]) + time_shift,
+                    np.amax(flight_interp[:,0]) ] )
+    print("overlap range (flight sec):", tmin, " - ", tmax)
+
+    print("correlated time shift:", time_shift)
+    if force_time_shift:
+        time_shift = force_time_shift
+        print("time shift override (provided on command line):", time_shift)
+
+    if plot:
+        # reformat the data
+        flight_imu = []
+        for imu in data['imu']:
+            flight_imu.append([ imu['time'], imu['p'], imu['q'], imu['r'] ])
+        flight_imu = np.array(flight_imu)
+
+        # plot the data ...
+        plt.figure(1)
+        plt.ylabel('roll rate (deg per sec)')
+        plt.xlabel('flight time (sec)')
+        if do_butter_smooth:
+            plt.plot(flight_interp[:,0], flight_butter*r2d,
+                     label='flight data log')
+            plt.plot(video_interp[:,0] + time_shift, video_butter*r2d,
+                     label='smoothed estimate from flight video')
+        else:
+            plt.plot(video_data['video time'] + time_shift,
+                     video_data['roll rate (rad/sec)']*r2d,
+                     label='estimate from flight video')
+            # down facing:
+            # plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
+            # forward facing:
+            plt.plot(flight_imu[:,0], flight_imu[:,1]*r2d, label='flight data log')
+        plt.legend()
+
+        plt.figure(2)
+        plt.plot(ycorr)
+
+        plt.figure(3)
+        plt.plot(video_data['video time'],
+                     video_data['roll rate (rad/sec)']*r2d,
+                     label='estimate from flight video')
         plt.show()
 
     return time_shift, flight_min, flight_max

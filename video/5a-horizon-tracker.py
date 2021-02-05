@@ -116,9 +116,6 @@ last_roll = None
 last_pitch = None
 for frame in reader.nextFrame():
     frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
-    counter += 1
-
-    filtered = []
 
     if counter < skip_frames:
         if counter % 100 == 0:
@@ -166,9 +163,9 @@ for frame in reader.nextFrame():
         last_counter = None
         last_roll = None
         last_pitch = None
+    counter += 1
+    
     cv2.imshow("horizon", frame_undist)
-
-
     if args.write:
         #write the frame as RGB not BGR
         video_writer.writeFrame(frame_undist[:,:,::-1])
