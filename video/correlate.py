@@ -2,6 +2,7 @@ import csv
 import math
 from matplotlib import pyplot as plt 
 import numpy as np
+import pandas as pd
 from scipy import interpolate # strait up linear interpolation, nothing fancy
 
 r2d = 180.0 / math.pi
@@ -171,53 +172,14 @@ def sync_clocks(data, interp, video_log, hz=60, cam_mount='forward',
 # let's create a new version of this optimized for syncing against
 # horizon data (uses estimated roll rate from video versus imu roll
 # rate for correlation.
-import pandas as pd
-def sync_horizon(data, interp, video_log, hz=60, cam_mount='forward',
-                 force_time_shift=None, plot=True):
-    flight_min = data['imu'][0]['time']
-    flight_max = data['imu'][-1]['time']
-    print("flight range = %.3f - %.3f (%.3f)" % (flight_min, flight_max, flight_max-flight_min))
-
-    # load video log
-
-    # frame,video time,camera roll (deg),camera pitch (deg),
-    # roll rate (rad/sec),pitch rate (rad/sec)
-    video_data = pd.read_csv(video_log)
-    video_data.set_index('video time', inplace=True, drop=False)
-
-    # resample video data
-    video_interp = []
-    video_roll = interpolate.interp1d(video_data['video time'],
-                                      video_data['roll rate (rad/sec)'],
-                                      bounds_error=False, fill_value=0.0)
-    xmin = video_data['video time'].min()
-    xmax = video_data['video time'].max()
-    print("video range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin))
-    video_len = xmax - xmin
-    for x in np.linspace(xmin, xmax, int(round(video_len*hz))):
-        if cam_mount == 'forward' or cam_mount == 'down':
-            video_interp.append( [x, video_roll(x)] )
-        else:
-            video_interp.append( [x, -video_roll(x)] )
-    print("video len:", len(video_interp))
-
-    # resample flight data
-    flight_interp = []
-    if cam_mount == 'forward' or cam_mount == 'rear':
-        y_spline = interp.group['imu'].interp['p'] # forward/rear facing camera
-    else:
-        y_spline = interp.group['imu'].interp['r'] # down facing camera
-
-    time = flight_max - flight_min
-    for x in np.linspace(flight_min, flight_max, int(round(time*hz))):
-        flight_interp.append( [x, y_spline(x)] )
-    print("flight len:", len(flight_interp))
-
+def sync_horizon(flight_data, flight_interp,
+                 video_data, video_interp, video_len, hz=60,
+                 cam_mount='forward', force_time_shift=None, plot=True):
     # compute best correlation between video and flight data logs
     video_interp = np.array(video_interp, dtype=float)
     flight_interp = np.array(flight_interp, dtype=float)
 
-    do_butter_smooth = False
+    do_butter_smooth = True
     if do_butter_smooth:
         # maybe filtering video estimate helps something?
         import scipy.signal as signal
@@ -262,7 +224,7 @@ def sync_horizon(data, interp, video_log, hz=60, cam_mount='forward',
     if plot:
         # reformat the data
         flight_imu = []
-        for imu in data['imu']:
+        for imu in flight_data['imu']:
             flight_imu.append([ imu['time'], imu['p'], imu['q'], imu['r'] ])
         flight_imu = np.array(flight_imu)
 
@@ -275,14 +237,18 @@ def sync_horizon(data, interp, video_log, hz=60, cam_mount='forward',
                      label='flight data log')
             plt.plot(video_interp[:,0] + time_shift, video_butter*r2d,
                      label='smoothed estimate from flight video')
+            # tmp
+            plt.plot(video_data['video time'] + time_shift,
+                     video_data['roll rate (rad/sec)']*r2d,
+                     label='raw estimate from flight video')
+            plt.plot(flight_imu[:,0], flight_imu[:,1]*r2d,
+                     label='raw flight data log')
         else:
             plt.plot(video_data['video time'] + time_shift,
                      video_data['roll rate (rad/sec)']*r2d,
                      label='estimate from flight video')
-            # down facing:
-            # plt.plot(flight_imu[:,0], flight_imu[:,3]*r2d, label='flight data log')
-            # forward facing:
-            plt.plot(flight_imu[:,0], flight_imu[:,1]*r2d, label='flight data log')
+            plt.plot(flight_imu[:,0], flight_imu[:,1]*r2d,
+                     label='flight data log')
         plt.legend()
 
         plt.figure(2)
@@ -294,4 +260,4 @@ def sync_horizon(data, interp, video_log, hz=60, cam_mount='forward',
                      label='estimate from flight video')
         plt.show()
 
-    return time_shift, flight_min, flight_max
+    return time_shift

@@ -6,7 +6,10 @@
 # offsets for the camera mount relative to the IMU/EKF solution.
 
 import argparse
+import numpy as np
 import os
+import pandas as pd
+from scipy import interpolate  # strait up linear interpolation, nothing fancy
 
 from aurauas_flightdata import flight_loader, flight_interp
 
@@ -59,7 +62,58 @@ if len(data['imu']) == 0 and len(data['gps']) == 0:
 
 interp = flight_interp.InterpolationGroup(data)
 iter = flight_interp.IterateGroup(data)
-time_shift, flight_min, flight_max = \
-    correlate.sync_horizon(data, interp, horiz_log, hz=args.resample_hz,
-                           cam_mount=args.cam_mount,
+
+# for convenience
+hz = args.resample_hz
+
+# load horizon log data (derived from video)
+#
+# frame,video time,camera roll (deg),camera pitch (deg),
+# roll rate (rad/sec),pitch rate (rad/sec)
+horiz_data = pd.read_csv(horiz_log)
+horiz_data.set_index('video time', inplace=True, drop=False)
+
+# resample horizon data
+horiz_interp = []
+horiz_roll = interpolate.interp1d(horiz_data['video time'],
+                                  horiz_data['roll rate (rad/sec)'],
+                                  bounds_error=False, fill_value=0.0)
+xmin = horiz_data['video time'].min()
+xmax = horiz_data['video time'].max()
+print("video range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin))
+horiz_len = xmax - xmin
+for x in np.linspace(xmin, xmax, int(round(horiz_len*hz))):
+    if args.cam_mount == 'forward' or args.cam_mount == 'down':
+        horiz_interp.append( [x, horiz_roll(x)] )
+    else:
+        # down, but makes no sense in this context!
+        horiz_interp.append( [x, -horiz_roll(x)] )
+print("horizon data len:", len(horiz_interp))
+
+# resample flight data
+flight_min = data['imu'][0]['time']
+flight_max = data['imu'][-1]['time']
+print("flight range = %.3f - %.3f (%.3f)" % (flight_min, flight_max,
+                                             flight_max-flight_min))
+flight_interp = []
+if args.cam_mount == 'forward' or args.cam_mount == 'rear':
+    # forward/rear facing camera
+    y_interp = interp.group['imu'].interp['p']
+elif args.cam_mount == 'left' or args.cam_mount == 'right':
+    # it might be interesting to support an out-the-wing view
+    print("Not currently supported camera orientation, sorry!")
+    quit()
+else:
+    # down facing camera (which makes no sense for a horizon detector!)    
+    y_interp = interp.group['imu'].interp['r']
+flight_len = flight_max - flight_min
+for x in np.linspace(flight_min, flight_max, int(round(flight_len*hz))):
+    flight_interp.append( [x, y_interp(x)] )
+print("flight len:", len(flight_interp))
+
+# find the time correlation of video vs flight data
+time_shift = \
+    correlate.sync_horizon(data, flight_interp,
+                           horiz_data, horiz_interp, horiz_len,
+                           hz=hz, cam_mount=args.cam_mount,
                            force_time_shift=args.time_shift, plot=args.plot)
