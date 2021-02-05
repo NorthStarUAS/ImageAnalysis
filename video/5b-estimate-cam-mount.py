@@ -66,6 +66,8 @@ iter = flight_interp.IterateGroup(data)
 
 # for convenience
 hz = args.resample_hz
+r2d = 180.0 / math.pi
+d2r = math.pi / 180.0
 
 # load horizon log data (derived from video)
 #
@@ -83,10 +85,10 @@ horiz_q = interpolate.interp1d(horiz_data['video time'],
                                horiz_data['pitch rate (rad/sec)'],
                                bounds_error=False, fill_value=0.0)
 horiz_phi = interpolate.interp1d(horiz_data['video time'],
-                                 horiz_data['camera roll (deg)'],
+                                 horiz_data['camera roll (deg)'] * d2r,
                                  bounds_error=False, fill_value=0.0)
 horiz_the = interpolate.interp1d(horiz_data['video time'],
-                                 horiz_data['camera pitch (deg)'],
+                                 horiz_data['camera pitch (deg)'] * d2r,
                                  bounds_error=False, fill_value=0.0)
 xmin = horiz_data['video time'].min()
 xmax = horiz_data['video time'].max()
@@ -134,26 +136,48 @@ time_shift = \
 # optimizer stuffs
 from scipy.optimize import least_squares
 
+# presample datas
 tmin = np.amax( [xmin + time_shift, flight_min ] )
 tmax = np.amin( [xmax + time_shift, flight_max ] )
 tlen = tmax - tmin
 print("overlap range (flight sec):", tmin, " - ", tmax)
+data = []
+roll_sum = 0
+pitch_sum = 0
+for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
+    # horizon
+    hphi = horiz_phi(x-time_shift)
+    hthe = horiz_the(x-time_shift)
+    # flight data
+    fphi = phi_interp(x)
+    fthe = the_interp(x)
+    psix = psix_interp(x)
+    psiy = psiy_interp(x)
+    fpsi = math.atan2(psiy, psix)
+    data.append( [x, hphi, hthe, fphi, fthe, fpsi] )
+    roll_sum += hphi - fphi
+    pitch_sum += hthe - fthe
+print("starting est:", roll_sum / (tlen*hz), pitch_sum / (tlen*hz), 0)
+initial = [roll_sum / (tlen*hz), pitch_sum / (tlen*hz), 0 ]
+
+# from matplotlib import pyplot as plt 
+# data = np.array(data)
+# plt.figure()
+# plt.plot(data[:,0], data[:,1], label="video roll")
+# plt.plot(data[:,0], data[:,3], label="ekf roll")
+# plt.legend()
+# plt.show()
 
 def errorFunc(xk):
+    print("Trying:", xk)
     # compute error function using global data structures
     result = []
-    for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
-        hphi = horiz_phi(x)
-        hthe = horiz_the(x)
-        fphi = phi_interp(x)
-        fthe = the_interp(x)
-        psix = psix_interp(x)
-        psiy = psiy_interp(x)
-        fpsi = math.atan2(psiy, psix)
-        result.append(hphi - fphi)
+    for r in data:
+        result.append( r[1] - (r[3] + xk[0]) )
+        result.append( r[2] - (r[4] + xk[1]) )
     return np.array(result)
 
-initial = [0, 0, 0]
+print("Optimizing...")
 res = least_squares(errorFunc, initial
                     #bounds=bounds,
                     #args=(config,data['imu'],data['gps'],data['filter']),
