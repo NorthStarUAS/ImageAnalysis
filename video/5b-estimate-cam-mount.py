@@ -43,26 +43,29 @@ camera = camera.VirtualCamera()
 camera.load(None, local_config)
 cam_yaw, cam_pitch, cam_roll = camera.get_ypr()
 K = camera.get_K()
+IK = camera.get_IK()
 dist = camera.get_dist()
+cu = K[0,2]
+cv = K[1,2]
 print('Camera:', camera.get_name())
 
 # load the flight data
-data, flight_format = flight_loader.load(args.flight)
-print("imu records:", len(data['imu']))
-print("gps records:", len(data['gps']))
-if 'air' in data:
-    print("airdata records:", len(data['air']))
-print("filter records:", len(data['filter']))
-if 'pilot' in data:
-    print("pilot records:", len(data['pilot']))
-if 'act' in data:
-    print("act records:", len(data['act']))
-if len(data['imu']) == 0 and len(data['gps']) == 0:
+flight_data, flight_format = flight_loader.load(args.flight)
+print("imu records:", len(flight_data['imu']))
+print("gps records:", len(flight_data['gps']))
+if 'air' in flight_data:
+    print("airdata records:", len(flight_data['air']))
+print("filter records:", len(flight_data['filter']))
+if 'pilot' in flight_data:
+    print("pilot records:", len(flight_data['pilot']))
+if 'act' in flight_data:
+    print("act records:", len(flight_data['act']))
+if len(flight_data['imu']) == 0 and len(flight_data['gps']) == 0:
     print("not enough data loaded to continue.")
     quit()
 
-interp = flight_interp.InterpolationGroup(data)
-iter = flight_interp.IterateGroup(data)
+interp = flight_interp.InterpolationGroup(flight_data)
+iter = flight_interp.IterateGroup(flight_data)
 
 # for convenience
 hz = args.resample_hz
@@ -101,8 +104,8 @@ for x in np.linspace(xmin, xmax, int(round(horiz_len*hz))):
 print("horizon data len:", len(horiz_interp))
 
 # resample flight data
-flight_min = data['imu'][0]['time']
-flight_max = data['imu'][-1]['time']
+flight_min = flight_data['imu'][0]['time']
+flight_max = flight_data['imu'][-1]['time']
 print("flight range = %.3f - %.3f (%.3f)" % (flight_min, flight_max,
                                              flight_max-flight_min))
 flight_interp = []
@@ -119,7 +122,8 @@ phi_interp = interp.group['filter'].interp['phi']
 the_interp = interp.group['filter'].interp['the']
 psix_interp = interp.group['filter'].interp['psix']
 psiy_interp = interp.group['filter'].interp['psiy']
- 
+alt_interp = interp.group['filter'].interp['alt']
+
 for x in np.linspace(flight_min, flight_max, int(round(flight_len*hz))):
     flight_interp.append( [x, p_interp(x), q_interp(x),
                            phi_interp(x), the_interp(x),
@@ -128,13 +132,31 @@ print("flight len:", len(flight_interp))
 
 # find the time correlation of video vs flight data
 time_shift = \
-    correlate.sync_horizon(data, flight_interp,
+    correlate.sync_horizon(flight_data, flight_interp,
                            horiz_data, horiz_interp, horiz_len,
                            hz=hz, cam_mount=args.cam_mount,
                            force_time_shift=args.time_shift, plot=args.plot)
 
 # optimizer stuffs
 from scipy.optimize import least_squares
+
+# Scan altitude range so we can match the portion of the flight that
+# is up and away.  This means the EKF will have had a better chance to
+# converge, and the horizon detection should be getting a clear view.
+min_alt = None
+max_alt = None
+for filt in flight_data['filter']:
+    alt = filt['alt']
+    if min_alt is None or alt < min_alt:
+        min_alt = alt
+    if max_alt is None or alt > max_alt:
+        max_alt = alt
+print("altitude range: %.1f - %.1f (m)" % (min_alt, max_alt))
+if max_alt - min_alt > 40:
+    alt_threshold = min_alt + 30 # approx 100'
+else:
+    alt_threshold = (max_alt - min_alt) * 0.25
+print("Altitude threshold: %.1f (m)" % alt_threshold)
 
 # presample datas to save work in the error function
 tmin = np.amax( [xmin + time_shift, flight_min ] )
@@ -154,12 +176,14 @@ for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
     psix = psix_interp(x)
     psiy = psiy_interp(x)
     fpsi = math.atan2(psiy, psix)
-    data.append( [x, hphi, hthe, fphi, fthe, fpsi] )
+    alt = alt_interp(x)
+    if alt >= alt_threshold:
+        data.append( [x, hphi, hthe, fpsi, fthe, fphi] )
     roll_sum += hphi - fphi
     pitch_sum += hthe - fthe
     
-print("starting est:", roll_sum / (tlen*hz), pitch_sum / (tlen*hz), 0)
-initial = [roll_sum / (tlen*hz), pitch_sum / (tlen*hz), 0 ]
+initial = [0,  pitch_sum / (tlen*hz), roll_sum / (tlen*hz) ]
+print("starting est:", initial)
 
 # from matplotlib import pyplot as plt 
 # data = np.array(data)
@@ -169,19 +193,91 @@ initial = [roll_sum / (tlen*hz), pitch_sum / (tlen*hz), 0 ]
 # plt.legend()
 # plt.show()
 
+# precompute to save time
+horiz_ned = [0, 0, 0]  # any value works here (as long as it's consistent
+horiz_divs = 10
+horiz_pts = []
+for i in range(horiz_divs + 1):
+    a = (float(i) * 360/float(horiz_divs)) * d2r
+    n = math.cos(a) + horiz_ned[0]
+    e = math.sin(a) + horiz_ned[1]
+    d = 0.0 + horiz_ned[2]
+    horiz_pts.append( [n, e, d] )
+    
+# a, b are line end points, p is some other point
+# returns the closest point on ab to p (orthogonal projection)
+def ClosestPointOnLine(a, b, p):
+    ap = p - a
+    ab = b - a
+    return a + np.dot(ap,ab) / np.dot(ab,ab) * ab
+
+# get the roll/pitch of camera orientation relative to specified
+# horizon line
+def get_projected_attitude(uv1, uv2, IK, cu, cv):
+    # print('line:', line)
+    du = uv2[0] - uv1[0]
+    dv = uv1[1] - uv2[1]        # account for (0,0) at top left corner in image space
+    roll = math.atan2(dv, du)*r2d
+
+    if False:
+        # temp test
+        w = cu * 2
+        h = cv * 2
+        for p in [ (0, 0, 1), (w, 0, 1), (0, h, 1), (w, h, 1), (cu, cv, 1) ]:
+            uvh = np.array(p)
+            proj = IK.dot(uvh)
+            print(p, "->", proj)
+        
+    p0 = ClosestPointOnLine(np.array(uv1), np.array(uv2), np.array([cu,cv]))
+    uvh = np.array([p0[0], p0[1], 1.0])
+    proj = IK.dot(uvh)
+    #print("proj:", proj, proj/np.linalg.norm(proj))
+    dot_product = np.dot(np.array([0,0,1]), proj/np.linalg.norm(proj))
+    pitch = np.arccos(dot_product) * r2d
+    if p0[1] < cv:
+        pitch = -pitch
+    #print("roll: %.1f pitch: %.1f" % (roll, pitch))
+    return roll, pitch
+
+cam_w, cam_h = camera.get_shape()
+def find_horizon():
+    answers = []
+    for i in range(horiz_divs):
+        p1 = horiz_pts[i]
+        p2 = horiz_pts[i+1]
+        uv1 = camera.project_ned( horiz_pts[i] )
+        uv2 = camera.project_ned( horiz_pts[i+1] )
+        if uv1 != None and uv2 != None:
+            #print(" ", uv1, uv2)
+            roll, pitch = get_projected_attitude(uv1, uv2, IK, cu, cv)
+            answers.append( (roll, pitch) )
+    if len(answers) > 0:
+        index = int(len(answers) / 2)
+        return answers[index]
+    else:
+        return None, None
+            
 def errorFunc(xk):
-    print("Trying:", xk)
-    ned = [0, 0, 0]             # any value works here
+    print("    Trying:", xk)
+    camera.set_ypr(xk[0]*r2d, xk[1]*r2d, xk[2]*r2d)
     # compute error function using global data structures
     result = []
     for r in data:
-        camera.set_ypr(xk[2], xk[1], xk[0])
-        camera.update_PROJ(ned, r[5], r[4], r[3])
-        result.append( r[1] - (r[3] + xk[0]) )
-        result.append( r[2] - (r[4] + xk[1]) )
+        camera.update_PROJ(horiz_ned, r[3], r[4], r[5])
+        #print("video:", r[1]*r2d, r[2]*r2d)
+        roll, pitch = find_horizon()
+        #result.append( r[1] - (r[5] + xk[2]) )
+        #result.append( r[2] - (r[4] + xk[1]) )
+        if not roll is None:
+            result.append( r[1] - roll )
+            result.append( r[2] - pitch )
     return np.array(result)
 
 print("Optimizing...")
-res = least_squares(errorFunc, initial)
+res = least_squares(errorFunc, initial, verbose=2)
 print(res)
+print("Camera mount offset:")
+print("Yaw: %.2f" % (res['x'][0]*r2d))
+print("Pitch: %.2f" % (res['x'][1]*r2d))
+print("Roll: %.2f" % (res['x'][2]*r2d))
 
