@@ -22,6 +22,7 @@ ned2proj = np.linalg.inv(proj2ned)
 class VirtualCamera:
     config = PropertyNode()
     K = None
+    IK = None
     dist = None
     PROJ = None
     
@@ -64,12 +65,20 @@ class VirtualCamera:
             self.K = np.copy(np.array(K_list)).reshape(3,3)
         return self.K
 
+    def get_IK(self):
+        if self.IK is None:
+            self.IK = np.linalg.inv( self.get_K() )
+        return self.IK
+
     def get_dist(self):
         if self.dist is None:
             self.dist = []
             for i in range(5):
                 self.dist.append( self.config.getFloatEnum("dist_coeffs", i) )
         return self.dist
+
+    def get_shape(self):
+        return self.config.getFloat("width_px"), self.config.getFloat("height_px")
     
     def get_ypr(self):
         cam_yaw = self.config.getFloatEnum('mount_ypr', 0)
