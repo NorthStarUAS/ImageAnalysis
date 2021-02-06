@@ -136,7 +136,7 @@ time_shift = \
 # optimizer stuffs
 from scipy.optimize import least_squares
 
-# presample datas
+# presample datas to save work in the error function
 tmin = np.amax( [xmin + time_shift, flight_min ] )
 tmax = np.amin( [xmax + time_shift, flight_max ] )
 tlen = tmax - tmin
@@ -157,6 +157,7 @@ for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
     data.append( [x, hphi, hthe, fphi, fthe, fpsi] )
     roll_sum += hphi - fphi
     pitch_sum += hthe - fthe
+    
 print("starting est:", roll_sum / (tlen*hz), pitch_sum / (tlen*hz), 0)
 initial = [roll_sum / (tlen*hz), pitch_sum / (tlen*hz), 0 ]
 
@@ -170,20 +171,17 @@ initial = [roll_sum / (tlen*hz), pitch_sum / (tlen*hz), 0 ]
 
 def errorFunc(xk):
     print("Trying:", xk)
+    ned = [0, 0, 0]             # any value works here
     # compute error function using global data structures
     result = []
     for r in data:
+        camera.set_ypr(xk[2], xk[1], xk[0])
+        camera.update_PROJ(ned, r[5], r[4], r[3])
         result.append( r[1] - (r[3] + xk[0]) )
         result.append( r[2] - (r[4] + xk[1]) )
     return np.array(result)
 
 print("Optimizing...")
-res = least_squares(errorFunc, initial
-                    #bounds=bounds,
-                    #args=(config,data['imu'],data['gps'],data['filter']),
-                    #options={'disp': True, 'maxiter': 5},
-                    #options={'disp': True},
-                    #callback=printParams
-                    )
+res = least_squares(errorFunc, initial)
 print(res)
 

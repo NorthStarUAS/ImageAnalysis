@@ -77,6 +77,11 @@ class VirtualCamera:
         cam_roll = self.config.getFloatEnum('mount_ypr', 2)
         return cam_yaw, cam_pitch, cam_roll
 
+    def set_ypr(self, cam_yaw, cam_pitch, cam_roll):
+        self.config.setFloatEnum('mount_ypr', 0, cam_yaw)
+        self.config.setFloatEnum('mount_ypr', 1, cam_pitch)
+        self.config.setFloatEnum('mount_ypr', 2, cam_roll)
+        
     def set_yaw(self, cam_yaw):
         self.config.setFloatEnum('mount_ypr', 0, cam_yaw)
         
