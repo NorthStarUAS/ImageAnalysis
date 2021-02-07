@@ -249,7 +249,10 @@ class HUD:
             elif wp_index == 65535:
                 self.home['lon'] = record['ap']['wpt_longitude_deg']
                 self.home['lat'] = record['ap']['wpt_latitude_deg']
-            self.task_id = record['ap']['current_task_id']
+            if 'current_task' in record['ap']:
+                self.task_id = record['ap']['current_task']
+            else:
+                self.task_id = 0
     
     def update_events(self, events):
         # expire active events
@@ -304,8 +307,9 @@ class HUD:
                                 self.land['glideslope_rad'] = float(tokens[2]) * d2r
                             elif tokens[1] == '/task/land/extend_final_leg_m':
                                 self.land['extend_final_leg_m'] = float(tokens[2])
-                            elif tokens[0] == 'task' and tokens[1] == 'land':
-                                self.land['heading_deg'] = float(tokens[2])
+                        elif tokens[0] == 'task' and tokens[1] == 'land':
+                            print("received land:", float(tokens[2]))
+                            self.land['heading_deg'] = float(tokens[2])
                 
                 else:
                     print('problem interpreting event:', events[i]['message'])
@@ -1044,7 +1048,7 @@ class HUD:
                                         self.ref[0], self.ref[1], self.ref[2] )
             r = self.circle['radius']
             perim = r * math.pi
-            step = round(2 * r * math.pi / 30)
+            step = int(round(2 * r * math.pi / 30))
             for a in np.linspace(0, 2*math.pi, step, endpoint=False):
                 in_e = center_ned[1] + math.cos(a)*(r-size)
                 in_n = center_ned[0] + math.sin(a)*(r-size)
@@ -1145,7 +1149,7 @@ class HUD:
             aa = sa + 1.0 * math.pi * self.land['side']
             ea = sa + 1.25 * math.pi * self.land['side']
             step = round(r * math.pi / 30)
-            for a in np.linspace(sa, ea, -self.land['side'] * step,
+            for a in np.linspace(sa, ea, int(round(-self.land['side'] * step)),
                                  endpoint=True):
                 d = abs(a - sa)
                 if d > abs(aa - sa):
@@ -1184,7 +1188,7 @@ class HUD:
                                       self.ned[1] + self.vel_filt[1],
                                       self.ned[2] + self.vel_filt[2]])
         if uv != None:
-            cv2.circle(self.frame, uv, 5, self.color, self.line_width, cv2.LINE_AA)
+            cv2.circle(self.frame, uv, 7, self.color, self.line_width, cv2.LINE_AA)
 
     def draw_speed_tape(self, airspeed, ap_speed, units_label):
         size = 1
