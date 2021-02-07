@@ -30,7 +30,7 @@ render_h = 1080
 # configure
 experimental_overlay = False
 
-parser = argparse.ArgumentParser(description='correlate movie data to flight data.')
+parser = argparse.ArgumentParser(description='correlate video data to flight data.')
 parser.add_argument('--flight', required=True, help='load specified aura flight log')
 parser.add_argument('--video', required=True, help='original video')
 parser.add_argument('--camera', help='select camera calibration file')
@@ -44,7 +44,7 @@ parser.add_argument('--scale-preview', type=float, default=0.25,
 parser.add_argument('--alpha', type=float, default=0.7, help='hud alpha blend')
 parser.add_argument('--resample-hz', type=float, default=60.0,
                     help='resample rate (hz)')
-parser.add_argument('--start-time', type=float, help='fast forward to this flight log time before begining movie render.')
+parser.add_argument('--start-time', type=float, help='fast forward to this flight log time before begining video render.')
 parser.add_argument('--time-shift', type=float, help='skip autocorrelation and use this offset time')
 parser.add_argument('--plot', action='store_true', help='Plot stuff at the end of the run')
 parser.add_argument('--auto-switch', choices=['old', 'new', 'none', 'on'], default='new', help='auto/manual switch logic helper')
@@ -54,7 +54,7 @@ parser.add_argument('--aileron-scale', type=float, default=1.0, help='useful for
 parser.add_argument('--elevator-scale', type=float, default=1.0, help='useful for reversing elevator in display')
 parser.add_argument('--rudder-scale', type=float, default=1.0, help='useful for reversing rudder in display')
 parser.add_argument('--flight-track-seconds', type=float, default=300.0, help='how many seconds of flight track to draw')
-parser.add_argument('--keep-tmp-movie', action='store_true', help='Keep the temp movie')
+parser.add_argument('--keep-tmp-video', action='store_true', help='Keep the temp video')
 parser.add_argument('--correction', help='correction table')
 parser.add_argument('--features', help='feature database')
 args = parser.parse_args()
@@ -74,8 +74,8 @@ local_config = dirname + "/camera.json"
 # ext = m4v (was mov), fourcc = MP4V
 
 ext = 'mp4'
-tmp_movie = filename + "_tmp." + ext
-output_movie = filename + "_hud.mov"
+tmp_video = filename + "_tmp." + ext
+output_video = filename + "_hud." + ext
 
 camera = camera.VirtualCamera()
 camera.load(args.camera, local_config, args.scale)
@@ -171,23 +171,24 @@ inputdict = {
     '-r': str(fps)
 }
 
-lossless = {
-    # See all options: https://trac.ffmpeg.org/wiki/Encode/H.264
-    '-vcodec': 'libx264',  # use the h.264 codec
-    '-crf': '0',           # set the constant rate factor to 0, (lossless)
-    '-preset': 'veryslow', # maximum compression
-    '-r': str(fps)         # match input fps
-}
-
 sane = {
     # See all options: https://trac.ffmpeg.org/wiki/Encode/H.264
     '-vcodec': 'libx264',  # use the h.264 codec
+    '-pix_fmt': 'yuv420p', # support 'dumb' players
     '-crf': '17',          # visually lossless (or nearly so)
     '-preset': 'medium',   # default compression
-    '-r': str(fps)         # match input fps
+    '-r': str(fps)         # fps
+}
+lossless = {
+    # See all options: https://trac.ffmpeg.org/wiki/Encode/H.264
+    '-vcodec': 'libx264',  # use the h.264 codec
+    '-pix_fmt': 'yuv420p', # support 'dumb' players
+    '-crf': '0',           # set the constant rate factor to 0, (lossless)
+    '-preset': 'veryslow', # maximum compression
+    '-r': str(fps)         # fps
 }
 
-writer = skvideo.io.FFmpegWriter(tmp_movie, inputdict=inputdict, outputdict=sane)
+writer = skvideo.io.FFmpegWriter(tmp_video, inputdict=inputdict, outputdict=sane)
 
 last_time = 0.0
 
@@ -206,7 +207,7 @@ hud2.set_units( args.airspeed_units, args.altitude_units)
 filt_alt = None
 
 if True and time_shift > 0:
-    # catch up the flight path history (in case the movie starts
+    # catch up the flight path history (in case the video starts
     # mid-flight.)  Note: flight_min is the starting time of the filter data
     # set.
     print('seeding flight track ...')
@@ -439,9 +440,9 @@ cv2.destroyAllWindows()
 # ex: ffmpeg -i opencv.avi -i orig.mov -c copy -map 0:v -map 1:a final.avi
 
 from subprocess import call
-result = call(["ffmpeg", "-i", tmp_movie, "-i", args.video, "-c", "copy", "-map", "0:v", "-map", "1:a", output_movie])
+result = call(["ffmpeg", "-i", tmp_video, "-i", args.video, "-c:v", "copy", "-c:a", "aac", "-y", output_video])
 print("ffmpeg result code:", result)
-if result == 0 and not args.keep_tmp_movie:
-    print("removing temp movie:", tmp_movie)
-    os.remove(tmp_movie)
-    print("output movie:", output_movie)
+if result == 0 and not args.keep_tmp_video:
+    print("removing temp video:", tmp_video)
+    os.remove(tmp_video)
+    print("output video:", output_video)
