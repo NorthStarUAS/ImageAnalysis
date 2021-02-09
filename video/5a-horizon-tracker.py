@@ -8,16 +8,20 @@ import json
 import math
 import numpy as np
 import os
-import sys
 
 from props import PropertyNode
 import props_json
 
+import sys
 sys.path.append('../scripts')
 from lib import transformations
 
 import camera
 import horizon
+
+# constants
+d2r = math.pi / 180.0
+r2d = 180.0 / math.pi
 
 parser = argparse.ArgumentParser(description='Estimate gyro biases from movie.')
 parser.add_argument('video', help='video file')
@@ -50,10 +54,6 @@ print('dist:', dist)
 
 cu = K[0,2]
 cv = K[1,2]
-
-# helpful constants
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
 
 metadata = skvideo.io.ffprobe(args.video)
 #print(metadata.keys())
@@ -163,6 +163,7 @@ for frame in reader.nextFrame():
         last_counter = None
         last_roll = None
         last_pitch = None
+
     counter += 1
     
     cv2.imshow("horizon", frame_undist)
