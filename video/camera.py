@@ -33,7 +33,10 @@ class VirtualCamera:
         if camera_config is None:
             if os.path.exists(local_config):
                 # load local config file if it exists
-                props_json.load(local_config, self.config)
+                result = props_json.load(local_config, self.config)
+                if not result:
+                    print("Cannot continue with invalid camera file.")
+                    quit()
             else:
                 print("no camera config specifiec and no local camera config file found:", local_config)
                 return False
