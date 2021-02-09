@@ -150,6 +150,7 @@ else:
 
 metadata = skvideo.io.ffprobe(args.video)
 #print(metadata.keys())
+#import json
 #print(json.dumps(metadata["video"], indent=4))
 fps_string = metadata['video']['@avg_frame_rate']
 (num, den) = fps_string.split('/')
