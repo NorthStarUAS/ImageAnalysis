@@ -7,6 +7,7 @@
 
 import argparse
 import math
+from matplotlib import pyplot as plt 
 import numpy as np
 import os
 import pandas as pd
@@ -78,6 +79,18 @@ d2r = math.pi / 180.0
 # roll rate (rad/sec),pitch rate (rad/sec)
 horiz_data = pd.read_csv(horiz_log)
 horiz_data.set_index('video time', inplace=True, drop=False)
+xmin = horiz_data['video time'].min()
+xmax = horiz_data['video time'].max()
+horiz_count = len(horiz_data['video time'])
+print("number of horizon records:", horiz_count)
+horiz_fs = int(round((horiz_count / (xmax - xmin))))
+print("horiz fs:", horiz_fs)
+
+# smooth the horizon data
+import scipy.signal as signal
+b, a = signal.butter(2, 1.0, fs=horiz_fs)
+horiz_data['camera roll (deg)'] = signal.filtfilt(b, a, horiz_data['camera roll (deg)'])
+horiz_data['camera pitch (deg)'] = signal.filtfilt(b, a, horiz_data['camera pitch (deg)'])
 
 # resample horizon data
 horiz_interp = []
@@ -103,6 +116,33 @@ for x in np.linspace(xmin, xmax, int(round(horiz_len*hz))):
                               horiz_phi(x), horiz_the(x)] )
 print("horizon data len:", len(horiz_interp))
 
+plt.figure()
+# plt.plot(data[:,0], data[:,1], label="video roll")
+# plt.plot(data[:,0], data[:,3], label="ekf roll")
+# plt.legend()
+# plt.show()
+
+# smooth ekf attitude estimate
+# prep to smooth flight data (noisy data can create tiny local minima
+# that the optimizer can get stuck within.
+ekf = pd.DataFrame(flight_data['filter'])
+ekf.set_index('time', inplace=True, drop=False)
+plt.plot(ekf['phi'], label='orig')
+ekf_min = ekf['time'].iat[0]
+ekf_max = ekf['time'].iat[-1]
+ekf_count = len(ekf)
+ekf_fs =  int(round((ekf_count / (ekf_max - ekf_min))))
+print("ekf fs:", ekf_fs)
+b, a = signal.butter(2, 1.0, fs=ekf_fs)
+ekf['phi'] = signal.filtfilt(b, a, ekf['phi'])
+plt.plot(ekf['phi'], label='smooth')
+ekf['the'] = signal.filtfilt(b, a, ekf['the'])
+ekf['psix'] = signal.filtfilt(b, a, ekf['psix'])
+ekf['psiy'] = signal.filtfilt(b, a, ekf['psiy'])
+plt.plot(horiz_data['camera roll (deg)']*d2r, label='video')
+plt.legend()
+#plt.show()
+
 # resample flight data
 flight_min = flight_data['imu'][0]['time']
 flight_max = flight_data['imu'][-1]['time']
@@ -118,10 +158,10 @@ elif args.cam_mount == 'left' or args.cam_mount == 'right':
     print("Not currently supported camera orientation, sorry!")
     quit()
 flight_len = flight_max - flight_min
-phi_interp = interp.group['filter'].interp['phi']
-the_interp = interp.group['filter'].interp['the']
-psix_interp = interp.group['filter'].interp['psix']
-psiy_interp = interp.group['filter'].interp['psiy']
+phi_interp = interpolate.interp1d(ekf['time'], ekf['phi'], bounds_error=False, fill_value=0.0)
+the_interp = interpolate.interp1d(ekf['time'], ekf['the'], bounds_error=False, fill_value=0.0)
+psix_interp = interpolate.interp1d(ekf['time'], ekf['psix'], bounds_error=False, fill_value=0.0)
+psiy_interp = interpolate.interp1d(ekf['time'], ekf['psiy'], bounds_error=False, fill_value=0.0)
 alt_interp = interp.group['filter'].interp['alt']
 
 for x in np.linspace(flight_min, flight_max, int(round(flight_len*hz))):
@@ -182,10 +222,9 @@ for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
     roll_sum += hphi - fphi
     pitch_sum += hthe - fthe
     
-initial = [0,  pitch_sum / (tlen*hz), roll_sum / (tlen*hz) ]
+initial = [0.0,  pitch_sum / (tlen*hz), roll_sum / (tlen*hz) ] # rads
 print("starting est:", initial)
 
-# from matplotlib import pyplot as plt 
 # data = np.array(data)
 # plt.figure()
 # plt.plot(data[:,0], data[:,1], label="video roll")
@@ -217,7 +256,7 @@ def get_projected_attitude(uv1, uv2, IK, cu, cv):
     # print('line:', line)
     du = uv2[0] - uv1[0]
     dv = uv1[1] - uv2[1]        # account for (0,0) at top left corner in image space
-    roll = math.atan2(dv, du)*r2d
+    roll = math.atan2(dv, du)
 
     if False:
         # temp test
@@ -233,7 +272,7 @@ def get_projected_attitude(uv1, uv2, IK, cu, cv):
     proj = IK.dot(uvh)
     #print("proj:", proj, proj/np.linalg.norm(proj))
     dot_product = np.dot(np.array([0,0,1]), proj/np.linalg.norm(proj))
-    pitch = np.arccos(dot_product) * r2d
+    pitch = np.arccos(dot_product)
     if p0[1] < cv:
         pitch = -pitch
     #print("roll: %.1f pitch: %.1f" % (roll, pitch))
@@ -273,8 +312,32 @@ def errorFunc(xk):
             result.append( r[2] - pitch )
     return np.array(result)
 
+if True:
+    print("Hunting for optimal yaw offset ...")
+    done = False
+    spread = 10*d2r
+    best_avg = None
+    best_x = 0.0
+    while not done:
+        for x in np.linspace(best_x-spread, best_x+spread, num=11):
+            initial[0] = x
+            result = np.abs(errorFunc(initial))
+            avg = np.mean(result)
+            std = np.std(result)
+            print("yaw %.2f:" % (x*r2d),
+                  "avg: %.6f" % np.mean(result),
+                  "std: %.4f" % np.std(result))
+            if best_avg is None or avg < best_avg:
+                best_avg = avg
+                best_x = x
+        spread = spread / 5
+        if spread < 0.001:     # rad
+            done = True
+print("Best yaw: %.2f\n" % (best_x * r2d))
+
 print("Optimizing...")
 res = least_squares(errorFunc, initial, verbose=2)
+#res = least_squares(errorFunc, initial, diff_step=0.0001, verbose=2)
 print(res)
 print("Camera mount offset:")
 print("Yaw: %.2f" % (res['x'][0]*r2d))
