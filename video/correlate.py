@@ -133,7 +133,7 @@ def sync_clocks(data, interp, video_log, hz=60, cam_mount='forward',
         flight_imu = np.array(flight_imu)
 
         # plot the data ...
-        plt.figure(1)
+        plt.figure()
         plt.ylabel('roll rate (deg per sec)')
         plt.xlabel('flight time (sec)')
         if do_butter_smooth:
@@ -147,17 +147,17 @@ def sync_clocks(data, interp, video_log, hz=60, cam_mount='forward',
             plt.plot(flight_imu[:,0], flight_imu[:,1]*r2d, label='flight data log')
         plt.legend()
 
-        plt.figure(2)
+        plt.figure()
         plt.plot(ycorr)
 
-        plt.figure(3)
+        plt.figure()
         plt.ylabel('pitch rate (deg per sec)')
         plt.xlabel('flight time (sec)')
         plt.plot(movie[:,1] + time_shift, (movie[:,3]/qratio)*r2d, label='estimate from flight movie')
         plt.plot(flight_imu[:,0], flight_imu[:,2]*r2d, label='flight data log')
         plt.legend()
 
-        plt.figure(4)
+        plt.figure()
         plt.ylabel('yaw rate (deg per sec)')
         plt.xlabel('flight time (sec)')
         plt.plot(movie[:,1] + time_shift, (movie[:,4]/rratio)*r2d, label='estimate from flight movie')
@@ -224,7 +224,7 @@ def sync_horizon(flight_data, flight_interp,
 
         # plot the data ...
         plt.figure(1)
-        plt.ylabel('roll rate (deg per sec)')
+        plt.ylabel('roll rate (rad/sec)')
         plt.xlabel('flight time (sec)')
         if do_butter_smooth:
             plt.plot(flight_interp[:,0], flight_butter*r2d,
@@ -252,6 +252,90 @@ def sync_horizon(flight_data, flight_interp,
         plt.plot(video_data['video time'],
                      video_data['roll rate (rad/sec)']*r2d,
                      label='estimate from flight video')
+        plt.show()
+
+    return time_shift
+
+# the sync_clocks version of this carries a lot of history, for now
+# let's create a new version of this optimized for syncing against
+# horizon data (uses estimated roll rate from video versus imu roll
+# rate for correlation.
+def sync_gyros(flight_interp, video_interp, video_len, hz=60,
+               cam_mount='forward', force_time_shift=None, plot=True):
+    print("Finding best gyro correlation...")
+    # compute best correlation between video and flight data logs
+    video_interp = np.array(video_interp, dtype=float)
+    flight_interp = np.array(flight_interp, dtype=float)
+
+    do_butter_smooth = False
+    if do_butter_smooth:
+        # maybe filtering video estimate helps something?
+        import scipy.signal as signal
+        b, a = signal.butter(2, 10.0/(200.0/2))
+        flight_butter = signal.filtfilt(b, a, flight_interp[:,1])
+        video_butter = signal.filtfilt(b, a, video_interp[:,1])
+        ycorr = np.correlate(flight_butter, video_butter, mode='full')
+    else:
+        ycorr = np.correlate(flight_interp[:,1], video_interp[:,1], mode='full')
+
+    # display some stats/info
+    max_index = np.argmax(ycorr)
+    print("max index:", max_index)
+
+    # shift = np.argmax(ycorr) - len(flight_interp)
+    # print "shift (pos):", shift
+    # start_diff = flight_interp[0][0] - video_interp[0][0]
+    # print "start time diff:", start_diff
+    # time_shift = start_diff - (shift/hz)
+    # print "video time shift:", time_shift
+
+    # need to subtract video_len off peak point time because of how
+    # correlate works and shifts against every possible overlap
+    shift_sec = np.argmax(ycorr) / hz - video_len
+    print("shift (sec):", shift_sec)
+    print(flight_interp[0][0], video_interp[0][0])
+    start_diff = flight_interp[0][0] - video_interp[0][0]
+    print("start time diff:", start_diff)
+    time_shift = start_diff + shift_sec
+
+    print("correlated time shift:", time_shift)
+    if force_time_shift:
+        time_shift = force_time_shift
+        print("time shift override (provided on command line):", time_shift)
+
+    if plot:
+        # plot the data ...
+        plt.figure()
+        plt.ylabel('roll rate (deg per sec)')
+        plt.xlabel('flight time (sec)')
+        if do_butter_smooth:
+            plt.plot(flight_interp[:,0], flight_butter*r2d,
+                     label='flight data log')
+            plt.plot(video_interp[:,0] + time_shift, video_butter*r2d,
+                     label='smoothed estimate from flight video')
+        else:
+            plt.plot(video_interp[:,0] + time_shift, video_interp[:,1],
+                     label='video p')
+            plt.plot(flight_interp[:,0], flight_interp[:,1],
+                     label='imu p')
+        plt.legend()
+
+        plt.figure()
+        plt.plot(video_interp[:,0] + time_shift, video_interp[:,2],
+                 label='video q')
+        plt.plot(flight_interp[:,0], flight_interp[:,2],
+                 label='imu q')
+        plt.legend()
+        
+        plt.figure()
+        plt.plot(video_interp[:,0] + time_shift, video_interp[:,3],
+                 label='video r')
+        plt.plot(flight_interp[:,0], flight_interp[:,3],
+                 label='imu r')
+        plt.legend()
+        
+        plt.figure()
+        plt.plot(ycorr)
         plt.show()
 
     return time_shift
