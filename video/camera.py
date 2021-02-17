@@ -38,8 +38,8 @@ class VirtualCamera:
                     print("Cannot continue with invalid camera file.")
                     quit()
             else:
-                print("no camera config specifiec and no local camera config file found:", local_config)
-                return False
+                print("no camera config specified and no local camera config file found:", local_config)
+                quit()
         else:
             # seed the camera calibration and distortion coefficients
             # from a known camera config
