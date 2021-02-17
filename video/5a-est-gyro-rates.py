@@ -118,6 +118,7 @@ def findAffine(src, dst, fullAffine=False):
     else:
         affine = None
         status = None
+    print("num pts:", len(src), "used:", np.count_nonzero(status), "affine:\n", affine)
     #print str(affine)
     return affine, status
 
@@ -201,26 +202,38 @@ def filterFeatures(p1, p2, K, method):
 # track persistant edges and create a mask from them (useful when
 # portions of our own airframe are visible in the video)
 edges_accum = None
-edge_filt_time = 30             # sec
-edge_filt_frames = edge_filt_time * fps
-weight_a = (edge_filt_frames - 1) / edge_filt_frames
-weight_b = 1 / edge_filt_frames
+edges_counter = 1
+edge_filt_time = 15             # sec
+kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
 def make_edge_mask(gray):
     global edges_accum
     global edges_counter
+    avail_sec = edges_counter / fps
+    secs = np.min([avail_sec, 15])
+    edge_filt_frames = secs * fps
+    weight_a = (edge_filt_frames - 1) / edge_filt_frames
+    weight_b = 1 / edge_filt_frames
+    print("weights:", edges_counter, secs, edge_filt_frames, weight_a, weight_b)
     edges = cv2.Canny(gray, 50, 150)
+    print("edges:", np.count_nonzero(edges))
     cv2.imshow("edges", edges)
     if edges_accum is None:
-        edges_accum = edges.astype(np.float32) * 0
+        edges_accum = edges.astype(np.float32)
     else:
         edges_accum = weight_a * edges_accum + weight_b * edges.astype(np.float32)
     cv2.imshow("edges filter", edges_accum.astype('uint8'))
     max = np.max(edges_accum)
-    thresh = int(round(max * 0.35))
-    ret2, thresh1 = cv2.threshold(edges_accum.astype('uint8'), thresh, 255, cv2.THRESH_BINARY)
-    kernel = np.ones((5,5), np.uint8)
-    thresh1 = cv2.dilate(thresh1, kernel, iterations=2)
+    thresh = int(round(max * 0.4))
+    print("max edges:", (edges_accum >= thresh).sum())
+    ratio = (edges_accum >= thresh).sum() / (edges_accum.shape[0]*edges_accum.shape[1])
+    print("ratio:", ratio)
+    if ratio < 0.005:
+        ret2, thresh1 = cv2.threshold(edges_accum.astype('uint8'), thresh, 255, cv2.THRESH_BINARY)
+        thresh1 = cv2.dilate(thresh1, kernel, iterations=2)
+    else:
+        thresh1 = edges_accum * 0
     cv2.imshow('edge thresh1', thresh1)
+    edges_counter += 1
     return thresh1
 
 # only pass through keypoints if they aren't masked by the mask image
@@ -254,7 +267,7 @@ kp_list_last = []
 des_list_last = []
 p1 = []
 p2 = []
-counter = 0
+counter = -1
 
 rot_last = 0
 tx_last = 0
@@ -265,18 +278,20 @@ if True or args.equalize:
 
 csvfile = open(output_csv, 'w')
 fieldnames=[ 'frame', 'video time',
-             'p (rad/sec)', 'q (rad/sec)', 'r (rad/sec)' ]
+             'p (rad/sec)', 'q (rad/sec)', 'r (rad/sec)',
+             'hp (rad/sec)', 'hq (rad/sec)', 'hr (rad/sec)' ]
 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 writer.writeheader()
 
-Hpsi = 0
-Hthe = 0
-Hphi = 0
+hp = 0
+hq = 0
+hr = 0
 
 pbar = tqdm(total=int(total_frames), smoothing=0.05)
 for frame in reader.nextFrame():
     frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
-
+    counter += 1
+    
     if counter < skip_frames:
         if counter % 100 == 0:
             print("Skipping %d frames..." % counter)
@@ -302,10 +317,10 @@ for frame in reader.nextFrame():
         gray = clahe.apply(gray)
         cv2.imshow("gray equalized", gray)
 
-    #edge_mask = make_edge_mask(gray)
+    edge_mask = make_edge_mask(gray)
     
     kp_list = detector.detect(gray)
-    #kp_list = apply_edge_mask(edge_mask, kp_list)
+    kp_list = apply_edge_mask(edge_mask, kp_list)
     kp_list, des_list = extractor.compute(gray, kp_list)
 
     # Fixme: make a command line option
@@ -324,16 +339,98 @@ for frame in reader.nextFrame():
     des_list_last = des_list
 
     M, status, newp1, newp2 = filterFeatures(p1, p2, K, filter_method)
+    if len(newp1) < 1:
+        continue
+    
+    affine, aff_status = findAffine(newp2 - np.array([cu,cv]),
+                                    newp1 - np.array([cu,cv]),
+                                    fullAffine=False)
+    if affine is None:
+        continue
+    (rot, tx, ty, sx, sy) = decomposeAffine(affine)
+    if abs(rot) > 0.1 or math.sqrt(tx*tx+ty*ty) > 20:
+        print("sanity limit:", rot, tx, ty)
+        (rot, tx, ty, sx, sy) = (0.0, 0.0, 0.0, 1.0, 1.0)
+    #print affine
+    print("affine:", rot, tx, ty)
 
-    if False and filter_method == "homography" and not M is None:
+    translate_only = False
+    rotate_translate_only = True
+    if translate_only:
+        rot = 0.0
+        sx = 1.0
+        sy = 1.0
+    elif rotate_translate_only:
+        sx = 1.0
+        sy = 1.0
+
+    # roll rate from affine rotation
+    p = -rot * fps
+
+    # pitch and yaw rates from affine translation projected through
+    # camera calibration
+
+    # as an approximation, for estimating angle from translation, use
+    # a point a distance away from center that matches the average
+    # feature distance from center.
+    diff = newp1 - np.array([cu, cv])
+    xoff = np.mean(np.abs(diff[:,0]))
+    yoff = np.mean(np.abs(diff[:,1]))
+    print("avg xoff: %.2f" % xoff, "avg yoff: %.2f" % yoff)
+    
+    #print(cu, cv)
+    #print("IK:", IK)
+    uv0 = np.array([cu+xoff,    cv+yoff,    1.0])
+    uv1 = np.array([cu+xoff-tx, cv+yoff,    1.0])
+    uv2 = np.array([cu+xoff,    cv+yoff+ty, 1.0])
+    proj0 = IK.dot(uv0)
+    proj1 = IK.dot(uv1)
+    proj2 = IK.dot(uv2)
+    #print(proj1, proj2)
+    dp1 = np.dot(proj0/np.linalg.norm(proj0), proj1/np.linalg.norm(proj1))
+    dp2 = np.dot(proj0/np.linalg.norm(proj0), proj2/np.linalg.norm(proj2))
+    if dp1 > 1:
+        print("dp1 limit")
+        dp1 = 1
+    if dp2 > 1:
+        print("dp2 limit")
+        dp2 = 1
+    #print("dp:", dp1, dp2)
+    if uv1[0] < cu+xoff:
+        r = -np.arccos(dp1) * fps
+    else:
+        r = np.arccos(dp1) * fps
+    if uv2[1] < cv+yoff:
+        q = -np.arccos(dp2) * fps
+    else:
+        q = np.arccos(dp2) * fps
+
+    print("A ypr: %.2f %.2f %.2f" % (r, q, p))
+
+    # alternative method for determining pose change from previous frame
+    if filter_method == "homography" and not M is None:
         print("M:\n", M)
         (result, Rs, tvecs, norms) = cv2.decomposeHomographyMat(M, K)
         possible = cv2.filterHomographyDecompByVisibleRefpoints(Rs, norms, np.array([newp1]), np.array([newp2]))
         #print("R:", Rs)
         print("Num:", len(Rs), "poss:", possible)
+        best = 100000
+        best_index = None
+        best_val = None
         for i, R in enumerate(Rs):
             (Hpsi, Hthe, Hphi) = transformations.euler_from_matrix(R, 'rzyx')
-            print(" H ypr: %.2f %.2f %.2f norm:" % (Hpsi*fps, Hthe*fps, Hphi*fps), norms[i])
+            hp = Hpsi * fps
+            hq = Hphi * fps
+            hr = Hthe * fps
+            d = np.linalg.norm( np.array([p, q, r]) - np.array([hp, hq, hr]) )
+            if d < best:
+                best = d
+                best_index = i
+                best_val = [hp, hq, hr]
+            print(" H ypr: %.2f %.2f %.2f" % (hp, hq, hr))
+        (hp, hq, hr) = best_val
+        print("R:\n", Rs[best_index])
+        print("H ypr: %.2f %.2f %.2f" % (hp, hq, hr))
     elif filter_method == "essential" and not M is None:
         #print("M:", M)
         R1, R2, t = cv2.decomposeEssentialMat(M)
@@ -370,71 +467,16 @@ for frame in reader.nextFrame():
         #(yaw, pitch, roll) = transformations.euler_from_matrix(R, 'rzyx')
         #print("ypr: %.2f %.2f %.2f" % (yaw*r2d, pitch*r2d, roll*r2d))
     
-    affine, aff_status = findAffine(newp2 - np.array([cu,cv]),
-                                    newp1 - np.array([cu,cv]),
-                                    fullAffine=False)
-    if affine is None:
-        continue
-    (rot, tx, ty, sx, sy) = decomposeAffine(affine)
-    if abs(rot) > 0.1 or math.sqrt(tx*tx+ty*ty) > 10:
-        (rot, tx, ty, sx, sy) = (0.0, 0.0, 0.0, 1.0, 1.0)
-    #print affine
-    #print("affine:", rot, tx, ty)
-
-    translate_only = False
-    rotate_translate_only = True
-    if translate_only:
-        rot = 0.0
-        sx = 1.0
-        sy = 1.0
-    elif rotate_translate_only:
-        sx = 1.0
-        sy = 1.0
-
-    # roll rate from affine rotation
-    p = -rot * fps
-
-    # pitch and yaw rates from affine translation projected through
-    # camera calibration
-
-    # as an approximation, for estimating angle from translation, use
-    # a point a distance away from center that matches the average
-    # feature distance from center.
-    diff = newp1 - np.array([cu, cv])
-    xoff = np.mean(np.abs(diff[:,0]))
-    yoff = np.mean(np.abs(diff[:,1]))
-    #print("avg xoff: %.2f" % xoff, "avg yoff: %.2f" % yoff)
-    
-    #print(cu, cv)
-    #print("IK:", IK)
-    uv0 = np.array([cu+xoff,    cv+yoff,    1.0])
-    uv1 = np.array([cu+xoff-tx, cv+yoff,    1.0])
-    uv2 = np.array([cu+xoff,    cv+yoff+ty, 1.0])
-    proj0 = IK.dot(uv0)
-    proj1 = IK.dot(uv1)
-    proj2 = IK.dot(uv2)
-    #print(proj1, proj2)
-    dp1 = np.dot(proj0/np.linalg.norm(proj0), proj1/np.linalg.norm(proj1))
-    dp2 = np.dot(proj0/np.linalg.norm(proj0), proj2/np.linalg.norm(proj2))
-    #print("dp:", dp1, dp2)
-    if uv1[0] < cu+xoff:
-        r = -np.arccos(dp1) * fps
-    else:
-        r = np.arccos(dp1) * fps
-    if uv2[1] < cv+yoff:
-        q = -np.arccos(dp2) * fps
-    else:
-        q = np.arccos(dp2) * fps
-
-    #print("A ypr: %.2f %.2f %.2f" % (r, q, p))
-
     # divide tx, ty by args.scale to get a translation value
     # relative to the original movie size.
     row = { 'frame': counter,
             'video time': "%.4f" % (counter / fps),
             'p (rad/sec)': "%.4f" % p,
             'q (rad/sec)': "%.4f" % q,
-            'r (rad/sec)': "%.4f" % r
+            'r (rad/sec)': "%.4f" % r,
+            'hp (rad/sec)': "%.4f" % hp,
+            'hq (rad/sec)': "%.4f" % hq,
+            'hr (rad/sec)': "%.4f" % hr
            }
     #print(row)
     writer.writerow(row)
@@ -458,8 +500,6 @@ for frame in reader.nextFrame():
         func = np.poly1d(fit)
         print("val at cu:", func(cu))
         
-    counter += 1
-    
     cv2.imshow('bgr', frame_undist)
     if args.write:
         video_writer.writeFrame(frame_undist[:,:,::-1])
