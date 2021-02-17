@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
-# use the horizon angle data (in camera space) along with estimated
-# roll/pitch arates to correlate video time to flight data log time.
-# Then use an optimizer to estimate the best fitting roll, pitch, yaw
-# offsets for the camera mount relative to the IMU/EKF solution.
+# use horizon based roll/pitch rates (and maybe motion based yaw
+# rates.)  Compare rates in camera space vs. imu space and try to find
+# an optimal transform to minimize the idfference between them.
 
 import argparse
 import math
@@ -42,6 +41,7 @@ smooth_cutoff_hz = 10
 abspath = os.path.abspath(args.video)
 filename, ext = os.path.splitext(abspath)
 dirname = os.path.dirname(args.video)
+horiz_rates = filename + "_horiz.csv"
 video_rates = filename + "_rates.csv"
 local_config = dirname + "/camera.json"
 
@@ -79,6 +79,12 @@ hz = args.resample_hz
 r2d = 180.0 / math.pi
 d2r = math.pi / 180.0
 
+horiz_data = pd.read_csv(horiz_rates)
+horiz_data.set_index('video time', inplace=True, drop=False)
+xmin = horiz_data['video time'].min()
+xmax = horiz_data['video time'].max()
+print("horiz range:", xmin, xmax)
+
 # load camera rotation rate data (derived from feature matching video
 # frames)
 #
@@ -92,29 +98,44 @@ print("number of video records:", video_count)
 video_fs = int(round((video_count / (xmax - xmin))))
 print("video fs:", video_fs)
 
-if False:
-    # this is dumb, but knock out noise here (maybe would be better to
-    # catch it at the video processing step)
-    for i in range(len(video_data['video time'])):
-        if abs(video_data['p (rad/sec)'].iat[i]) > 0.7:
-            video_data['p (rad/sec)'].iat[i] = 0.0
-        if abs(video_data['q (rad/sec)'].iat[i]) > 0.7:
-            video_data['q (rad/sec)'].iat[i] = 0.0
-        if abs(video_data['r (rad/sec)'].iat[i]) > 0.7:
-            video_data['r (rad/sec)'].iat[i] = 0.0
+plt.figure()
+plt.plot(horiz_data['roll rate (rad/sec)'], label="horizon-based p")
+plt.plot(video_data['p (rad/sec)'], label="feature-based p")
+plt.plot(horiz_data['pitch rate (rad/sec)'], label="horizon-based q")
+plt.plot(video_data['q (rad/sec)'], label="feature-based q")
+plt.plot(video_data['r (rad/sec)'], label="feature-based r")
+plt.legend()
+plt.show()
 
 # smooth the video data
 import scipy.signal as signal
 b, a = signal.butter(2, smooth_cutoff_hz, fs=video_fs)
+horiz_data['roll rate (rad/sec)'] = signal.filtfilt(b, a, horiz_data['roll rate (rad/sec)'])
+horiz_data['pitch rate (rad/sec)'] = signal.filtfilt(b, a, horiz_data['pitch rate (rad/sec)'])
 video_data['p (rad/sec)'] = signal.filtfilt(b, a, video_data['p (rad/sec)'])
 video_data['q (rad/sec)'] = signal.filtfilt(b, a, video_data['q (rad/sec)'])
 video_data['r (rad/sec)'] = signal.filtfilt(b, a, video_data['r (rad/sec)'])
 
+plt.figure()
+plt.plot(horiz_data['roll rate (rad/sec)'], label="horizon-based p")
+plt.plot(video_data['p (rad/sec)'], label="feature-based p")
+plt.plot(horiz_data['pitch rate (rad/sec)'], label="horizon-based q")
+plt.plot(video_data['q (rad/sec)'], label="feature-based q")
+plt.plot(video_data['r (rad/sec)'], label="feature-based r")
+plt.legend()
+plt.show()
+
 # resample horizon data
 video_interp = []
+#video_p = interpolate.interp1d(horiz_data['video time'],
+#                               horiz_data['roll rate (rad/sec)'],
+#                               bounds_error=False, fill_value=0.0)
 video_p = interpolate.interp1d(video_data['video time'],
                                video_data['p (rad/sec)'],
                                bounds_error=False, fill_value=0.0)
+#video_q = interpolate.interp1d(horiz_data['video time'],
+#                               horiz_data['pitch rate (rad/sec)'],
+#                               bounds_error=False, fill_value=0.0)
 video_q = interpolate.interp1d(video_data['video time'],
                                video_data['q (rad/sec)'],
                                bounds_error=False, fill_value=0.0)
@@ -203,7 +224,7 @@ print("altitude range: %.1f - %.1f (m)" % (min_alt, max_alt))
 if max_alt - min_alt > 40:
     alt_threshold = min_alt + 30 # approx 100'
 else:
-    alt_threshold = (max_alt - min_alt) * 0.25
+    alt_threshold = (max_alt - min_alt) * 0.75
 print("Altitude threshold: %.1f (m)" % alt_threshold)
 
 # presample datas to save work in the error function
@@ -221,8 +242,9 @@ for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
     fp = p_interp(x)
     fq = q_interp(x)
     fr = r_interp(x)
-    #alt = alt_interp(x)
-    data.append( [x, vp, vq, vr, fp, fq, fr] )
+    alt = alt_interp(x)
+    if alt >= alt_threshold:
+        data.append( [x, vp, vq, vr, fp, fq, fr] )
     
 initial = [0.0,  0.0, 0.0]
 print("starting est:", initial)
@@ -236,6 +258,7 @@ print("starting est:", initial)
 
 def errorFunc(xk):
     print("    Trying:", xk)
+    # order is yaw, pitch, roll
     R = transformations.euler_matrix(xk[0], xk[1], xk[2], 'rzyx')[:3,:3]
     #print("R:\n", R)
     # compute error function using global data structures
@@ -251,84 +274,58 @@ def errorFunc(xk):
         result.append( np.linalg.norm(diff) )
     return np.array(result)
 
-print("Optimizing...")
-res = least_squares(errorFunc, initial, verbose=2)
-#res = least_squares(errorFunc, initial, diff_step=0.0001, verbose=2)
-print(res)
-print("Camera mount offset:")
-print("Yaw: %.2f" % (res['x'][0]*r2d))
-print("Pitch: %.2f" % (res['x'][1]*r2d))
-print("Roll: %.2f" % (res['x'][2]*r2d))
-initial = res['x']
+if False:
+    print("Optimizing...")
+    res = least_squares(errorFunc, initial, verbose=2)
+    #res = least_squares(errorFunc, initial, diff_step=0.0001, verbose=2)
+    print(res)
+    print("Camera mount offset:")
+    print("Yaw: %.2f" % (res['x'][0]*r2d))
+    print("Pitch: %.2f" % (res['x'][1]*r2d))
+    print("Roll: %.2f" % (res['x'][2]*r2d))
+    initial = res['x']
 
-def myopt(func, xk, n, spread):
-    print("Hunting for best of index:", n)
+def myopt(func, xk, spread):
+    print("Hunting for best result...")
     done = False
     estimate = list(xk)
     while not done:
-        xdata = []
-        ydata = []
-        center = estimate[n]
-        for x in np.linspace(center-spread, center+spread, num=11):
-            estimate[n] = x
-            result = func(estimate)
-            avg = np.mean(result)
-            std = np.std(result)
-            print("angle (deg) %.2f:" % (x*r2d),
-                  "avg: %.6f" % np.mean(result),
-                  "std: %.4f" % np.std(result))
-            xdata.append(x)
-            ydata.append(avg)
-        fit = np.polynomial.polynomial.polyfit( np.array(xdata), np.array(ydata), 2 )
-        print("poly fit:", fit)
-        poly = np.polynomial.polynomial.Polynomial(fit)
-        deriv = np.polynomial.polynomial.polyder(fit)
-        roots = np.polynomial.polynomial.polyroots(deriv)
-        print("roots:", roots)
-        estimate[n] = roots[0]
-        plt.figure()
-        x = np.linspace(center-spread, center+spread, num=1000)
-        plt.plot(x, poly(x), 'r-')
-        plt.plot(xdata, ydata, 'b*')
-        plt.show()
-        spread = spread / 5
+        for n in range(len(estimate)):
+            xdata = []
+            ydata = []
+            center = estimate[n]
+            for x in np.linspace(center-spread, center+spread, num=11):
+                estimate[n] = x
+                result = func(estimate)
+                avg = np.mean(result)
+                std = np.std(result)
+                print("angle (deg) %.2f:" % (x*r2d),
+                      "avg: %.6f" % np.mean(result),
+                      "std: %.4f" % np.std(result))
+                xdata.append(x)
+                ydata.append(avg)
+            fit = np.polynomial.polynomial.polyfit( np.array(xdata), np.array(ydata), 2 )
+            print("poly fit:", fit)
+            poly = np.polynomial.polynomial.Polynomial(fit)
+            deriv = np.polynomial.polynomial.polyder(fit)
+            roots = np.polynomial.polynomial.polyroots(deriv)
+            print("roots:", roots)
+            estimate[n] = roots[0]
+            if args.plot:
+                plt.figure()
+                x = np.linspace(center-spread, center+spread, num=1000)
+                plt.plot(x, poly(x), 'r-')
+                plt.plot(xdata, ydata, 'b*')
+                plt.show()
+        spread = spread / 4
         if spread < 0.001:     # rad
             done = True
     print("Minimal error for index n at angle %.2f (deg)\n" % (estimate[n] * r2d))
-    return estimate[n]
-    
-if True:
-    print("Hunting for optimal yaw offset ...")
-    done = False
-    spread = 25*d2r
-    estimate = initial
-    while not done:
-        xdata = []
-        ydata = []
-        center = estimate[0]
-        for x in np.linspace(center-spread, center+spread, num=11):
-            estimate[0] = x
-            result = errorFunc(estimate)
-            avg = np.mean(result)
-            std = np.std(result)
-            print("yaw %.2f:" % (x*r2d),
-                  "avg: %.6f" % np.mean(result),
-                  "std: %.4f" % np.std(result))
-            xdata.append(x)
-            ydata.append(avg)
-        fit = np.polynomial.polynomial.polyfit( np.array(xdata), np.array(ydata), 2 )
-        print("poly fit:", fit)
-        poly = np.polynomial.polynomial.Polynomial(fit)
-        deriv = np.polynomial.polynomial.polyder(fit)
-        roots = np.polynomial.polynomial.polyroots(deriv)
-        print("roots:", roots)
-        estimate[0] = roots[0]
-        plt.figure()
-        x = np.linspace(center-spread, center+spread, num=1000)
-        plt.plot(x, poly(x), 'r-')
-        plt.plot(xdata, ydata, 'b*')
-        plt.show()
-        spread = spread / 5
-        if spread < 0.001:     # rad
-            done = True
-print("Best yaw: %.2f\n" % (estimate[0] * r2d))
+    return estimate
+
+print("Hunting for optimal yaw offset ...")
+spread = 25*d2r
+est = list(initial)
+result = myopt(errorFunc, est, spread)
+        
+print("Best result:", np.array(result)*r2d)
