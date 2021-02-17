@@ -111,12 +111,13 @@ video_writer = skvideo.io.FFmpegWriter(output_video, inputdict=inputdict, output
 #cv2.imshow("undist", frame_undist)
 #cv2.waitKey()
 
-counter = 0
+counter = -1
 last_roll = None
 last_pitch = None
 for frame in reader.nextFrame():
     frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
-
+    counter += 1
+    
     if counter < skip_frames:
         if counter % 100 == 0:
             print("Skipping %d frames..." % counter)
@@ -141,10 +142,8 @@ for frame in reader.nextFrame():
             roll_rate = 0
             pitch_rate = 0
         else:
-            df = counter - last_counter
             roll_rate = (roll - last_roll) * fps * d2r
             pitch_rate = (pitch - last_pitch) * fps * d2r
-        last_counter = counter
         last_roll = roll
         last_pitch = pitch
         horizon.draw(frame_undist, best_line, IK, cu, cv)
@@ -160,12 +159,9 @@ for frame in reader.nextFrame():
         pitch = None
         roll_rate = 0.0
         pitch_rate = 0.0
-        last_counter = None
         last_roll = None
         last_pitch = None
 
-    counter += 1
-    
     cv2.imshow("horizon", frame_undist)
     if args.write:
         #write the frame as RGB not BGR
