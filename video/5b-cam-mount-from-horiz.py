@@ -192,10 +192,10 @@ for filt in flight_data['filter']:
     if max_alt is None or alt > max_alt:
         max_alt = alt
 print("altitude range: %.1f - %.1f (m)" % (min_alt, max_alt))
-if max_alt - min_alt > 40:
-    alt_threshold = min_alt + 30 # approx 100'
+if max_alt - min_alt > 30:
+    alt_threshold = min_alt + (max_alt - min_alt) * 0.5
 else:
-    alt_threshold = (max_alt - min_alt) * 0.25
+    alt_threshold = min_alt
 print("Altitude threshold: %.1f (m)" % alt_threshold)
 
 # presample datas to save work in the error function
