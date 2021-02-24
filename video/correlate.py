@@ -185,10 +185,10 @@ def sync_horizon(flight_data, flight_interp,
         import scipy.signal as signal
         b, a = signal.butter(2, 10.0/(200.0/2))
         flight_butter = signal.filtfilt(b, a, flight_interp[:,1])
-        video_butter = signal.filtfilt(b, a, video_interp[:,1])
+        video_butter = signal.filtfilt(b, a, video_interp[:,3])
         ycorr = np.correlate(flight_butter, video_butter, mode='full')
     else:
-        ycorr = np.correlate(flight_interp[:,1], video_interp[:,1], mode='full')
+        ycorr = np.correlate(flight_interp[:,1], video_interp[:,3], mode='full')
 
     # display some stats/info
     max_index = np.argmax(ycorr)
@@ -223,20 +223,20 @@ def sync_horizon(flight_data, flight_interp,
         flight_imu = np.array(flight_imu)
 
         # plot the data ...
-        plt.figure(1)
-        plt.ylabel('roll rate (rad/sec)')
-        plt.xlabel('flight time (sec)')
+        plt.figure()
+        plt.ylabel('Roll rate (rad/sec)')
+        plt.xlabel('Flight time (sec)')
         if do_butter_smooth:
-            plt.plot(flight_interp[:,0], flight_butter*r2d,
-                     label='flight data log')
-            plt.plot(video_interp[:,0] + time_shift, video_butter*r2d,
-                     label='smoothed estimate from flight video')
+            plt.plot(flight_interp[:,0], flight_butter,
+                     label='IMU roll gyro')
+            plt.plot(video_interp[:,0] + time_shift, video_butter,
+                     label='Video roll rate estimate')
             # tmp
-            plt.plot(video_data['video time'] + time_shift,
-                     video_data['roll rate (rad/sec)']*r2d,
-                     label='raw estimate from flight video')
-            plt.plot(flight_imu[:,0], flight_imu[:,1]*r2d,
-                     label='raw flight data log')
+            #plt.plot(video_data['video time'] + time_shift,
+            #         video_data['roll rate (rad/sec)']*r2d,
+            #         label='raw estimate from flight video')
+            #plt.plot(flight_imu[:,0], flight_imu[:,1]*r2d,
+            #         label='raw flight data log')
         else:
             plt.plot(video_data['video time'] + time_shift,
                      video_data['roll rate (rad/sec)']*r2d,
@@ -245,13 +245,14 @@ def sync_horizon(flight_data, flight_interp,
                      label='flight data log')
         plt.legend()
 
-        plt.figure(2)
+        plt.figure()
         plt.plot(ycorr)
 
-        plt.figure(3)
+        plt.figure()
         plt.plot(video_data['video time'],
                      video_data['roll rate (rad/sec)']*r2d,
                      label='estimate from flight video')
+        plt.legend()
         plt.show()
 
     return time_shift
