@@ -11,6 +11,7 @@ import numpy as np
 import os
 import pandas as pd
 from scipy import interpolate  # strait up linear interpolation, nothing fancy
+import scipy.signal as signal
 
 import sys
 sys.path.append('../scripts')
@@ -20,6 +21,7 @@ from aurauas_flightdata import flight_loader, flight_interp
 
 import camera
 import correlate
+from feat_data import FeatureData
 
 parser = argparse.ArgumentParser(description='correlate movie data to flight data.')
 parser.add_argument('--flight', required=True, help='load specified aura flight log')
@@ -49,10 +51,7 @@ camera = camera.VirtualCamera()
 camera.load(None, local_config)
 cam_yaw, cam_pitch, cam_roll = camera.get_ypr()
 K = camera.get_K()
-IK = camera.get_IK()
 dist = camera.get_dist()
-cu = K[0,2]
-cv = K[1,2]
 print('Camera:', camera.get_name())
 
 # load the flight data
@@ -66,7 +65,7 @@ if 'pilot' in flight_data:
     print("pilot records:", len(flight_data['pilot']))
 if 'act' in flight_data:
     print("act records:", len(flight_data['act']))
-if len(flight_data['imu']) == 0 and len(flight_data['gps']) == 0:
+if len(flight_data['imu']) == 0 and len(flight_data['filter']) == 0:
     print("not enough data loaded to continue.")
     quit()
 
@@ -80,61 +79,13 @@ d2r = math.pi / 180.0
 
 # load camera rotation rate data (derived from feature matching video
 # frames)
-#
-# frame, video time, p (rad/sec), q (rad/sec), r (rad/sec)
-video_data = pd.read_csv(video_rates)
-video_data.set_index('video time', inplace=True, drop=False)
-xmin = video_data['video time'].min()
-xmax = video_data['video time'].max()
-video_count = len(video_data['video time'])
-print("number of video records:", video_count)
-video_fs = int(round((video_count / (xmax - xmin))))
-print("video fs:", video_fs)
-
-plt.figure()
-plt.plot(video_data['p (rad/sec)'])
-plt.plot(video_data['q (rad/sec)'])
-plt.plot(video_data['r (rad/sec)'])
-plt.show()
-
-# smooth the video data
-import scipy.signal as signal
-b, a = signal.butter(2, smooth_cutoff_hz, fs=video_fs)
-video_data['p (rad/sec)'] = signal.filtfilt(b, a, video_data['p (rad/sec)'])
-video_data['q (rad/sec)'] = signal.filtfilt(b, a, video_data['q (rad/sec)'])
-video_data['r (rad/sec)'] = signal.filtfilt(b, a, video_data['r (rad/sec)'])
-video_data['hp (rad/sec)'] = signal.filtfilt(b, a, video_data['hp (rad/sec)'])
-video_data['hq (rad/sec)'] = signal.filtfilt(b, a, video_data['hq (rad/sec)'])
-video_data['hr (rad/sec)'] = signal.filtfilt(b, a, video_data['hr (rad/sec)'])
-
-plt.figure()
-plt.plot(video_data['p (rad/sec)'])
-plt.plot(video_data['q (rad/sec)'])
-plt.plot(video_data['r (rad/sec)'])
-plt.plot(video_data['hp (rad/sec)'])
-plt.plot(video_data['hq (rad/sec)'])
-plt.plot(video_data['hr (rad/sec)'])
-plt.show()
-
-# resample horizon data
-video_interp = []
-video_p = interpolate.interp1d(video_data['video time'],
-                               video_data['hp (rad/sec)'],
-                               bounds_error=False, fill_value=0.0)
-video_q = interpolate.interp1d(video_data['video time'],
-                               video_data['hq (rad/sec)'],
-                               bounds_error=False, fill_value=0.0)
-video_r = interpolate.interp1d(video_data['video time'],
-                               video_data['hr (rad/sec)'],
-                               bounds_error=False, fill_value=0.0)
-xmin = video_data['video time'].min()
-xmax = video_data['video time'].max()
-print("video range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin))
-horiz_len = xmax - xmin
-for x in np.linspace(xmin, xmax, int(round(horiz_len*hz))):
-    if args.cam_mount == 'forward' or args.cam_mount == 'down':
-        video_interp.append( [x, video_p(x), video_q(x), video_r(x)] )
-print("video data len:", len(video_interp))
+feat_data = FeatureData()
+feat_data.load(video_rates)
+feat_data.smooth(smooth_cutoff_hz)
+feat_data.make_interp()
+if args.plot:
+    feat_data.plot()
+feat_interp = feat_data.resample(args.resample_hz)
 
 plt.figure()
 # plt.plot(data[:,0], data[:,1], label="video roll")
@@ -158,7 +109,7 @@ imu['p'] = signal.filtfilt(b, a, imu['p'])
 plt.plot(imu['p'], label='smooth')
 imu['q'] = signal.filtfilt(b, a, imu['q'])
 imu['r'] = signal.filtfilt(b, a, imu['r'])
-plt.plot(video_data['p (rad/sec)'], label='video (smooth)')
+plt.plot(feat_data.data['p (rad/sec)'], label='video (smooth)')
 plt.legend()
 #plt.show()
 
@@ -180,6 +131,10 @@ p_interp = interpolate.interp1d(imu['time'], imu['p'], bounds_error=False, fill_
 q_interp = interpolate.interp1d(imu['time'], imu['q'], bounds_error=False, fill_value=0.0)
 r_interp = interpolate.interp1d(imu['time'], imu['r'], bounds_error=False, fill_value=0.0)
 alt_interp = interp.group['filter'].interp['alt']
+#phi_interp = interpolate.interp1d(ekf['time'], ekf['phi'], bounds_error=False, fill_value=0.0)
+#the_interp = interpolate.interp1d(ekf['time'], ekf['the'], bounds_error=False, fill_value=0.0)
+#psix_interp = interpolate.interp1d(ekf['time'], ekf['psix'], bounds_error=False, fill_value=0.0)
+#psiy_interp = interpolate.interp1d(ekf['time'], ekf['psiy'], bounds_error=False, fill_value=0.0)
 
 for x in np.linspace(imu_min, imu_max, int(round(flight_len*hz))):
     flight_interp.append( [x, p_interp(x), q_interp(x), r_interp(x) ] )
@@ -187,7 +142,7 @@ print("flight len:", len(flight_interp))
 
 # find the time correlation of video vs flight data
 time_shift = \
-    correlate.sync_gyros(flight_interp, video_interp, horiz_len,
+    correlate.sync_gyros(flight_interp, feat_interp, feat_data.span_sec,
                          hz=hz, cam_mount=args.cam_mount,
                          force_time_shift=args.time_shift, plot=args.plot)
 
@@ -195,8 +150,8 @@ time_shift = \
 from scipy.optimize import least_squares
 
 # presample datas to save work in the error function
-tmin = np.amax( [xmin + time_shift, imu_min ] )
-tmax = np.amin( [xmax + time_shift, imu_max ] )
+tmin = np.amax( [feat_data.tmin + time_shift, imu_min ] )
+tmax = np.amin( [feat_data.tmax + time_shift, imu_max ] )
 tlen = tmax - tmin
 print("overlap range (flight sec):", tmin, " - ", tmax)
 
@@ -220,10 +175,8 @@ print("Altitude threshold: %.1f (m)" % alt_threshold)
 
 data = []
 for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
-    # video
-    vp = video_p(x-time_shift)
-    vq = video_q(x-time_shift)
-    vr = video_r(x-time_shift)
+    # feature-based
+    vp, vq, vr = feat_data.get_vals(x - time_shift)
     # flight data
     fp = p_interp(x)
     fq = q_interp(x)
@@ -233,7 +186,8 @@ for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
         data.append( [x, vp, vq, vr, fp, fq, fr] )
 print("Data points passing altitude threshold:", len(data))
 
-initial = [0.0,  0.0, 0.0]
+# y, p, r, imu_gyro_biases (p, q, r)
+initial = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 print("starting est:", initial)
 
 # data = np.array(data)
@@ -252,7 +206,8 @@ def errorFunc(xk):
     result = []
     for r in data:
         cam_gyro = r[1:4]
-        imu_gyro = r[4:7]
+        imu_gyro = r[4:7] + np.array(xk[3:6])
+        #print(r[4:7], imu_gyro)
         #cam_gyro[1] = 0
         #imu_gyro[1] = 0
         #cam_gyro[2] = 0
@@ -314,9 +269,57 @@ def myopt(func, xk, spread):
     print("Minimal error for index n at angle %.2f (deg)\n" % (estimate[n] * r2d))
     return estimate
 
-print("Hunting for optimal yaw offset ...")
+print("Optimizing...")
 spread = 30*d2r
 est = list(initial)
 result = myopt(errorFunc, est, spread)
         
 print("Best result:", np.array(result)*r2d)
+
+# blowing away data for new purposes, (should clean this up)
+data = []
+for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
+    # horizon
+    hphi = horiz_phi(x-time_shift)
+    hthe = horiz_the(x-time_shift)
+    # flight data
+    fphi = phi_interp(x)
+    fthe = the_interp(x)
+    psix = psix_interp(x)
+    psiy = psiy_interp(x)
+    fpsi = math.atan2(psiy, psix)
+    alt = alt_interp(x)
+    if alt >= alt_threshold:
+        data.append( [x, hphi, hthe, fpsi, fthe, fphi] )
+    
+def horiz_errorFunc(xk):
+    print("    Trying:", xk)
+    camera.set_ypr(xk[0]*r2d, xk[1]*r2d, xk[2]*r2d) # cam mount offset
+    # compute error function using global data structures
+    horiz_ned = [0, 0, 0]  # any value works here (as long as it's consistent
+    result = []
+    for r in data:
+        camera.update_PROJ(horiz_ned, r[3], r[4], r[5]) # aircraft body attit
+        #print("video:", r[1]*r2d, r[2]*r2d)
+        roll, pitch = camera.find_horizon()
+        #result.append( r[1] - (r[5] + xk[2]) )
+        #result.append( r[2] - (r[4] + xk[1]) )
+        if not roll is None:
+            result.append( r[1] - roll )
+            result.append( r[2] - pitch )
+    return np.array(result)
+
+print("Plotting final result...")
+result = horiz_errorFunc(np.array(result))
+rollerr = result[::2]
+pitcherr = result[1::2]
+print(len(result), len(data), len(data[::2]), len(rollerr), len(pitcherr))
+data = np.array(data)
+plt.figure()
+plt.plot(data[:,0], rollerr*r2d, label="roll error")
+plt.plot(data[:,0], pitcherr*r2d, label="pitch error")
+plt.ylabel("Angle error (deg)")
+plt.xlabel("Flight time (sec)")
+plt.grid()
+plt.legend()
+plt.show()
