@@ -12,11 +12,13 @@ import numpy as np
 import os
 import pandas as pd
 from scipy import interpolate  # strait up linear interpolation, nothing fancy
+import scipy.signal as signal
 
 from aurauas_flightdata import flight_loader, flight_interp
 
 import camera
 import correlate
+from horiz_data import HorizonData
 
 parser = argparse.ArgumentParser(description='correlate movie data to flight data.')
 parser.add_argument('--flight', required=True, help='load specified aura flight log')
@@ -32,6 +34,8 @@ parser.add_argument('--plot', action='store_true',
                     help='Plot stuff at the end of the run')
 args = parser.parse_args()
 
+horiz_cutoff_hz = 10
+
 # pathname work
 abspath = os.path.abspath(args.video)
 filename, ext = os.path.splitext(abspath)
@@ -44,10 +48,7 @@ camera = camera.VirtualCamera()
 camera.load(None, local_config)
 cam_yaw, cam_pitch, cam_roll = camera.get_ypr()
 K = camera.get_K()
-IK = camera.get_IK()
 dist = camera.get_dist()
-cu = K[0,2]
-cv = K[1,2]
 print('Camera:', camera.get_name())
 
 # load the flight data
@@ -61,7 +62,7 @@ if 'pilot' in flight_data:
     print("pilot records:", len(flight_data['pilot']))
 if 'act' in flight_data:
     print("act records:", len(flight_data['act']))
-if len(flight_data['imu']) == 0 and len(flight_data['gps']) == 0:
+if len(flight_data['imu']) == 0 and len(flight_data['filter']) == 0:
     print("not enough data loaded to continue.")
     quit()
 
@@ -75,46 +76,13 @@ d2r = math.pi / 180.0
 
 # load horizon log data (derived from video)
 #
-# frame,video time,camera roll (deg),camera pitch (deg),
-# roll rate (rad/sec),pitch rate (rad/sec)
-horiz_data = pd.read_csv(horiz_log)
-horiz_data.set_index('video time', inplace=True, drop=False)
-xmin = horiz_data['video time'].min()
-xmax = horiz_data['video time'].max()
-horiz_count = len(horiz_data['video time'])
-print("number of horizon records:", horiz_count)
-horiz_fs = int(round((horiz_count / (xmax - xmin))))
-print("horiz fs:", horiz_fs)
-
-# smooth the horizon data
-import scipy.signal as signal
-b, a = signal.butter(2, 1.0, fs=horiz_fs)
-horiz_data['camera roll (deg)'] = signal.filtfilt(b, a, horiz_data['camera roll (deg)'])
-horiz_data['camera pitch (deg)'] = signal.filtfilt(b, a, horiz_data['camera pitch (deg)'])
-
-# resample horizon data
-horiz_interp = []
-horiz_p = interpolate.interp1d(horiz_data['video time'],
-                               horiz_data['roll rate (rad/sec)'],
-                               bounds_error=False, fill_value=0.0)
-horiz_q = interpolate.interp1d(horiz_data['video time'],
-                               horiz_data['pitch rate (rad/sec)'],
-                               bounds_error=False, fill_value=0.0)
-horiz_phi = interpolate.interp1d(horiz_data['video time'],
-                                 horiz_data['camera roll (deg)'] * d2r,
-                                 bounds_error=False, fill_value=0.0)
-horiz_the = interpolate.interp1d(horiz_data['video time'],
-                                 horiz_data['camera pitch (deg)'] * d2r,
-                                 bounds_error=False, fill_value=0.0)
-xmin = horiz_data['video time'].min()
-xmax = horiz_data['video time'].max()
-print("video range = %.3f - %.3f (%.3f)" % (xmin, xmax, xmax-xmin))
-horiz_len = xmax - xmin
-for x in np.linspace(xmin, xmax, int(round(horiz_len*hz))):
-    if args.cam_mount == 'forward' or args.cam_mount == 'down':
-        horiz_interp.append( [x, horiz_p(x), horiz_q(x),
-                              horiz_phi(x), horiz_the(x)] )
-print("horizon data len:", len(horiz_interp))
+horiz_data = HorizonData()
+horiz_data.load(horiz_log)
+horiz_data.smooth(horiz_cutoff_hz)
+horiz_data.make_interp()
+if args.plot:
+    horiz_data.plot()
+horiz_interp = horiz_data.resample(args.resample_hz)
 
 plt.figure()
 # plt.plot(data[:,0], data[:,1], label="video roll")
@@ -139,7 +107,7 @@ plt.plot(ekf['phi'], label='smooth')
 ekf['the'] = signal.filtfilt(b, a, ekf['the'])
 ekf['psix'] = signal.filtfilt(b, a, ekf['psix'])
 ekf['psiy'] = signal.filtfilt(b, a, ekf['psiy'])
-plt.plot(horiz_data['camera roll (deg)']*d2r, label='video')
+plt.plot(horiz_data.data['camera roll (deg)']*d2r, label='video phi')
 plt.legend()
 #plt.show()
 
@@ -173,20 +141,26 @@ print("flight len:", len(flight_interp))
 # find the time correlation of video vs flight data
 time_shift = \
     correlate.sync_horizon(flight_data, flight_interp,
-                           horiz_data, horiz_interp, horiz_len,
+                           horiz_data.data, horiz_interp, horiz_data.span_sec,
                            hz=hz, cam_mount=args.cam_mount,
                            force_time_shift=args.time_shift, plot=args.plot)
 
 # optimizer stuffs
 from scipy.optimize import least_squares
 
+# presample datas to save work in the error function
+tmin = np.amax( [horiz_data.tmin + time_shift, flight_min ] )
+tmax = np.amin( [horiz_data.tmax + time_shift, flight_max ] )
+tlen = tmax - tmin
+print("overlap range (flight sec):", tmin, " - ", tmax)
+
 # Scan altitude range so we can match the portion of the flight that
 # is up and away.  This means the EKF will have had a better chance to
 # converge, and the horizon detection should be getting a clear view.
 min_alt = None
 max_alt = None
-for filt in flight_data['filter']:
-    alt = filt['alt']
+for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
+    alt = alt_interp(x)
     if min_alt is None or alt < min_alt:
         min_alt = alt
     if max_alt is None or alt > max_alt:
@@ -198,18 +172,12 @@ else:
     alt_threshold = min_alt
 print("Altitude threshold: %.1f (m)" % alt_threshold)
 
-# presample datas to save work in the error function
-tmin = np.amax( [xmin + time_shift, flight_min ] )
-tmax = np.amin( [xmax + time_shift, flight_max ] )
-tlen = tmax - tmin
-print("overlap range (flight sec):", tmin, " - ", tmax)
 data = []
 roll_sum = 0
 pitch_sum = 0
 for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
     # horizon
-    hphi = horiz_phi(x-time_shift)
-    hthe = horiz_the(x-time_shift)
+    hphi, hthe, hp, hr = horiz_data.get_vals(x - time_shift)
     # flight data
     fphi = phi_interp(x)
     fthe = the_interp(x)
@@ -231,80 +199,17 @@ print("starting est:", initial)
 # plt.plot(data[:,0], data[:,3], label="ekf roll")
 # plt.legend()
 # plt.show()
-
-# precompute to save time
-horiz_ned = [0, 0, 0]  # any value works here (as long as it's consistent
-horiz_divs = 10
-horiz_pts = []
-for i in range(horiz_divs + 1):
-    a = (float(i) * 360/float(horiz_divs)) * d2r
-    n = math.cos(a) + horiz_ned[0]
-    e = math.sin(a) + horiz_ned[1]
-    d = 0.0 + horiz_ned[2]
-    horiz_pts.append( [n, e, d] )
-    
-# a, b are line end points, p is some other point
-# returns the closest point on ab to p (orthogonal projection)
-def ClosestPointOnLine(a, b, p):
-    ap = p - a
-    ab = b - a
-    return a + np.dot(ap,ab) / np.dot(ab,ab) * ab
-
-# get the roll/pitch of camera orientation relative to specified
-# horizon line
-def get_projected_attitude(uv1, uv2, IK, cu, cv):
-    # print('line:', line)
-    du = uv2[0] - uv1[0]
-    dv = uv1[1] - uv2[1]        # account for (0,0) at top left corner in image space
-    roll = math.atan2(dv, du)
-
-    if False:
-        # temp test
-        w = cu * 2
-        h = cv * 2
-        for p in [ (0, 0, 1), (w, 0, 1), (0, h, 1), (w, h, 1), (cu, cv, 1) ]:
-            uvh = np.array(p)
-            proj = IK.dot(uvh)
-            print(p, "->", proj)
-        
-    p0 = ClosestPointOnLine(np.array(uv1), np.array(uv2), np.array([cu,cv]))
-    uvh = np.array([p0[0], p0[1], 1.0])
-    proj = IK.dot(uvh)
-    #print("proj:", proj, proj/np.linalg.norm(proj))
-    dot_product = np.dot(np.array([0,0,1]), proj/np.linalg.norm(proj))
-    pitch = np.arccos(dot_product)
-    if p0[1] < cv:
-        pitch = -pitch
-    #print("roll: %.1f pitch: %.1f" % (roll, pitch))
-    return roll, pitch
-
-cam_w, cam_h = camera.get_shape()
-def find_horizon():
-    answers = []
-    for i in range(horiz_divs):
-        p1 = horiz_pts[i]
-        p2 = horiz_pts[i+1]
-        uv1 = camera.project_ned( horiz_pts[i] )
-        uv2 = camera.project_ned( horiz_pts[i+1] )
-        if uv1 != None and uv2 != None:
-            #print(" ", uv1, uv2)
-            roll, pitch = get_projected_attitude(uv1, uv2, IK, cu, cv)
-            answers.append( (roll, pitch) )
-    if len(answers) > 0:
-        index = int(len(answers) / 2)
-        return answers[index]
-    else:
-        return None, None
             
 def errorFunc(xk):
     print("    Trying:", xk)
-    camera.set_ypr(xk[0]*r2d, xk[1]*r2d, xk[2]*r2d)
+    camera.set_ypr(xk[0]*r2d, xk[1]*r2d, xk[2]*r2d) # cam mount offset
     # compute error function using global data structures
+    horiz_ned = [0, 0, 0]  # any value works here (as long as it's consistent
     result = []
     for r in data:
-        camera.update_PROJ(horiz_ned, r[3], r[4], r[5])
+        camera.update_PROJ(horiz_ned, r[3], r[4], r[5]) # aircraft body attit
         #print("video:", r[1]*r2d, r[2]*r2d)
-        roll, pitch = find_horizon()
+        roll, pitch = camera.find_horizon()
         #result.append( r[1] - (r[5] + xk[2]) )
         #result.append( r[2] - (r[4] + xk[1]) )
         if not roll is None:
@@ -312,7 +217,7 @@ def errorFunc(xk):
             result.append( r[2] - pitch )
     return np.array(result)
 
-if True:
+if False:
     print("Hunting for optimal yaw offset ...")
     done = False
     spread = 10*d2r
@@ -333,7 +238,7 @@ if True:
         spread = spread / 5
         if spread < 0.001:     # rad
             done = True
-print("Best yaw: %.2f\n" % (best_x * r2d))
+    print("Best yaw: %.2f\n" % (best_x * r2d))
 
 print("Optimizing...")
 res = least_squares(errorFunc, initial, verbose=2)
@@ -344,3 +249,17 @@ print("Yaw: %.2f" % (res['x'][0]*r2d))
 print("Pitch: %.2f" % (res['x'][1]*r2d))
 print("Roll: %.2f" % (res['x'][2]*r2d))
 
+print("Plotting final result...")
+result = errorFunc(res['x'])
+rollerr = result[::2]
+pitcherr = result[1::2]
+print(len(result), len(data), len(data[::2]), len(rollerr), len(pitcherr))
+data = np.array(data)
+plt.figure()
+plt.plot(data[:,0], rollerr*r2d, label="roll error")
+plt.plot(data[:,0], pitcherr*r2d, label="pitch error")
+plt.ylabel("Angle error (deg)")
+plt.xlabel("Flight time (sec)")
+plt.grid()
+plt.legend()
+plt.show()
