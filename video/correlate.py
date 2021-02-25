@@ -184,11 +184,11 @@ def sync_horizon(flight_data, flight_interp,
         # maybe filtering video estimate helps something?
         import scipy.signal as signal
         b, a = signal.butter(2, 10.0/(200.0/2))
-        flight_butter = signal.filtfilt(b, a, flight_interp[:,1])
-        video_butter = signal.filtfilt(b, a, video_interp[:,3])
+        flight_butter = signal.filtfilt(b, a, flight_interp[:,3])
+        video_butter = signal.filtfilt(b, a, video_interp[:,1])
         ycorr = np.correlate(flight_butter, video_butter, mode='full')
     else:
-        ycorr = np.correlate(flight_interp[:,1], video_interp[:,3], mode='full')
+        ycorr = np.correlate(flight_interp[:,3], video_interp[:,1], mode='full')
 
     # display some stats/info
     max_index = np.argmax(ycorr)
@@ -228,9 +228,9 @@ def sync_horizon(flight_data, flight_interp,
         plt.xlabel('Flight time (sec)')
         if do_butter_smooth:
             plt.plot(flight_interp[:,0], flight_butter,
-                     label='IMU roll gyro')
+                     label='EKF roll estimate')
             plt.plot(video_interp[:,0] + time_shift, video_butter,
-                     label='Video roll rate estimate')
+                     label='Video roll estimate')
             # tmp
             #plt.plot(video_data['video time'] + time_shift,
             #         video_data['roll rate (rad/sec)']*r2d,
