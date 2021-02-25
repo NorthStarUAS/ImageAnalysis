@@ -5,6 +5,7 @@
 # transform to minimize the idfference between them.
 
 import argparse
+import csv
 import math
 from matplotlib import pyplot as plt 
 import numpy as np
@@ -22,6 +23,7 @@ from aurauas_flightdata import flight_loader, flight_interp
 import camera
 import correlate
 from feat_data import FeatureData
+from horiz_data import HorizonData
 
 parser = argparse.ArgumentParser(description='correlate movie data to flight data.')
 parser.add_argument('--flight', required=True, help='load specified aura flight log')
@@ -44,6 +46,8 @@ abspath = os.path.abspath(args.video)
 filename, ext = os.path.splitext(abspath)
 dirname = os.path.dirname(args.video)
 video_rates = filename + "_rates.csv"
+video_horiz = filename + "_horiz.csv"
+ekf_error = filename + "_error.csv"
 local_config = dirname + "/camera.json"
 
 # load the camera config (we will modify the mounting offset later)
@@ -117,24 +121,11 @@ plt.legend()
 print("flight range = %.3f - %.3f (%.3f)" % (imu_min, imu_max,
                                              imu_max-imu_min))
 flight_interp = []
-# if args.cam_mount == 'forward' or args.cam_mount == 'rear':
-#     # forward/rear facing camera
-#     p_interp = interp.group['imu'].interp['p']
-#     q_interp = interp.group['imu'].interp['q']
-#     r_interp = interp.group['imu'].interp['r']
-# elif args.cam_mount == 'left' or args.cam_mount == 'right':
-#     # it might be interesting to support an out-the-wing view
-#     print("Not currently supported camera orientation, sorry!")
-#     quit()
 flight_len = imu_max - imu_min
 p_interp = interpolate.interp1d(imu['time'], imu['p'], bounds_error=False, fill_value=0.0)
 q_interp = interpolate.interp1d(imu['time'], imu['q'], bounds_error=False, fill_value=0.0)
 r_interp = interpolate.interp1d(imu['time'], imu['r'], bounds_error=False, fill_value=0.0)
 alt_interp = interp.group['filter'].interp['alt']
-#phi_interp = interpolate.interp1d(ekf['time'], ekf['phi'], bounds_error=False, fill_value=0.0)
-#the_interp = interpolate.interp1d(ekf['time'], ekf['the'], bounds_error=False, fill_value=0.0)
-#psix_interp = interpolate.interp1d(ekf['time'], ekf['psix'], bounds_error=False, fill_value=0.0)
-#psiy_interp = interpolate.interp1d(ekf['time'], ekf['psiy'], bounds_error=False, fill_value=0.0)
 
 for x in np.linspace(imu_min, imu_max, int(round(flight_len*hz))):
     flight_interp.append( [x, p_interp(x), q_interp(x), r_interp(x) ] )
@@ -278,12 +269,30 @@ if False:
 
     print("Best result:", np.array(result)*r2d)
 
-# blowing away data for new purposes, (should clean this up)
+# load horizon log data (derived from video)
+horiz_data = HorizonData()
+horiz_data.load(video_horiz)
+horiz_data.smooth(smooth_cutoff_hz)
+horiz_data.make_interp()
+if args.plot:
+    horiz_data.plot()
+horiz_interp = horiz_data.resample(args.resample_hz)
+
+# restructure ekf data
+ekf = pd.DataFrame(flight_data['filter'])
+ekf.set_index('time', inplace=True, drop=False)
+phi_interp = interpolate.interp1d(ekf['time'], ekf['phi'], bounds_error=False, fill_value=0.0)
+the_interp = interpolate.interp1d(ekf['time'], ekf['the'], bounds_error=False, fill_value=0.0)
+psix_interp = interpolate.interp1d(ekf['time'], ekf['psix'], bounds_error=False, fill_value=0.0)
+psiy_interp = interpolate.interp1d(ekf['time'], ekf['psiy'], bounds_error=False, fill_value=0.0)
+
+# overwrite 'data' array with new stuff
 data = []
+roll_sum = 0
+pitch_sum = 0
 for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
     # horizon
-    hphi = horiz_phi(x-time_shift)
-    hthe = horiz_the(x-time_shift)
+    hphi, hthe, hp, hr = horiz_data.get_vals(x - time_shift)
     # flight data
     fphi = phi_interp(x)
     fthe = the_interp(x)
@@ -293,7 +302,9 @@ for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
     alt = alt_interp(x)
     if alt >= alt_threshold:
         data.append( [x, hphi, hthe, fpsi, fthe, fphi] )
-    
+    roll_sum += hphi - fphi
+    pitch_sum += hthe - fthe
+
 def horiz_errorFunc(xk):
     print("    Trying:", xk)
     camera.set_ypr(xk[0]*r2d, xk[1]*r2d, xk[2]*r2d) # cam mount offset
@@ -312,9 +323,23 @@ def horiz_errorFunc(xk):
     return np.array(result)
 
 print("Plotting final result...")
-result = horiz_errorFunc(np.array(result))
+result = horiz_errorFunc(np.array(res['x']))
 rollerr = result[::2]
 pitcherr = result[1::2]
+
+# write to file
+csvfile = open(ekf_error, 'w')
+fieldnames = [ 'video time',
+               'ekf roll error (deg)', 'ekf pitch error (deg)' ]
+csv_writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+csv_writer.writeheader()
+for i in range(len(data)):
+    row = { 'video time': "%.4f" % data[i][0],
+            'ekf roll error (deg)': "%.3f" % rollerr[i],
+            'ekf pitch error (deg)': "%.3f" % pitcherr[i] }
+    csv_writer.writerow(row)
+csvfile.close()
+
 print(len(result), len(data), len(data[::2]), len(rollerr), len(pitcherr))
 data = np.array(data)
 plt.figure()
