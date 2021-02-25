@@ -40,7 +40,7 @@ abspath = os.path.abspath(args.video)
 filename, ext = os.path.splitext(abspath)
 dirname = os.path.dirname(args.video)
 output_csv = filename + "_horiz.csv"
-output_video = filename + "_horiz" + ext
+output_video = filename + "_horiz.mp4"
 local_config = os.path.join(dirname, "camera.json")
 
 camera = camera.VirtualCamera()
