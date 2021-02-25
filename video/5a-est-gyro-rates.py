@@ -47,7 +47,7 @@ abspath = os.path.abspath(args.video)
 filename, ext = os.path.splitext(abspath)
 dirname = os.path.dirname(args.video)
 output_csv = filename + "_rates.csv"
-output_video = filename + "_keypts" + ext
+output_video = filename + "_keypts.mp4"
 local_config = os.path.join(dirname, "camera.json")
 
 camera = camera.VirtualCamera()
