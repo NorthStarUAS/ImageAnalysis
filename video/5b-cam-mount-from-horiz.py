@@ -34,7 +34,7 @@ parser.add_argument('--plot', action='store_true',
                     help='Plot stuff at the end of the run')
 args = parser.parse_args()
 
-horiz_cutoff_hz = 10
+smooth_cutoff_hz = 10
 
 # pathname work
 abspath = os.path.abspath(args.video)
@@ -75,10 +75,9 @@ r2d = 180.0 / math.pi
 d2r = math.pi / 180.0
 
 # load horizon log data (derived from video)
-#
 horiz_data = HorizonData()
 horiz_data.load(horiz_log)
-horiz_data.smooth(horiz_cutoff_hz)
+horiz_data.smooth(smooth_cutoff_hz)
 horiz_data.make_interp()
 if args.plot:
     horiz_data.plot()
@@ -112,10 +111,10 @@ plt.legend()
 #plt.show()
 
 # resample flight data
-flight_min = flight_data['imu'][0]['time']
-flight_max = flight_data['imu'][-1]['time']
-print("flight range = %.3f - %.3f (%.3f)" % (flight_min, flight_max,
-                                             flight_max-flight_min))
+imu_min = flight_data['imu'][0]['time']
+imu_max = flight_data['imu'][-1]['time']
+print("flight range = %.3f - %.3f (%.3f)" % (imu_min, imu_max,
+                                             imu_max-imu_min))
 flight_interp = []
 if args.cam_mount == 'forward' or args.cam_mount == 'rear':
     # forward/rear facing camera
@@ -125,14 +124,14 @@ elif args.cam_mount == 'left' or args.cam_mount == 'right':
     # it might be interesting to support an out-the-wing view
     print("Not currently supported camera orientation, sorry!")
     quit()
-flight_len = flight_max - flight_min
+flight_len = imu_max - imu_min
 phi_interp = interpolate.interp1d(ekf['time'], ekf['phi'], bounds_error=False, fill_value=0.0)
 the_interp = interpolate.interp1d(ekf['time'], ekf['the'], bounds_error=False, fill_value=0.0)
 psix_interp = interpolate.interp1d(ekf['time'], ekf['psix'], bounds_error=False, fill_value=0.0)
 psiy_interp = interpolate.interp1d(ekf['time'], ekf['psiy'], bounds_error=False, fill_value=0.0)
 alt_interp = interp.group['filter'].interp['alt']
 
-for x in np.linspace(flight_min, flight_max, int(round(flight_len*hz))):
+for x in np.linspace(imu_min, imu_max, int(round(flight_len*hz))):
     flight_interp.append( [x, p_interp(x), q_interp(x),
                            phi_interp(x), the_interp(x),
                            psix_interp(x), psiy_interp(x)] )
@@ -149,8 +148,8 @@ time_shift = \
 from scipy.optimize import least_squares
 
 # presample datas to save work in the error function
-tmin = np.amax( [horiz_data.tmin + time_shift, flight_min ] )
-tmax = np.amin( [horiz_data.tmax + time_shift, flight_max ] )
+tmin = np.amax( [horiz_data.tmin + time_shift, imu_min ] )
+tmax = np.amin( [horiz_data.tmax + time_shift, imu_max ] )
 tlen = tmax - tmin
 print("overlap range (flight sec):", tmin, " - ", tmax)
 
