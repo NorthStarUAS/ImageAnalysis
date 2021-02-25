@@ -167,7 +167,7 @@ for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
     if max_alt is None or alt > max_alt:
         max_alt = alt
 print("altitude range: %.1f - %.1f (m)" % (min_alt, max_alt))
-if False and max_alt - min_alt > 30:
+if max_alt - min_alt > 30:
     alt_threshold = min_alt + (max_alt - min_alt) * 0.5
 else:
     alt_threshold = min_alt
@@ -220,11 +220,12 @@ def errorFunc(xk):
         result.append( np.linalg.norm(diff) )
     return np.array(result)
 
-if False:
+if True:
     print("Optimizing...")
     res = least_squares(errorFunc, initial, verbose=2)
     #res = least_squares(errorFunc, initial, diff_step=0.0001, verbose=2)
     print(res)
+    print(res['x'] * r2d)
     print("Camera mount offset:")
     print("Yaw: %.2f" % (res['x'][0]*r2d))
     print("Pitch: %.2f" % (res['x'][1]*r2d))
@@ -269,12 +270,13 @@ def myopt(func, xk, spread):
     print("Minimal error for index n at angle %.2f (deg)\n" % (estimate[n] * r2d))
     return estimate
 
-print("Optimizing...")
-spread = 30*d2r
-est = list(initial)
-result = myopt(errorFunc, est, spread)
-        
-print("Best result:", np.array(result)*r2d)
+if False:
+    print("Optimizing...")
+    spread = 30*d2r
+    est = list(initial)
+    result = myopt(errorFunc, est, spread)
+
+    print("Best result:", np.array(result)*r2d)
 
 # blowing away data for new purposes, (should clean this up)
 data = []
