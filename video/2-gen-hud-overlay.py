@@ -8,16 +8,20 @@ import math
 import navpy
 import numpy as np
 import os
+import pandas as pd
 import re
+from scipy import interpolate  # strait up linear interpolation, nothing fancy
+from tqdm import tqdm
 
 from aurauas_flightdata import flight_loader, flight_interp
 
 import camera
 import correction
 import correlate
+from feat_data import FeatureData
+import features
 import hud
 import hud_glass
-import features
 
 # helpful constants
 d2r = math.pi / 180.0
@@ -39,7 +43,7 @@ parser.add_argument('--cam-mount', choices=['forward', 'down', 'rear'],
                     help='approximate camera mounting orientation')
 parser.add_argument('--rot180', action='store_true')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
-parser.add_argument('--scale-preview', type=float, default=0.25,
+parser.add_argument('--scale-preview', type=float, default=0.5,
                     help='scale preview')
 parser.add_argument('--alpha', type=float, default=0.7, help='hud alpha blend')
 parser.add_argument('--resample-hz', type=float, default=60.0,
@@ -59,13 +63,21 @@ parser.add_argument('--correction', help='correction table')
 parser.add_argument('--features', help='feature database')
 args = parser.parse_args()
 
+smooth_cutoff_hz = 10
+
+# for convenience
+hz = args.resample_hz
+r2d = 180.0 / math.pi
+d2r = math.pi / 180.0
+
 counter = 0
 
 # pathname work
 abspath = os.path.abspath(args.video)
 filename, ext = os.path.splitext(abspath)
 dirname = os.path.dirname(args.video)
-video_log = filename + ".csv"
+video_rates = filename + "_rates.csv"
+ekf_error = filename + "_error.csv"
 local_config = dirname + "/camera.json"
 
 # combinations that seem to work on linux
@@ -86,8 +98,8 @@ print('Camera:', camera.get_name())
 print('K:\n', K)
 print('dist:', dist)
 
-if args.correction:
-    correction.load(args.correction)
+if os.path.exists(ekf_error):
+    correction.load_horiz(ekf_error)
     
 data, flight_format = flight_loader.load(args.flight)
 print("imu records:", len(data['imu']))
@@ -105,11 +117,45 @@ if len(data['imu']) == 0 and len(data['gps']) == 0:
 
 interp = flight_interp.InterpolationGroup(data)
 iter = flight_interp.IterateGroup(data)
-time_shift, flight_min, flight_max = \
-    correlate.sync_clocks(data, interp, video_log, hz=args.resample_hz,
-                          cam_mount=args.cam_mount,
-                          force_time_shift=args.time_shift, plot=args.plot)
 
+# imu gyro data
+imu = pd.DataFrame(data['imu'])
+imu.set_index('time', inplace=True, drop=False)
+imu_min = imu['time'].iat[0]
+imu_max = imu['time'].iat[-1]
+imu_count = len(imu)
+imu_fs =  int(round((imu_count / (imu_max - imu_min))))
+print("imu fs:", imu_fs)
+
+# resample imu data
+print("flight range = %.3f - %.3f (%.3f)" % (imu_min, imu_max,
+                                             imu_max-imu_min))
+flight_interp = []
+flight_len = imu_max - imu_min
+p_interp = interpolate.interp1d(imu['time'], imu['p'], bounds_error=False, fill_value=0.0)
+q_interp = interpolate.interp1d(imu['time'], imu['q'], bounds_error=False, fill_value=0.0)
+r_interp = interpolate.interp1d(imu['time'], imu['r'], bounds_error=False, fill_value=0.0)
+alt_interp = interp.group['filter'].interp['alt']
+
+for x in np.linspace(imu_min, imu_max, int(round(flight_len*hz))):
+    flight_interp.append( [x, p_interp(x), q_interp(x), r_interp(x) ] )
+print("flight len:", len(flight_interp))
+
+# load camera rotation rate data (derived from feature matching video
+# frames)
+feat_data = FeatureData()
+feat_data.load(video_rates)
+feat_data.smooth(smooth_cutoff_hz)
+feat_data.make_interp()
+if args.plot:
+    feat_data.plot()
+feat_interp = feat_data.resample(args.resample_hz)
+
+# find the time correlation of video vs flight data
+time_shift = \
+    correlate.sync_gyros(flight_interp, feat_interp, feat_data.span_sec,
+                         hz=hz, cam_mount=args.cam_mount,
+                         force_time_shift=args.time_shift, plot=args.plot)
 
 # quick estimate ground elevation
 sum = 0.0
@@ -158,6 +204,7 @@ fps = float(num) / float(den)
 codec = metadata['video']['@codec_long_name']
 w = int(round(int(metadata['video']['@width']) * args.scale))
 h = int(round(int(metadata['video']['@height']) * args.scale))
+total_frames = int(round(float(metadata['video']['@duration']) * fps))
 print('fps:', fps)
 print('codec:', codec)
 print('output size:', w, 'x', h)
@@ -212,7 +259,7 @@ if True and time_shift > 0:
     # mid-flight.)  Note: flight_min is the starting time of the filter data
     # set.
     print('seeding flight track ...')
-    for time in np.arange(flight_min, time_shift, 1.0 / float(fps)):
+    for time in np.arange(imu_min, time_shift, 1.0 / float(fps)):
         filt = interp.query(time, 'filter')
         #air = interp.query(time, 'air')
         gps = interp.query(time, 'gps')
@@ -227,6 +274,7 @@ if True and time_shift > 0:
         hud1.update_events(data['event'])
 
 shift_mod_hack = False
+pbar = tqdm(total=int(total_frames), smoothing=0.05)
 for frame in reader.nextFrame():
     frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
     if args.rot180:
@@ -234,7 +282,7 @@ for frame in reader.nextFrame():
         frame = np.rot90(frame)
         
     time = float(counter) / fps + time_shift
-    print("frame: ", counter, "%.3f" % time, 'time shift:', time_shift)
+    #print("frame: ", counter, "%.3f" % time, 'time shift:', time_shift)
     
     counter += 1
     if args.start_time and time < args.start_time:
@@ -253,9 +301,11 @@ for frame in reader.nextFrame():
     yaw_rad = math.atan2(psiy, psix)
     pitch_rad = filt['the']
     roll_rad = filt['phi']
-    if args.correction:
+    if not correction.yaw_interp is None:
         yaw_rad += correction.yaw_interp(time)
+    if not correction.pitch_interp is None:
         pitch_rad += correction.pitch_interp(time)
+    if not correction.roll_interp is None:
         roll_rad += correction.roll_interp(time)
     lat_deg = filt['lat']*r2d
     lon_deg = filt['lon']*r2d
@@ -285,7 +335,11 @@ for frame in reader.nextFrame():
         ap_hdgy = ap['hdgy']
         ap_hdg = math.atan2(ap_hdgy, ap_hdgx)*r2d
         ap_roll = ap['roll']
+        if not correction.roll_interp is None:
+            ap_roll += correction.roll_interp(time) * r2d
         ap_pitch = ap['pitch']
+        if not correction.pitch_interp is None:
+            ap_pitch += correction.pitch_interp(time) * r2d
         ap_speed = ap['speed']
         ap_alt_ft = ap['alt']
     if 'aileron' in pilot:
@@ -362,7 +416,7 @@ for frame in reader.nextFrame():
         hud1.update_pilot(pilot_ail, pilot_ele, pilot_thr, pilot_rud)
     if 'aileron' in act:
         hud1.update_act(act_ail, act_ele, act_thr, act_rud)
-    if time >= flight_min and time <= flight_max:
+    if time >= imu_min and time <= imu_max:
         # only draw hud for time range when we have actual flight data
         hud1.update_frame(hud1_frame)
         hud1.draw()
@@ -389,6 +443,8 @@ for frame in reader.nextFrame():
     # cv2.imshow('hud', hud1_frame)
     cv2.imshow('hud', cv2.resize(hud1_frame, None, fx=args.scale_preview, fy=args.scale_preview))
     writer.writeFrame(hud1_frame[:,:,::-1])  #write the frame as RGB not BGR
+
+    pbar.update(1)
 
     key = cv2.waitKeyEx(5)
     if key == -1:
@@ -431,6 +487,7 @@ for frame in reader.nextFrame():
         shift_mod_hack = False
     elif key == 65505 or key == 65506:
         shift_mod_hack = True
+pbar.close()
         
 writer.close()
 cv2.destroyAllWindows()
@@ -441,7 +498,7 @@ cv2.destroyAllWindows()
 # ex: ffmpeg -i opencv.avi -i orig.mov -c copy -map 0:v -map 1:a final.avi
 
 from subprocess import call
-result = call(["ffmpeg", "-i", tmp_video, "-i", args.video, "-c:v", "copy", "-c:a", "aac", "-y", output_video])
+result = call(["ffmpeg", "-an", "-i", tmp_video, "-vn", "-i", args.video, "-c:v", "copy", "-c:a", "aac", "-y", output_video])
 print("ffmpeg result code:", result)
 if result == 0 and not args.keep_tmp_video:
     print("removing temp video:", tmp_video)
