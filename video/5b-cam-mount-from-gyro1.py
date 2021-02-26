@@ -269,84 +269,85 @@ if False:
 
     print("Best result:", np.array(result)*r2d)
 
-# load horizon log data (derived from video)
-horiz_data = HorizonData()
-horiz_data.load(video_horiz)
-horiz_data.smooth(smooth_cutoff_hz)
-horiz_data.make_interp()
-if args.plot:
-    horiz_data.plot()
-horiz_interp = horiz_data.resample(args.resample_hz)
+if False:
+    # load horizon log data (derived from video)
+    horiz_data = HorizonData()
+    horiz_data.load(video_horiz)
+    horiz_data.smooth(smooth_cutoff_hz)
+    horiz_data.make_interp()
+    if args.plot:
+        horiz_data.plot()
+    horiz_interp = horiz_data.resample(args.resample_hz)
 
-# restructure ekf data
-ekf = pd.DataFrame(flight_data['filter'])
-ekf.set_index('time', inplace=True, drop=False)
-phi_interp = interpolate.interp1d(ekf['time'], ekf['phi'], bounds_error=False, fill_value=0.0)
-the_interp = interpolate.interp1d(ekf['time'], ekf['the'], bounds_error=False, fill_value=0.0)
-psix_interp = interpolate.interp1d(ekf['time'], ekf['psix'], bounds_error=False, fill_value=0.0)
-psiy_interp = interpolate.interp1d(ekf['time'], ekf['psiy'], bounds_error=False, fill_value=0.0)
+    # restructure ekf data
+    ekf = pd.DataFrame(flight_data['filter'])
+    ekf.set_index('time', inplace=True, drop=False)
+    phi_interp = interpolate.interp1d(ekf['time'], ekf['phi'], bounds_error=False, fill_value=0.0)
+    the_interp = interpolate.interp1d(ekf['time'], ekf['the'], bounds_error=False, fill_value=0.0)
+    psix_interp = interpolate.interp1d(ekf['time'], ekf['psix'], bounds_error=False, fill_value=0.0)
+    psiy_interp = interpolate.interp1d(ekf['time'], ekf['psiy'], bounds_error=False, fill_value=0.0)
 
-# overwrite 'data' array with new stuff
-data = []
-roll_sum = 0
-pitch_sum = 0
-for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
-    # horizon
-    hphi, hthe, hp, hr = horiz_data.get_vals(x - time_shift)
-    # flight data
-    fphi = phi_interp(x)
-    fthe = the_interp(x)
-    psix = psix_interp(x)
-    psiy = psiy_interp(x)
-    fpsi = math.atan2(psiy, psix)
-    alt = alt_interp(x)
-    if alt >= alt_threshold:
-        data.append( [x, hphi, hthe, fpsi, fthe, fphi] )
-    roll_sum += hphi - fphi
-    pitch_sum += hthe - fthe
+    # overwrite 'data' array with new stuff
+    data = []
+    roll_sum = 0
+    pitch_sum = 0
+    for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
+        # horizon
+        hphi, hthe, hp, hr = horiz_data.get_vals(x - time_shift)
+        # flight data
+        fphi = phi_interp(x)
+        fthe = the_interp(x)
+        psix = psix_interp(x)
+        psiy = psiy_interp(x)
+        fpsi = math.atan2(psiy, psix)
+        alt = alt_interp(x)
+        if alt >= alt_threshold:
+            data.append( [x, hphi, hthe, fpsi, fthe, fphi] )
+        roll_sum += hphi - fphi
+        pitch_sum += hthe - fthe
 
-def horiz_errorFunc(xk):
-    print("    Trying:", xk)
-    camera.set_ypr(xk[0]*r2d, xk[1]*r2d, xk[2]*r2d) # cam mount offset
-    # compute error function using global data structures
-    horiz_ned = [0, 0, 0]  # any value works here (as long as it's consistent
-    result = []
-    for r in data:
-        camera.update_PROJ(horiz_ned, r[3], r[4], r[5]) # aircraft body attit
-        #print("video:", r[1]*r2d, r[2]*r2d)
-        roll, pitch = camera.find_horizon()
-        #result.append( r[1] - (r[5] + xk[2]) )
-        #result.append( r[2] - (r[4] + xk[1]) )
-        if not roll is None:
-            result.append( r[1] - roll )
-            result.append( r[2] - pitch )
-    return np.array(result)
+    def horiz_errorFunc(xk):
+        print("    Trying:", xk)
+        camera.set_ypr(xk[0]*r2d, xk[1]*r2d, xk[2]*r2d) # cam mount offset
+        # compute error function using global data structures
+        horiz_ned = [0, 0, 0]  # any value works here (as long as it's consistent
+        result = []
+        for r in data:
+            camera.update_PROJ(horiz_ned, r[3], r[4], r[5]) # aircraft body attit
+            #print("video:", r[1]*r2d, r[2]*r2d)
+            roll, pitch = camera.find_horizon()
+            #result.append( r[1] - (r[5] + xk[2]) )
+            #result.append( r[2] - (r[4] + xk[1]) )
+            if not roll is None:
+                result.append( r[1] - roll )
+                result.append( r[2] - pitch )
+        return np.array(result)
 
-print("Plotting final result...")
-result = horiz_errorFunc(np.array(res['x']))
-rollerr = result[::2]
-pitcherr = result[1::2]
+    print("Plotting final result...")
+    result = horiz_errorFunc(np.array(res['x']))
+    rollerr = result[::2]
+    pitcherr = result[1::2]
 
-# write to file
-csvfile = open(ekf_error, 'w')
-fieldnames = [ 'video time',
-               'ekf roll error (deg)', 'ekf pitch error (deg)' ]
-csv_writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-csv_writer.writeheader()
-for i in range(len(data)):
-    row = { 'video time': "%.4f" % data[i][0],
-            'ekf roll error (deg)': "%.3f" % rollerr[i],
-            'ekf pitch error (deg)': "%.3f" % pitcherr[i] }
-    csv_writer.writerow(row)
-csvfile.close()
+    # write to file
+    csvfile = open(ekf_error, 'w')
+    fieldnames = [ 'video time',
+                   'ekf roll error (deg)', 'ekf pitch error (deg)' ]
+    csv_writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+    csv_writer.writeheader()
+    for i in range(len(data)):
+        row = { 'video time': "%.4f" % data[i][0],
+                'ekf roll error (rad)': "%.3f" % rollerr[i],
+                'ekf pitch error (rad)': "%.3f" % pitcherr[i] }
+        csv_writer.writerow(row)
+    csvfile.close()
 
-print(len(result), len(data), len(data[::2]), len(rollerr), len(pitcherr))
-data = np.array(data)
-plt.figure()
-plt.plot(data[:,0], rollerr*r2d, label="roll error")
-plt.plot(data[:,0], pitcherr*r2d, label="pitch error")
-plt.ylabel("Angle error (deg)")
-plt.xlabel("Flight time (sec)")
-plt.grid()
-plt.legend()
-plt.show()
+    print(len(result), len(data), len(data[::2]), len(rollerr), len(pitcherr))
+    data = np.array(data)
+    plt.figure()
+    plt.plot(data[:,0], rollerr*r2d, label="roll error")
+    plt.plot(data[:,0], pitcherr*r2d, label="pitch error")
+    plt.ylabel("Angle error (deg)")
+    plt.xlabel("Flight time (sec)")
+    plt.grid()
+    plt.legend()
+    plt.show()
