@@ -163,6 +163,8 @@ the_interp = interpolate.interp1d(ekf['time'], ekf['the'], bounds_error=False, f
 psix_interp = interpolate.interp1d(ekf['time'], ekf['psix'], bounds_error=False, fill_value=0.0)
 psiy_interp = interpolate.interp1d(ekf['time'], ekf['psiy'], bounds_error=False, fill_value=0.0)
 
+# but should we create the estimate for the whole flight?
+
 # Scan altitude range so we can match the portion of the flight that
 # is up and away.  This means the EKF will have had a better chance to
 # converge, and the horizon detection should be getting a clear view.
@@ -175,7 +177,7 @@ for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
     if max_alt is None or alt > max_alt:
         max_alt = alt
 print("altitude range: %.1f - %.1f (m)" % (min_alt, max_alt))
-if max_alt - min_alt > 30:
+if False and max_alt - min_alt > 30:
     alt_threshold = min_alt + (max_alt - min_alt) * 0.5
 else:
     alt_threshold = min_alt
@@ -230,14 +232,14 @@ pitcherr = result[1::2]
 # write to file
 print("Wriing ekf horizon estimate error to:", ekf_error)
 csvfile = open(ekf_error, 'w')
-fieldnames = [ 'video time',
-               'ekf roll error (deg)', 'ekf pitch error (deg)' ]
+fieldnames = [ 'flight time (sec)',
+               'ekf roll error (rad)', 'ekf pitch error (rad)' ]
 csv_writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 csv_writer.writeheader()
 for i in range(len(data)):
-    row = { 'video time': "%.4f" % data[i][0],
-            'ekf roll error (deg)': "%.3f" % rollerr[i],
-            'ekf pitch error (deg)': "%.3f" % pitcherr[i] }
+    row = { 'flight time (sec)': "%.4f" % data[i][0],
+            'ekf roll error (rad)': "%.3f" % rollerr[i],
+            'ekf pitch error (rad)': "%.3f" % pitcherr[i] }
     csv_writer.writerow(row)
 csvfile.close()
 
