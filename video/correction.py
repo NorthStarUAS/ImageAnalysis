@@ -1,8 +1,11 @@
 import fileinput
 import math
+from matplotlib import pyplot as plt
 import numpy as np
+import pandas as pd
 import re
 from scipy import interpolate # strait up linear interpolation, nothing fancy
+import scipy.signal as signal
 
 yaw_interp = None
 pitch_interp = None
@@ -11,7 +14,44 @@ north_interp = None
 east_interp = None
 down_interp = None
 
-def load(filename):
+def load_horiz(filename):
+    global roll_interp
+    global pitch_interp
+    
+    data = pd.read_csv(filename)
+    data.set_index('flight time (sec)', inplace=True, drop=False)
+
+    # time range / hz
+    tmin = data['flight time (sec)'].min()
+    tmax = data['flight time (sec)'].max()
+    span_sec = tmax - tmin
+    feat_count = len(data['flight time (sec)'])
+    print("number of video records:", feat_count)
+    hz = int(round((feat_count / span_sec)))
+
+    # smooth
+    cutoff_hz = 1
+    b, a = signal.butter(2, cutoff_hz, fs=hz)
+    data['ekf roll error (rad)'] = \
+        signal.filtfilt(b, a, data['ekf roll error (rad)'])
+    data['ekf pitch error (rad)'] = \
+        signal.filtfilt(b, a, data['ekf pitch error (rad)'])
+
+    if False:
+        plt.figure()
+        plt.plot(data['ekf roll error (rad)'], label="roll error")
+        plt.plot(data['ekf pitch error (rad)'], label="pitch error")
+        plt.xlabel("Flight time (sec)")
+        plt.ylabel("Rad")
+        plt.legend()
+        plt.show()
+
+    # interpolators
+    roll_interp = interpolate.interp1d(data['flight time (sec)'], data['ekf roll error (rad)'], bounds_error=False, fill_value=0.0)
+    pitch_interp = interpolate.interp1d(data['flight time (sec)'], data['ekf pitch error (rad)'], bounds_error=False, fill_value=0.0)
+
+    
+def load_old(filename):
     global yaw_interp
     global pitch_interp
     global roll_interp
