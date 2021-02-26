@@ -148,7 +148,7 @@ class HUD:
     def update_time(self, time, unixtime):
         self.time = time
         self.unixtime = unixtime
-        print('unix:', unixtime)
+        #print('unix:', unixtime)
 
     def update_test_index(self, mode, index):
         self.excite_mode = mode
@@ -609,7 +609,7 @@ class HUD:
             center_col = int(round(self.frame.shape[1] * 0.5))
         else:
             center_col = self.nose_uv[0]
-        print('center_col:', center_col)
+        #print('center_col:', center_col)
         row_start = self.frame.shape[0] - hdg_rows - 1
         col_start = center_col - int(round(hdg_cols * 0.5)) - 1
         row_end = row_start + hdg_rows
