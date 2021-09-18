@@ -787,9 +787,10 @@ def find_matches(proj, K, strategy="smart", transform="homography",
             # camera pose distance check
             ned2, ypr2, q2 = i2.get_camera_pose()
             dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
-            dist = int(round(dist/median_int))*median_int # discretized sorting/cache friendlier
+            interval = median_int * 1.3
             if dist >= min_dist and dist <= max_dist:
-                work_list.append( [dist, i, j] )
+                ddist = int(round(dist/interval))*interval # discretized sorting/cache friendlier
+                work_list.append( [ddist, i, j] )
 
     if sort:
         # (optional) sort worklist from closest pairs to furthest pairs
