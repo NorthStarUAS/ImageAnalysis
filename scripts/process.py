@@ -79,7 +79,7 @@ parser.add_argument('--reject-margin', default=0, help='reject features within t
 
 # feature matching arguments
 parser.add_argument('--match-strategy', default='traditional',
-                    choices=['smart', 'traditional', 'bruteforce'])
+                    choices=['smart', 'bestratio', 'traditional', 'bruteforce'])
 parser.add_argument('--match-ratio', default=0.75, type=float,
                     help='match ratio')
 parser.add_argument('--min-pairs', default=25, type=int,
