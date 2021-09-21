@@ -20,6 +20,7 @@ from lib import srtm
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('project', help='project directory')
+parser.add_argument('--annotate', action='store_true', help='add image names to the plot.')
 args = parser.parse_args()
 
 proj = project.ProjectMgr(args.project)
@@ -68,11 +69,13 @@ for group in group_list:
         points.append( (ned1[1], ned1[0]) )
     points = np.array(points)
     ax.plot(points[:,0], points[:,1], '*')
-    # attempt annotaitons
-for i1 in proj.image_list:
-    ned1, ypr1, quat1 = i1.get_camera_pose()
-    name = i1.name
-    ax.annotate(name, xy=(ned1[1], ned1[0]))
+
+if args.annotate:
+    # attempt annotations
+    for i1 in proj.image_list:
+        ned1, ypr1, quat1 = i1.get_camera_pose()
+        name = i1.name
+        ax.annotate(name, xy=(ned1[1], ned1[0]))
 
 points = []
 for name in remain_list:
