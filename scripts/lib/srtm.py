@@ -44,6 +44,8 @@ class SRTM():
     # load the directory download dictionary (mapping a desired file
     # to a download path.)
     def load_srtm_dict(self, dict_path):
+        print("switched to http://bailu.ch so no remapping dictionary needed.")
+        return
         dict_file = dict_path + '/srtm.json'
         try:
             f = open(dict_file, 'r')
@@ -62,16 +64,22 @@ class SRTM():
 
     # download and extract srtm file into cache directory
     def download_srtm(self, fileroot):
-        if fileroot in self.srtm_dict:
-            url = self.srtm_dict[fileroot]
-            download_file = self.srtm_cache_dir + '/' + fileroot + '.hgt.zip'
-            log("SRTM: downloading:", url)
-            file = urllib.request.URLopener()
-            log(file.retrieve(url, download_file))
-            return True
-        else:
-            log("SRTM: requested srtm file not in catalog:", fileroot)
-            return False
+        url = "https://bailu.ch/dem3/" + fileroot[:3] + "/" + fileroot + ".hgt.zip"
+        download_file = self.srtm_cache_dir + '/' + fileroot + '.hgt.zip'
+        log("SRTM: downloading:", url)
+        file = urllib.request.URLopener()
+        log(file.retrieve(url, download_file))
+        return True
+        # if fileroot in self.srtm_dict:
+        #     url = self.srtm_dict[fileroot]
+        #     download_file = self.srtm_cache_dir + '/' + fileroot + '.hgt.zip'
+        #     log("SRTM: downloading:", url)
+        #     file = urllib.request.URLopener()
+        #     log(file.retrieve(url, download_file))
+        #     return True
+        # else:
+        #     log("SRTM: requested srtm file not in catalog:", fileroot)
+        #     return False
         
     def parse(self):
         tilename = make_tile_name(self.lat, self.lon)
