@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# track motion with optical flow
+
 import argparse
 import csv
 import cv2
@@ -95,76 +97,9 @@ if args.write:
     }
     video_writer = skvideo.io.FFmpegWriter(output_video, inputdict=inputdict, outputdict=sane)
 
-def filterMatches(kp1, kp2, matches):
-    mkp1, mkp2 = [], []
-    idx_pairs = []
-    used = np.zeros(len(kp2), np.bool_)
-    for m in matches:
-        if len(m) == 2 and m[0].distance < m[1].distance * match_ratio:
-            #print " dist[0] = %d  dist[1] = %d" % (m[0].distance, m[1].distance)
-            m = m[0]
-            # FIXME: ignore the bottom section of movie for feature detection
-            #if kp1[m.queryIdx].pt[1] > h*0.75:
-            #    continue
-            if not used[m.trainIdx]:
-                used[m.trainIdx] = True
-                mkp1.append( kp1[m.queryIdx] )
-                mkp2.append( kp2[m.trainIdx] )
-                idx_pairs.append( (m.queryIdx, m.trainIdx) )
-    p1 = np.float32([kp.pt for kp in mkp1])
-    p2 = np.float32([kp.pt for kp in mkp2])
-    kp_pairs = zip(mkp1, mkp2)
-    return p1, p2, kp_pairs, idx_pairs
-
-def filterFeatures(p1, p2, K, method):
-    inliers = 0
-    total = len(p1)
-    space = ""
-    status = []
-    M = None
-    if len(p1) < 7:
-        # not enough points
-        return None, np.zeros(total), [], []
-    if method == 'homography':
-        #M, status = cv2.findHomography(p1, p2, cv2.RANSAC, tol)
-        M, status = cv2.findHomography(p1, p2, cv2.LMEDS, tol)
-    elif method == 'fundamental':
-        M, status = cv2.findFundamentalMat(p1, p2, cv2.RANSAC, tol)
-    elif method == 'essential':
-        M, status = cv2.findEssentialMat(p1, p2, K, cv2.LMEDS, prob=0.99999, threshold=tol)
-    elif method == 'none':
-        M = None
-        status = np.ones(total)
-    newp1 = []
-    newp2 = []
-    for i, flag in enumerate(status):
-        if flag:
-            newp1.append(p1[i])
-            newp2.append(p2[i])
-    inliers = np.sum(status)
-    total = len(status)
-    #print('%s%d / %d  inliers/matched' % (space, np.sum(status), len(status)))
-    return M, status, np.float32(newp1), np.float32(newp2)
-
-if True:
-    # for ORB
-    detector = cv2.ORB_create(max_features)
-    extractor = detector
-    norm = cv2.NORM_HAMMING
-    matcher = cv2.BFMatcher(norm)
-else:
-    # for SIFT
-    detector = cv2.SIFT_create(nfeatures=max_features, nOctaveLayers=5)
-    extractor = detector
-    norm = cv2.NORM_L2
-    FLANN_INDEX_KDTREE = 1  # bug: flann enums are missing
-    FLANN_INDEX_LSH    = 6
-    flann_params = { 'algorithm': FLANN_INDEX_KDTREE,
-                     'trees': 5 }
-    matcher = cv2.FlannBasedMatcher(flann_params, {}) # bug : need to pass empty dict (#1329)
-
 slow = np.array( [] )
 fast = np.array( [] )
+prev_gray = np.array( [] )
 kp_list_last = []
 des_list_last = []
 p1 = []
@@ -182,59 +117,44 @@ for frame in reader.nextFrame():
     #if counter % 2 != 0:
     #    continue
     
-    if counter < skip_frames:
-        if counter % 100 == 0:
-            print("Skipping %d frames..." % counter)
-        else:
-            continue
-
-    # print "Frame %d" % counter
-
-    method = cv2.INTER_AREA
-    #method = cv2.INTER_LANCZOS4
     frame_scale = cv2.resize(frame, (0,0), fx=scale, fy=scale,
-                             interpolation=method)
+                             interpolation=cv2.INTER_AREA)
     cv2.imshow('scaled orig', frame_scale)
     shape = frame_scale.shape
-    tol = shape[1] / 300.0
-    if tol < 1.0: tol = 1.0
-
     frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
     cv2.imshow("frame undist", frame_undist)
-
-    gray = cv2.cvtColor(frame_undist, cv2.COLOR_BGR2GRAY)
-    frame_undist = gray
+    curr_gray = cv2.cvtColor(frame_undist, cv2.COLOR_BGR2GRAY)
+    if prev_gray.shape[0] == 0:
+        prev_gray = curr_gray.copy()
     
-    kp_list = detector.detect(gray)
-    kp_list, des_list = extractor.compute(gray, kp_list)
-
-    # Fixme: make a command line option
-    # possible values are "homography", "fundamental", "essential", "none"
-    filter_method = "homography"
-
-    if des_list_last is None or des_list is None or len(des_list_last) == 0 or len(des_list) == 0:
-        kp_list_last = kp_list
-        des_list_last = des_list
-        continue
+    # Detect feature points in previous frame
+    prev_pts = cv2.goodFeaturesToTrack(prev_gray,
+                                       maxCorners=200,
+                                       qualityLevel=0.01,
+	                               minDistance=30,
+                                       blockSize=3)
     
-    #print(len(des_list_last), len(des_list))
-    matches = matcher.knnMatch(des_list, trainDescriptors=des_list_last, k=2)
-    p1, p2, kp_pairs, idx_pairs = filterMatches(kp_list, kp_list_last, matches)
-    kp_list_last = kp_list
-    des_list_last = des_list
+    # Calculate optical flow (i.e. track feature points)
+    curr_pts, status, err = cv2.calcOpticalFlowPyrLK(prev_gray, curr_gray, prev_pts, None)
+    
+    # Sanity check
+    assert prev_pts.shape == curr_pts.shape
 
-    M, status, newp1, newp2 = filterFeatures(p1, p2, K, filter_method)
-    if len(newp1) < 1:
-        continue
+    # Filter only valid points
+    idx = np.where(status==1)[0]
+    prev_pts = prev_pts[idx]
+    curr_pts = curr_pts[idx]
 
+    tol = 2
+    M, status = cv2.findHomography(prev_pts, curr_pts, cv2.LMEDS, tol)
     print("M:\n", M)
     
     if slow.shape[0] == 0 or fast.shape[0] == 0:
-        slow = frame_undist.copy()
-        fast = frame_undist.copy()
+        slow = curr_gray.copy()
+        fast = curr_gray.copy()
     else:
-        mask = np.ones( frame_undist.shape[:2] ).astype('uint8')*255
-        mask = cv2.warpPerspective(mask, np.linalg.inv(M), (frame_undist.shape[1], frame_undist.shape[0]), flags=warp_flags)
+        mask = np.ones( curr_gray.shape[:2] ).astype('uint8')*255
+        mask = cv2.warpPerspective(mask, M, (curr_gray.shape[1], curr_gray.shape[0]), flags=warp_flags)
         mask = cv2.erode(mask, kernel5, iterations=3)
         print(np.count_nonzero(mask==255) + np.count_nonzero(mask==0))
         ret, mask = cv2.threshold(mask, 128, 255, cv2.THRESH_BINARY)
@@ -243,18 +163,18 @@ for frame in reader.nextFrame():
         print(np.count_nonzero(mask_inv==255) + np.count_nonzero(mask_inv==0))
         #cv2.imshow("mask", mask)
         #cv2.imshow("mask_inv", mask_inv)
-        print(frame_undist.shape, mask_inv.shape)
-        a1 = cv2.bitwise_and(frame_undist, frame_undist, mask=mask_inv)
+        print(curr_gray.shape, mask_inv.shape)
+        a1 = cv2.bitwise_and(curr_gray, curr_gray, mask=mask_inv)
         #cv2.imshow("a1", a1)
-        slow_proj = cv2.warpPerspective(slow, np.linalg.inv(M), (frame_undist.shape[1], frame_undist.shape[0]), flags=warp_flags)
-        fast_proj = cv2.warpPerspective(fast, np.linalg.inv(M), (frame_undist.shape[1], frame_undist.shape[0]), flags=warp_flags)
+        slow_proj = cv2.warpPerspective(slow, M, (curr_gray.shape[1], curr_gray.shape[0]), flags=warp_flags)
+        fast_proj = cv2.warpPerspective(fast, M, (curr_gray.shape[1], curr_gray.shape[0]), flags=warp_flags)
         slow_a2 = cv2.bitwise_and(slow_proj, slow_proj, mask=mask)
         fast_a2 = cv2.bitwise_and(fast_proj, fast_proj, mask=mask)
         #cv2.imshow("a2", a2)
         slow_comp = cv2.add(a1, slow_a2)
         fast_comp = cv2.add(a1, fast_a2)
-        slow = cv2.addWeighted(slow_comp, 0.95, frame_undist, 0.05, 0)
-        fast = cv2.addWeighted(fast_comp, 0.4, frame_undist, 0.6, 0)
+        slow = cv2.addWeighted(slow_comp, 0.95, curr_gray, 0.05, 0)
+        fast = cv2.addWeighted(fast_comp, 0.4, curr_gray, 0.6, 0)
         #blend = cv2.resize(blend, (int(w*args.scale), int(h*args.scale)))
     cv2.imshow("zero frequency background", slow)
     cv2.imshow("fast average", fast)
@@ -268,10 +188,11 @@ for frame in reader.nextFrame():
     cv2.imshow("diff", diff_img)
         
     if True:
-        for pt in newp1:
-            cv2.circle(frame_scale, (int(pt[0]), int(pt[1])), 3, (0,255,0), 1, cv2.LINE_AA)
-        for pt in newp2:
-            cv2.circle(frame_scale, (int(pt[0]), int(pt[1])), 2, (0,0,255), 1, cv2.LINE_AA)
+        for pt in curr_pts:
+            print(pt)
+            cv2.circle(frame_scale, (int(pt[0][0]), int(pt[0][1])), 3, (0,255,0), 1, cv2.LINE_AA)
+        for pt in prev_pts:
+            cv2.circle(frame_scale, (int(pt[0][0]), int(pt[0][1])), 2, (0,0,255), 1, cv2.LINE_AA)
 
     cv2.imshow('bgr', frame_scale)
 
@@ -281,7 +202,8 @@ for frame in reader.nextFrame():
     if args.write:
         #video_writer.writeFrame(diff_img[:,:,::-1])
         video_writer.writeFrame(diff_img)
-    time.sleep(0.1)
+    prev_gray = curr_gray.copy()
+    
     if 0xFF & cv2.waitKey(1) == 27:
         break
     pbar.update(1)
