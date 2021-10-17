@@ -45,7 +45,8 @@ skip_frames = args.skip_frames
 abspath = os.path.abspath(args.video)
 filename, ext = os.path.splitext(abspath)
 dirname = os.path.dirname(args.video)
-output_video = filename + "_motion_diff.mp4"
+bg_video = filename + "_bg.mp4"
+motion_video = filename + "_motion.mp4"
 local_config = os.path.join(dirname, "camera.json")
 
 camera = camera.VirtualCamera()
@@ -67,7 +68,10 @@ fps = float(num) / float(den)
 codec = metadata['video']['@codec_long_name']
 w = int(round(int(metadata['video']['@width']) * scale))
 h = int(round(int(metadata['video']['@height']) * scale))
-total_frames = int(round(float(metadata['video']['@duration']) * fps))
+if "@duration" in metadata["video"]:
+    total_frames = int(round(float(metadata['video']['@duration']) * fps))
+else:
+    total_frames = 1
 
 print('fps:', fps)
 print('codec:', codec)
@@ -95,7 +99,8 @@ if args.write:
         '-preset': 'medium',   # default compression
         '-r': str(fps)         # match input fps
     }
-    video_writer = skvideo.io.FFmpegWriter(output_video, inputdict=inputdict, outputdict=sane)
+    motion_writer = skvideo.io.FFmpegWriter(motion_video, inputdict=inputdict, outputdict=sane)
+    bg_writer = skvideo.io.FFmpegWriter(bg_video, inputdict=inputdict, outputdict=sane)
 
 slow = np.array( [] )
 fast = np.array( [] )
@@ -150,8 +155,8 @@ for frame in reader.nextFrame():
     print("M:\n", M)
     
     if slow.shape[0] == 0 or fast.shape[0] == 0:
-        slow = curr_gray.copy()
-        fast = curr_gray.copy()
+        slow = frame_undist.copy()
+        fast = frame_undist.copy()
     else:
         mask = np.ones( curr_gray.shape[:2] ).astype('uint8')*255
         mask = cv2.warpPerspective(mask, M, (curr_gray.shape[1], curr_gray.shape[0]), flags=warp_flags)
@@ -164,17 +169,17 @@ for frame in reader.nextFrame():
         #cv2.imshow("mask", mask)
         #cv2.imshow("mask_inv", mask_inv)
         print(curr_gray.shape, mask_inv.shape)
-        a1 = cv2.bitwise_and(curr_gray, curr_gray, mask=mask_inv)
+        a1 = cv2.bitwise_and(frame_undist, frame_undist, mask=mask_inv)
         #cv2.imshow("a1", a1)
-        slow_proj = cv2.warpPerspective(slow, M, (curr_gray.shape[1], curr_gray.shape[0]), flags=warp_flags)
-        fast_proj = cv2.warpPerspective(fast, M, (curr_gray.shape[1], curr_gray.shape[0]), flags=warp_flags)
+        slow_proj = cv2.warpPerspective(slow, M, (frame_undist.shape[1], frame_undist.shape[0]), flags=warp_flags)
+        fast_proj = cv2.warpPerspective(fast, M, (frame_undist.shape[1], frame_undist.shape[0]), flags=warp_flags)
         slow_a2 = cv2.bitwise_and(slow_proj, slow_proj, mask=mask)
         fast_a2 = cv2.bitwise_and(fast_proj, fast_proj, mask=mask)
         #cv2.imshow("a2", a2)
         slow_comp = cv2.add(a1, slow_a2)
         fast_comp = cv2.add(a1, fast_a2)
-        slow = cv2.addWeighted(slow_comp, 0.95, curr_gray, 0.05, 0)
-        fast = cv2.addWeighted(fast_comp, 0.4, curr_gray, 0.6, 0)
+        slow = cv2.addWeighted(slow_comp, 0.97, frame_undist, 0.03, 0)
+        fast = cv2.addWeighted(fast_comp, 0.25, frame_undist, 0.75, 0)
         #blend = cv2.resize(blend, (int(w*args.scale), int(h*args.scale)))
     cv2.imshow("zero frequency background", slow)
     cv2.imshow("fast average", fast)
@@ -186,22 +191,30 @@ for frame in reader.nextFrame():
     print("diff_factor:", diff_factor)
     diff_img = (255*diff.astype('float32')/diff_factor).astype('uint8')
     cv2.imshow("diff", diff_img)
-        
+    if False:
+        diff = cv2.dilate(diff, kernel3, iterations=2)
+        diff = cv2.erode(diff, kernel3, iterations=2)
+        ret, otsu = cv2.threshold(diff, 0, 255,
+                                  cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        cv2.imshow("otsu", otsu)
     if True:
         for pt in curr_pts:
-            print(pt)
-            cv2.circle(frame_scale, (int(pt[0][0]), int(pt[0][1])), 3, (0,255,0), 1, cv2.LINE_AA)
+            cv2.circle(frame_undist, (int(pt[0][0]), int(pt[0][1])), 3, (0,255,0), 1, cv2.LINE_AA)
         for pt in prev_pts:
-            cv2.circle(frame_scale, (int(pt[0][0]), int(pt[0][1])), 2, (0,0,255), 1, cv2.LINE_AA)
+            cv2.circle(frame_undist, (int(pt[0][0]), int(pt[0][1])), 2, (0,0,255), 1, cv2.LINE_AA)
 
-    cv2.imshow('bgr', frame_scale)
+    cv2.imshow('features', frame_undist)
 
     # highlight = frame_scale.astype('float32') + 2*cv2.merge((diff, diff, diff))
     # cv2.imshow("highlight", (255*highlight.astype('float32')/np.max(highlight)).astype('uint8'))
     
     if args.write:
-        #video_writer.writeFrame(diff_img[:,:,::-1])
-        video_writer.writeFrame(diff_img)
+        # if rgb
+        motion_writer.writeFrame(diff_img[:,:,::-1])
+        bg_writer.writeFrame(slow[:,:,::-1])
+        # if gray
+        #motion_writer.writeFrame(diff_img)
+        #bg_writer.writeFrame(slow)
     prev_gray = curr_gray.copy()
     
     if 0xFF & cv2.waitKey(1) == 27:
