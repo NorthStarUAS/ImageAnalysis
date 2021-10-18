@@ -138,20 +138,35 @@ for frame in reader.nextFrame():
                                        qualityLevel=0.01,
 	                               minDistance=30,
                                        blockSize=3)
-    
+
     # Calculate optical flow (i.e. track feature points)
-    curr_pts, status, err = cv2.calcOpticalFlowPyrLK(prev_gray, curr_gray, prev_pts, None)
+    print("prev_pts:", prev_pts)
+    
+    if prev_pts is not None:
+        curr_pts, status, err = cv2.calcOpticalFlowPyrLK(prev_gray, curr_gray,
+                                                         prev_pts, None)
+    else:
+        prev_pts = np.zeros(0)
+        curr_pts = np.zeros(0)
+        status = np.zeros(0)
+
+    # done with prev_gray, get ready for next iteration
+    prev_gray = curr_gray.copy()
     
     # Sanity check
-    assert prev_pts.shape == curr_pts.shape
+    if prev_pts.shape != curr_pts.shape:
+        prev_pts = curr_pts
 
     # Filter only valid points
     idx = np.where(status==1)[0]
     prev_pts = prev_pts[idx]
     curr_pts = curr_pts[idx]
 
-    tol = 2
-    M, status = cv2.findHomography(prev_pts, curr_pts, cv2.LMEDS, tol)
+    if curr_pts.shape[0] >= 4:
+        tol = 2
+        M, status = cv2.findHomography(prev_pts, curr_pts, cv2.LMEDS, tol)
+    else:
+        M = np.eye(3)
     print("M:\n", M)
     
     if slow.shape[0] == 0 or fast.shape[0] == 0:
@@ -215,7 +230,6 @@ for frame in reader.nextFrame():
         # if gray
         #motion_writer.writeFrame(diff_img)
         #bg_writer.writeFrame(slow)
-    prev_gray = curr_gray.copy()
     
     if 0xFF & cv2.waitKey(1) == 27:
         break
