@@ -6,7 +6,7 @@ import navpy
 import numpy as np
 import re
 
-from auracore import wgs84
+from rcUAS import wgs84
 
 import sys
 sys.path.append('../scripts')
@@ -692,6 +692,8 @@ class HUD:
             wind_rad = self.wind_deg * d2r
             wind_kt = self.wind_kt
             max_wind = self.ap_speed
+            if max_wind < 0.1:
+                max_wind = 30
             if wind_kt > max_wind: wind_kt = max_wind
             wc_rot = wind_rad - self.psi_rad
             if wc_rot < -math.pi:
