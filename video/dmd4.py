@@ -19,14 +19,11 @@ sys.path.append('../scripts')
 from lib import transformations
 
 import camera
+from motion import myFeatureFlow
 
 # constants
 d2r = math.pi / 180.0
 r2d = 180.0 / math.pi
-
-match_ratio = 0.75
-max_features = 500
-tol = 1.0
 
 parser = argparse.ArgumentParser(description='Track motion with homography transformation.')
 parser.add_argument('video', help='video file')
@@ -95,73 +92,7 @@ if args.write:
     }
     video_writer = skvideo.io.FFmpegWriter(output_video, inputdict=inputdict, outputdict=sane)
 
-def filterMatches(kp1, kp2, matches):
-    mkp1, mkp2 = [], []
-    idx_pairs = []
-    used = np.zeros(len(kp2), np.bool_)
-    for m in matches:
-        if len(m) == 2 and m[0].distance < m[1].distance * match_ratio:
-            #print " dist[0] = %d  dist[1] = %d" % (m[0].distance, m[1].distance)
-            m = m[0]
-            # FIXME: ignore the bottom section of movie for feature detection
-            #if kp1[m.queryIdx].pt[1] > h*0.75:
-            #    continue
-            if not used[m.trainIdx]:
-                used[m.trainIdx] = True
-                mkp1.append( kp1[m.queryIdx] )
-                mkp2.append( kp2[m.trainIdx] )
-                idx_pairs.append( (m.queryIdx, m.trainIdx) )
-    p1 = np.float32([kp.pt for kp in mkp1])
-    p2 = np.float32([kp.pt for kp in mkp2])
-    kp_pairs = zip(mkp1, mkp2)
-    return p1, p2, kp_pairs, idx_pairs
-
-def filterFeatures(p1, p2, K, method):
-    inliers = 0
-    total = len(p1)
-    space = ""
-    status = []
-    M = None
-    if len(p1) < 7:
-        # not enough points
-        return None, np.zeros(total), [], []
-    if method == 'homography':
-        #M, status = cv2.findHomography(p1, p2, cv2.RANSAC, tol)
-        M, status = cv2.findHomography(p1, p2, cv2.LMEDS, tol)
-    elif method == 'fundamental':
-        M, status = cv2.findFundamentalMat(p1, p2, cv2.RANSAC, tol)
-    elif method == 'essential':
-        M, status = cv2.findEssentialMat(p1, p2, K, cv2.LMEDS, prob=0.99999, threshold=tol)
-    elif method == 'none':
-        M = None
-        status = np.ones(total)
-    newp1 = []
-    newp2 = []
-    for i, flag in enumerate(status):
-        if flag:
-            newp1.append(p1[i])
-            newp2.append(p2[i])
-    inliers = np.sum(status)
-    total = len(status)
-    #print('%s%d / %d  inliers/matched' % (space, np.sum(status), len(status)))
-    return M, status, np.float32(newp1), np.float32(newp2)
-
-if True:
-    # for ORB
-    detector = cv2.ORB_create(max_features)
-    extractor = detector
-    norm = cv2.NORM_HAMMING
-    matcher = cv2.BFMatcher(norm)
-else:
-    # for SIFT
-    detector = cv2.SIFT_create(nfeatures=max_features, nOctaveLayers=5)
-    extractor = detector
-    norm = cv2.NORM_L2
-    FLANN_INDEX_KDTREE = 1  # bug: flann enums are missing
-    FLANN_INDEX_LSH    = 6
-    flann_params = { 'algorithm': FLANN_INDEX_KDTREE,
-                     'trees': 5 }
-    matcher = cv2.FlannBasedMatcher(flann_params, {}) # bug : need to pass empty dict (#1329)
+flow = myFeatureFlow(K)
 
 slow = np.array( [] )
 fast = np.array( [] )
@@ -195,39 +126,11 @@ for frame in reader.nextFrame():
     frame_scale = cv2.resize(frame, (0,0), fx=scale, fy=scale,
                              interpolation=method)
     cv2.imshow('scaled orig', frame_scale)
-    shape = frame_scale.shape
-    tol = shape[1] / 300.0
-    if tol < 1.0: tol = 1.0
 
     frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
     cv2.imshow("frame undist", frame_undist)
 
-    gray = cv2.cvtColor(frame_undist, cv2.COLOR_BGR2GRAY)
-    frame_undist = gray
-    
-    kp_list = detector.detect(gray)
-    kp_list, des_list = extractor.compute(gray, kp_list)
-
-    # Fixme: make a command line option
-    # possible values are "homography", "fundamental", "essential", "none"
-    filter_method = "homography"
-
-    if des_list_last is None or des_list is None or len(des_list_last) == 0 or len(des_list) == 0:
-        kp_list_last = kp_list
-        des_list_last = des_list
-        continue
-    
-    #print(len(des_list_last), len(des_list))
-    matches = matcher.knnMatch(des_list, trainDescriptors=des_list_last, k=2)
-    p1, p2, kp_pairs, idx_pairs = filterMatches(kp_list, kp_list_last, matches)
-    kp_list_last = kp_list
-    des_list_last = des_list
-
-    M, status, newp1, newp2 = filterFeatures(p1, p2, K, filter_method)
-    if len(newp1) < 1:
-        continue
-
-    print("M:\n", M)
+    M, newp1, newp2 = flow.update(frame_undist)
     
     if slow.shape[0] == 0 or fast.shape[0] == 0:
         slow = frame_undist.copy()
