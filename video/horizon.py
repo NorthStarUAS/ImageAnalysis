@@ -14,7 +14,7 @@ def ClosestPointOnLine(a, b, p):
 
 # locate horizon and estimate relative roll/pitch of the camera,
 # returns hough lines found (sorted by most dominant first.)
-def horizon(frame):
+def horizon(frame, do_otsu=True):
     # attempt to threshold on high blue values (blue<->white)
     b, g, r = cv2.split(frame)
     cv2.imshow("b", b)
@@ -24,61 +24,65 @@ def horizon(frame):
     #print("blue range:", np.min(b), np.max(b))
     #print('ave:', np.average(b), np.average(g), np.average(r))
 
-    # Otsu thresholding on blue channel
-    ret2, otsu = cv2.threshold(b, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-    #print('ret2:', ret2)
-    cv2.imshow('otsu mask', otsu)
-
-    # Do a simple structural analysis and find the largest/upper-most
-    # connected area that is part of the sky and use that as our sky
-    # mask
-    retval, labels, stats, centroids = cv2.connectedComponentsWithStats(otsu)
-    #print("retval:", retval)
-    #print("labels:", labels.shape, labels)
-    #print("stats:", stats)
-    max_metric = 0
-    max_index = -1
-    max_mask = None
-    h,w = b.shape
-    for i in range(retval):
-        top = stats[i,1]
-        height = stats[i,3]
-        pos = top + height*0.5
-        pixels = stats[i,4]
-        metric = pixels * (h-pos)/h
-        #print("metric:", pixels, top, metric)
-        if metric > max_metric:
-            lmask = np.uint8(labels==i)*255
-            mask = cv2.bitwise_and(otsu, otsu, mask=lmask)
-            if np.any(mask):
-                max_metric = metric
-                max_index = i
-                max_mask = mask.copy()
-    cv2.imshow('max mask', max_mask.astype(np.uint8))
-    #print("centroids:", centroids)
-    
-    # dilate the mask a small bit
-    kernel = np.ones((5,5), np.uint8)
-    max_mask = cv2.dilate(max_mask, kernel, iterations=1)
-  
-    # global thresholding on blue channel before edge detection
-    #thresh = cv2.inRange(frame, (210, 0, 0), (255, 255, 255))
-    #cv2.imshow('global mask', thresh)
-        
-    preview = cv2.bitwise_and(frame, frame, mask=max_mask)
-    cv2.imshow("threshold", preview)
-
     # the lower the 1st canny number the more total edges are accepted
     # the lower the 2nd canny number the less hard the edges need to
     # be to accept an edge
-    edges = cv2.Canny(b, 50, 150)
     #edges = cv2.Canny(b, 200, 600)
+    if do_otsu:
+        edges = cv2.Canny(b, 50, 150)
+    else:
+        edges = cv2.Canny(b, 25, 75)
     cv2.imshow("edges", edges)
 
-    # Use the blue mask (Otsu) to filter out edge noise in area we
-    # don't care about (to improve performance of the hough transform)
-    edges = cv2.bitwise_and(edges, edges, mask=max_mask)
-    cv2.imshow("masked edges", edges)
+    if do_otsu:
+        # Otsu thresholding on blue channel
+        ret2, otsu = cv2.threshold(b, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        #print('ret2:', ret2)
+        cv2.imshow('otsu mask', otsu)
+
+        # Do a simple structural analysis and find the largest/upper-most
+        # connected area that is part of the sky and use that as our sky
+        # mask
+        retval, labels, stats, centroids = cv2.connectedComponentsWithStats(otsu)
+        #print("retval:", retval)
+        #print("labels:", labels.shape, labels)
+        #print("stats:", stats)
+        max_metric = 0
+        max_index = -1
+        max_mask = None
+        h,w = b.shape
+        for i in range(retval):
+            top = stats[i,1]
+            height = stats[i,3]
+            pos = top + height*0.5
+            pixels = stats[i,4]
+            metric = pixels * (h-pos)/h
+            #print("metric:", pixels, top, metric)
+            if metric > max_metric:
+                lmask = np.uint8(labels==i)*255
+                mask = cv2.bitwise_and(otsu, otsu, mask=lmask)
+                if np.any(mask):
+                    max_metric = metric
+                    max_index = i
+                    max_mask = mask.copy()
+        cv2.imshow('max mask', max_mask.astype(np.uint8))
+        #print("centroids:", centroids)
+
+        # dilate the mask a small bit
+        kernel = np.ones((5,5), np.uint8)
+        max_mask = cv2.dilate(max_mask, kernel, iterations=1)
+  
+        # global thresholding on blue channel before edge detection
+        #thresh = cv2.inRange(frame, (210, 0, 0), (255, 255, 255))
+        #cv2.imshow('global mask', thresh)
+
+        preview = cv2.bitwise_and(frame, frame, mask=max_mask)
+        cv2.imshow("threshold", preview)
+
+        # Use the blue mask (Otsu) to filter out edge noise in area we
+        # don't care about (to improve performance of the hough transform)
+        edges = cv2.bitwise_and(edges, edges, mask=max_mask)
+        cv2.imshow("masked edges", edges)
     
     #theta_res = np.pi/180       # 1 degree
     theta_res = np.pi/1800      # 0.1 degree
@@ -150,7 +154,7 @@ def get_camera_attitude(line, IK, cu, cv):
     pitch = np.arccos(dot_product) * r2d
     if p0[1] < cv:
         pitch = -pitch
-    print("roll: %.1f pitch: %.1f" % (roll, pitch))
+    #print("roll: %.1f pitch: %.1f" % (roll, pitch))
     return roll, pitch
 
 # line is the first array entry from cv2.HoughLines()
