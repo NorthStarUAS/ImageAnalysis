@@ -14,16 +14,8 @@ import time
 from props import PropertyNode
 import props_json
 
-import sys
-sys.path.append('../scripts')
-from lib import transformations
-
 import camera
 from motion import myFeatureFlow
-
-# constants
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
 
 parser = argparse.ArgumentParser(description='Track motion with homography transformation.')
 parser.add_argument('video', help='video file')
@@ -40,7 +32,8 @@ skip_frames = args.skip_frames
 abspath = os.path.abspath(args.video)
 filename, ext = os.path.splitext(abspath)
 dirname = os.path.dirname(args.video)
-output_video = filename + "_motion_diff.mp4"
+bg_video = filename + "_bg.mp4"
+motion_video = filename + "_motion.mp4"
 local_config = os.path.join(dirname, "camera.json")
 
 camera = camera.VirtualCamera()
@@ -62,7 +55,10 @@ fps = float(num) / float(den)
 codec = metadata['video']['@codec_long_name']
 w = int(round(int(metadata['video']['@width']) * scale))
 h = int(round(int(metadata['video']['@height']) * scale))
-total_frames = int(round(float(metadata['video']['@duration']) * fps))
+if "@duration" in metadata["video"]:
+    total_frames = int(round(float(metadata['video']['@duration']) * fps))
+else:
+    total_frames = 1
 
 print('fps:', fps)
 print('codec:', codec)
@@ -90,7 +86,8 @@ if args.write:
         '-preset': 'medium',   # default compression
         '-r': str(fps)         # match input fps
     }
-    video_writer = skvideo.io.FFmpegWriter(output_video, inputdict=inputdict, outputdict=sane)
+    motion_writer = skvideo.io.FFmpegWriter(motion_video, inputdict=inputdict, outputdict=sane)
+    bg_writer = skvideo.io.FFmpegWriter(bg_video, inputdict=inputdict, outputdict=sane)
 
 flow = myFeatureFlow(K)
 
@@ -182,9 +179,13 @@ for frame in reader.nextFrame():
     # cv2.imshow("highlight", (255*highlight.astype('float32')/np.max(highlight)).astype('uint8'))
     
     if args.write:
-        #video_writer.writeFrame(diff_img[:,:,::-1])
-        video_writer.writeFrame(diff_img)
-    time.sleep(0.1)
+        # if rgb
+        motion_writer.writeFrame(diff_img[:,:,::-1])
+        bg_writer.writeFrame(slow[:,:,::-1])
+        # if gray
+        #motion_writer.writeFrame(diff_img)
+        #bg_writer.writeFrame(slow)
+    
     if 0xFF & cv2.waitKey(1) == 27:
         break
     pbar.update(1)

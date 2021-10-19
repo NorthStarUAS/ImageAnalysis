@@ -9,7 +9,11 @@ import numpy as np
 
 
 # a fast optical flow based method, generally is the best choice for
-# unobstructed views.
+# unobstructed views. Tracked featurs are distributed well across the
+# entire image for a best homography fit.
+#
+# Based on this tutorial: https://learnopencv.com/video-stabilization-using-point-feature-matching-in-opencv/
+
 class myOpticalFlow():
     def __init__(self):
         self.prev_gray = np.zeros(0)
@@ -58,7 +62,10 @@ class myOpticalFlow():
 
 
 # a feature matching based method.  This can be more robust with
-# difficult situations like a spinning propellor dominating the view.
+# difficult situations like a spinning propellor dominating the view,
+# but tracked feature distribution can be poor depending on the scene
+# composition.
+
 class myFeatureFlow():
     def __init__(self, K):
         self.K = K

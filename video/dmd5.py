@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-# track motion with optical flow, based on this tutorial:
-# https://learnopencv.com/video-stabilization-using-point-feature-matching-in-opencv/
-
 import argparse
 import csv
 import cv2
@@ -19,14 +16,6 @@ import props_json
 
 import camera
 from motion import myOpticalFlow
-
-# constants
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
-
-match_ratio = 0.75
-max_features = 500
-tol = 1.0
 
 parser = argparse.ArgumentParser(description='Track motion with homography transformation.')
 parser.add_argument('video', help='video file')
@@ -104,7 +93,6 @@ flow = myOpticalFlow()
 
 slow = np.array( [] )
 fast = np.array( [] )
-prev_gray = np.array( [] )
 kp_list_last = []
 des_list_last = []
 p1 = []
@@ -125,7 +113,6 @@ for frame in reader.nextFrame():
     frame_scale = cv2.resize(frame, (0,0), fx=scale, fy=scale,
                              interpolation=cv2.INTER_AREA)
     cv2.imshow('scaled orig', frame_scale)
-    shape = frame_scale.shape
     frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
     cv2.imshow("frame undist", frame_undist)
 
