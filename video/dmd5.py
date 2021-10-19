@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-# track motion with optical flow
+# track motion with optical flow, based on this tutorial:
+# https://learnopencv.com/video-stabilization-using-point-feature-matching-in-opencv/
 
 import argparse
 import csv
@@ -16,11 +17,8 @@ import time
 from props import PropertyNode
 import props_json
 
-import sys
-sys.path.append('../scripts')
-from lib import transformations
-
 import camera
+from motion import myOpticalFlow
 
 # constants
 d2r = math.pi / 180.0
@@ -102,6 +100,8 @@ if args.write:
     motion_writer = skvideo.io.FFmpegWriter(motion_video, inputdict=inputdict, outputdict=sane)
     bg_writer = skvideo.io.FFmpegWriter(bg_video, inputdict=inputdict, outputdict=sane)
 
+flow = myOpticalFlow()
+
 slow = np.array( [] )
 fast = np.array( [] )
 prev_gray = np.array( [] )
@@ -128,53 +128,16 @@ for frame in reader.nextFrame():
     shape = frame_scale.shape
     frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
     cv2.imshow("frame undist", frame_undist)
-    curr_gray = cv2.cvtColor(frame_undist, cv2.COLOR_BGR2GRAY)
-    if prev_gray.shape[0] == 0:
-        prev_gray = curr_gray.copy()
-    
-    # Detect feature points in previous frame
-    prev_pts = cv2.goodFeaturesToTrack(prev_gray,
-                                       maxCorners=200,
-                                       qualityLevel=0.01,
-	                               minDistance=30,
-                                       blockSize=3)
 
-    # Calculate optical flow (i.e. track feature points)
-    print("prev_pts:", prev_pts)
-    
-    if prev_pts is not None:
-        curr_pts, status, err = cv2.calcOpticalFlowPyrLK(prev_gray, curr_gray,
-                                                         prev_pts, None)
-    else:
-        prev_pts = np.zeros(0)
-        curr_pts = np.zeros(0)
-        status = np.zeros(0)
-
-    # done with prev_gray, get ready for next iteration
-    prev_gray = curr_gray.copy()
-    
-    # Sanity check
-    if prev_pts.shape != curr_pts.shape:
-        prev_pts = curr_pts
-
-    # Filter only valid points
-    idx = np.where(status==1)[0]
-    prev_pts = prev_pts[idx]
-    curr_pts = curr_pts[idx]
-
-    if curr_pts.shape[0] >= 4:
-        tol = 2
-        M, status = cv2.findHomography(prev_pts, curr_pts, cv2.LMEDS, tol)
-    else:
-        M = np.eye(3)
-    print("M:\n", M)
+    # update the flow estimate
+    M, prev_pts, curr_pts = flow.update(frame_undist)
     
     if slow.shape[0] == 0 or fast.shape[0] == 0:
         slow = frame_undist.copy()
         fast = frame_undist.copy()
     else:
-        mask = np.ones( curr_gray.shape[:2] ).astype('uint8')*255
-        mask = cv2.warpPerspective(mask, M, (curr_gray.shape[1], curr_gray.shape[0]), flags=warp_flags)
+        mask = np.ones( frame_undist.shape[:2] ).astype('uint8')*255
+        mask = cv2.warpPerspective(mask, M, (frame_undist.shape[1], frame_undist.shape[0]), flags=warp_flags)
         mask = cv2.erode(mask, kernel5, iterations=3)
         print(np.count_nonzero(mask==255) + np.count_nonzero(mask==0))
         ret, mask = cv2.threshold(mask, 128, 255, cv2.THRESH_BINARY)
@@ -183,7 +146,7 @@ for frame in reader.nextFrame():
         print(np.count_nonzero(mask_inv==255) + np.count_nonzero(mask_inv==0))
         #cv2.imshow("mask", mask)
         #cv2.imshow("mask_inv", mask_inv)
-        print(curr_gray.shape, mask_inv.shape)
+        print(frame_undist.shape, mask_inv.shape)
         a1 = cv2.bitwise_and(frame_undist, frame_undist, mask=mask_inv)
         #cv2.imshow("a1", a1)
         slow_proj = cv2.warpPerspective(slow, M, (frame_undist.shape[1], frame_undist.shape[0]), flags=warp_flags)
