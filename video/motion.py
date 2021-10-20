@@ -25,13 +25,22 @@ class myOpticalFlow():
         # prime the pump if needed
         if self.prev_gray.shape[0] == 0:
             self.prev_gray = curr_gray.copy()
-    
+
+        # scale parameters with frame size
+        diag = np.linalg.norm(frame.shape[:2])
+        maxc = int(diag / 5)
+        if maxc < 200: maxc = 200
+        mind = int(diag / 30)
+        if mind < 30: mind = 30
+        bsize = int(diag / 300)
+        if bsize < 3: bsize = 3
+        
         # Detect feature points in previous frame
         prev_pts = cv2.goodFeaturesToTrack(self.prev_gray,
-                                           maxCorners=200,
+                                           maxCorners=maxc,
                                            qualityLevel=0.01,
-	                                   minDistance=30,
-                                           blockSize=3)
+	                                   minDistance=mind,
+                                           blockSize=bsize)
 
         # compute the optical flow
         if prev_pts is not None:
