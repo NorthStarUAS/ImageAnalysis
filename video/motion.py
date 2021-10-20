@@ -18,7 +18,7 @@ class myOpticalFlow():
     def __init__(self):
         self.prev_gray = np.zeros(0)
 
-    def update(self, frame):
+    def update(self, frame, mask=None):
         # convert to gray scale
         curr_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -36,11 +36,15 @@ class myOpticalFlow():
         if bsize < 3: bsize = 3
         
         # Detect feature points in previous frame
+        #print(mask)
+        #print(mask.shape)
+        #print(self.prev_gray)
         prev_pts = cv2.goodFeaturesToTrack(self.prev_gray,
                                            maxCorners=maxc,
                                            qualityLevel=0.01,
 	                                   minDistance=mind,
-                                           blockSize=bsize)
+                                           blockSize=bsize,
+                                           mask=mask)
 
         # compute the optical flow
         if prev_pts is not None:
@@ -183,3 +187,47 @@ class myFeatureFlow():
 
         print("M:\n", M)
         return M, newp1, newp2
+
+
+class myFarnebackFlow():
+    def __init__(self):
+        self.prev_gray = np.zeros(0)
+        self.hsv_mask = np.zeros(0)
+        self.avg = np.zeros(0)
+        
+    def update(self, frame):
+        # convert to gray scale
+        curr_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # prime the pump if needed
+        if self.prev_gray.shape[0] == 0:
+            self.prev_gray = curr_gray.copy()
+
+        # Create mask
+        if self.hsv_mask.shape[0] == 0:
+            self.hsv_mask = np.zeros_like(frame)
+            # Make image saturation to a maximum value
+            self.hsv_mask[..., 1] = 255
+
+        # calculate optical flow
+        flow = cv2.calcOpticalFlowFarneback(self.prev_gray, curr_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+
+        # Compute magnite and angle of 2D vector
+        mag, ang = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+
+        # Set image hue value according to the angle of optical flow
+        self.hsv_mask[..., 0] = ang * 180 / np.pi / 2
+
+        # Set value as per the normalized magnitude of optical flow
+        self.hsv_mask[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
+
+        if self.avg.shape[0] == 0:
+            self.avg = self.hsv_mask.copy().astype('float32')
+        else:
+            self.avg = 0.9*self.avg + 0.1*self.hsv_mask
+
+        # Convert to rgb
+        rgb = cv2.cvtColor(self.avg.astype('uint8'), cv2.COLOR_HSV2BGR)
+        cv2.imshow('Farneback motion', rgb)
+
+        self.prev_gray = curr_gray.copy()
