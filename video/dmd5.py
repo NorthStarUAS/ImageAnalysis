@@ -16,6 +16,7 @@ import props_json
 
 import camera
 from motion import myOpticalFlow
+#from motion import myFarnebackFlow
 
 parser = argparse.ArgumentParser(description='Track motion with homography transformation.')
 parser.add_argument('video', help='video file')
@@ -26,7 +27,6 @@ parser.add_argument('--write', action='store_true', help='write out video with k
 args = parser.parse_args()
 
 scale = args.scale
-skip_frames = args.skip_frames
 
 # pathname work
 abspath = os.path.abspath(args.video)
@@ -90,6 +90,7 @@ if args.write:
     bg_writer = skvideo.io.FFmpegWriter(bg_video, inputdict=inputdict, outputdict=sane)
 
 flow = myOpticalFlow()
+#farneback = myFarnebackFlow()
 
 slow = np.array( [] )
 fast = np.array( [] )
@@ -105,8 +106,11 @@ diff_factor = 255
 
 pbar = tqdm(total=int(total_frames), smoothing=0.05)
 for frame in reader.nextFrame():
-    frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
     counter += 1
+    if counter < args.skip_frames:
+        continue
+    
+    frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
     #if counter % 2 != 0:
     #    continue
     
@@ -118,36 +122,22 @@ for frame in reader.nextFrame():
 
     # update the flow estimate
     M, prev_pts, curr_pts = flow.update(frame_undist)
+    print("M:\n", M)
+    
+    #farneback.update(frame_undist)
     
     if slow.shape[0] == 0 or fast.shape[0] == 0:
-        slow = frame_undist.copy()
-        fast = frame_undist.copy()
+        slow = frame_undist.copy().astype('float32')
+        fast = frame_undist.copy().astype('float32')
     else:
-        mask = np.ones( frame_undist.shape[:2] ).astype('uint8')*255
-        mask = cv2.warpPerspective(mask, M, (frame_undist.shape[1], frame_undist.shape[0]), flags=warp_flags)
-        mask = cv2.erode(mask, kernel5, iterations=3)
-        print(np.count_nonzero(mask==255) + np.count_nonzero(mask==0))
-        ret, mask = cv2.threshold(mask, 128, 255, cv2.THRESH_BINARY)
-        print(np.count_nonzero(mask==255) + np.count_nonzero(mask==0))
-        mask_inv = cv2.bitwise_not(mask)
-        print(np.count_nonzero(mask_inv==255) + np.count_nonzero(mask_inv==0))
-        #cv2.imshow("mask", mask)
-        #cv2.imshow("mask_inv", mask_inv)
-        print(frame_undist.shape, mask_inv.shape)
-        a1 = cv2.bitwise_and(frame_undist, frame_undist, mask=mask_inv)
-        #cv2.imshow("a1", a1)
-        slow_proj = cv2.warpPerspective(slow, M, (frame_undist.shape[1], frame_undist.shape[0]), flags=warp_flags)
-        fast_proj = cv2.warpPerspective(fast, M, (frame_undist.shape[1], frame_undist.shape[0]), flags=warp_flags)
-        slow_a2 = cv2.bitwise_and(slow_proj, slow_proj, mask=mask)
-        fast_a2 = cv2.bitwise_and(fast_proj, fast_proj, mask=mask)
-        #cv2.imshow("a2", a2)
-        slow_comp = cv2.add(a1, slow_a2)
-        fast_comp = cv2.add(a1, fast_a2)
-        slow = cv2.addWeighted(slow_comp, 0.97, frame_undist, 0.03, 0)
-        fast = cv2.addWeighted(fast_comp, 0.25, frame_undist, 0.75, 0)
-        #blend = cv2.resize(blend, (int(w*args.scale), int(h*args.scale)))
-    cv2.imshow("zero frequency background", slow)
-    cv2.imshow("fast average", fast)
+        slow_proj = frame_undist.copy()
+        fast_proj = frame_undist.copy()
+        slow_proj = cv2.warpPerspective(slow.astype('uint8'), M, (frame_undist.shape[1], frame_undist.shape[0]), slow_proj, flags=warp_flags, borderMode=cv2.BORDER_TRANSPARENT)
+        fast_proj = cv2.warpPerspective(fast.astype('uint8'), M, (frame_undist.shape[1], frame_undist.shape[0]), fast_proj, flags=warp_flags, borderMode=cv2.BORDER_TRANSPARENT)
+        slow = cv2.addWeighted(slow_proj.astype('float32'), 0.97, frame_undist.astype('float32'), 0.03, 0)
+        fast = cv2.addWeighted(fast_proj.astype('float32'), 0.25, frame_undist.astype('float32'), 0.75, 0)
+    cv2.imshow("zero frequency background", slow.astype('uint8'))
+    cv2.imshow("fast average", fast.astype('uint8'))
     diff = cv2.absdiff(slow, fast)
     diff_max = np.max(diff)
     diff_factor = 0.95*diff_factor + 0.05*diff_max
