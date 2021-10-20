@@ -99,8 +99,6 @@ des_list_last = []
 p1 = []
 p2 = []
 counter = -1
-kernel3 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-kernel5 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
 warp_flags = cv2.INTER_LANCZOS4
 diff_factor = 255
 
@@ -146,23 +144,14 @@ for frame in reader.nextFrame():
     print("diff_factor:", diff_factor)
     diff_img = (255*diff.astype('float32')/diff_factor).astype('uint8')
     cv2.imshow("diff", diff_img)
-    if False:
-        diff = cv2.dilate(diff, kernel3, iterations=2)
-        diff = cv2.erode(diff, kernel3, iterations=2)
-        ret, otsu = cv2.threshold(diff, 0, 255,
-                                  cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-        cv2.imshow("otsu", otsu)
+
     if True:
         for pt in curr_pts:
             cv2.circle(frame_undist, (int(pt[0][0]), int(pt[0][1])), 3, (0,255,0), 1, cv2.LINE_AA)
         for pt in prev_pts:
             cv2.circle(frame_undist, (int(pt[0][0]), int(pt[0][1])), 2, (0,0,255), 1, cv2.LINE_AA)
+        cv2.imshow('features', frame_undist)
 
-    cv2.imshow('features', frame_undist)
-
-    # highlight = frame_scale.astype('float32') + 2*cv2.merge((diff, diff, diff))
-    # cv2.imshow("highlight", (255*highlight.astype('float32')/np.max(highlight)).astype('uint8'))
-    
     if args.write:
         # if rgb
         motion_writer.writeFrame(diff_img[:,:,::-1])
