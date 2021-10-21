@@ -616,7 +616,7 @@ for frame in reader.nextFrame():
     
     affine = findAffine(p2, p1, fullAffine=False)
     (rot, tx, ty, sx, sy) = decomposeAffine(affine)
-    if abs(rot) > 6 or math.sqrt(tx*tx+ty*ty) > 10:
+    if abs(rot) > 10 or math.sqrt(tx*tx+ty*ty) > 30:
         (rot, tx, ty, sx, sy) = (0.0, 0.0, 0.0, 1.0, 1.0)
     #print affine
     #print (rot, tx, ty, sx, sy)
