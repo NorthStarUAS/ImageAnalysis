@@ -34,6 +34,7 @@ filename, ext = os.path.splitext(abspath)
 dirname = os.path.dirname(args.video)
 bg_video = filename + "_bg.mp4"
 motion_video = filename + "_motion.mp4"
+feat_video = filename + "_feat.mp4"
 local_config = os.path.join(dirname, "camera.json")
 
 camera = camera.VirtualCamera()
@@ -88,6 +89,7 @@ if args.write:
     }
     motion_writer = skvideo.io.FFmpegWriter(motion_video, inputdict=inputdict, outputdict=sane)
     bg_writer = skvideo.io.FFmpegWriter(bg_video, inputdict=inputdict, outputdict=sane)
+    feat_writer = skvideo.io.FFmpegWriter(feat_video, inputdict=inputdict, outputdict=sane)
 
 flow = myOpticalFlow()
 #farneback = myFarnebackFlow()
@@ -124,7 +126,7 @@ for frame in reader.nextFrame():
     
     #farneback.update(frame_undist)
     
-    if slow.shape[0] == 0 or fast.shape[0] == 0:
+    if M is None or slow.shape[0] == 0 or fast.shape[0] == 0:
         slow = frame_undist.copy().astype('float32')
         fast = frame_undist.copy().astype('float32')
     else:
@@ -156,6 +158,7 @@ for frame in reader.nextFrame():
         # if rgb
         motion_writer.writeFrame(diff_img[:,:,::-1])
         bg_writer.writeFrame(slow[:,:,::-1])
+        feat_writer.writeFrame(frame_undist[:,:,::-1])
         # if gray
         #motion_writer.writeFrame(diff_img)
         #bg_writer.writeFrame(slow)
