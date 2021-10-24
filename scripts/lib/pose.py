@@ -155,12 +155,13 @@ def compute_camera_poses(proj):
 
 # make a pix4d pose file from project image metadata
 def make_pix4d(image_dir, force_altitude=None, force_heading=None, yaw_from_groundtrack=False):
-    if not force_altitude and camera.camera_node.getString("make") == "DJI" and camera.camera_node.getString("model") in ["FC6310", "FC6310S"]:
+    if not force_altitude and camera.camera_node.getString("make") == "DJI" and camera.camera_node.getString("model") in ["FC330", "FC6310", "FC6310S"]:
         # test for Phantom 4 Pro v2.0 camera which lies about it's altitude
-        log("Detected these images are from a Phantom 4 Pro V2.0 which lies about it's")
+        log("Detected these images are from a Phantom 4 which lies about it's")
         log("altitude.  Please rerun the script with the --force-altitude option to")
         log("override the incorrect goetag altitude with your best estimate of the")
-        log("true gps altitude.  Sorry for the inconvenience!")
+        log("true gps altitude of the flight altitude (in meters).")
+        log("Sorry for the inconvenience!")
         quit()
         
     # load list of images
@@ -205,8 +206,10 @@ def make_pix4d(image_dir, force_altitude=None, force_heading=None, yaw_from_grou
             
         images.append(line)
 
-    if not force_heading and not images_have_yaw or yaw_from_groundtrack:
+    if (not force_heading and not images_have_yaw) or yaw_from_groundtrack:
+        print("do yaw from ground track")
         # do extra work to estimate yaw heading from gps ground track
+        from rcUAS import wgs84
         for i in range(len(images)):
             if i > 0:
                 prev = images[i-1]
@@ -242,7 +245,7 @@ def make_pix4d(image_dir, force_altitude=None, force_heading=None, yaw_from_grou
                 avg_hdg += 360.0
             #print("%d %.2f %.1f %.2f %.1f %.2f" % (i, prev_hdg, prev_dist, next_hdg, next_dist, avg_hdg))
             images[i][6] = avg_hdg
-
+    
     # sanity check
     output_file = os.path.join(image_dir, "pix4d.csv")
     if os.path.exists(output_file):
@@ -269,7 +272,6 @@ def make_pix4d(image_dir, force_altitude=None, force_heading=None, yaw_from_grou
             roll_deg = line[4]
             pitch_deg = line[5]
             yaw_deg = line[6]
-            #print(image, lat_deg, lon_deg, alt_m)
             writer.writerow( { "File Name": os.path.basename(image),
                                "Lat (decimal degrees)": "%.10f" % lat_deg,
                                "Lon (decimal degrees)": "%.10f" % lon_deg,
