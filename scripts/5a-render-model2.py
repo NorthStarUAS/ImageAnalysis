@@ -89,7 +89,7 @@ for match in matches:
     if match[1] >= 0:           # used in a group
         ned = match[0]
         diff = abs(-ned[2] - avg)
-        if diff < 10*std:
+        if diff < 5*std:
             raw_points.append( [ned[1], ned[0]] )
             raw_values.append( ned[2] )
             for m in match[2:]:
