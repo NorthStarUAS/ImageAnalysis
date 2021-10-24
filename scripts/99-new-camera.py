@@ -46,8 +46,10 @@ exif.read()
 
 if 'Exif.Photo.FocalLength' in exif:
     focal_len_mm = exif['Exif.Photo.FocalLength'].value
+    print("Detected focal length (mm):", focal_len_mm * 1.0)
 else:
     focal_len_mm = 4.0
+    print("Force focal length (mm):", focal_len_mm)
 width = 0
 height = 0
 if 'Exif.Photo.PixelXDimension' in exif:
