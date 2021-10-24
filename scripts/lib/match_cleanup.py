@@ -185,12 +185,12 @@ def check_for_1vn_dups(proj):
                     log("Warning keypoint idx", pair[0], "already used in another match.")
                     uv2a = list(i2.kp_list[ kp_dict[pair[0]] ].pt)
                     uv2b = list(i2.kp_list[ pair[1] ].pt)
-                    if not np.allclose(uv2, new_uv2):
+                    if not np.allclose(uv2a, uv2b):
                         qlog("  [%.2f, %.2f] -> [%.2f, %.2f]" % (uv2a[0], uv2a[1],
                                                                  uv2b[0], uv2b[1]))
                     count += 1
             if count > 0:
-                qlog('Match:', i, 'vs', j, 'matches:', len(matches), 'dups:', count)
+                qlog('Match:', i, 'vs', k, 'matches:', len(matches), 'dups:', count)
 
 def make_match_structure(proj):
     log("Constructing unified match structure:")
@@ -314,13 +314,13 @@ def triangulate_smart(proj, matches):
     smart.load(proj.analysis_dir)
     for image in proj.image_list:
         image_node = smart.smart_node.getChild(image.name, True)
+        ned, ypr, quat = image.get_camera_pose()
         if image_node.hasChild("tri_surface_m"):
             image.base_elev = image_node.getFloat("tri_surface_m")
         else:
-            ned, ypr, quat = image.get_camera_pose()
             image.base_elev = srtm.ned_interp([ned[0], ned[1]])[0]
-            if image.base_elev > -ned[2] - 1:
-                image.base_elev = -ned[2] - 1
+        if -ned[2] - 1 < image.base_elev:
+            image.base_elev = -ned[2] - 1
         #print(image.name, image.base_elev, -ned[2])
 
     log("Estimating initial projection for each feature...")
