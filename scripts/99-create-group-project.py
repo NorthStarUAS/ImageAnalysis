@@ -70,18 +70,37 @@ full_list = []
 fields = None
 for p in args.source:
     csv_path = os.path.join(p, "pix4d.csv")
+    if not os.path.exists(csv_path):
+        break
     with open(csv_path, newline='') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
             if fields is None:
                 fields = row.keys()
             full_list.append(row)
-csv_path = os.path.join(project_dir, "pix4d.csv")
-with open(csv_path, 'w', newline='') as csvfile:
-    writer = csv.DictWriter(csvfile, fieldnames=fields)
-    writer.writeheader()
+if len(full_list):
+    csv_path = os.path.join(project_dir, "pix4d.csv")
+    with open(csv_path, 'w', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fields)
+        writer.writeheader()
+        for row in full_list:
+            writer.writerow(row)
+
+print("Assembling combination image-metadata.txt file")
+full_list = []
+fields = None
+for p in args.source:
+    csv_path = os.path.join(p, "image-metadata.txt")
+    if not os.path.exists(csv_path):
+        break
+    f = open(csv_path, "r")
+    for row in f:
+        full_list.append(row)
+if len(full_list):
+    csv_path = os.path.join(project_dir, "image-metadata.txt")
+    f = open(csv_path, "w")
     for row in full_list:
-        writer.writerow(row)
+        f.write(row)
 
 # copy config.json from first listed source project
 print("Copying config.json from source project")
@@ -148,10 +167,5 @@ for p in args.source:
             else:
                 os.symlink(src, dest)
 
-print("Now run the 2a set poses script to create the image.json files, initial poses, and update the project NED reference point")
-
-print("Skip the 3a detect features script")
-
-print("Run the 4a matching script, taking advantage of all the matches that were found for the individual groups")
-
-print("After matching, run the optimizer and rendering scripts.")
+print()
+print("Now you can run the process.py script on the new project!")
