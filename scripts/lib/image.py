@@ -8,7 +8,7 @@ import gzip
 import json
 import math
 #from matplotlib import pyplot as plt
-import navpy
+import navpy                    # https://github.com/NavPy/NavPy.git
 import numpy as np
 import os.path
 import sys
