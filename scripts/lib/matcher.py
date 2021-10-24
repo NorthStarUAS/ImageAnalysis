@@ -997,7 +997,6 @@ def find_matches(proj, K, strategy="smart", transform="homography",
             
         # save our work so far, and flush descriptor cache
         if time.time() >= save_time + save_interval:
-            log('saving matches and image meta data ...')
             saveMatches(proj.image_list, check_if_dirty=True)
             smart.save(proj.analysis_dir)
             save_time = time.time()
@@ -1023,6 +1022,7 @@ def find_matches(proj, K, strategy="smart", transform="homography",
     print('Pair-wise matches successfully saved.')
 
 def saveMatches(image_list, check_if_dirty=False):
+    log('saving matches and image meta data ...')
     for image in image_list:
         if check_if_dirty:
             if not image.matches_clean:
