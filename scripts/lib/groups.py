@@ -12,7 +12,8 @@ from props import getNode
 
 from .logger import log
 
-min_group = 10
+#min_group = 10
+min_group = 7
 min_connections = 25
 max_wanted = 250                # possibly overridden later
 
@@ -37,8 +38,8 @@ def compute(image_list, matches):
     use_single_pairs = (min_chain_len == 2)
 
     max_wanted = int(8000 / math.sqrt(len(image_list)))
-    if max_wanted < 100:
-        max_wanted = 100
+    if max_wanted < 200:
+        max_wanted = 200
     log("max features desired per image:", max_wanted)
     print("Notice: I should really work on this formula ...")
     
@@ -111,7 +112,7 @@ def compute(image_list, matches):
                         else:
                             unplaced_count += 1
                     # print("Match:", i, placed_count, seed_connection, placed_need_count, unplaced_count)
-                    if placed_count > 1 or seed_connection:
+                    if placed_count > 1 or (use_single_pairs and placed_count > 0) or seed_connection:
                         if placed_need_count > 0 or unplaced_count > 0:
                             my_add(placed_matches, matches, group_level, i)
                             still_working = True
