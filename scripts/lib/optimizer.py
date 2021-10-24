@@ -77,16 +77,20 @@ class Optimizer():
         #self.optimize_calib = 'global' # global camera optimization
         self.optimize_calib = 'none' # no camera calibration optimization
         #self.ftol = 1e-2              # stop condition - extra coarse
-        self.ftol = 1e-3              # stop condition - quicker
-        #self.ftol = 1e-4              # stop condition - better
-        self.min_chain_len = 2        # use whatever matches are defind upstream
+        #self.ftol = 1e-3              # stop condition - quicker
+        self.ftol = 1e-4              # stop condition - better
+        self.min_chain_len = 3        # use whatever matches are defind upstream
+        #self.with_bounds = False
         self.with_bounds = True
         #self.cam_method = 'rvec_tvec'
         self.cam_method = 'ned_quat'
+        #self.cam_method = 'ned_yaw'
         if self.cam_method == 'rvec_tvec':
             self.ncp = 6           # 3 tvec values, 3 rvec values
         elif self.cam_method == 'ned_quat':
             self.ncp = 7            # 3 ned values, 4 quat values
+        elif self.cam_method == 'ned_yaw':
+            self.ncp = 5            # 3 ned values, 2 yaw vector values
         self.cam2body = np.array( [[0, 0, 1],
                                    [1, 0, 0],
                                    [0, 1, 0]], dtype=float )
@@ -116,6 +120,15 @@ class Optimizer():
         return ypr, ned
 
     def nedquat2rvectvec(self, ned, quat):
+        body2ned = transformations.quaternion_matrix(np.array(quat))[:3,:3]
+        ned2body = body2ned.T
+        R = self.body2cam.dot( ned2body )
+        rvec, jac = cv2.Rodrigues(R)
+        tvec = -np.matrix(R) * np.matrix(ned).T
+        return rvec, tvec
+    
+    def nedyaw2rvectvec(self, ned, v):
+        # fixme
         body2ned = transformations.quaternion_matrix(np.array(quat))[:3,:3]
         ned2body = body2ned.T
         R = self.body2cam.dot( ned2body )
@@ -198,6 +211,11 @@ class Optimizer():
                 ned = cam[:3]
                 quat = cam[3:7]
                 rvec, tvec = self.nedquat2rvectvec(ned, quat)
+                #print(i, ned, quat)
+            elif self.cam_method == 'ned_yaw':
+                ned = cam[:3]
+                v = cam[3:5]
+                rvec, tvec = self.nedyaw2rvectvec(ned, v)
                 #print(i, ned, quat)
             # ypr, ned = self.rvectvec2yprned(rvec, tvec)
             # cams_3d[i] = ned # for plotting
@@ -415,11 +433,15 @@ class Optimizer():
             for i in range(self.n_cameras):
                 # unlimit the camera params
                 for j in range(self.ncp):
-                    if self.cam_method == 'ned_quat' and j < 3:
-                        # bound the position of the camera to +/- 3
+                    d = 3
+                    if self.cam_method == 'ned_quat' and j < 2:
+                        # bound the position of the camera to +/- 2
                         # meters of reported position
-                        lower.append( self.camera_params[i*self.ncp + j] - 3 )
-                        upper.append( self.camera_params[i*self.ncp + j] + 3 )
+                        lower.append( self.camera_params[i*self.ncp + j] - d )
+                        upper.append( self.camera_params[i*self.ncp + j] + d )
+                    elif self.cam_method == 'ned_quat' and j < 3:
+                        lower.append( self.camera_params[i*self.ncp + j] - 3*d )
+                        upper.append( self.camera_params[i*self.ncp + j] + 3*d )
                     else:
                         lower.append( -np.inf )
                         upper.append( np.inf )
