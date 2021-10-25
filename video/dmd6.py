@@ -22,8 +22,11 @@ parser = argparse.ArgumentParser(description='Track motion with homography trans
 parser.add_argument('video', help='video file')
 parser.add_argument('--camera', help='select camera calibration file')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
+parser.add_argument('--fg-alpha', type=float, default=0.5, help='forground filter factor')
+parser.add_argument('--bg-alpha', type=float, default=0.95, help='background filter factor')
 parser.add_argument('--skip-frames', type=int, default=0, help='skip n initial frames')
 parser.add_argument('--write', action='store_true', help='write out video with keypoints shown')
+parser.add_argument('--write-quad', action='store_true', help='write out video with keypoints shown')
 args = parser.parse_args()
 
 scale = args.scale
@@ -35,6 +38,7 @@ dirname = os.path.dirname(args.video)
 bg_video = filename + "_bg.mp4"
 motion_video = filename + "_motion.mp4"
 feat_video = filename + "_feat.mp4"
+quad_video = filename + "_quad.mp4"
 local_config = os.path.join(dirname, "camera.json")
 
 camera = camera.VirtualCamera()
@@ -69,30 +73,44 @@ print('total frames:', total_frames)
 print("Opening ", args.video)
 reader = skvideo.io.FFmpegReader(args.video, inputdict={}, outputdict={})
 
+inputdict = {
+    '-r': str(fps)
+}
+lossless = {
+    # See all options: https://trac.ffmpeg.org/wiki/Encode/H.264
+    '-vcodec': 'libx264',  # use the h.264 codec
+    '-crf': '0',           # set the constant rate factor to 0, (lossless)
+    '-preset': 'veryslow', # maximum compression
+    '-r': str(fps)         # match input fps
+}
+sane = {
+    # See all options: https://trac.ffmpeg.org/wiki/Encode/H.264
+    '-vcodec': 'libx264',  # use the h.264 codec
+    '-crf': '17',          # visually lossless (or nearly so)
+    '-preset': 'medium',   # default compression
+    '-r': str(fps)         # match input fps
+}
 if args.write:
-    inputdict = {
-        '-r': str(fps)
-    }
-    lossless = {
-        # See all options: https://trac.ffmpeg.org/wiki/Encode/H.264
-        '-vcodec': 'libx264',  # use the h.264 codec
-        '-crf': '0',           # set the constant rate factor to 0, (lossless)
-        '-preset': 'veryslow', # maximum compression
-        '-r': str(fps)         # match input fps
-    }
-    sane = {
-        # See all options: https://trac.ffmpeg.org/wiki/Encode/H.264
-        '-vcodec': 'libx264',  # use the h.264 codec
-        '-crf': '17',          # visually lossless (or nearly so)
-        '-preset': 'medium',   # default compression
-        '-r': str(fps)         # match input fps
-    }
-    motion_writer = skvideo.io.FFmpegWriter(motion_video, inputdict=inputdict, outputdict=sane)
-    bg_writer = skvideo.io.FFmpegWriter(bg_video, inputdict=inputdict, outputdict=sane)
-    feat_writer = skvideo.io.FFmpegWriter(feat_video, inputdict=inputdict, outputdict=sane)
+    motion_writer = skvideo.io.FFmpegWriter(motion_video, inputdict=inputdict,
+                                            outputdict=sane)
+    bg_writer = skvideo.io.FFmpegWriter(bg_video, inputdict=inputdict,
+                                        outputdict=sane)
+    feat_writer = skvideo.io.FFmpegWriter(feat_video, inputdict=inputdict,
+                                          outputdict=sane)
+
+if args.write_quad:
+    quad_writer = skvideo.io.FFmpegWriter(quad_video, inputdict=inputdict,
+                                          outputdict=sane)
 
 flow = myOpticalFlow()
 #farneback = myFarnebackFlow()
+
+bg_alpha = args.bg_alpha
+if bg_alpha < 0.0: bg_alpha = 0.0
+if bg_alpha > 1.0: bg_alpha = 1.0
+fg_alpha = args.fg_alpha
+if fg_alpha < 0.0: fg_alpha = 0.0
+if fg_alpha > 1.0: fg_alpha = 1.0
 
 prev_filt = np.array( [] )
 curr_filt = np.array( [] )
@@ -139,12 +157,15 @@ for frame in reader.nextFrame():
         prev_proj = cv2.warpPerspective(prev_filt.astype('uint8'), M, (frame_undist.shape[1], frame_undist.shape[0]), prev_proj, flags=warp_flags, borderMode=cv2.BORDER_TRANSPARENT)
         curr_proj = cv2.warpPerspective(curr_filt.astype('uint8'), M, (frame_undist.shape[1], frame_undist.shape[0]), curr_proj, flags=warp_flags, borderMode=cv2.BORDER_TRANSPARENT)
         bg_proj = cv2.warpPerspective(bg_filt.astype('uint8'), M, (frame_undist.shape[1], frame_undist.shape[0]), bg_proj, flags=warp_flags, borderMode=cv2.BORDER_TRANSPARENT)
-        curr_filt = cv2.addWeighted(curr_proj.astype('float32'), 0.5, frame_undist.astype('float32'), 0.5, 0)
+        curr_filt = curr_proj.astype('float32') * (1 - fg_alpha) \
+            + frame_undist.astype('float32') * fg_alpha
         cv2.imshow("prev_filt", prev_filt.astype('uint8'))
         cv2.imshow("curr_filt", curr_filt.astype('uint8'))
         diff = cv2.absdiff(prev_proj.astype('uint8'), curr_filt.astype('uint8'))
-        bg_filt = 0.95*bg_proj + 0.05*frame_undist
-        prev_filt = cv2.addWeighted(prev_proj.astype('float32'), 0.5, frame_undist.astype('float32'), 0.5, 0)
+        bg_filt = bg_proj.astype('float32') * (1 - bg_alpha) \
+            + frame_undist.astype('float32') * bg_alpha
+        prev_filt = curr_proj.astype('float32') * (1 - fg_alpha) \
+            + frame_undist.astype('float32') * fg_alpha
     diff_max = np.max(diff)
     diff_factor = 0.95*diff_factor + 0.05*diff_max
     if diff_factor < diff_max:
@@ -155,23 +176,49 @@ for frame in reader.nextFrame():
     cv2.imshow("background", bg_filt.astype('uint8'))
 
     if True:
+        frame_feat = frame_undist.copy()
         for pt in curr_pts:
-            cv2.circle(frame_undist, (int(pt[0][0]), int(pt[0][1])), 3, (0,255,0), 1, cv2.LINE_AA)
+            cv2.circle(frame_feat, (int(pt[0][0]), int(pt[0][1])), 3, (0,255,0), 1, cv2.LINE_AA)
         for pt in prev_pts:
-            cv2.circle(frame_undist, (int(pt[0][0]), int(pt[0][1])), 2, (0,0,255), 1, cv2.LINE_AA)
-        cv2.imshow('features', frame_undist)
+            cv2.circle(frame_feat, (int(pt[0][0]), int(pt[0][1])), 2, (0,0,255), 1, cv2.LINE_AA)
+        cv2.imshow('features', frame_feat)
 
     if args.write:
         # if rgb
         motion_writer.writeFrame(diff_img[:,:,::-1])
         bg_writer.writeFrame(bg_filt[:,:,::-1])
-        feat_writer.writeFrame(frame_undist[:,:,::-1])
+        feat_writer.writeFrame(frame_feat[:,:,::-1])
         # if gray
         #motion_writer.writeFrame(diff_img)
         #bg_writer.writeFrame(prev_filt)
-    
+
+    if args.write_quad:
+        def draw_text(img, label, x, y):
+            font_scale = 1.5
+            size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX,
+                                   font_scale, 1)
+            locx = int(x - size[0][0]*0.5)
+            locy = int(y + size[0][1]*1.5)
+            cv2.putText(img, label, (locx, locy),
+                        cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255),
+                        1, cv2.LINE_AA)
+            
+        quad = np.zeros( (h*2, w*2, 3) ).astype('uint8')
+        quad[0:h,0:w,:] = frame_undist
+        quad[h:,0:w,:] = frame_feat
+        quad[0:h,w:,:] = diff_img
+        quad[h:,w:,:] = bg_filt
+        draw_text(quad, "Original", w*0.5, 0)
+        draw_text(quad, "Feature Flow", w*0.5, h)
+        draw_text(quad, "Motion Layer", w*1.5, 0)
+        draw_text(quad, "Background Layer", w*1.5, h)
+        
+        cv2.imshow("quad", quad)
+        quad_writer.writeFrame(quad[:,:,::-1])
+
     if 0xFF & cv2.waitKey(1) == 27:
         break
+
     pbar.update(1)
 pbar.close()
 
