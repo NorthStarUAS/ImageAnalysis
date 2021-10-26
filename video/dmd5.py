@@ -37,16 +37,6 @@ motion_video = filename + "_motion.mp4"
 feat_video = filename + "_feat.mp4"
 local_config = os.path.join(dirname, "camera.json")
 
-camera = camera.VirtualCamera()
-camera.load(args.camera, local_config, args.scale)
-K = camera.get_K()
-IK = camera.get_IK()
-dist = camera.get_dist()
-print('Camera:', camera.get_name())
-print('K:\n', K)
-print('IK:\n', IK)
-print('dist:', dist)
-
 metadata = skvideo.io.ffprobe(args.video)
 #print(metadata.keys())
 print(json.dumps(metadata["video"], indent=4))
@@ -66,6 +56,35 @@ print('codec:', codec)
 print('output size:', w, 'x', h)
 print('total frames:', total_frames)
 
+if args.camera:
+    camera = camera.VirtualCamera()
+    camera.load(args.camera, local_config, args.scale)
+    K = camera.get_K()
+    IK = camera.get_IK()
+    dist = camera.get_dist()
+    print('Camera:', camera.get_name())
+    print('K:\n', K)
+    print('IK:\n', IK)
+    print('dist:', dist)
+else:
+    # construct something approx. on the fly
+    mind = w
+    if mind < h:
+        mind = h
+    fx = mind * 0.9
+    cu = w * 0.5
+    cv = h * 0.5
+    K = np.matrix( [ [fx, 0, cu],
+                     [0, fx, cv],
+                     [0, 0, 1] ] )
+    dist = np.zeros(5)
+    # random youtube video
+    #dist = np.array([0.47721522, 0.01500718, -0.00232525, 0.00065784, 0.00160023])
+    # runcam hd curt
+    dist = np.array([ 0.2822,  0.01164,  0.0,  0.0, -0.000965])
+    print("K:\n", K)
+    print("dist:", dist)
+    
 print("Opening ", args.video)
 reader = skvideo.io.FFmpegReader(args.video, inputdict={}, outputdict={})
 
