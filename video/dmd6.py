@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# current and previous frames for background subtraction are lightly filtered.
+# introduce quad video output rendering for convenience
+
 import argparse
 import csv
 import cv2
@@ -11,8 +14,8 @@ import os
 from tqdm import tqdm
 import time
 
-from props import PropertyNode
-import props_json
+#from props import PropertyNode
+#import props_json
 
 import camera
 from motion import myOpticalFlow
@@ -23,7 +26,7 @@ parser.add_argument('video', help='video file')
 parser.add_argument('--camera', help='select camera calibration file')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
 parser.add_argument('--fg-alpha', type=float, default=0.5, help='forground filter factor')
-parser.add_argument('--bg-alpha', type=float, default=0.95, help='background filter factor')
+parser.add_argument('--bg-alpha', type=float, default=0.05, help='background filter factor')
 parser.add_argument('--skip-frames', type=int, default=0, help='skip n initial frames')
 parser.add_argument('--write', action='store_true', help='write out video with keypoints shown')
 parser.add_argument('--write-quad', action='store_true', help='write out video with keypoints shown')
@@ -193,12 +196,17 @@ for frame in reader.nextFrame():
         #bg_writer.writeFrame(prev_filt)
 
     if args.write_quad:
-        def draw_text(img, label, x, y):
-            font_scale = 1.5
+        def draw_text(img, label, x, y, subscale=1.0, just="center"):
+            font_scale = subscale * h / 350
             size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX,
                                    font_scale, 1)
-            locx = int(x - size[0][0]*0.5)
-            locy = int(y + size[0][1]*1.5)
+            if just == "center":
+                locx = int(x - size[0][0]*0.5)
+                locy = int(y + size[0][1]*1.5)
+            elif just == "lower-right":
+                locx = int(x - size[0][0])
+                locy = int(y - size[0][1])
+                
             cv2.putText(img, label, (locx, locy),
                         cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255),
                         1, cv2.LINE_AA)
@@ -212,7 +220,8 @@ for frame in reader.nextFrame():
         draw_text(quad, "Feature Flow", w*0.5, h)
         draw_text(quad, "Motion Layer", w*1.5, 0)
         draw_text(quad, "Background Layer", w*1.5, h)
-        
+        draw_text(quad, "www.uav.aem.umn.edu", 1.97*w, 1.97*h, subscale=0.5, just="lower-right")
+
         cv2.imshow("quad", quad)
         quad_writer.writeFrame(quad[:,:,::-1])
 
