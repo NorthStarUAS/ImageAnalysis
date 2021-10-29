@@ -185,15 +185,15 @@ def draw_bar(img, min, max):
         
 
 def draw_mode(label, mode, shape, factor=2):
-    real = factor * mode.real
+    real = factor * np.abs(mode.real)
     min = np.min(real)
     max = np.max(real)
     range = max - min
     equalized = (real - min) * (255 / range)
     (h, w) = shape[:2]
     big = cv2.resize(equalized.reshape((dmd_size,dmd_size)).astype('uint8'), (w, h), interpolation=cv2.INTER_AREA)
-    cv2.imshow(label, big)
     draw_bar(big, min, max)
+    cv2.imshow(label, big)
     return big
 
 pbar = tqdm(total=int(total_frames), smoothing=0.05)
@@ -251,8 +251,6 @@ for frame in reader.nextFrame():
     # now run dmd on the diff image (already compensated for camera
     # motion)
 
-    print("diff shape:", diff.shape)
-    print("diff:", diff)
     gray = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
     cv2.imshow("gray", gray)
     small = cv2.resize(gray, (dmd_size,dmd_size), interpolation=cv2.INTER_AREA).flatten()
