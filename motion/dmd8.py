@@ -16,7 +16,10 @@ import time
 
 from pydmd import DMD
 
+import sys
+sys.path.append("../video")
 import camera
+
 from motion import myOpticalFlow
 #from motion import myFarnebackFlow
 
@@ -132,20 +135,62 @@ warp_flags = cv2.INTER_LANCZOS4
 diff_factor = 255
 
 # dmd options and structures
-rows = 3
-cols = 3
+rows = 4
+cols = 4
 max_rank = ((rows*cols) * 2) - 2
 print("max rank:", max_rank)
 dmd_size = 200
-window_size = 32
+window_size = 77
 X = []
 dmd = DMD(svd_rank=max_rank)
 
-def draw_mode(label, mode, shape):
-    real = np.abs(mode.real)
-    equalized = 255 * (real / np.max(real))
+def draw_text(img, label, x, y, subscale=1.0, just="center"):
+    font_scale = subscale * h / 700
+    size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX,
+                           font_scale, 1)
+    if just == "center":
+        locx = int(x - size[0][0]*0.5)
+        locy = int(y + size[0][1]*1.5)
+    elif just == "lower-right":
+        locx = int(x - size[0][0])
+        locy = int(y - size[0][1]*0.5)
+    elif just == "upper-right":
+        locx = int(x - size[0][0])
+        locy = int(y + size[0][1])
+    elif just == "right":
+        locx = int(x - size[0][0])
+        locy = int(y + size[0][1]*0.5)
+
+    cv2.putText(img, label, (locx, locy),
+                cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255),
+                1, cv2.LINE_AA)
+
+def draw_bar(img, min, max):
+    (h, w) = img.shape[:2]
+    min_str = "%.2f" % min
+    max_str = "%.2f" % max
+    font_scale = 0.8 * h / 700
+    min_size = cv2.getTextSize(min_str, cv2.FONT_HERSHEY_SIMPLEX,
+                               font_scale, 1)
+    max_size = cv2.getTextSize(max_str, cv2.FONT_HERSHEY_SIMPLEX,
+                               font_scale, 1)
+    th = min_size[0][1]
+    span = h - 2*th
+    for i in range(span):
+        img[i+th,(w-8):(w-2)] = 255 - int(i * 255 / span)
+    draw_text(img, min_str, w-12, h-th, subscale=0.8, just="lower-right")
+    draw_text(img, max_str, w-12, th, subscale=0.8, just="upper-right")
+        
+
+def draw_mode(label, mode, shape, factor=2):
+    real = factor * np.abs(mode.real)
+    min = np.min(real)
+    max = np.max(real)
+    range = max - min
+    equalized = (real - min) * (255 / range)
     (h, w) = shape[:2]
     big = cv2.resize(np.flipud(equalized.reshape((dmd_size,dmd_size)).astype('uint8')), (w, h), interpolation=cv2.INTER_AREA)
+    draw_bar(big, min, max)
     cv2.imshow(label, big)
     return big
 
@@ -204,8 +249,6 @@ for frame in reader.nextFrame():
     # now run dmd on the diff image (already compensated for camera
     # motion)
 
-    print("diff shape:", diff.shape)
-    print("diff:", diff)
     gray = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
     small = cv2.resize(gray, (dmd_size,dmd_size), interpolation=cv2.INTER_AREA)
     if not small.any():
@@ -223,15 +266,12 @@ for frame in reader.nextFrame():
         print(dmd.eigs[idx[0]])
         print(dmd.reconstructed_data.shape)
 
-        #for i in range(len(idx)):
-        #    draw_mode("freq index: %d" % i, dmd.modes[:,idx[i]], scaled.shape)
-
         big = 255 * dmd.reconstructed_data[:,-1] / np.max(dmd.reconstructed_data[:,-1]) # avoid overflow
         big = cv2.resize(np.flipud(big.reshape((dmd_size,dmd_size)).astype('uint8')), (frame_undist.shape[1], frame_undist.shape[0]), interpolation=cv2.INTER_AREA)
         big = 255 * ( big / np.max(big) )
         cv2.imshow("reconstructed", big.astype('uint8'))
         
-        def draw_text(img, label, x, y, subscale=1.0, just="center"):
+        def draw_text_delete_me(img, label, x, y, subscale=1.0, just="center"):
             font_scale = subscale * h / 700
             size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX,
                                    font_scale, 1)
@@ -261,7 +301,11 @@ for frame in reader.nextFrame():
                 r += 1
                 c = 0
             #print("grid:", r, c, "i:", i)
-            grid[r*h:(r+1)*h,c*w:(c+1)*w] = draw_mode("a", dmd.modes[:,idx[i]], gray.shape)
+            if i == 0:
+                factor = 1
+            else:
+                factor = 2
+            grid[r*h:(r+1)*h,c*w:(c+1)*w] = draw_mode("a", dmd.modes[:,idx[i]], gray.shape, factor)
             #grid[r*h:(r+1)*h,c*w:(c+1)*w] = scaled
             eig = dmd.eigs[idx[i]]
             label = "Mode: %d (%.4f + %.4fj)" % (i, eig.real, eig.imag)
@@ -291,21 +335,6 @@ for frame in reader.nextFrame():
         #bg_writer.writeFrame(prev_filt)
 
     if args.write_quad:
-        def draw_text(img, label, x, y, subscale=1.0, just="center"):
-            font_scale = subscale * h / 350
-            size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX,
-                                   font_scale, 1)
-            if just == "center":
-                locx = int(x - size[0][0]*0.5)
-                locy = int(y + size[0][1]*1.5)
-            elif just == "lower-right":
-                locx = int(x - size[0][0])
-                locy = int(y - size[0][1])
-                
-            cv2.putText(img, label, (locx, locy),
-                        cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255),
-                        1, cv2.LINE_AA)
-            
         quad = np.zeros( (h*2, w*2, 3) ).astype('uint8')
         quad[0:h,0:w,:] = frame_undist
         quad[h:,0:w,:] = frame_feat
