@@ -53,15 +53,15 @@ Trace the value of **Gx** through the algorithm when max rank = 2
 
 ### Initialization:
 
-```
-  **Gx** = np.matrix(normx**2)
-```
+<pre>
+  <b>Gx</b> = np.matrix(normx**2)
+</pre>
 
 ### Step 1: (Gram-Schmidt reorthonormalization)
 
-```
-  **Gx** is untouched
-```
+<pre>
+  <b>Gx</b> is untouched
+</pre>
 
 ### Step 2: (Expansion)
 
