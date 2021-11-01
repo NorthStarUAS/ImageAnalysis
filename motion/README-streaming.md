@@ -1,6 +1,6 @@
 # A bug in the SDMD algorithm?
 
-I believe there is an error in the streaming dmd algorithm presented
+I believe there is an error in the streaming DMD algorithm presented
 in the StreamingDMD python code here, as well as in the two papers
 that present these ideas.
 
@@ -67,7 +67,7 @@ a 1 as the expansion and POD compression is performed.
 
 ### Step 2: (Expansion)
 
-**Gx** (n x n) is exanded to (n+1 x n+1) the new row, col, and last
+**Gx** (n x n) is expanded to (n+1 x n+1) the new row, col, and last
 position of the diagonal are padded with 0's.
 
 ```
@@ -102,8 +102,8 @@ position of the diagonal are padded with 0's.
     [  0  0 ]
 ```
 
-  **Gx** becomes a 2x2 matrix defined as the diaganal of the leading
-  eignen values (sorted.)  Note that because we sort the eigen values
+  **Gx** becomes a 2x2 matrix defined as the diagonal of the leading
+  eigen values (sorted.)  Note that because we sort the eigen values
   first, the newly added eigen value is always sorted last and always
   truncated during POD compression.
 
@@ -133,7 +133,7 @@ position of the diagonal are padded with 0's.
   
   Because we sort the eigen values during the POD compression step,
   the newly appended eigen value (value is always 0) almost always
-  sorts last, and almostly always leads to the last row of **qx**
+  sorts last, and almost always leads to the last row of **qx**
   being all zeros which almost always leads to the newly appended
   column of **Qx** being immediately truncated.
 
