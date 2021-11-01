@@ -51,7 +51,7 @@ produce expected results.
 
 Trace the value of **Gx** through the algorithm when max rank = 2
 
-Note: use of variables a1, a2, a3, ...  b1, b2, ..., etc. represent
+Note: the variables a1, a2, a3, ...  b1, b2, ..., etc. represent
 any number.  The main point is to show what portions of the matrices
 hold information, and what portion are padded with zeros, or a 1 as
 the expansion and POD compression is performed.
@@ -70,7 +70,7 @@ the expansion and POD compression is performed.
 
 ### Step 2: (Expansion)
 
-**Gx** (n x n) is exanded to (n+1 x n+1) the new row & col & and last
+**Gx** (n x n) is exanded to (n+1 x n+1) the new row, col, and last
 position of the diagonal are padded with 0's.
 
 ```
@@ -98,8 +98,8 @@ position of the diagonal are padded with 0's.
   qx is the leading (sorted) r0 vectors of **Gx** (3 x 2):
 
 ```
-    [ d1 d2 ]
-    [ d3 d4 ]
+    [ c1 c2 ]
+    [ c3 c4 ]
     [  0  0 ]
 ```
 
@@ -107,8 +107,8 @@ position of the diagonal are padded with 0's.
   eignen values (sorted)
 
 ```
-    [ e1  0 ]
-    [  0 e2 ]
+    [ b1  0 ]
+    [  0 b2 ]
 ```
 
   Now trace **Qx** through the algorithm.  In step 2 (expansion) a new
