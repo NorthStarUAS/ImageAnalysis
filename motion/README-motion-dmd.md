@@ -42,4 +42,49 @@ The DMD algorithm is perfoming this transformation to the frequency
 domain for all the pixels simultaneously and finding a set of modes
 that best fits the collection of step functions.
 
+## DMD-based scene segmentation in video from a static camera
 
+When the camera is not moving, pixels representing a static background
+portion of a scene should not change (or change very little due to
+sensor noise, etc.)
+
+Applying DMD to "static" video produces a zero frequency mode
+corresponding to the non-changing pixels in the video.  We call this
+the "background."  (Notice the DMD zero frequency mode maps directly
+to simply averaging the frames of video together.)
+
+The moving portion of the video can then be isolated by subtracting
+the background from the current frame of video and whatever is left
+over is considered the moving portion.
+
+This works well, and DMD is a success in this use case.  Frequency
+information correspondes to no motion (sum of near-zero frequency
+modes) or some motion (sum of non-zero frequency modes).  But notice
+that from the perspective of an individual pixel, we cannot extract
+much useful information beyond zero frequency vs. non-zero frequency.
+Due to the step function nature of individual pixel changes, the modes
+do not convey useful information about the change, only that something
+has changed.  (Note: for general purpose video, not for fluids
+analysis.)
+
+Also observe that simpy averaging frames is an O(n) operation and also
+achieves the same result as computing the DMD zero frequency mode, so
+much faster than DMD and scales up in a much friendlier way.
+
+## DMD-based scene segmentation in video from a moving camera
+
+Now consider that the camera is moving.  The static background will
+appear to be moving in the video.  Our eyes/brain will do a good job
+of interpreting this and understanding the scene.
+
+However, DMD is mapping the values of each individual pixel to the
+frequency domain, so we need to consider the camera motion from the
+perspective of an individual pixel.  Again, similar to motion in a
+static camera, motion of the background (for the perspective of an
+individual pixel) acts more like a step function than any other
+function.
+
+Because the camera is moving and all the pixels are now subject to
+change, the trick used in the fixed-camera use-case no longer works
+and can't be directly extended in any useful way.  This is bad news,
+but not the end of the story.
