@@ -116,7 +116,18 @@ position of the diagonal are padded with 0's.
   **Qx** * **qx**, but notice that the last row of qx is always 0, so
   this newly appended column is immediately truncated before it is
   used for any other math/processing.
+  
+```
+    [ d1 d2 d3 ] * [ c1 c2 ]
+    [ d4 d5 d6 ]   [ c3 c4 ]
+    [ d7 d8 d9 ]   [  0  0 ]
+    [ ...      ]
+    [       dn ]
+```
 
+  The newly added information in the 3rd column of **Qx** [ d3 d6 d9
+  ... dn ] collapses out because the last row of **qx** is all zeros.
+  
   Because we sort the eigen values during the POD compression step,
   the newly appended eigen value (value is always 0) almost always
   sorts last, and almostly always leads to the last row of qx being
