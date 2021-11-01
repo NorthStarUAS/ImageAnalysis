@@ -86,13 +86,14 @@ position of the diagonal are padded with 0's.
 
 ### Step 3: (POD compression if needed)
 
-  eigen values of **Gx** (3x3) Note: last eigen value is always zero.
+  Compute eigen values and vectors of **Gx** (3x3) Note: last eigen
+  value is always zero.
 
 ```
     [ b1 b2 0 ]
 ```
 
-  eigen vectors of **Gx** (3x3)
+  Eigen vectors of **Gx** (3x3)
 
 ```
     [ c1 c2  0 ]
