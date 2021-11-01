@@ -15,42 +15,36 @@ that present these ideas.
   Mathematics, Princeton University, NJ 08544, USA.  (Dated: 30 June
   2014)
 
-## Observation #1
+## Observations
 
-When visualizing the modes produced by the SDMD algorithm in real
-time, the information in the modes stops 'updating' (no longer shows
-substantial changes) after "max rank" (aka r0) is reached.
+* When visualizing the modes produced by the SDMD algorithm in real
+  time, the information in the modes stops 'updating' (no longer shows
+  substantial changes) after "max rank" (aka r0) is reached.
 
-## Observation #2
+* When running the SDMD algorithm, the steps before reaching the
+  defined max rank produce results similar to non-streaming algorithms
+  (i.e. pydmd.)
 
-When running the SDMD algorithm, the steps before reaching the defined
-max rank produce results similar to non-streaming algorithms
-(i.e. pydmd.)
+* When running the algorithm with a max rank that is >= the number of
+  input time steps, the algorithm continues to update properly and
+  produces a result that is visually similar (if not identical) to the
+  traditional full DMD solution.
 
-## Observation #3
+## Conclusions
 
-When running the algorithm with a max rank that is >= the number of
-input time steps, the algorithm continues to update properly and
-produces a result that is visually similar (if not identical) to the
-traditional full DMD solution.
+* The SDMD algorithm produces expected (correct) results for the first
+  r0 (max rank) iterations but produces unexpected (incorrect) results
+  after max rank is reached.
 
-## Conclusion #1
+* The only difference in the flow of the SDMD algorithm relative to
+  max rank is that once max rank is exceeded, then the POD compression
+  step is introduced.
 
-The SDMD algorithm produces expected (correct) results for the first
-r0 (max rank) iterations but produces unexpected (incorrect) results
-after max rank is reached.
+* The algorithm without POD compression appears to work correctly and
+  produce expected results.
 
-The only difference in the flow of the SDMD algorithm relative to max
-rank is that once max rank is exceeded, then the POD compression step
-is introduced.
-
-The algorithm without POD compression appears to work correctly and
-produce expected results.
-
-## Conclusion #2
-
-If the POD compression step is moved to the end of the algorithm (swap
-steps 3 and 4) the algorithm produces the expected output.
+* If the POD compression step is moved to the end of the algorithm
+  (swap steps 3 and 4) the algorithm produces the expected output.
 
 ## Example:
 
