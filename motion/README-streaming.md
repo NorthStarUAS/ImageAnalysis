@@ -51,6 +51,11 @@ produce expected results.
 
 Trace the value of **Gx** through the algorithm when max rank = 2
 
+Note: use of variables a1, a2, a3, ...  b1, b2, ..., etc. represent
+any number.  The main point is to show what portions of the matrices
+hold information, and what portion are padded with zeros, or a 1 as
+the expansion and POD compression is performed.
+
 ### Initialization:
 
 <pre>
