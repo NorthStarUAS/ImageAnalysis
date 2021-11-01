@@ -18,7 +18,7 @@ import time
 #import props_json
 
 import sys
-sys.path.append('../video')
+sys.path.append("../video")
 import camera
 
 from motion import myOpticalFlow
