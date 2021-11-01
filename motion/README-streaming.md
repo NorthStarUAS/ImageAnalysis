@@ -111,7 +111,9 @@ position of the diagonal are padded with 0's.
 ```
 
   **Gx** becomes a 2x2 matrix defined as the diaganal of the leading
-  eignen values (sorted.)
+  eignen values (sorted.)  Note that because we sort the eigen values
+  first, the newly added eigen value is always sorted last and always
+  truncated during POD compression.
 
 ```
     [ b1  0 ]
