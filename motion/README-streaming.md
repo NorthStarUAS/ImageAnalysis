@@ -48,10 +48,10 @@ that present these ideas.
 
 Trace the value of **Gx** through the algorithm when max rank = 2
 
-Note: the variables a1, a2, a3, ...  b1, b2, ..., etc. represent
-any number.  The main point is to show what portions of the matrices
-hold information, and what portion are padded with zeros, or a 1 as
-the expansion and POD compression is performed.
+Note: the variables a1, a2, a3, ...  b1, b2, ..., etc. used below
+represent any number.  The main point is to show what portions of the
+matrices hold information, and what portion are padded with zeros, or
+a 1 as the expansion and POD compression is performed.
 
 ### Initialization:
 
@@ -93,8 +93,8 @@ position of the diagonal are padded with 0's.
     [  0  0  1 ]
 ```
 
-  **qx** is the leading (sorted) r0 vectors of **Gx** (3 x 2) Note:
-  last row is always zeros.
+  **qx** is the leading (sorted) r0 vectors (columns) of **Gx** (3 x
+  2) Note: last row is always zeros.
 
 ```
     [ c1 c2 ]
