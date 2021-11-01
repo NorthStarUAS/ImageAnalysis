@@ -17,7 +17,10 @@ import time
 #from props import PropertyNode
 #import props_json
 
+import sys
+sys.path.append('../video')
 import camera
+
 from motion import myOpticalFlow
 #from motion import myFarnebackFlow
 
@@ -25,7 +28,8 @@ parser = argparse.ArgumentParser(description='Track motion with homography trans
 parser.add_argument('video', help='video file')
 parser.add_argument('--camera', help='select camera calibration file')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
-parser.add_argument('--fg-alpha', type=float, default=0.5, help='forground filter factor')
+parser.add_argument('--fg-alpha', type=float, default=0.5, help='foreground filter factor')
+parser.add_argument('--prev-alpha', type=float, help='previous filter factor (defaults to fg alpha)')
 parser.add_argument('--bg-alpha', type=float, default=0.05, help='background filter factor')
 parser.add_argument('--skip-frames', type=int, default=0, help='skip n initial frames')
 parser.add_argument('--write', action='store_true', help='write out video with keypoints shown')
@@ -114,7 +118,13 @@ if bg_alpha > 1.0: bg_alpha = 1.0
 fg_alpha = args.fg_alpha
 if fg_alpha < 0.0: fg_alpha = 0.0
 if fg_alpha > 1.0: fg_alpha = 1.0
-
+if args.prev_alpha:
+    prev_alpha = args.prev_alpha
+    if prev_alpha < 0.0: prev_alpha = 0.0
+    if prev_alpha > 1.0: prev_alpha = 1.0
+else:
+    prev_alpha = fg_alpha    
+    
 prev_filt = np.array( [] )
 curr_filt = np.array( [] )
 bg_filt = np.array( [] )
@@ -162,13 +172,13 @@ for frame in reader.nextFrame():
         bg_proj = cv2.warpPerspective(bg_filt.astype('uint8'), M, (frame_undist.shape[1], frame_undist.shape[0]), bg_proj, flags=warp_flags, borderMode=cv2.BORDER_TRANSPARENT)
         curr_filt = curr_proj.astype('float32') * (1 - fg_alpha) \
             + frame_undist.astype('float32') * fg_alpha
-        cv2.imshow("prev_filt", prev_filt.astype('uint8'))
         cv2.imshow("curr_filt", curr_filt.astype('uint8'))
         diff = cv2.absdiff(prev_proj.astype('uint8'), curr_filt.astype('uint8'))
         bg_filt = bg_proj.astype('float32') * (1 - bg_alpha) \
             + frame_undist.astype('float32') * bg_alpha
-        prev_filt = curr_proj.astype('float32') * (1 - fg_alpha) \
-            + frame_undist.astype('float32') * fg_alpha
+        prev_filt = prev_proj.astype('float32') * (1 - prev_alpha) \
+            + frame_undist.astype('float32') * prev_alpha
+        cv2.imshow("prev_filt", prev_filt.astype('uint8'))
     diff_max = np.max(diff)
     diff_factor = 0.95*diff_factor + 0.05*diff_max
     if diff_factor < diff_max:
