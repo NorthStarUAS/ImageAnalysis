@@ -1,4 +1,4 @@
-# A bug? A feature?
+# A bug in the SDMD algorithm?
 
 I believe there is an error in the streaming dmd algorithm presented
 in the StreamingDMD python code here, as well as in the two papers
