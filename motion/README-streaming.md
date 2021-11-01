@@ -47,13 +47,21 @@ is introduced.
 The algorithm without POD compression appears to work correctly and
 produce expected results.
 
-## Example: trace the value of Gx through the algorithm when max rank = 2
+## Example:
 
-### Initialization: Gx = np.matrix(normx**2)
+Trace the value of **Gx** through the algorithm when max rank = 2
+
+### Initialization:
+
+```
+  **Gx** = np.matrix(normx**2)
+```
 
 ### Step 1: (Gram-Schmidt reorthonormalization)
 
-**Gx** is untouched
+```
+  **Gx** is untouched
+```
 
 ### Step 2: (Expansion)
 
@@ -99,10 +107,10 @@ position of the diagonal are padded with 0's.
 ```
 
   Now trace **Qx** through the algorithm.  In step 2 (expansion) a new
-  column is appended to **Qx**.  In step 3 (POD compression) **Qx** = **Qx** * **qx**,
-  but notice that the last row of qx is always 0, so this newly
-  appended column is immediately truncated before it is used for any
-  other math/processing.
+  column is appended to **Qx**.  In step 3 (POD compression) **Qx** =
+  **Qx** * **qx**, but notice that the last row of qx is always 0, so
+  this newly appended column is immediately truncated before it is
+  used for any other math/processing.
 
   Because we sort the eigen values during the POD compression step,
   the newly appended eigen value (value is always 0) almost always
