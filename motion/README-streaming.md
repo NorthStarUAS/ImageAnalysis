@@ -4,17 +4,16 @@ I believe there is an error in the streaming dmd algorithm presented
 in the StreamingDMD python code here, as well as in the two papers
 that present these ideas.
 
-   Multi-Sensor Scene Segmentation for Unmanned Air and Ground
-   Vehicles using Dynamic Mode Decomposition Aniketh Kalur∗, Debraj
-   Bhattacharjee†, Youbing Wang‡ and Maziar S. Hemati§ University of
-   Minnesota, Minneapolis, MN 55455, USA
-
-   Dynamic Mode Decomposition for Large and Streaming Datasets Maziar
-   S. Hemati,1, a) Matthew O. Williams,2, b) and Clarence W. Rowley1,
-   c) 1)Mechanical and Aerospace Engineering Department, Princeton
-   University, NJ 08544, USA.2)Program in Applied and Computational
-   Mathematics, Princeton University, NJ 08544, USA.  (Dated: 30 June
-   2014)
+* Multi-Sensor Scene Segmentation for Unmanned Air and Ground Vehicles
+  using Dynamic Mode Decomposition Aniketh Kalur∗, Debraj
+  Bhattacharjee†, Youbing Wang‡ and Maziar S. Hemati§ University of
+  Minnesota, Minneapolis, MN 55455, USA
+* Dynamic Mode Decomposition for Large and Streaming Datasets Maziar
+  S. Hemati,1, a) Matthew O. Williams,2, b) and Clarence W. Rowley1,
+  c) 1)Mechanical and Aerospace Engineering Department, Princeton
+  University, NJ 08544, USA.2)Program in Applied and Computational
+  Mathematics, Princeton University, NJ 08544, USA.  (Dated: 30 June
+  2014)
 
 ## Observation #1
 
@@ -23,6 +22,12 @@ time, the information in the modes stops 'updating' (no longer shows
 substantial changes) after "max rank" (aka r0) is reached.
 
 ## Observation #2
+
+When running the SDMD algorithm, the steps before reaching the defined
+max rank produce results similar to non-streaming algorithms
+(i.e. pydmd.)
+
+## Observation #3
 
 When running the algorithm with a max rank that is >= to the number of
 input time steps, the algorithm continues to update properly and
@@ -39,7 +44,8 @@ The only difference in the flow of the SDMD algorithm relative to max
 rank is that once max rank is exceeded, then the POD compression step
 is introduced.
 
-The algorithm without POD compression appears to work correctly.
+The algorithm without POD compression appears to work correctly and
+produce expected results.
 
 ## Example: trace the value of Gx through the algorithm when max rank = 2
 
@@ -54,9 +60,11 @@ Gx is untouched
 Gx (n x n) is exanded to (n+1 x n+1) the new row & col & and last
 position of the diagonal are padded with 0's.
 
+```
   [ a1 a2 ] ===> [ a1 a2  0 ]
   [ a3 a4 ]      [ a3 a4  0 ]
                  [  0  0  0 ]
+```
 
 * Step 3: (POD compression if needed)
 
