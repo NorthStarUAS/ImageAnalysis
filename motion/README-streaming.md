@@ -70,25 +70,33 @@ position of the diagonal are padded with 0's.
 
   eigen values of Gx(3x3):
 
+```
     [ b1 b2 0 ]
-  
+```
+
   eigen vectors of Gx(3x3)
 
+```
     [ c1 c2  0 ]
     [ c3 c4  0 ]
     [  0  0  1 ]
+```
 
   qx is the leading (sorted) r0 vectors of Gx (3 x 2):
 
+```
     [ d1 d2 ]
     [ d3 d4 ]
     [  0  0 ]
+```
 
   Gx becomes a 2x2 matrix defined as the diaganal of the leading
   eignen values (sorted)
 
+```
     [ e1  0 ]
     [  0 e2 ]
+```
 
   Now trace Qx through the algorithm.  In step 2 (expansion) a new
   column is appended to Qx.  In step 3 (POD compression) Qx = Qx * qx,
