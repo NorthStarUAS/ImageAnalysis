@@ -53,11 +53,11 @@ produce expected results.
 
 ### Step 1: (Gram-Schmidt reorthonormalization)
 
-Gx is untouched
+**Gx** is untouched
 
 ### Step 2: (Expansion)
 
-Gx (n x n) is exanded to (n+1 x n+1) the new row & col & and last
+**Gx** (n x n) is exanded to (n+1 x n+1) the new row & col & and last
 position of the diagonal are padded with 0's.
 
 ```
@@ -66,15 +66,15 @@ position of the diagonal are padded with 0's.
                  [  0  0  0 ]
 ```
 
-* Step 3: (POD compression if needed)
+### Step 3: (POD compression if needed)
 
-  eigen values of Gx(3x3):
+  eigen values of **Gx** (3x3):
 
 ```
     [ b1 b2 0 ]
 ```
 
-  eigen vectors of Gx(3x3)
+  eigen vectors of **Gx** (3x3)
 
 ```
     [ c1 c2  0 ]
@@ -82,7 +82,7 @@ position of the diagonal are padded with 0's.
     [  0  0  1 ]
 ```
 
-  qx is the leading (sorted) r0 vectors of Gx (3 x 2):
+  qx is the leading (sorted) r0 vectors of **Gx** (3 x 2):
 
 ```
     [ d1 d2 ]
@@ -90,7 +90,7 @@ position of the diagonal are padded with 0's.
     [  0  0 ]
 ```
 
-  Gx becomes a 2x2 matrix defined as the diaganal of the leading
+  **Gx** becomes a 2x2 matrix defined as the diaganal of the leading
   eignen values (sorted)
 
 ```
@@ -98,8 +98,8 @@ position of the diagonal are padded with 0's.
     [  0 e2 ]
 ```
 
-  Now trace Qx through the algorithm.  In step 2 (expansion) a new
-  column is appended to Qx.  In step 3 (POD compression) Qx = Qx * qx,
+  Now trace **Qx** through the algorithm.  In step 2 (expansion) a new
+  column is appended to **Qx**.  In step 3 (POD compression) **Qx** = **Qx** * **qx**,
   but notice that the last row of qx is always 0, so this newly
   appended column is immediately truncated before it is used for any
   other math/processing.
@@ -108,7 +108,7 @@ position of the diagonal are padded with 0's.
   the newly appended eigen value (value is always 0) almost always
   sorts last, and almostly always leads to the last row of qx being
   all zeros which almost always leads to the newly appended column of
-  Qx being immediately truncated.
+  **Qx** being immediately truncated.
 
   The result when running the algorithm on real input is that the
   system ceases updating in response to new input once it has been
