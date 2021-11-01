@@ -51,7 +51,7 @@ Trace the value of **Gx** through the algorithm when max rank = 2
 Note: the variables a1, a2, a3, ...  b1, b2, ..., etc. used below
 represent any number.  The main point is to show what portions of the
 matrices hold information, and what portion are padded with zeros, or
-a 1 as the expansion and POD compression is performed.
+a 1 as both the expansion and POD compression is performed.
 
 ### Initialization:
 
@@ -118,18 +118,19 @@ position of the diagonal are padded with 0's.
   this newly appended column is immediately truncated before it is
   used for any other math/processing.
   
-```
-         Qx      *    qx
+<pre>
+         <b>Qx           qx</b>
 
     [ d1 d2 d3 ] * [ c1 c2 ]
     [ d4 d5 d6 ]   [ c3 c4 ]
     [ d7 d8 d9 ]   [  0  0 ]
     [   ....   ]
     [ ...   dn ]
-```
+</pre>
 
-  The newly added information in the 3rd column of **Qx** [ d3 d6 d9
-  ... dn ] collapses out because the last row of **qx** is all zeros.
+  The newly added information in the 3rd column of **Qx**: [ d3 d6 d9
+  ... dn ] collapses out during the multiply because the last row of
+  **qx** is all zeros.
   
   Because we sort the eigen values during the POD compression step,
   the newly appended eigen value (value is always 0) almost always
@@ -141,4 +142,8 @@ position of the diagonal are padded with 0's.
   system ceases updating in response to new input once it has been
   expanded past max rank.
 
-  
+### Step 4: Update A, Gx, and Gy
+
+<pre>
+  <b>Gx</b> = <b>Gx</b> + <b>x~</b> * <b>x~</b>.T
+</pre>
