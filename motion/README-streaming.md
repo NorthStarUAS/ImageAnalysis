@@ -29,12 +29,12 @@ max rank produce results similar to non-streaming algorithms
 
 ## Observation #3
 
-When running the algorithm with a max rank that is >= to the number of
+When running the algorithm with a max rank that is >= the number of
 input time steps, the algorithm continues to update properly and
 produces a result that is visually similar (if not identical) to the
 traditional full DMD solution.
 
-## Inference #1
+## Conclusion #1
 
 The SDMD algorithm produces expected (correct) results for the first
 r0 (max rank) iterations but produces unexpected (incorrect) results
@@ -46,6 +46,11 @@ is introduced.
 
 The algorithm without POD compression appears to work correctly and
 produce expected results.
+
+## Conclusion #2
+
+If the POD compression step is moved to the end of the algorithm (swap
+steps 3 and 4) the algorithm produces the expected output.
 
 ## Example:
 
