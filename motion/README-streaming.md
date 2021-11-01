@@ -81,7 +81,7 @@ position of the diagonal are padded with 0's.
 
 ### Step 3: (POD compression if needed)
 
-  eigen values of **Gx** (3x3):
+  eigen values of **Gx** (3x3) Note: last eigen value is always zero.
 
 ```
     [ b1 b2 0 ]
@@ -95,7 +95,8 @@ position of the diagonal are padded with 0's.
     [  0  0  1 ]
 ```
 
-  **qx** is the leading (sorted) r0 vectors of **Gx** (3 x 2):
+  **qx** is the leading (sorted) r0 vectors of **Gx** (3 x 2) Note:
+  last row is always zeros.
 
 ```
     [ c1 c2 ]
@@ -104,7 +105,7 @@ position of the diagonal are padded with 0's.
 ```
 
   **Gx** becomes a 2x2 matrix defined as the diaganal of the leading
-  eignen values (sorted)
+  eignen values (sorted.)
 
 ```
     [ b1  0 ]
@@ -123,8 +124,8 @@ position of the diagonal are padded with 0's.
     [ d1 d2 d3 ] * [ c1 c2 ]
     [ d4 d5 d6 ]   [ c3 c4 ]
     [ d7 d8 d9 ]   [  0  0 ]
-    [ ...      ]
-    [       dn ]
+    [   ....   ]
+    [ ...   dn ]
 ```
 
   The newly added information in the 3rd column of **Qx** [ d3 d6 d9
