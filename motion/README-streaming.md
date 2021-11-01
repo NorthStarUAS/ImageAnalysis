@@ -95,7 +95,7 @@ position of the diagonal are padded with 0's.
     [  0  0  1 ]
 ```
 
-  qx is the leading (sorted) r0 vectors of **Gx** (3 x 2):
+  **qx** is the leading (sorted) r0 vectors of **Gx** (3 x 2):
 
 ```
     [ c1 c2 ]
@@ -113,11 +113,13 @@ position of the diagonal are padded with 0's.
 
   Now trace **Qx** through the algorithm.  In step 2 (expansion) a new
   column is appended to **Qx**.  In step 3 (POD compression) **Qx** =
-  **Qx** * **qx**, but notice that the last row of qx is always 0, so
+  **Qx** * **qx**, but notice that the last row of **qx** is always 0, so
   this newly appended column is immediately truncated before it is
   used for any other math/processing.
   
 ```
+         Qx      *    qx
+
     [ d1 d2 d3 ] * [ c1 c2 ]
     [ d4 d5 d6 ]   [ c3 c4 ]
     [ d7 d8 d9 ]   [  0  0 ]
@@ -130,9 +132,9 @@ position of the diagonal are padded with 0's.
   
   Because we sort the eigen values during the POD compression step,
   the newly appended eigen value (value is always 0) almost always
-  sorts last, and almostly always leads to the last row of qx being
-  all zeros which almost always leads to the newly appended column of
-  **Qx** being immediately truncated.
+  sorts last, and almostly always leads to the last row of **qx**
+  being all zeros which almost always leads to the newly appended
+  column of **Qx** being immediately truncated.
 
   The result when running the algorithm on real input is that the
   system ceases updating in response to new input once it has been
