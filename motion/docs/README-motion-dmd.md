@@ -40,8 +40,8 @@ in the time domain, the plot will more closely match a step function
 ## DMD-based scene segmentation in video from a static camera
 
 When the camera is not moving, pixels representing a static background
-portion of a scene should not change (or change very little due to
-sensor noise, etc.)
+portion of a scene should not change (or change just a little due to
+things like sensor noise or the camera adjusting its exposure, etc.)
 
 Applying DMD to "static" video produces a zero frequency mode
 corresponding to the non-changing pixels in the video.  We call this
@@ -53,7 +53,7 @@ the background from the current frame of video and whatever is left
 over is considered the moving portion.
 
 This works well, and DMD is a success in this use case.  Frequency
-information correspondes to no motion (sum of near-zero frequency
+information corresponds to no motion (sum of near-zero frequency
 modes) or some motion (sum of non-zero frequency modes).  But notice
 that from the perspective of an individual pixel, we cannot extract
 much useful information beyond zero frequency vs. non-zero frequency.
@@ -62,7 +62,7 @@ do not convey useful information about the change, only that something
 has changed.  (Note: for general purpose video, not for fluids
 analysis.)
 
-Also observe that simpy averaging frames is an O(n) operation and also
+Also observe that simply averaging frames is an O(n) operation and also
 achieves the same result as computing the DMD zero frequency mode, so
 much faster than DMD and scales up in a much friendlier way.
 
@@ -122,7 +122,7 @@ Consider the pixel highlighted in green below.  As the scene scrolls
 pavement and white lines.  Notice that as is passes over areas of
 relatively constant shading, the pixel value will not change much, but
 as objects pass through the pixel, the value will have sharp changes.
-These changes are typcially not periodic.  Like in the static camera
+These changes are typically not periodic.  Like in the static camera
 case, DMD will tell us when pixel is static versus when it changes,
 however unlike the static case, with a dynamically moving camera, we
 must assume constant and unpredictable pixel value changes.
