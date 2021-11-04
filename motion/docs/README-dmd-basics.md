@@ -1,9 +1,18 @@
 # DMD - Dynamic Mode Decomposition
 
-DMD simultaneously computes a set of fourier series approximations to
+DMD simultaneously computes a set of fourier series approximations for
 a set of input sensor signals. The solution will share a common set of
 harmonic frequencies, but each sensor will have a unique set of
 weightings.
+
+Notice that for each individual sensor, the fourier series
+approximation will not be as accurate as computing a unique set of
+frequency harmonics.  However, DMD offers the advantage of exposing
+common dominant frequency information (modes) across the entire array
+of sensors.  When we plot mode information in it's correct spatial
+relationship, we can begin to visualize motion characteristics in the
+data set.  This technique can be most excellent for visualizing fluid
+flows.
 
 ##
 
