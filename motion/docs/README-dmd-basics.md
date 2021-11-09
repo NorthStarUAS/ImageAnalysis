@@ -2,30 +2,50 @@
 
 DMD simultaneously computes a set of fourier series approximations for
 a set of input sensor signals. The solution will share a common set of
-harmonic frequencies, but each sensor will have a unique set of
-weightings.
+frequencies (basis functions), but each sensor will have a unique set
+of weightings.  The input data set can be reconstructed from the set
+of weightings (modes) and the basis functions (frequency, phase,
+amplitude.)
 
-Notice that for each individual sensor, the fourier series
-approximation will not be as accurate as computing an independent set
-of frequency harmonics.  However, DMD offers the advantage of exposing
-common dominant frequency information (modes) across the entire array
-of sensors.  When we plot mode information in it's correct spatial
-relationship, we can begin to visualize motion characteristics in the
-data set.  This technique can be most excellent for visualizing fluid
-flows.
+Notice that for each individual sensor, the DMD-based fourier series
+approximation will not be as accurate as computing the fourier series
+for each individual sensor due to the additional constraint of sharing
+a common sest of basis functions.  However, DMD offers the advantage
+of exposing common dominant frequency information (modes) across the
+entire array of sensors.  When we plot mode information in it's
+correct spatial relationship, we can begin to visualize motion
+characteristics in the data set.
 
-##
+# Terminology
+
+## Modes
 
 Consider a system that has "n" sensors which are sampled at "m" time
 steps and we solve for "k" harmonic frequencies.  DMD will compute a
-set of "n" weightings for each of the "k" harmonic frequencies.  The
-harmonic frequencies can be evaluated at each of the "m" time steps.
+set of "n" weightings for each of the "k" (harmonic) frequencies.  The
+frequencies can be evaluated along with phase/amplitude information at
+each of the "m" time steps.
 
 We can refer to a set of "n" weightings associated with a single
-harmonic frequency as a "mode."  We can refer to the harmonic
-frequency of each mode evaluated at each time step as the "dynamics."
+harmonic frequency as a **mode.** Notice in the following plot the "x"
+axis is each pixel (sensor) position (the input data set is a 200 x
+200 = 40000 pixel video.)  The vertical axis is the mode weights.
 
-## Reconstructing the original sensor data
+![modes](./modes.jpg)
+
+## Dynamics
+
+We can refer to the harmonic frequency for each mode evaluated at each
+time step as the **dynamics.** These could also be thought of as the
+basis functions for the fourier series approximation.
+
+The mode (the set of weightings for) is fixed for the entire time
+segment and the dynamics is the changing value.  For the dynamics
+plot, the horizontal axis is time and the vertical axis is amplitude.
+
+![dynamics](./dynamics.jpg)
+
+# Reconstructing the original sensor data
 
 Once the DMD modes and dynamics have been computed, these can be used
 to reconstruct an approximation of the original data set at any time
@@ -90,7 +110,7 @@ The nature of video is that from the perspective of individual pixels:
 the sequence of values each pixel assumes over time are best
 characterized as a sequence of random step function changes at random
 times.  This can be shown with some effort to by playing a video and
-sampling the value of specific pixels over time and plotting it.  Some
+sampling the value of specific pixels over time and plotting them.  Some
 key insight can be gained by doing this step.
 
 ## The fixed base camera hack
@@ -107,12 +127,17 @@ noise or change in lighting conditions or camera exposure.)
 The zero frequency DMD mode is the background portion of the scene.
 The scene can be segmented into background (static) and foreground
 (moving) by simply subtracting the background from the current frame.
-What remains is the moving part of the scene.
+What remains is the moving portions of the current frame.
 
 Note that because frequency information loses meaning when modeling
 impulse changes with a fourier series, the key insight here is not
 what specific frequencies are found in the data, but the separation of
 the zero frequency mode versus all the other modes.
+
+There isn't information in the harmonic frequencies or modes that
+offers insight into the direction or speed a group of pixels are
+visually moving on screen.  All we know is the fourier series
+approximation to each individual pixel as it changes over time.
 
 ## Consider a moving camera
 
@@ -122,32 +147,26 @@ of translation and rotation.
 We now know:
 
 * DMD is computing a fourier series approximation for each pixel using
-  a shared set of harmonic frequencies, but individual (per pixel)
+  a shared set of harmonic frequencies, but with individual (per pixel)
   weightings.
 
 * Pixel value changes over time in video most closely approximate step
   or impulse changes and generally do not have meaningful frequency
-  information.
+  information beyond changing vs. not changing.
 
-* Now as the camera is moving, all the pixels in the video are subject
-  to random impulse changes.
+* As the camera is moving, all the pixels in the video frame are
+  subject to random impulse changes over time.
 
-At first glance, there is a hope that some subset of frequencies would
-correspond to the movement of the scene due to camera motion.  We can
-look at video and observe pixels moving though the scene so
-intuitively it seems like there must be some useful frequency domain
-information we could extract from DMD.
+At first glance, there is a hope that some subset of DMD
+frequencies/modes would correspond to the movement of the scene due to
+camera motion.  We can look at video and observe pixels moving though
+the scene so intuitively it seems like there must be some useful
+frequency domain information we could extract from DMD.
 
 However, pixels or groups of pixel are not actually moving through the
 scene, this is just an animation illusion created by independently
-changing the values of individual pixels.  Our brain connects the dots
-and does the rest.
-
-Thus we need to go back to considering the value of each individual
-pixel over time as approximated by DMD using a shared set of harmonic
-frequencies.  In this case, sharing harmonic frequencies means that
-the fourier approximation is less accurate than if each individual
-pixel was approximated independently.
+changing the values of individual pixels.  Our eyes/brain connects the
+dots and does the rest.
 
 Still, can we look at the modes (the per-pixel weightings for each
 harmonic frequency) and gain insight into the motion of the scene?  I
@@ -160,3 +179,24 @@ scene are subject to these unpredicable step changes when the camera
 moves (there are no pixels that maintain a constant value through the
 segment of video.)
 
+But why?
+
+This whole document is an attempt to lay out an intuitive
+understanding of what DMD is doing and hopefully gain a better
+understanding of what insights can and cannot be gained from the DMD
+solution.
+
+Also, through inspection: by drawing out and animating the modes over
+time (using sliding window dmd over some small subset of "i" most
+recent frames we do not observe anything in the modes that corresponds
+to the group of background pixels moving in unison.  Instead we see
+evidence the modes represent how DMD is approximating each indivdual
+pixel as a fourier series.  We see characteristic effects of how a
+fourier series approximates impulse changes.
+
+By inspection we can see that the DMD zero frequency mode in the
+static (non-moving) camera case closely corresponds to a simple
+average of the input frames.  However, when simply averaging the input
+frames of a moving camera, there is no useful information created
+relative to which pixels are part of a static background environement
+versus when pixels are moving within the environemnt.
