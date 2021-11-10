@@ -1,16 +1,16 @@
 # DMD - Dynamic Mode Decomposition
 
-DMD simultaneously computes a set of fourier series approximations for
+DMD simultaneously computes a set of Fourier series approximations for
 a set of input sensor signals. The solution will share a common set of
 basis functions, and each sensor will have a unique set of weightings
 for each basis function.  The input data set can be reconstructed from
 the set of weightings (modes) and the basis functions (frequency,
 phase, amplitude.)
 
-Notice that for each individual sensor, the DMD-based fourier series
-approximation will not be as accurate as computing the fourier series
+Notice that for each individual sensor, the DMD-based Fourier series
+approximation will not be as accurate as computing the Fourier series
 for each individual sensor due to the additional constraint of sharing
-a common sest of basis functions.  However, DMD offers the advantage
+a common set of basis functions.  However, DMD offers the advantage
 of exposing common dominant frequency information (modes) across the
 entire array of sensors.  When we plot mode information in it's
 correct spatial relationship, we can begin to visualize motion
@@ -32,15 +32,15 @@ thought to try it?  Is this a true requirement and can it be relaxed?
 In all DMD literature I have encountered, there is an assumption that
 the sensor locations are fixed through the course of the experiment
 and this location is used to interpret the frequency response at that
-specific location in the experiement.
+specific location in the experiment.
 
 If sensors can move arbitrarily through the system during the
 experiment they will be sampling the system state at different
 locations.  Can frequency information or modes be used to separate out
-the dynamics of the system versus the dyanmics of the sensor?
+the dynamics of the system versus the dynamics of the sensor?
 
-Jumping ahead, if we think of DMD as a fourier series approximation to
-the value of a sest of sensors over time, what does that mean if
+Jumping ahead, if we think of DMD as a Fourier series approximation to
+the value of a set of sensors over time, what does that mean if
 sensors can move arbitrarily (unpredictably and unmeasurably) through
 the system?  We will still compute an approximation to the signal, but
 does the result hold any meaningful information with respect to the
@@ -66,7 +66,7 @@ pixels) and we solved for "k" = 9 basis functions.)
 
 ## Definition: Dynamics
 
-We can evaluate the shared basis functions for the fourier series at
+We can evaluate the shared basis functions for the Fourier series at
 each time step.  This is called the **dynamics.**
 
 The modes (the set of weightings) is fixed for the entire solution and
@@ -106,7 +106,7 @@ product of each mode (weighting) multiplied by it's respective basis
 function evaluated at that time step.
 
 The example below show the original time series pixel data compared to
-the fourier series approximation as computed by DMD.  As a side note,
+the Fourier series approximation as computed by DMD.  As a side note,
 with the output of the DMD algorithm, the value of every pixel at
 every time step can be approximated.  Thus it is possible to
 reconstruct (an approximation to) the entire input video using only
@@ -115,7 +115,7 @@ the modes and the basis functions.
 ![pixel reconstruction](./pixel_example.jpg)
 
 Notice the reconstructed fit for each individual sensor with DMD will
-not be as accurate as if a fourier series was computed for each sensor
+not be as accurate as if a Fourier series was computed for each sensor
 independently due to the shared frequencies in the DMD solution.
 
 # More About Modes
@@ -149,7 +149,7 @@ allows us to "see" where energy at some frequency has occurred:
 
 ## Problem #1: Separating the amplitude of the input signals versus response at that frequency.
 
-Remember that fundamentally DMD computes a fourier series
+Remember that fundamentally DMD computes a Fourier series
 approximation to the original data set.  We can use the output of DMD
 to reconstruct the original pixel values at any time "t".  Consider
 that some pixels values will be small (dark regions) and some pixel
@@ -166,14 +166,14 @@ pixel was just a dark pixel.
 Consider the following "video" (just one frame is shown.)  An
 arbitrary pixel is selected and shown in the green circle.  Full DMD
 is performed for the entire 7.7 second video clip using a maximum rank
-of 9 (9 basis functions for the fourier series approximation.)
+of 9 (9 basis functions for the Fourier series approximation.)
 
 ![impulse scene](./changing-pixel-selected.png)
 
 As the bike rides "through" the chosen pixel, here is the pixel value
 over time.  Hopefully anyone that has seen demonstrations of using
-fourier series to approximate step functions or square waves in other
-contexts can see the periodic nature of the fourier approximation and
+Fourier series to approximate step functions or square waves in other
+contexts can see the periodic nature of the Fourier approximation and
 the need for a high number of terms to accurately approximate the
 sharp changes in the original time series of the pixel.
 
@@ -185,7 +185,7 @@ pixel) the values change more like a random unpredictable step
 function than in any other way.
 
 **The important take away:** When there is visual motion in video
-(either due to objects moving or the camera moving) the fourier series
+(either due to objects moving or the camera moving) the Fourier series
 approximation shows energy at all the different non-zero frequency
 modes, and also a need for a high number of terms to accurately
 approximate the original time series step behavior.
@@ -233,7 +233,7 @@ of translation and rotation.
 
 We now know:
 
-* DMD is computing a fourier series approximation for each pixel using
+* DMD is computing a Fourier series approximation for each pixel using
   a shared set of frequencies, but with individual (per pixel)
   weightings.
 
@@ -256,7 +256,7 @@ are not actually moving through the scene, this is just an animation
 illusion created by independently changing the values of individual
 pixels.  Our eyes/brain connects the dots and does the rest.
 
-DMD (fourier series approximation) is approximating the time series
+DMD (Fourier series approximation) is approximating the time series
 for each individual pixel.
 
 Still, can we look at the modes (the per-pixel weightings for each
@@ -265,6 +265,42 @@ answer is no in the general case of drone style surveillance video.
 (1) The weightings are convoluted with pixel brightness (2) The time
 series change in any pixel value is not a periodic function.
 
-We can still segment chaning pixels from non changing pixels, but in
+We can still segment changing pixels from non changing pixels, but in
 moving video, generally all the pixels are changing so this is not a
 useful distinction.
+
+# Moving Video Example
+
+Consider a video with a dynamic moving camera (chase quad) and a
+dynamic subject (aerobatic aircraft.)
+
+Visually you can see the original video frame in the first grid
+location.  Then moving to the right you see the zero frequency mode
+(top center) which visually looks very much like an average of the
+input frames (as we would expect).  But because the camera is moving,
+the input frames get smeared together (as we would expect.)
+
+Looking at the other non-zero frequency modes, we can see the all the
+elements described above.  All the motion shows up in all the modes,
+the edges of areas show up as step changes as they "move" through the
+scene.
+
+In the case of a stationary camera we can look at the zero frequency
+mode and observe it is the background without the moving elements.
+
+In the case of a moving camera we can view all the different modes
+(and animate them throughout the course of the moving video), but we
+do not see any modes that contain clear information with respect to
+segmenting the moving parts of the scene from the static background.
+The information we were hoping to extract just isn't there in the way
+we hoped.  Hopefully the information and background provided
+throughout this document kept this from being a surprise.
+
+![motion modes](./motion-modes.png)
+
+# Conclusion and future work
+
+If the primary goal is to segment a challenging and highly dynamic
+scene such as shown in the final example, then this isn't the end of
+the story.  But I hope I have shown that DMD may not provide
+sufficient information to be a large part of the answer.
