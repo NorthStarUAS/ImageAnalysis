@@ -48,7 +48,7 @@ frequencies and weightings?
 
 # Terminology
 
-## Modes
+## Definition: Modes
 
 Consider a system that has "n" sensors which are sampled at "m" time
 steps and we solve for "k" frequencies.  DMD will compute a set of "n"
@@ -64,7 +64,7 @@ pixels) and we solved for "k" = 9 basis functions.)
 
 ![modes](./modes.jpg)
 
-## Dynamics
+## Definition: Dynamics
 
 We can evaluate the shared basis functions for the fourier series at
 each time step.  This is called the **dynamics.**
@@ -77,6 +77,19 @@ beginning, but very little motion at the end which corresponds to
 diminishing dynamics over time.)
 
 ![dynamics](./dynamics.jpg)
+
+## Definition: Pixel Motion
+
+Consider a video clip with an object moving through the frame.  It is
+tempting to think of the group of pixels as "moving together" because
+that is how our brain interprets what it is seeing.  However, it may
+be important to remember that from the perspective of individual
+pixels (sensors), they are just sensing values that are changing with
+respect to time.  Pixels don't have a velocity vector.  The change in
+value from one frame to the next is not velocity, it's just the
+intensity of the pixel changing value.  In the next section I show the
+value of an individual pixel plotted over time.
+
 
 # Reconstructing the original sensor data
 
@@ -150,6 +163,91 @@ pixel was just a dark pixel.
 
 ## Problem #2: Impulse changes (step changes)
 
+Consider the following "video" (just one frame is shown.)  An
+arbitrary pixel is selected and shown in the green circle.  Full DMD
+is performed for the entire 7.7 second video clip using a maximum rank
+of 9 (9 basis functions for the fourier series approximation.)
+
+![impulse scene](./changing-pixel-selected.png)
+
+As the bike rides "through" the chosen pixel, here is the pixel value
+over time.  Hopefully anyone that has seen demonstrations of using
+fourier series to approximate step functions or square waves in other
+contexts can see the periodic nature of the fourier approximation and
+the need for a high number of terms to accurately approximate the
+sharp changes in the original time series of the pixel.
+
+![impulse scene](./changing-pixel-plot.png)
+
+It turns out that real world video motion generally acts in the same
+way.  At the pixel level (looking at the time history of a single
+pixel) the values change more like a random unpredictable step
+function than in any other way.
+
+**The important take away:** When there is visual motion in video
+(either due to objects moving or the camera moving) the fourier series
+approximation shows energy at all the different non-zero frequency
+modes, and also a need for a high number of terms to accurately
+approximate the original time series step behavior.
+
+This means that DMD can show the difference between moving or
+non-moving regions of video, but in the general case, very little
+useful information can be extracted from the non-zero frequency modes
+beyond determining areas that have pixel values change versus areas
+with constant pixel values (background.)
+
+# The stationary camera hack
+
+With DMD the zero-frequency mode corresponds to the steady state value
+of each pixel.  Conceptually this is **very** similar to the average
+value of the pixel over the time spanned by the video clip.  It is
+technically not exactly the same as the average, but it is very very
+close, and close enough that the end results could be though of
+intuitively as equivalent.
+
+Consider the plot of the same arbitrarily selected pixel in the
+previous example (with the bike passing through it.)  Here is the plot
+of the original pixel value versus the value of the DMD zero frequency
+mode approximation.
+
+![impulse scene](./changing-pixel-plot-mode1.png)
+
+Next is a plot of the zero frequency weightings.  As you can see the
+bike has been [almost] entirely removed from the scene.  This is the
+DMD magic for scene segmentation.
+
+The foreground (moving) portion of each frame could be reconstructed
+by summing the non-zero frequency modes (sum of weights *
+basis_function).  However it is generally easier (and faster) to
+simply subtract the background from the current frame.  The sum of all
+the modes is the full approximation to the original scene.
+
+![impulse scene](./bike-mode0.png)
+
+If a segment of video is capture from a camera that is fixed in space
+(not translating, rotating, or zooming) then we can observe that the
+DMD zero frequency mode corresponds to the non-changing background in
+the video.
+
+If you plot the value of any of these background pixels over time,
+they remain realtively constant (but may vary slightly due to sensor
+noise or change in lighting conditions or camera exposure.)
+
+The zero frequency DMD mode is the background portion of the scene.
+The scene can be segmented into background (static) and foreground
+(moving) by simply subtracting the background from the current frame.
+What remains is the moving portions of the current frame.
+
+Note that because frequency information loses meaning when modeling
+impulse changes with a fourier series, the key insight here is not
+what specific frequencies are found in the data, but the separation of
+the zero frequency mode versus all the other modes.
+
+There isn't information in the frequencies or modes that offers
+insight into the direction or speed a group of pixels are visually
+moving on screen.  All we know is the fourier series approximation to
+each individual pixel as it changes over time.
+
 ## Video and DMD
 
 Taking a step back, what does DMD offer when processing video?
@@ -185,31 +283,6 @@ times.  This can be shown with some effort to by playing a video and
 sampling the value of specific pixels over time and plotting them.  Some
 key insight can be gained by doing this step.
 
-## The fixed base camera hack
-
-If a segment of video is capture from a camera that is fixed in space
-(not translating, rotating, or zooming) then we can observe that the
-DMD zero frequency mode corresponds to the non-changing background in
-the video.
-
-If you plot the value of any of these background pixels over time,
-they remain realtively constant (but may vary slightly due to sensor
-noise or change in lighting conditions or camera exposure.)
-
-The zero frequency DMD mode is the background portion of the scene.
-The scene can be segmented into background (static) and foreground
-(moving) by simply subtracting the background from the current frame.
-What remains is the moving portions of the current frame.
-
-Note that because frequency information loses meaning when modeling
-impulse changes with a fourier series, the key insight here is not
-what specific frequencies are found in the data, but the separation of
-the zero frequency mode versus all the other modes.
-
-There isn't information in the frequencies or modes that offers
-insight into the direction or speed a group of pixels are visually
-moving on screen.  All we know is the fourier series approximation to
-each individual pixel as it changes over time.
 
 ## Consider a moving camera
 
