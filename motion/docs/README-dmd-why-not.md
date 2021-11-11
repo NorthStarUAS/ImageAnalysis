@@ -1,20 +1,67 @@
-## Proof by [counter] example: DMD with Moving Drone Video
+# DMD-Based Scene Segmentation for Video?
 
-Let's just jump straight to a visual example (youtube video.)
-Consider a short video clip of a moving vehicle captured while a drone
-is also moving.  The original video is shown in the upper left, the
-"zero-frequency" moe is shown upper center, and the next 7 modes
-complete the grid.
+DMD does an impressive job of seperating the stationary background
+from moving foreground.  Can this approach be adapted to work with a
+moving camera?
 
-DMD is computed with a 64 frame sliding window (roughly 2 seconds.)
-The video dimensions are scaled down to a 200x200 array to reduce
-memory usage in the DMD algorithm.  Notice the drone starts
-motionless, but then begins to move a few seconds into the video.
+## Stationary Camera Example
 
-If you watch this video all the way through, do any of these modes
-show a separation of steady background versus moving vehicle?  Do any
-of the modes show the background isolated from the foreground, or visa
-versa?
+The following demo video is captured from a stationary camera.  The
+original scene is in the upper left.  The zero-mode frequency is top
+center.  The next 7 most dominant modes fill the remaining grid
+locations.
+
+You can see that the zero-frequency mode hides most of the motion as
+the video plays through.
+
+[![Watch the video](./bike-thumbnail.png)](https://www.youtube.com/watch?v=khn09gCgOVs)
+
+The following false color plot of the zero frequency mode of this
+video shows just how nice a job DMD does at separating out the
+stationary background from the moving items.
+
+![bike mode0](./bike-mode0.png)
+
+## Moving Camera Example
+
+Consider the following example of a moving drone following a moving
+vehicle.  The video begins with the drone stationary (similar to the
+previous example), but after a few seconds the drone begins to move
+forward and pan & tilt the camera to follow the vehicle motion.
+
+As the drone begins to move, watch what happens to the modes.  Does
+the zero-frequency mode (top center) now show only the background?  Do
+any of the other modes isolate background versus foreground motion?
+
+[![Watch the video](./windom-thumbnail.png)](https://www.youtube.com/watch?v=H2-JT0sAsWE)
+
+Hopefully you can see that all the motion of the moving camera and the
+moving vehicle gets blended together in all the modes.  There isn't
+any clear separation between different types of motion.
+
+Also notice how the road edges and background feature edges show up.
+Think back to how a Fourier series needs many terms to begin to
+closely approximate a step function.  Edges of areas in moving video
+act like step functions as those features move over individual pixel
+sensors.
+
+Here is a false color plot of the zero frequency mode showing all the
+motion (camera and vehicle) blended together.  As with stationary
+camera video, the zero frequency mode multplied by the corresponding
+basis fucntion is essentionally an average of the input frames:
+
+![windom mode0](./windom-mode0.png)
+
+If you are curious, here I've singled out an arbitrary pixel in the
+video and show how it's value changes as the camera moves, versus the
+DMD approximation to t his pixel over time.
+
+![moving cam](./moving-cam-single-pixel.png)
+
+**Take away**: By examinging the DMD modes for moving video, can we
+see any evidence of motion segmentation? Answer: no, nothing pops out.
+Thus DMD by itself doesn't provide meaningful scene segmentation
+information with moving video.
 
 ##
 
