@@ -1,8 +1,8 @@
 # DMD-Based Scene Segmentation for Video?
 
 DMD does an impressive job of seperating the stationary background
-from moving foreground.  Can this approach be adapted to work with a
-moving camera?
+from moving foreground when the camera is motionless.  Can this
+approach be adapted to work with a moving camera?
 
 ## Stationary Camera Example
 
