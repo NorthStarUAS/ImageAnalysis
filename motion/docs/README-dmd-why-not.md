@@ -63,7 +63,7 @@ see any evidence of motion segmentation? Answer: no, nothing pops out.
 Thus DMD by itself doesn't provide meaningful scene segmentation
 information with moving video.
 
-##
+# End of content ... what follows is left over stuff I still need to go through.
 
 Only using Fourier frequencies or weights (modes) computed for each
 sensor position, could that information be used to separate out the
