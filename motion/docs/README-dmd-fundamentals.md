@@ -48,9 +48,9 @@ each of the "m" time steps.
 
 We can refer to a set of "n" weightings associated with a single
 frequency as a **mode.** Notice in the following plot the "x" axis is
-each pixel (sensor) position The vertical axis is the mode weights.
-In this example the input data set is a 200 x 200 image ("n" = 40000
-pixels) and we solved for "k" = 9 basis functions.)
+each pixel position The vertical axis is the mode weights.  In this
+example the input data set is a 200 x 200 image ("n" = 40000 pixels)
+and we solved for "k" = 9 basis functions.)
 
 ![modes](./modes.jpg)
 
@@ -71,9 +71,9 @@ diminishing dynamics over time.)
 ## Definition: Pixel Motion
 
 Consider a video clip with an object moving through the frame.  Focus
-on a single pixel (a single sensor) as the video plays through.  It is
-important to distinguish between how DMD sees the scene and how our
-eyes/brain see the scene.
+on a single pixel as the video plays through.  It is important to
+distinguish between how DMD sees the scene and how our eyes/brain see
+the scene.
 
 DMD is fitting a Fourier series to a time sequence of data points from
 individual pixels.  As the bicycle rides across the scene, the
