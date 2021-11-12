@@ -1,8 +1,50 @@
-# DMD-Based Scene Segmentation for Video?
+# Dynamic Mode Decomposition for Scene Segmentation
 
-DMD does an impressive job of seperating the stationary background
-from moving foreground when the camera is motionless.  Can this
-approach be adapted to work with a moving camera?
+**Dynamic Mode Decomposition:**
+
+Dynamic Mode Decomposition (DMD) was first introduced by Peter Schmidt
+(2008) to visualize dynamical features in flow data. [Source:
+Wikipedia] It presumes data has been collected at a fixed time step
+across a set of sensors.  DMD will compute an approximation to the
+input data using a set of oscillating basis functions.  It is similar
+to computing a Fourier series approximation to a set of signals, but
+uses a shared set of basis functions for the entire set of sensors.
+With DMD, the oscillating basis functions can grow or decay over time
+and are not necessarily harmonics of each other.  The set of weights
+for each basis function is called a mode.  The modes can be examined
+directly to visualize dominant features of the system dynamics.
+
+**Scene Segmentation:**
+
+Scene Segmentation refers to visually identifying objects in a scene,
+separating (or segmenting) the scene into it's important parts.  It is
+something humans do quickly and intuitively, but computers need to
+work hard to accomplish and often aren't very reliable at this task.
+
+**Key Observation:**
+
+The key underlying observation is that DMD can be applied to video
+clips and leveraged to do simple, but effective scene segmentation:
+One of the modes that DMD produces is the "zero-frequency" mode.  This
+mode corresponds to all the unchanging information in the scene.
+
+**Past Work:**
+
+Paper presented at AIAA SciTEch 2020 Forum: "Multi-Sensor Scene
+Segmentation for Unmanned Air and Ground Vehicles using Dynamic Mode
+Decomposition", Kalur, Bhattacharjee, Wang, Hemati, Bageshwar.
+
+This paper explored the details of using DMD for scene segmentation of
+video and LiDAR sensors that are fixed (not moving) in space.  It also
+presented a "streaming" version of the DMD algorithm that can run
+efficiently as video frames are collected.
+
+**Current Research Question:**
+
+Can the established DMD scene segmentation work be extended to a
+moving camera?  A ground based surveillance camera may have a fixed
+position and this use-case can be demonstrated to work well.  However
+air and ground vehicles will move through their environments.
 
 ## Stationary Camera Example
 
