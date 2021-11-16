@@ -1,34 +1,42 @@
-# Thoughts on using DMD from a moving camera
+# A Few More Thoughts and Example Related to DMD and Moving Cameras
 
 DMD = Dynamic Mode Decomposition
 
-The main objective of this letter is to think about DMD from the
-perspective of an individual pixel (or sensor) and clarify what DMD
-can and can't do.
+The main objective of this white paper is to think about DMD from the
+perspective of an individual pixel to help clarify what DMD can and
+can't do.
 
-## Adjacency (in space)
+For this discussion I am thinking about video input (or an animated
+sequence of images.)  Each pixel assumes a value in each frame and can
+change independently over time.
 
-The ordering of the input vector elements does not affect the
-correct output of the algorithm.  If the input is an image, the grid
-of pixels can be stacked by columns, stacked by rows, or even assigned
-a pseudo-random order, as long as this is done consistently for each
+## Pixel Adjacency (in space)
+
+The order of the input vector elements does not affect the correct
+output of the algorithm.  If the input is an image, the grid of pixels
+can be stacked by columns, stacked by rows, or even assigned a
+pseudo-random order, as long as this is done consistently for each
 time step and the chosen arrangement is reversed before interpreting,
 plotting, visualizing the results.
 
-The DMD algorithm finds a set of modes that is a simultaneous best fit
-for the collection of sensors.  Sensors are grouped in the sense of
-like behavior in the frequency domain but not in the sense of physical
-location or adjacency.
+The DMD algorithm finds a set of matched modes and oscillating basis
+functions that are simultaneous a best fit for the collection of
+sensors.  Sensors are grouped in the sense of like behavior and
+exhibit more or less energy at the common basis function frequencies.
+They share behavior in the frequency domain but there is no adjacency
+requirement in the original input data.
 
 ## Visual motion of groups of pixels (aka blobs)
 
 Consider the apparent motion of a group of adjacent pixels.  Our
-eyes/brain does scene segmentation and motion tracking to interpret
-the scene.  An animated video is just a collection of frames where
-each frame is an array of pixels.  Each pixel can take any value at
-any time step independent of its neighbors.  Video motion is simply an
-animation of individual frames of input being shown in quick
-succession.
+eyes/brain will do scene segmentation and motion tracking to interpret
+the scene and humans are quite good at this task.  However, an
+animated video is just a collection of frames where each frame is an
+array of pixels.  Each pixel can take any value at any time step
+independent of its neighbors.  Video motion is simply an animation of
+individual frames of input being shown in quick succession.  Our
+brains are "tricked" to see motion and objects, but the scene is
+really just a collection of pixels changing value over time.
 
 From the perspective of an individual pixel, its value changes over
 time, but the pixel itself is unaware of larger structures in each
@@ -89,7 +97,8 @@ Consider the next pixel highlighted in green below it undergoes changing values 
 
 ![background pixel](./changing-pixel-selected.png)
 
-Here is a plot of the pixel value over time:
+Here is a plot of the pixel value over time (sum of all weights
+multipled by their corresponding basis functions):
 
 ![background pixel plot](./changing-pixel-plot.png)
 
@@ -133,21 +142,3 @@ must assume constant and unpredictable pixel value changes.
 Here is a plot of the pixel value over time:
 
 ![background pixel plot](./dynamic-pixel-plot.png)
-
-## Conclusion/Question
-
-What can we see in the DMD modes or frequencies or dynamics that sheds
-light on scene segmentation for a moving camera?  I don't see a direct
-path to extracting useful information.
-
-I have developed a simple method to model the camera motion using a
-homography matrix from one frame to the next.  This doesn't account
-for perceived motion due to parallax, but does enable variations on
-the traditional background subtraction methods.
-
-It would be possible to run DMD on the frame differences.  Here the
-zero frequency mode would best correspond to the moving segment of the
-scene.  See also note about zero frequency mode / frame averaging
-equivalence.  So DMD could be used, maybe with indirect value of
-filtering higher frequency noise?  But with less direct value towards
-scene segmentation.
