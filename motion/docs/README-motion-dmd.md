@@ -139,6 +139,10 @@ must assume constant and unpredictable pixel value changes.
 
 ![background pixel](./dynamic-pixel-selected.png)
 
-Here is a plot of the pixel value over time:
+Here is a plot of the pixel value over time.  You may be able to see
+that a Fourier serious would need a large number of terms to
+accurately fit the input data sequence and that generally means there
+isn't any clear oscillatory behavior in the input data for DMD to fit
+with a smaller set of modes:
 
 ![background pixel plot](./dynamic-pixel-plot.png)
