@@ -63,8 +63,8 @@ and we solved for "k" = 9 basis functions.)
 
 ## Definition: Dynamics
 
-We can evaluate the shared basis functions for the Fourier series at
-each time step.  This is called the **dynamics.**
+We can evaluate the shared basis functions at each time step.  This is
+called the **dynamics.**
 
 The modes (the set of weightings) is fixed for the entire solution and
 the dynamics changes with respect to time.  For the dynamics plot, the
@@ -82,11 +82,11 @@ on a single pixel as the video plays through.  It is important to
 distinguish between how DMD sees the scene and how our eyes/brain see
 the scene.
 
-DMD is fitting a Fourier series to a time sequence of data points from
-individual pixels.  As the bicycle rides across the scene, the
-individual pixels are changing values at specific times to create the
-illusion of motion.  Our brains see motion, but pixels are not
-actually moving, and the values each pixel assumes over time don't
+DMD is fitting something like a Fourier series to a time sequence of
+data points from individual pixels.  As the bicycle rides across the
+scene, the individual pixels are changing values at specific times to
+create the illusion of motion.  Our brains see motion, but pixels are
+not actually moving, and the values each pixel assumes over time don't
 really convey velocity or direction information.
 
 ![impulse scene](./changing-pixel-selected.png)
@@ -107,11 +107,10 @@ the product of each mode (set of weights) multiplied by the respective
 basis function evaluated at that time step.
 
 The example below shows the original time series for a single pixel
-compared to the Fourier series approximation as computed by DMD.  As
-stated above, the value of every pixel at every time step can be
-approximated.  Thus it is possible to reconstruct (an approximation
-to) the entire input video using only the modes and the basis
-functions.
+compared to the approximation as computed by DMD.  As stated above,
+the value of every pixel at every time step can be approximated.  Thus
+it is possible to reconstruct (an approximation to) the entire input
+video using only the modes and the basis functions.
 
 ![pixel reconstruction](./pixel_example.jpg)
 
@@ -143,7 +142,7 @@ each sensor is to each frequency.
 
 It can be useful to plot modes to see the energy (weights) at
 different basis function frequencies.  Remember the mode is just the
-set of weights for a specific Fourier basis function (frequency.)
+set of weights for a specific basis function (frequency.)
 
 Cherry picking an arbitrary mode from an arbitrary stationary video
 with an object moving through as an example, the mode plot could look
@@ -157,12 +156,12 @@ allows us to "see" where energy at some frequency has occurred:
 
 ## Problem #1: Separating the amplitude of the input signals versus response at that frequency.
 
-Remember that fundamentally DMD computes a Fourier series
-approximation to the original data set.  We can use the output of DMD
-to reconstruct the original pixel values at any time "t".  Consider
-that some pixels values will be small (dark regions) and some pixel
-values will be large (light regions.)  To properly reconstruct the
-original value, those dark pixels will have a low mode weighting,
+Remember that fundamentally DMD computes something like a Fourier
+series approximation to the original data set.  We can use the output
+of DMD to reconstruct the original pixel values at any time "t".
+Consider that some pixels values will be small (dark regions) and some
+pixel values will be large (light regions.)  To properly reconstruct
+the original value, those dark pixels will have a low mode weighting,
 while the bright pixels have a much higher relative weighting.  Thus,
 each mode (set of weights) is a mixture of the original signal
 amplitude and the response at a specific frequency.  There is no way
