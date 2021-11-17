@@ -158,21 +158,18 @@ information with moving video.
 # High Dynamics Moving Video Example
 
 Consider a video with a very dynamic moving camera (chase quad) and a
-dynamic subject (aerobatic aircraft.)
+dynamic subject (aerobatic aircraft.)  We have animated a sliding
+window DMD solution so you can view it changing over time.
+Functionally this would be similar to a Streaming DMD solution with
+correctly implemented "forgetting" factor.
 
-Visually you can see the original video frame in the top left grid
-location.  Then moving to the right you see the zero frequency DMD
-mode (top center) which visually looks very much like an average of
-the input frames as we would expect.
+The original video is shown in the top left grid location.  The zero
+frequency DMD mode is shown top center.  Visually it looks very much
+like an average of the input frames as we would expect.
 
 Looking at the other non-zero frequency modes, we can see the all the
-elements described above.  Video motion is really just an illusion
-created by changing individual pixel values.  The pixel value changes
-over time show up in all the modes because they generally behave like
-step changes.
-
-In the case of a stationary camera we can look at the zero frequency
-mode and observe it is the background without the moving elements.
+elements described above.  None of the modes are able to isolate
+camera motion from object motion in this general case.
 
 In the case of a moving camera we can view all the different modes and
 animate them throughout the course of the moving video, but we do not
@@ -182,7 +179,7 @@ The information we were hoping to extract just isn't there in the way
 we hoped.  Hopefully the information and background provided
 throughout this document kept this from being a surprise.
 
-![motion modes](./motion-modes.png)
+[![Watch the video](./motion-modes.png)](https://www.youtube.com/watch?v=L55NoW2VmWs)
 
 # Conclusion
 
@@ -202,3 +199,12 @@ This does not necessarily mean the problem is unsolvable, but the
 camera motion first needs to be estimated with some other strategy.
 Once the motion is accounted for, perhaps DMD could be applied to the
 result, or perhaps DMD is not the best fit for this problem?
+
+# Future Work?
+
+Consider the following video showing the use of optical flow and
+homography to model camera motion which then enables the use of
+variations of frame averaging and differencing.
+
+[![Watch the video](./motion-seg.png)](https://www.youtube.com/watch?v=EaqXW09Zj3M)
+
