@@ -18,7 +18,7 @@ from tqdm import tqdm
 import time
 
 from streaming_dmd import StreamingDMD
-#from streaming_dmd1 import StreamingDMD
+#from streaming_dmd_orig import StreamingDMD
 
 import camera
 from motion import myOpticalFlow
