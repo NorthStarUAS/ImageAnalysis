@@ -22,15 +22,17 @@ sys.path.append("../video")
 import camera
 
 from motion import myOpticalFlow
-#from motion import myFarnebackFlow
+#from motion import myFeatureFlow
+from motion import myFarnebackFlow
 
 parser = argparse.ArgumentParser(description='Track motion with homography transformation.')
 parser.add_argument('video', help='video file')
 parser.add_argument('--camera', help='select camera calibration file')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
 parser.add_argument('--fg-alpha', type=float, default=0.5, help='foreground filter factor')
-parser.add_argument('--prev-alpha', type=float, help='previous filter factor (defaults to fg alpha)')
 parser.add_argument('--bg-alpha', type=float, default=0.05, help='background filter factor')
+parser.add_argument('--prev-alpha', type=float, help='previous filter factor (defaults to fg alpha)')
+parser.add_argument('--diff-alpha', type=float, help='previous filter factor (defaults to fg alpha)')
 parser.add_argument('--skip-frames', type=int, default=0, help='skip n initial frames')
 parser.add_argument('--write', action='store_true', help='write out video with keypoints shown')
 parser.add_argument('--write-quad', action='store_true', help='write out video with keypoints shown')
@@ -110,6 +112,7 @@ if args.write_quad:
                                           outputdict=sane)
 
 flow = myOpticalFlow()
+#flow = myFeatureFlow(K)
 #farneback = myFarnebackFlow()
 
 bg_alpha = args.bg_alpha
@@ -153,7 +156,7 @@ for frame in reader.nextFrame():
     cv2.imshow("frame undist", frame_undist)
 
     # update the flow estimate
-    M, prev_pts, curr_pts = flow.update(frame_undist)
+    M, prev_pts, curr_pts, status = flow.update(frame_undist)
     print("M:\n", M)
     
     #farneback.update(frame_undist)
@@ -188,13 +191,29 @@ for frame in reader.nextFrame():
     cv2.imshow("diff", diff_img.astype('uint8'))
     cv2.imshow("background", bg_filt.astype('uint8'))
 
+    frame_feat = frame_undist.copy()
     if True:
-        frame_feat = frame_undist.copy()
-        for pt in curr_pts:
-            cv2.circle(frame_feat, (int(pt[0][0]), int(pt[0][1])), 3, (0,255,0), 1, cv2.LINE_AA)
-        for pt in prev_pts:
-            cv2.circle(frame_feat, (int(pt[0][0]), int(pt[0][1])), 2, (0,0,255), 1, cv2.LINE_AA)
-        cv2.imshow('features', frame_feat)
+        for i in range(len(curr_pts)):
+            p1 = prev_pts[i].reshape(2)
+            p2 = curr_pts[i].reshape(2)
+            if status[i]:
+                c1 = (0,255,0)
+                c2 = (0,255,255)
+            else:
+                c1 = (0,0,255)
+                c2 = (255,0,255)
+            cv2.circle(frame_feat, (int(p1[0]), int(p1[1])), 3, c2, 1, cv2.LINE_AA)
+            cv2.circle(frame_feat, (int(p2[0]), int(p2[1])), 2, c1, 1, cv2.LINE_AA)
+    if True:
+        for i in range(len(curr_pts)):
+            p1 = prev_pts[i].reshape(2)
+            p2 = curr_pts[i].reshape(2)
+            if status[i]:
+                color = (0,255,0)
+            else:
+                color = (0,0,255)
+            cv2.line(frame_feat, (int(p1[0]), int(p1[1])), (int(p2[0]), int(p2[1])), color, 1, cv2.LINE_AA)
+    cv2.imshow('features', frame_feat)
 
     if args.write:
         # if rgb

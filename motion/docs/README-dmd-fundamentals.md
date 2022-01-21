@@ -1,14 +1,21 @@
-# DMD - Dynamic Mode Decomposition
+# Dynamic Mode Decomposition (DMD) Fundamentals
 
-DMD simultaneously computes a set of Fourier series approximations for
-a set of input sensor signals. The solution will share a common set of
-basis functions, and each sensor will have a unique set of weightings
-for each basis function.  The input data set can be reconstructed from
-the set of weightings (modes) and the basis functions (frequency,
-phase, amplitude.)
+Here I describe some key aspects of DMD that I believe are importnat
+to think about when considering DMD as a tool for motion-based scene
+segmentation in video.
 
-It is often useful to plot the weights for one of the basis functions
-to understand the how the "energy" of the corresponding frequency is
+DMD computes an approximation (or simplification) of a set of input
+sensor signals sampled over time. The approximation consists of a set
+of shared oscillating basis functions and a weights for each sensor
+corresponding to each basis function.  A lower order approximation of
+the input data at any time *t* can be reconstructed from the set of
+weightings (modes) and the basis functions (frequency, phase,
+amplitude.)  DMD is sometimes thought of as a tool to perform mode
+simplification in a system because it identifies and preserves the
+most dominate oscillatory modes.
+
+It can be useful to plot the weights of the basis functions to
+understand the how the "energy" of the corresponding frequency is
 structured in the system.  Here is an arbitrary example of a mode
 plot:
 
@@ -56,8 +63,8 @@ and we solved for "k" = 9 basis functions.)
 
 ## Definition: Dynamics
 
-We can evaluate the shared basis functions for the Fourier series at
-each time step.  This is called the **dynamics.**
+We can evaluate the shared basis functions at each time step.  This is
+called the **dynamics.**
 
 The modes (the set of weightings) is fixed for the entire solution and
 the dynamics changes with respect to time.  For the dynamics plot, the
@@ -75,11 +82,11 @@ on a single pixel as the video plays through.  It is important to
 distinguish between how DMD sees the scene and how our eyes/brain see
 the scene.
 
-DMD is fitting a Fourier series to a time sequence of data points from
-individual pixels.  As the bicycle rides across the scene, the
-individual pixels are changing values at specific times to create the
-illusion of motion.  Our brains see motion, but pixels are not
-actually moving, and the values each pixel assumes over time don't
+DMD is fitting something like a Fourier series to a time sequence of
+data points from individual pixels.  As the bicycle rides across the
+scene, the individual pixels are changing values at specific times to
+create the illusion of motion.  Our brains see motion, but pixels are
+not actually moving, and the values each pixel assumes over time don't
 really convey velocity or direction information.
 
 ![impulse scene](./changing-pixel-selected.png)
@@ -100,11 +107,10 @@ the product of each mode (set of weights) multiplied by the respective
 basis function evaluated at that time step.
 
 The example below shows the original time series for a single pixel
-compared to the Fourier series approximation as computed by DMD.  As
-stated above, the value of every pixel at every time step can be
-approximated.  Thus it is possible to reconstruct (an approximation
-to) the entire input video using only the modes and the basis
-functions.
+compared to the approximation as computed by DMD.  As stated above,
+the value of every pixel at every time step can be approximated.  Thus
+it is possible to reconstruct (an approximation to) the entire input
+video using only the modes and the basis functions.
 
 ![pixel reconstruction](./pixel_example.jpg)
 
@@ -136,7 +142,7 @@ each sensor is to each frequency.
 
 It can be useful to plot modes to see the energy (weights) at
 different basis function frequencies.  Remember the mode is just the
-set of weights for a specific Fourier basis function (frequency.)
+set of weights for a specific basis function (frequency.)
 
 Cherry picking an arbitrary mode from an arbitrary stationary video
 with an object moving through as an example, the mode plot could look
@@ -150,18 +156,20 @@ allows us to "see" where energy at some frequency has occurred:
 
 ## Problem #1: Separating the amplitude of the input signals versus response at that frequency.
 
-Remember that fundamentally DMD computes a Fourier series
-approximation to the original data set.  We can use the output of DMD
-to reconstruct the original pixel values at any time "t".  Consider
-that some pixels values will be small (dark regions) and some pixel
-values will be large (light regions.)  To properly reconstruct the
-original value, those dark pixels will have a low mode weighting,
+Remember that fundamentally DMD computes something like a Fourier
+series approximation to the original data set.  We can use the output
+of DMD to reconstruct the original pixel values at any time "t".
+Consider that some pixels values will be small (dark regions) and some
+pixel values will be large (light regions.)  To properly reconstruct
+the original value, those dark pixels will have a low mode weighting,
 while the bright pixels have a much higher relative weighting.  Thus,
 each mode (set of weights) is a mixture of the original signal
 amplitude and the response at a specific frequency.  There is no way
 to directly separate if a low mode value (weighting) means a low
 response at that frequency, or the original pixel was just a dark
 pixel.
+
+Imagine a black car driving on black asphalt as view from above.
 
 ## Problem #2: Impulse changes (step changes)
 
@@ -201,13 +209,13 @@ useful information can be extracted from the non-zero frequency modes
 beyond determining areas that have pixel values change versus areas
 with constant pixel values (background.)
 
-# The stationary camera hack
+# The stationary camera solution
 
-With DMD the zero-frequency mode corresponds to the steady state value
-of each pixel.  Conceptually this is **very** similar to the average
-value of the pixel over the time spanned by the video clip.  It is
-technically not exactly the same as the average, but it is very very
-close, and close enough that the end results could be though of
+With DMD, the zero-frequency mode corresponds to the steady state
+value of each pixel.  Conceptually this is **very** similar to the
+average value of the pixel over the time spanned by the video clip.
+It is technically not exactly the same as the average, but it is very
+very close, and close enough that the end results could be though of
 intuitively as equivalent.
 
 Consider the plot of the same arbitrarily selected pixel in the
@@ -231,3 +239,11 @@ basis_function).  However it is generally easier (and faster) to
 simply subtract the background from the current frame because the sum
 of all the modes is the full approximation to the original scene.
 
+# Conclusion
+
+Hopefully this discussion sheds some light on specifically how DMD
+works, what it does and what it doesn't do.  Hopefully I've show why
+DMD does such a nice job for segmenting video scenes when the camera
+is not moving.
+
+But now imagine if the camera is moving in space...

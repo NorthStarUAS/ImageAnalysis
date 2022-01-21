@@ -66,12 +66,12 @@ class myOpticalFlow():
         curr_pts = curr_pts[idx]
 
         if curr_pts.shape[0] >= 4:
-            tol = 2
+            tol = 1
             H, status = cv2.findHomography(prev_pts, curr_pts, cv2.LMEDS, tol)
         else:
             H = np.eye(3)
 
-        return H, prev_pts, curr_pts
+        return H, prev_pts, curr_pts, status
 
 
 # a feature matching based method.  This can be more robust with
@@ -87,7 +87,7 @@ class myFeatureFlow():
         self.kp_list_last = []
         self.des_list_last = []
 
-        if True:
+        if False:
             # ORB (much faster)
             self.detector = cv2.ORB_create(self.max_features)
             self.extractor = self.detector
@@ -186,7 +186,7 @@ class myFeatureFlow():
             M = np.eye(3)
 
         print("M:\n", M)
-        return M, newp1, newp2
+        return np.linalg.inv(M), newp1, newp2, status
 
 
 class myFarnebackFlow():
