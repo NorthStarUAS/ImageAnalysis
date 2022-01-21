@@ -4,7 +4,7 @@
 
 import datetime
 import piexif
-from libxmp.utils import file_to_dict # pip install python-xmp-toolkit
+# from libxmp.utils import file_to_dict # pip install python-xmp-toolkit
 
 from .logger import log
 
@@ -44,16 +44,29 @@ def dms_to_decimal(degrees, minutes, seconds, sign=' '):
 def get_pose(image_file):
     # exif data
     exif_dict = piexif.load(image_file)
-    # extend xmp tags
-    xmp_top = file_to_dict(image_file)
+    
+    # extended xmp tags (hack)
+    fd = open(image_file, "rb")
+    d = str(fd.read())
+    xmp_start = d.find('<x:xmpmeta')
+    xmp_end = d.find('</x:xmpmeta')
+    xmp_str = d[xmp_start:xmp_end+12]
+    #print(xmp_str)
+    lines = xmp_str.split("\\n")
+    #print(lines)
     xmp = {}
-    for key in xmp_top:
-        for v in xmp_top[key]:
-            xmp[v[0]] = v[1]
+    for line in lines:
+        line = line.rstrip().lstrip()
+        if line[0] == "<":
+            continue
+        token, val = line.split("=")
+        val = val.strip('"')
+        #print(token, val)
+        xmp[token] = val
+        
     #for key in xmp:
     #    print(key, xmp[key])
-        
-    
+
     # for ifd in exif_dict:
     #     if ifd == str("thumbnail"):
     #         print("thumb thumb thumbnail")
