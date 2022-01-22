@@ -8,6 +8,7 @@ import json
 import math
 import numpy as np
 import os
+from tqdm import tqdm
 
 from props import PropertyNode
 import props_json
@@ -29,6 +30,7 @@ parser.add_argument('--camera', help='select camera calibration file')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
 parser.add_argument('--skip-frames', type=int, default=0, help='skip n initial frames')
 parser.add_argument('--write', action='store_true', help='write out the final video')
+parser.add_argument('--no-otsu', action='store_true', help='skip otsu threshold step -- for very low light scenarios?')
 args = parser.parse_args()
 
 #file = args.video
@@ -114,6 +116,7 @@ video_writer = skvideo.io.FFmpegWriter(output_video, inputdict=inputdict, output
 counter = -1
 last_roll = None
 last_pitch = None
+pbar = tqdm(total=int(total_frames), smoothing=0.05)
 for frame in reader.nextFrame():
     frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
     counter += 1
@@ -124,7 +127,7 @@ for frame in reader.nextFrame():
         else:
             continue
 
-    print("Frame %d" % counter)
+    #print("Frame %d" % counter)
 
     method = cv2.INTER_AREA
     frame_scale = cv2.resize(frame, (0,0), fx=scale, fy=scale,
@@ -133,7 +136,10 @@ for frame in reader.nextFrame():
     frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
 
     # test horizon detection
-    lines = horizon.horizon(frame_undist)
+    if args.no_otsu:
+        lines = horizon.horizon(frame_undist, False)
+    else:
+        lines = horizon.horizon(frame_undist)
     if not lines is None:
         #best_line = horizon.track_best(lines)
         best_line = lines[0]
@@ -168,6 +174,8 @@ for frame in reader.nextFrame():
         video_writer.writeFrame(frame_undist[:,:,::-1])
     if 0xFF & cv2.waitKey(5) == 27:
         break
+    pbar.update()
+pbar.close()
 
 csvfile.close()
 cv2.destroyAllWindows()

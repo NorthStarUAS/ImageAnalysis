@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# Connect the ipad (ground station) to your computer and find the dji
+# go flight log.  Upload that to https://www.phantomhelp.com/LogViewer,
+# download as csv and copy that next to the flight movie and srt file.
+
 # extract srt form of subtitles from dji movie (caption setting needs
 # to be turned on when movie is recorded)
 #
@@ -20,8 +24,7 @@ import re
 import sys
 from scipy import interpolate # strait up linear interpolation, nothing fancy
 
-from auracore import wgs84
-from aurauas_flightdata import flight_loader, flight_interp
+from rcUAS import wgs84
 from props import PropertyNode
 import props_json
 
@@ -47,7 +50,7 @@ match_ratio = 0.75
 scale = 0.4
 filter_method = 'homography'
 tol = 3.0
-overlap = 0.25
+overlap = 0.20
 
 djicsv = djilog.djicsv()
 djicsv.load(args.djicsv)

@@ -226,10 +226,10 @@ if False:
         for x in np.linspace(best_x-spread, best_x+spread, num=11):
             initial[0] = x
             result = np.abs(errorFunc(initial))
-            avg = np.mean(result)
+            avg = np.mean(np.abs(result))
             std = np.std(result)
             print("yaw %.2f:" % (x*r2d),
-                  "avg: %.6f" % np.mean(result),
+                  "avg: %.6f" % np.mean(np.abs(result)),
                   "std: %.4f" % np.std(result))
             if best_avg is None or avg < best_avg:
                 best_avg = avg
@@ -238,6 +238,52 @@ if False:
         if spread < 0.001:     # rad
             done = True
     print("Best yaw: %.2f\n" % (best_x * r2d))
+    
+def myopt(func, xk, spread):
+    print("Hunting for best result...")
+    done = False
+    estimate = list(xk)
+    while not done:
+        for n in range(len(estimate)):
+            xdata = []
+            ydata = []
+            center = estimate[n]
+            for x in np.linspace(center-spread, center+spread, num=11):
+                estimate[n] = x
+                result = func(estimate)
+                avg = np.mean(np.abs(result))
+                std = np.std(result)
+                print("angle (deg) %.2f:" % (x*r2d),
+                      "avg: %.6f" % np.mean(np.abs(result)),
+                      "std: %.4f" % np.std(result))
+                xdata.append(x)
+                ydata.append(avg)
+            fit = np.polynomial.polynomial.polyfit( np.array(xdata), np.array(ydata), 2 )
+            print("poly fit:", fit)
+            poly = np.polynomial.polynomial.Polynomial(fit)
+            deriv = np.polynomial.polynomial.polyder(fit)
+            roots = np.polynomial.polynomial.polyroots(deriv)
+            print("roots:", roots)
+            estimate[n] = roots[0]
+            if args.plot:
+                plt.figure()
+                x = np.linspace(center-spread, center+spread, num=1000)
+                plt.plot(x, poly(x), 'r-')
+                plt.plot(xdata, ydata, 'b*')
+                plt.show()
+        spread = spread / 4
+        if spread < 0.001:     # rad
+            done = True
+    print("Minimal error for index n at angle %.2f (deg)\n" % (estimate[n] * r2d))
+    return estimate
+
+if True:
+    print("Running my self-built brute force optimizer just to see ...")
+    spread = 30*d2r
+    est = list(initial)
+    result = myopt(errorFunc, est, spread)
+    print("Best result:", np.array(result)*r2d)
+    initial = np.array(result)  # propagate this result as the starting guess for the fancy optimizer to see if it can find better.
 
 print("Optimizing...")
 res = least_squares(errorFunc, initial, verbose=2)

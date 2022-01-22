@@ -18,7 +18,7 @@ import sys
 sys.path.append('../scripts')
 from lib import transformations
 
-from aurauas_flightdata import flight_loader, flight_interp
+from rcUAS_flightdata import flight_loader, flight_interp
 
 import camera
 import correlate
@@ -208,7 +208,11 @@ def errorFunc(xk):
         #print("proj_gyro:", proj_gyro)
         diff = imu_gyro - proj_gyro
         #print("diff:", diff)
-        result.append( np.linalg.norm(diff) )
+        dist = np.linalg.norm(diff)
+        #print(dist)
+        if dist <= 0.5:
+            # experiment with rejecting outliers?
+            result.append( dist )
     return np.array(result)
 
 if True:

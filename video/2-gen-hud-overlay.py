@@ -13,7 +13,7 @@ import re
 from scipy import interpolate  # strait up linear interpolation, nothing fancy
 from tqdm import tqdm
 
-from aurauas_flightdata import flight_loader, flight_interp
+from rcUAS_flightdata import flight_loader, flight_interp
 
 import camera
 import correction
@@ -99,7 +99,7 @@ print('K:\n', K)
 print('dist:', dist)
 
 if os.path.exists(ekf_error):
-    correction.load_horiz(ekf_error)
+    correction.load_horiz(ekf_error, args.plot)
     
 data, flight_format = flight_loader.load(args.flight)
 print("imu records:", len(data['imu']))
@@ -149,7 +149,7 @@ feat_data.smooth(smooth_cutoff_hz)
 feat_data.make_interp()
 if args.plot:
     feat_data.plot()
-feat_interp = feat_data.resample(args.resample_hz)
+feat_interp = feat_data.resample(args.resample_hz, method="affine")
 
 # find the time correlation of video vs flight data
 time_shift = \
@@ -273,10 +273,24 @@ if True and time_shift > 0:
         hud1.update_ned(ned, args.flight_track_seconds)
         hud1.update_events(data['event'])
 
+def next_frame():
+    try:
+        frame = reader._readFrame()
+    except:
+        return None
+    if not len(frame):
+        return None
+    frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
+    return frame
+
+        
 shift_mod_hack = False
 pbar = tqdm(total=int(total_frames), smoothing=0.05)
-for frame in reader.nextFrame():
-    frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
+while True:
+    frame = next_frame()
+    if frame is None:
+        break
+
     if args.rot180:
         frame = np.rot90(frame)
         frame = np.rot90(frame)
@@ -302,7 +316,7 @@ for frame in reader.nextFrame():
     pitch_rad = filt['the']
     roll_rad = filt['phi']
     if not correction.yaw_interp is None:
-        yaw_rad += correction.yaw_interp(time)
+        yar_rad += correction.yaw_interp(time)
     if not correction.pitch_interp is None:
         pitch_rad += correction.pitch_interp(time)
     if not correction.roll_interp is None:
@@ -330,7 +344,7 @@ for frame in reader.nextFrame():
         alpha_rad = None
         beta_rad = None
         #print 'no alpha/beta'
-    if 'hdgx' in ap:
+    if not ap is None and 'hdgx' in ap:
         ap_hdgx = ap['hdgx']
         ap_hdgy = ap['hdgy']
         ap_hdg = math.atan2(ap_hdgy, ap_hdgx)*r2d
@@ -342,7 +356,7 @@ for frame in reader.nextFrame():
             ap_pitch += correction.pitch_interp(time) * r2d
         ap_speed = ap['speed']
         ap_alt_ft = ap['alt']
-    if 'aileron' in pilot:
+    if not pilot is None and 'aileron' in pilot:
         pilot_ail = pilot['aileron'] * args.aileron_scale
         pilot_ele = pilot['elevator'] * args.elevator_scale
         pilot_thr = pilot['throttle']
@@ -350,7 +364,7 @@ for frame in reader.nextFrame():
         auto_switch = pilot['auto_manual']
     else:
         auto_switch = 0
-    if 'aileron' in act:
+    if not act is None and 'aileron' in act:
         act_ail = act['aileron'] * args.aileron_scale
         act_ele = act['elevator'] * args.elevator_scale
         act_thr = act['throttle']
@@ -407,14 +421,14 @@ for frame in reader.nextFrame():
         hud1.update_airdata(airspeed_kt, altitude_m, wind_deg, wind_kt, alpha_rad, beta_rad)
     else:
         hud1.update_airdata(airspeed_kt, altitude_m)
-    if 'hdgx' in ap:
+    if not ap is None and 'hdgx' in ap:
         hud1.update_ap(flight_mode, ap_roll, ap_pitch, ap_hdg,
                        ap_speed, ap_alt_ft)
     else:
         hud1.update_ap(flight_mode, 0.0, 0.0, 0.0, 0.0, 0.0)
-    if 'aileron' in pilot:
+    if not pilot is None and 'aileron' in pilot:
         hud1.update_pilot(pilot_ail, pilot_ele, pilot_thr, pilot_rud)
-    if 'aileron' in act:
+    if not act is None and 'aileron' in act:
         hud1.update_act(act_ail, act_ele, act_thr, act_rud)
     if time >= imu_min and time <= imu_max:
         # only draw hud for time range when we have actual flight data

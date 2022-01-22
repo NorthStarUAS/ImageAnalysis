@@ -64,7 +64,7 @@ def compute_angle(ned1, ned2, ned3):
 
 print("Scanning match pair angles:")
 mark_list = []
-for k, match in enumerate(tqdm(matches)):
+for k, match in enumerate(tqdm(matches, smoothing=0.01)):
     if match[1] == args.group:  # used by current group
         for i, m1 in enumerate(match[2:]):
             for j, m2 in enumerate(match[2:]):

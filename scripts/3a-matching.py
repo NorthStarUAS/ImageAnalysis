@@ -11,6 +11,7 @@ from lib import camera
 from lib.logger import log
 from lib import matcher
 from lib import project
+from lib import smart
 from lib import srtm
 
 # working on matching features ...
@@ -99,7 +100,9 @@ ref = [ ref_node.getFloat('lat_deg'),
 log("NED reference location:", ref)
 # local surface approximation
 srtm.initialize( ref, 6000, 6000, 30)
-surface.update_srtm_elevations(proj)
+smart.load(proj.analysis_dir)
+smart.update_srtm_elevations(proj)
+smart.set_yaw_error_estimates(proj)
 proj.save_images_info()
 
 # camera calibration

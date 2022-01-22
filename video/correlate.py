@@ -174,6 +174,7 @@ def sync_clocks(data, interp, video_log, hz=60, cam_mount='forward',
 # rate for correlation.
 def sync_horizon(flight_data, flight_interp,
                  video_data, video_interp, video_len, hz=60,
+                 method="horiz",
                  cam_mount='forward', force_time_shift=None, plot=True):
     # compute best correlation between video and flight data logs
     video_interp = np.array(video_interp, dtype=float)
@@ -184,8 +185,14 @@ def sync_horizon(flight_data, flight_interp,
         # maybe filtering video estimate helps something?
         import scipy.signal as signal
         b, a = signal.butter(2, 10.0/(200.0/2))
-        flight_butter = signal.filtfilt(b, a, flight_interp[:,3])
-        video_butter = signal.filtfilt(b, a, video_interp[:,1])
+        if method == "horiz":
+            print("using horizon estimate for correlation...")
+            flight_butter = signal.filtfilt(b, a, flight_interp[:,3])
+            video_butter = signal.filtfilt(b, a, video_interp[:,1])
+        elif method == "rates":
+            print("using gyro rate estimate for correlation...")
+            flight_butter = signal.filtfilt(b, a, flight_interp[:,1])
+            video_butter = signal.filtfilt(b, a, video_interp[:,3])
         ycorr = np.correlate(flight_butter, video_butter, mode='full')
     else:
         ycorr = np.correlate(flight_interp[:,3], video_interp[:,1], mode='full')

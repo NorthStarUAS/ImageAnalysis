@@ -34,7 +34,7 @@ parser.add_argument('video', help='video file')
 parser.add_argument('--camera', help='select camera calibration file')
 parser.add_argument('--scale', type=float, default=1.0, help='scale input')
 parser.add_argument('--skip-frames', type=int, default=0, help='skip n initial frames')
-parser.add_argument('--equalize', action='store_true', help='disable image equalization')
+parser.add_argument('--no-equalize', action='store_true', help='disable image equalization')
 parser.add_argument('--write', action='store_true', help='write out video with keypoints shown')
 args = parser.parse_args()
 
@@ -227,7 +227,7 @@ def make_edge_mask(gray):
     print("max edges:", (edges_accum >= thresh).sum())
     ratio = (edges_accum >= thresh).sum() / (edges_accum.shape[0]*edges_accum.shape[1])
     print("ratio:", ratio)
-    if ratio < 0.005:
+    if ratio < 0.01:
         ret2, thresh1 = cv2.threshold(edges_accum.astype('uint8'), thresh, 255, cv2.THRESH_BINARY)
         thresh1 = cv2.dilate(thresh1, kernel, iterations=2)
     else:
@@ -273,7 +273,7 @@ rot_last = 0
 tx_last = 0
 ty_last = 0
 
-if True or args.equalize:
+if not args.no_equalize:
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
 
 csvfile = open(output_csv, 'w')
@@ -313,7 +313,7 @@ for frame in reader.nextFrame():
 
     gray = cv2.cvtColor(frame_undist, cv2.COLOR_BGR2GRAY)
         
-    if True or args.equalize:
+    if not args.no_equalize:
         gray = clahe.apply(gray)
         cv2.imshow("gray equalized", gray)
 
@@ -485,6 +485,39 @@ for frame in reader.nextFrame():
     #print("est gyro: %d %.3f %.3f %.3f" % (counter, p, q, r))
 
     if True:
+        ah = np.vstack([affine, [0, 0, 1]])
+        print("ah:\n", ah)
+        h, w = frame_undist.shape[:2]
+        print(frame_undist.shape)
+        pts = []
+        for x in np.linspace(0, w, num=11, endpoint=True):
+            for y in np.linspace(0, h, num=11, endpoint=True):
+                pts.append( [x, y] )
+        pts1 = np.array([pts])
+        #newpts = pts.dot(M.T)
+        print(pts1.shape)
+        Mi = np.linalg.inv(M)
+        newpts = cv2.perspectiveTransform(pts1, Mi)
+        print(newpts.shape)
+        for i in range(len(pts)):
+            p1 = pts[i]
+            p2 = newpts[0][i]
+            cv2.line(frame_undist,
+                     (int(round(p1[0])), int(round(p1[1]))),
+                     (int(round(p2[0])), int(round(p2[1]))),
+                     (0,255,0), 1, cv2.LINE_AA)
+        for pt in newp1:
+            cv2.circle(frame_undist, (int(pt[0]), int(pt[1])), 2, (64,212,64), 1, cv2.LINE_AA)
+
+    if False:
+        for i in range(newp1.shape[0]):
+            p1 = newp1[i]
+            p2 = newp2[i]
+            cv2.line(frame_undist,
+                     (int(round(p1[0])), int(round(p1[1]))),
+                     (int(round(p2[0])), int(round(p2[1]))),
+                     (0,255,0), 1, cv2.LINE_AA)
+    if False:
         for pt in newp1:
             cv2.circle(frame_undist, (int(pt[0]), int(pt[1])), 3, (0,255,0), 1, cv2.LINE_AA)
         for pt in newp2:

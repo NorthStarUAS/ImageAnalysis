@@ -9,6 +9,7 @@ import shutil
 parser = argparse.ArgumentParser(description='Add a value to the file name for numbered files (renames the file with a new number).')
 parser.add_argument('--add', required=True, type=int,
                     help='add this to file name number')
+parser.add_argument('--write', action='store_true', help='write changes, otherwise script just displays what it would have done')
 parser.add_argument('files', metavar='files', nargs='+',
                     help='list of files to modify')
 args = parser.parse_args()
@@ -28,4 +29,5 @@ for file in args.files:
         new_num = '0' + new_num
     new_base = "%s%s.%s" % (m.group(1), new_num, m.group(3))
     print("rename:", file, os.path.join(dirname, new_base))
-    os.rename(file, os.path.join(dirname, new_base))
+    if args.write:
+        os.rename(file, os.path.join(dirname, new_base))

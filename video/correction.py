@@ -7,6 +7,10 @@ import re
 from scipy import interpolate # strait up linear interpolation, nothing fancy
 import scipy.signal as signal
 
+# helpful constants
+d2r = math.pi / 180.0
+r2d = 180.0 / math.pi
+
 yaw_interp = None
 pitch_interp = None
 roll_interp = None
@@ -14,7 +18,7 @@ north_interp = None
 east_interp = None
 down_interp = None
 
-def load_horiz(filename):
+def load_horiz(filename, plot=False):
     global roll_interp
     global pitch_interp
     
@@ -29,6 +33,30 @@ def load_horiz(filename):
     print("number of video records:", feat_count)
     hz = int(round((feat_count / span_sec)))
 
+    if plot:
+        plt.figure()
+        plt.plot(data['ekf roll error (rad)'], label="roll error")
+        plt.plot(data['ekf pitch error (rad)'], label="pitch error")
+        plt.xlabel("BEFORE Flight time (sec)")
+        plt.ylabel("Rad")
+        plt.legend()
+        plt.show()
+        
+    # sanitize?
+    df = data['ekf roll error (rad)']
+    df[abs(df) > 0.08] = 0.0
+    df = data['ekf pitch error (rad)']
+    df[abs(df) > 0.08] = 0.0
+                    
+    if plot:
+        plt.figure()
+        plt.plot(data['ekf roll error (rad)'], label="roll error")
+        plt.plot(data['ekf pitch error (rad)'], label="pitch error")
+        plt.xlabel("AFTER Flight time (sec)")
+        plt.ylabel("Rad")
+        plt.legend()
+        plt.show()
+        
     # smooth
     cutoff_hz = 1
     b, a = signal.butter(2, cutoff_hz, fs=hz)
@@ -37,12 +65,12 @@ def load_horiz(filename):
     data['ekf pitch error (rad)'] = \
         signal.filtfilt(b, a, data['ekf pitch error (rad)'])
 
-    if False:
+    if plot:
         plt.figure()
-        plt.plot(data['ekf roll error (rad)'], label="roll error")
-        plt.plot(data['ekf pitch error (rad)'], label="pitch error")
+        plt.plot(data['ekf roll error (rad)']*r2d, label="roll error")
+        plt.plot(data['ekf pitch error (rad)']*r2d, label="pitch error")
         plt.xlabel("Flight time (sec)")
-        plt.ylabel("Rad")
+        plt.ylabel("Degree")
         plt.legend()
         plt.show()
 

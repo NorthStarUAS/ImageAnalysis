@@ -21,12 +21,14 @@ are in place for running the ImageAnalysis software:
   Do not Install Microsoft VSCode (Skip!) unless you really want it for
   some other project not related to this one.
 
+  > conda upgrade
+  
 # Install git for windows
 
   Download/install: https://git-scm.com/download/win
 
-  (Again my advice is to go with all the defaults choices the
-  installer presents.)
+  (My advice is to go with all the defaults choices the installer
+  presents unless you have a specific reason to do something else.)
 
 # Open command shells
 
@@ -37,10 +39,16 @@ are in place for running the ImageAnalysis software:
 
   From the Anaconda Prompt:
 
+    anaconda3> conda uninstall sphinx // breaks pyinstaller
+    anaconda3> conda install scipy
     anaconda3> conda install opencv
-    anaconda3> conda install progress
     anaconda3> pip install Panda3D
     anaconda3> pip install geojson
+    anaconda3> pip install simplekml
+
+  For packaging up the explorer.py script (probably a Curt only thing)
+
+    anaconda> pip install pyinstaller
 
 # Install additional required software packages
 
@@ -71,4 +79,4 @@ are in place for running the ImageAnalysis software:
 # Run the visualizer script
 
     anaconda3> cd Desktop\Software\ImageAnalysis\scripts
-    anaconda3> python 7a-python.py
+    anaconda3> python explorer.py

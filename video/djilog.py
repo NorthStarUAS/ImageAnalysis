@@ -20,12 +20,28 @@ class djicsv:
         self.log = []
 
     def load(self, file_name):
-        with open(file_name, "r", encoding='ISO-8859-1') as f:
+        # DJIFlightRecord_2021-07-29_\[16-32-50\].csv
+        pos = file_name.find("DJIFlightRecord_")
+        year = file_name[pos+16:pos+20]
+        month = file_name[pos+21:pos+23]
+        day = file_name[pos+24:pos+26]
+        print(year, month, day)
+        #with open(file_name, "r", encoding='ISO-8859-1') as f:
+        with open(file_name, "r") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                #print(row)
-                time_str = row['CUSTOM.updateTime']
-                #print(time_str)
+                print(row)
+                time_str = row['CUSTOM.updateTime [local]']
+                (t, ampm) = time_str.split(" ")
+                print(t, ampm)
+                (hour, min, sec) = t.split(":")
+                hour = int(hour)
+                if ampm == "PM":
+                    hour += 12
+                print(hour, min, sec)
+                time_str = "%s/%s/%s %02d:%s:%s" % (year, month, day,
+                                                     hour, min, sec)
+                print(time_str)
                 if len(time_str.split(".")) == 1:
                     date_time_obj = datetime.datetime.strptime(time_str, '%Y/%m/%d %H:%M:%S')
                 else:
@@ -44,14 +60,14 @@ class djicsv:
                 #print(strdate, ":", strtime, unixtime)
                 #print(date_time_obj.strftime('%s'))
                 record = {
-                    'time_str': row['CUSTOM.updateTime'],
+                    'time_str': time_str,
                     'unix_sec': unix_sec,
-                    'lat': float(row['OSD.latitude']),
-                    'lon': float(row['OSD.longitude']),
-                    'baro_alt': float(row['OSD.altitude [m]']),
-                    'pitch': float(row['GIMBAL.pitch']),
-                    'roll': float(row['GIMBAL.roll']),
-                    'yaw': float(row['GIMBAL.yaw'])
+                    'lat': float(row[' OSD.latitude']),
+                    'lon': float(row[' OSD.longitude']),
+                    'baro_alt': float(row[' OSD.altitude [ft]']),
+                    'pitch': float(row[' GIMBAL.pitch']),
+                    'roll': float(row[' GIMBAL.roll']),
+                    'yaw': float(row[' GIMBAL.yaw'])
                 }
                 self.log.append(record)
 

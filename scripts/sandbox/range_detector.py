@@ -73,7 +73,7 @@ def main():
         else:
             frame_to_thresh = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
             hue, sat, val = cv2.split(frame_to_thresh)
-            hue = np.mod((hue.astype('float') + 90), 180).astype('uint8')
+            #hue = np.mod((hue.astype('float') + 90), 180).astype('uint8')
             frame_to_thresh = cv2.merge( (hue, sat, val) )
     else:
         camera = cv2.VideoCapture(0)

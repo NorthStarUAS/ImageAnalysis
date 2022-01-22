@@ -40,7 +40,9 @@ print("Camera:", camera_file)
 cam_node = getNode('/config/camera', True)
 tmp_node = PropertyNode()
 if props_json.load(camera_file, tmp_node):
+    print("loaded ok")
     props_json.overlay(cam_node, tmp_node)
+    print("overlay ok")
     camera.set_mount_params(args.yaw_deg, args.pitch_deg, args.roll_deg)
 
     # note: dist_coeffs = array[5] = k1, k2, p1, p2, k3

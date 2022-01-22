@@ -103,6 +103,7 @@ if not args.nofit:
     def f4(x, a, b, c):
         return a*x*x*x*x + b*x*x + c
 
+    print("computing curve fit, may take some time.")
     bopt, pcov = curve_fit(f4, data[:,0], data[:,1])
     print("blue fit coefficients:", bopt)
     gopt, pcov = curve_fit(f4, data[:,0], data[:,2])

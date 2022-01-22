@@ -41,15 +41,15 @@ kernel5 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
 hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 hue, sat, val = cv2.split(hsv)
 # green hue = 60
-green_mask = cv2.inRange(hsv, (35, 0, 200), (85, 255, 255))
+green_mask = cv2.inRange(hsv, (35, 0, 128), (85, 255, 255))
 green_mask = cv2.erode(green_mask, kernel3, iterations=2)
 green_mask = cv2.dilate(green_mask, kernel3, iterations=2)
 cv2.imshow("Green Mask", green_mask)
 
 # edge detect on value channel
-#edges = cv2.Canny(val, 50, 150)   # find more edges
-edges = cv2.Canny(green_mask, 50, 150)   # find more edges
-#edges = cv2.Canny(val, 200, 600) # find fewer edges
+#edges = cv2.Canny(val, 50, 150)   # find more edges (more sensitive)
+edges = cv2.Canny(val, 100, 300) # find fewer edges (less sensitive)
+#edges = cv2.Canny(green_mask, 50, 150)   # find more edges
 cv2.imshow("Edges", edges)
 
 # merge noisy/close edges together (low gradiant areas become black blobs)
@@ -73,6 +73,36 @@ cv2.imshow("Leaf Mask", leaf_mask)
 leaves = cv2.bitwise_and(img, img, mask=leaf_mask)
 cv2.imshow("Leaves", leaves)
 
+if False:
+    # hough circles, because ... just want to see what they look like
+    print("before hough circles")
+    circles = cv2. HoughCircles(leaf_mask, cv2.HOUGH_GRADIENT, 1, 20,
+                                param1=50, param2=30, minRadius=5, maxRadius=50)
+    print("after hough cirlces")
+    circles = np.uint16(np.around(circles))
+    for i in circles[0,:]:
+        print(i, "of", len(circles[0,:]))
+        # draw the outer circle
+        cv2.circle(leaves, (i[0],i[1]), i[2], (0,255,0), 2)
+        # draw the center of the circle
+        cv2.circle(leaves, (i[0],i[1]), 2, (0,0,255), 3)
+    cv2.imshow("leaves with circles", leaves)
+
+if True:
+    # watershed test/experiment
+
+    # load the image and perform pyramid mean shift filtering
+    # to aid the thresholding step
+    shifted = cv2.pyrMeanShiftFiltering(img, 21, 51)
+    cv2.imshow("Shifted", shifted)
+    
+    # convert the mean shift image to grayscale, then apply
+    # Otsu's thresholding
+    gray = cv2.cvtColor(shifted, cv2.COLOR_BGR2GRAY)
+    thresh = cv2.threshold(gray, 0, 255,
+	                   cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+    cv2.imshow("Thresh", thresh)
+    
 cv2.waitKey()
 
 print("finding contours...")
@@ -84,14 +114,18 @@ contour_list = []
 poly_list = []
 label_list = []
 classifier_list = []
+touched_list = []
 for contour in contours:
     area = cv2.contourArea(contour)
     x,y,w,h = cv2.boundingRect(contour)
     rect_area = w*h
     extent = float(area)/rect_area
     hull = cv2.convexHull(contour)
-    hull_area = cv2.contourArea(hull)
-    solidity = float(area)/hull_area
+    if len(hull) >= 3:
+        hull_area = cv2.contourArea(hull)
+        solidity = float(area)/hull_area
+    else:
+        solidity = 0
     poly = cv2.approxPolyDP(contour, 0.05*cv2.arcLength(contour,True), True)
     if len(poly) >= 3:
         poly_list.append(poly)
@@ -106,16 +140,19 @@ for contour in contours:
     if area > 100:
         contour_list.append(contour)
         classifier_list.append( [solidity, circularity, len(poly)] )
-        # hack guess at labels
-        if circularity > 0.5:
-            if solidity > 0.75:
-                label_list.append(1)
-            elif area > 200:
-                label_list.append(1)
+        if True:
+            label_list.append(0)
+        else:
+            # hack guess at labels
+            if circularity > 0.5:
+                if solidity > 0.75:
+                    label_list.append(1)
+                elif area > 200:
+                    label_list.append(1)
+                else:
+                    label_list.append(0)
             else:
                 label_list.append(0)
-        else:
-            label_list.append(0)
 
 def draw_prediction(image, contour_list, label_list, selected_contour=None):
     colors_hex = ['#ff6f0e', '#9467bd', '#1f77b4', '#d62728',
@@ -158,7 +195,9 @@ def onmouse(event, x, y, flags, params):
     global selected_contour
     if event == cv2.EVENT_LBUTTONDOWN:
         # show region detail
-        selected_contour = find_closest(x, y)
+        i = find_closest(x, y)
+        label_list[i] = not label_list[i]
+        touched_list.append(i)
         draw_prediction(img, contour_list, label_list, selected_contour)
 
 model = classifier.LeafClassifier("palmer1")
@@ -171,10 +210,21 @@ cv2.setMouseCallback(win, onmouse)
 while True:
     draw_prediction(img, contour_list, label_list, selected_contour)
     keyb = cv2.waitKey()
-    if keyb >= ord('0') and keyb <= ord('9'):
-        if not selected_contour is None:
-            label_list[selected_contour] = keyb - ord('0')
-            selected_contour = None
-            draw_prediction(img, contour_list, label_list, selected_contour)
+    # if keyb >= ord('0') and keyb <= ord('9'):
+    #     if not selected_contour is None:
+    #         label_list[selected_contour] = keyb - ord('0')
+    #         selected_contour = None
+    #         draw_prediction(img, contour_list, label_list, selected_contour)
+    if keyb == ord('u'):
+        # update model
+        selected_contour = None
+        labels = []
+        classifiers = []
+        for i in set(touched_list):
+            labels.append(label_list[i])
+            classifiers.append(classifier_list[i])
+        model.update(labels, classifiers)
+        model.predict(label_list, classifier_list)
+        draw_prediction(img, contour_list, label_list, selected_contour)
     elif keyb == ord('q'):
         quit()

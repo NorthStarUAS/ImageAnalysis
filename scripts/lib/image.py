@@ -149,9 +149,9 @@ class Image():
                 self.kp_list = []
                 for point in feature_list:
                     kp = cv2.KeyPoint(x=point[0][0], y=point[0][1],
-                                      _size=point[1], _angle=point[2],
-                                      _response=point[3], _octave=point[4],
-                                      _class_id=point[5])
+                                      size=point[1], angle=point[2],
+                                      response=point[3], octave=point[4],
+                                      class_id=point[5])
                     self.kp_list.append(kp)
                 return True
             except:

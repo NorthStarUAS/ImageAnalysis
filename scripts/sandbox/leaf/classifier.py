@@ -11,13 +11,11 @@ import pickle
 import sklearn.svm              # pip3 install scikit-learn
 
 class LeafClassifier():
-    index = None
     model = None
-    cells = {}
     base = None
+    fitted = False
     saved_labels = []
     saved_data = []
-    mode = None                 # LBP, red, ...
     
     def __init__(self, basename):
         if basename:
@@ -26,6 +24,7 @@ class LeafClassifier():
         if basename and os.path.isfile(fitname):
             print("Loading SVC model from:", fitname)
             self.model = pickle.load(open(fitname, "rb"))
+            self.fitted = True
             #update_prediction(cell_list, model)
         else:
             print("Initializing a new SVC model")
@@ -38,17 +37,17 @@ class LeafClassifier():
         self.basename = basename
 
     # do the model fit
-    def update_model(self):
+    def update(self, label_list, classifier_list):
+        print("existing data:", len(self.saved_labels))
         labels = list(self.saved_labels)
         data = list(self.saved_data)
-        for key in self.cells:
-            cell = self.cells[key]
-            if cell["user"] != None:
-                labels.append(cell["user"])
-                data.append(cell["classifier"])
+        labels += label_list
+        data += classifier_list
+        print(labels)
         if len(set(labels)) >= 2:
             print("Updating model fit, training points:", len(data))
             self.model.fit(data, labels)
+            self.fitted = True
             if self.basename:
                 dataname = self.basename + ".data"
                 fitname = self.basename + ".fit"
@@ -59,15 +58,14 @@ class LeafClassifier():
             print("Done.")
  
     def predict(self, label_list, classifier_list):
-        if self.model == None:
-            print("No model defined in update_prediction()")
+        if not self.fitted:
+            print("Model not yet fit")
             return
-        for key in self.cells:
-            cell = self.cells[key]
-            cell["prediction"] = \
-                self.model.predict(cell["classifier"].reshape(1, -1))[0]
-            cell["score"] = \
-                self.model.decision_function(cell["classifier"].reshape(1, -1))[0]
+        for i in range(len(classifier_list)):
+            classifier = np.array(classifier_list[i]).reshape(1, -1)
+            # print(classifier)
+            result = self.model.predict(classifier)[0]
+            label_list[i] = result
 
     # return the key of the cell containing the give x, y pixel coordinate
     def find_key(self, x, y):

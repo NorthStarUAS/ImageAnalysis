@@ -39,6 +39,8 @@ parser.add_argument('--plot', action='store_true',
 args = parser.parse_args()
 
 smooth_cutoff_hz = 10
+#method = "horiz"
+method = "rates"
 
 # pathname work
 abspath = os.path.abspath(args.video)
@@ -146,7 +148,7 @@ print("flight len:", len(flight_interp))
 time_shift = \
     correlate.sync_horizon(flight_data, flight_interp,
                            horiz_data.data, horiz_interp, horiz_data.span_sec,
-                           hz=hz, cam_mount=args.cam_mount,
+                           method=method, hz=hz, cam_mount=args.cam_mount,
                            force_time_shift=args.time_shift, plot=args.plot)
 
 # presample datas to save work in the error function
@@ -200,12 +202,16 @@ print("Data points passing altitude threshold:", len(data))
 
 data = np.array(data)
 plt.figure()
-plt.plot(data[:,0], data[:,1], label="video roll")
-plt.plot(data[:,0], data[:,5], label="ekf roll")
+plt.plot(data[:,0], data[:,1]*r2d, label="video roll")
+plt.plot(data[:,0], data[:,5]*r2d, label="ekf roll")
+plt.xlabel("Flight time (secs)")
+plt.ylabel("Degrees")
 plt.legend()
 plt.figure()
-plt.plot(data[:,0], data[:,2], label="video pitch")
-plt.plot(data[:,0], data[:,4], label="ekf pitch")
+plt.plot(data[:,0], data[:,2]*r2d, label="video pitch")
+plt.plot(data[:,0], data[:,4]*r2d, label="ekf pitch")
+plt.xlabel("Flight time (secs)")
+plt.ylabel("Degrees")
 plt.legend()
 plt.show()
 

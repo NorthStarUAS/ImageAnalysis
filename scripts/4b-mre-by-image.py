@@ -20,6 +20,7 @@ parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('project', help='project directory')
 parser.add_argument('--group', type=int, default=0, help='group number')
 parser.add_argument('--stddev', type=float, default=5, help='how many stddevs above the mean for auto discarding features')
+parser.add_argument('--max', type=float, help='maximum error cutoff, in addition to stddev check')
 parser.add_argument('--initial-pose', action='store_true', help='work on initial pose, not optimized pose')
 parser.add_argument('--strong', action='store_true', help='remove entire match chain, not just the worst offending element.')
 parser.add_argument('--interactive', action='store_true', help='interactively review reprojection errors from worst to best and select for deletion or keep.')
@@ -140,6 +141,9 @@ def mark_outliers(error_list, trim_stddev):
     for line in error_list:
         # print "line:", line
         if line[0] > mre + stddev * trim_stddev:
+            cull.mark_feature(matches, line[1], line[2], line[0])
+            mark_count += 1
+        elif args.max and line[0] > args.max:
             cull.mark_feature(matches, line[1], line[2], line[0])
             mark_count += 1
             

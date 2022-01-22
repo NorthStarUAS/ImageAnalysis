@@ -53,15 +53,35 @@ class FeatureData():
         self.interp_r = interpolate.interp1d(self.data['video time'],
                                              self.data['hr (rad/sec)'],
                                              bounds_error=False, fill_value=0.0)
+        self.interp_ap = interpolate.interp1d(self.data['video time'],
+                                             self.data['p (rad/sec)'],
+                                             bounds_error=False, fill_value=0.0)
+        self.interp_aq = interpolate.interp1d(self.data['video time'],
+                                             self.data['q (rad/sec)'],
+                                             bounds_error=False, fill_value=0.0)
+        self.interp_ar = interpolate.interp1d(self.data['video time'],
+                                             self.data['r (rad/sec)'],
+                                             bounds_error=False, fill_value=0.0)
         
     def get_vals(self, x):
         return self.interp_p(x), self.interp_q(x), self.interp_r(x)
     
-    def resample(self, sample_hz):
+    def get_affine_vals(self, x):
+        return self.interp_ap(x), self.interp_aq(x), self.interp_ar(x)
+    
+    def resample(self, sample_hz, method="homography"):
+        print("resample method:", method)
         result = []
         print("video range = %.3f - %.3f (%.3f)" % (self.tmin, self.tmax, self.tmax-self.tmin))
         for x in np.linspace(self.tmin, self.tmax, int(round(self.span_sec*sample_hz))):
-            p, q, r = self.get_vals(x)
+            if method == "homography":
+                p, q, r = self.get_vals(x)
+            elif method == "affine":
+                p, q, r = self.get_affine_vals(x)
+            if abs(p) > 0.2 and abs(q) > 0.2 and abs(r) > 0.2:
+                p = 0
+                q = 0
+                r = 0
             result.append( [x, p, q, r] )
         print("video data len:", len(result))
         return result

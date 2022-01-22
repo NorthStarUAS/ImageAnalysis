@@ -65,7 +65,10 @@ metadata = skvideo.io.ffprobe(args.video)
 print(json.dumps(metadata["video"], indent=4))
 fps_string = metadata['video']['@avg_frame_rate']
 (num, den) = fps_string.split('/')
-fps = float(num) / float(den)
+if float(den) > 0.001:
+    fps = float(num) / float(den)
+else:
+    fps = 10
 codec = metadata['video']['@codec_long_name']
 w = int(round(int(metadata['video']['@width']) * scale))
 h = int(round(int(metadata['video']['@height']) * scale))
@@ -159,7 +162,7 @@ for frame in reader.nextFrame():
     M, prev_pts, curr_pts, status = flow.update(frame_undist)
     print("M:\n", M)
     
-    #farneback.update(frame_undist)
+    farneback.update(frame_undist)
     
     if M is None or prev_filt.shape[0] == 0 or curr_filt.shape[0] == 0:
         prev_filt = frame_undist.copy().astype('float32')
