@@ -42,9 +42,12 @@ are in place for running the ImageAnalysis software:
     anaconda3> conda uninstall sphinx // breaks pyinstaller
     anaconda3> conda install scipy
     anaconda3> conda install opencv
+    anaconda3> conda install matplotlib
     anaconda3> pip install Panda3D
     anaconda3> pip install geojson
     anaconda3> pip install simplekml
+    anaconda3> pip install tqdm
+    anaconda3> pip install piexif
 
   For packaging up the explorer.py script (probably a Curt only thing)
 
