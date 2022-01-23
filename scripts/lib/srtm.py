@@ -319,6 +319,6 @@ def interpolate_vector(ned, v):
 def interpolate_vectors(ned, v_list):
     pt_list = []
     for v in v_list:
-        p = dinterpolate_vector(ned, v.flatten())
+        p = interpolate_vector(ned, v.flatten())
         pt_list.append(p)
     return pt_list
