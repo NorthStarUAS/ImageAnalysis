@@ -88,18 +88,18 @@ are a few things I have been working recently.
 - Continuing work on image connection grouping optimizations to
   improve solver (optimizer) results and reduce artifacts.
 
-- ~~ Renable/retool code to best fit optimized solution to original
+- ~~Renable/retool code to best fit optimized solution to original
   camera pose locations.  (This ensures the solution didn't walk off
   in some random direction, and also that the final fit is as close to
   the real world location as we are able to do with the given data
-  set.) ~~
+  set.)~~
 
-- ~~ Continued improvement of python3 support ~~
+- ~~Continued improvement of python3 support~~
 
-- ~~ A scene exploration tool that knows all the views covering
+- ~~A scene exploration tool that knows all the views covering
   any point, can geolocate any selected point in an image, can
   import/export kml/csv for sharing results or to export to other
-  mapping tools. ~~
+  mapping tools.~~
 
 # Future Road Map
 
