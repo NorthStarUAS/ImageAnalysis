@@ -206,5 +206,5 @@ Wish list items:
 
 ## installation hints
 
-  - sudo pip3 install opencv-contrib-python
+  - sudo pip3 install opencv-python
   - sudo pip3 install panda3d
