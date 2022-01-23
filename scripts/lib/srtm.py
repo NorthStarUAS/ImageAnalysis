@@ -1,5 +1,4 @@
 # a class to manage SRTM surfaces
-
 import json
 import numpy as np
 import os
@@ -9,6 +8,7 @@ import scipy.interpolate
 import struct
 import urllib.request
 import zipfile
+from pathlib import Path
 
 import navpy
 
@@ -36,7 +36,10 @@ class SRTM():
     def __init__(self, lat, lon, dict_path):
         self.lat, self.lon = lla_ll_corner(lat, lon)
         self.srtm_dict = {}
-        self.srtm_cache_dir = '/var/tmp' # unless set otherwise
+        self.srtm_cache_dir = Path(os.path.expanduser('~')) / Path('.ImageAnalysis')
+        if not os.path.isdir(self.srtm_cache_dir):
+            os.mkdir(self.srtm_cache_dir) 
+        #self.srtm_cache_dir = Path(os.getcwd()).parents[0] / Path('cache') # unless set otherwise
         self.srtm_z = None
         self.i = None
         self.load_srtm_dict(dict_path)
@@ -65,7 +68,10 @@ class SRTM():
     # download and extract srtm file into cache directory
     def download_srtm(self, fileroot):
         url = "https://bailu.ch/dem3/" + fileroot[:3] + "/" + fileroot + ".hgt.zip"
-        download_file = self.srtm_cache_dir + '/' + fileroot + '.hgt.zip'
+        download_file = self.srtm_cache_dir / Path(fileroot + '.hgt.zip')
+        #check if the cache is still around - replace if deleted
+        if not os.path.exists(self.srtm_cache_dir):
+            os.mkdir(self.srtm_cache_dir)
         log("SRTM: downloading:", url)
         file = urllib.request.URLopener()
         log(file.retrieve(url, download_file))
@@ -83,7 +89,7 @@ class SRTM():
         
     def parse(self):
         tilename = make_tile_name(self.lat, self.lon)
-        cache_file = self.srtm_cache_dir + '/' + tilename + '.hgt.zip'
+        cache_file = self.srtm_cache_dir / Path(tilename + '.hgt.zip')
         if not os.path.exists(cache_file):
             if not self.download_srtm(tilename):
                 return False
