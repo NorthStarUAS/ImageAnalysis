@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "imageanalysis"
+version = "0.1.0"
+description = "A library for translating camera poses and inference results to a shapefile, at first with metashape."
+authors = ["Nicholas Witthoeft <njwitthoeft@gmail.com>", "Curtis L Olson UAV Lab <clolson@umn.edu>"]
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.10"
+click = "*"
+numpy = "*"
+opencv-python = "=4.5.4.60"
+
+
+[tool.poetry.dev-dependencies]
+pytest = "*"
+pre_commit = "*"
+
+[tool.poetry.scripts]
+direct_projection = "direct_projection.cli:cli"
+
+[tool.isort]
+line_length = 88
+multi_line_output = 3
+include_trailing_comma = true
+known_third_party = ["cv2", "direct", "explore", "geojson", "lib", "libxmp", "matplotlib", "navpy", "numpy", "panda3d", "piexif", "project", "props", "props_json", "pyexiv2", "pylab", "scipy", "tkinter", "tqdm"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
