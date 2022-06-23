@@ -39,7 +39,7 @@ print()
 
 if args.method == 'triangulate':
     K = camera.get_K(optimized=True)
-    dist_coeffs = np.array(proj.cam.get_dist_coeffs(optimized=True))
+    dist_coeffs = np.array(camera.get_dist_coeffs(optimized=True))
 else:
     K = camera.get_K(optimized=False)
 IK = np.linalg.inv(K)
@@ -133,7 +133,7 @@ if args.method == 'srtm':
     #         del matches[i]
 elif args.method == 'triangulate':
     for i, match in enumerate(matches):
-        if match[1] == args.group: # used in current group
+        if True and match[1] == args.group: # used in current group
             # print(match)
             points = []
             vectors = []
