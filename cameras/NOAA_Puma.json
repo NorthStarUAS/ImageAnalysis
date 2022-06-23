@@ -1,0 +1,28 @@
+{
+    "K": [
+        600,
+        0.0,
+        350.0,
+        0.0,
+        600,
+        240.0,
+        0.0,
+        0.0,
+        1.0
+    ],
+    "ccd_height_mm": 2.96,
+    "ccd_width_mm": 5.27,
+    "dist_coeffs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+    ],
+    "focal_len_mm": 2.7,
+    "height_px": 480,
+    "lens_model": "2.7mm",
+    "make": "Aerovironment",
+    "model": "PUMA PNT",
+    "width_px": 720
+}

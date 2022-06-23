@@ -1,0 +1,28 @@
+{
+    "K": [
+        4662.25,
+        0.0,
+        1904,
+        0.0,
+        4662.25,
+        1377,
+        0.0,
+        0.0,
+        1.0
+    ],
+    "ccd_height_mm": 4.60,
+    "ccd_width_mm": 6.36,
+    "dist_coeffs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+    ],
+    "focal_len_mm": 7.79,
+    "height_px": 2754,
+    "lens_model": "RGB",
+    "make": "Sentera",
+    "model": "Vireo",
+    "width_px": 3808
+}

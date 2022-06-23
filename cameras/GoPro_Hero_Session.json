@@ -1,0 +1,28 @@
+{
+    "K": [
+        458.55,
+        0.0,
+        427.0,
+        0.0,
+        458.55,
+        240.0,
+        0.0,
+        0.0,
+        1.0
+    ],
+    "ccd_height_mm": 2.96,
+    "ccd_width_mm": 5.27,
+    "dist_coeffs": [
+        -0.2576,
+        0.0877,
+        -0.0002570,
+        -0.0005934,
+        -0.0152
+    ],
+    "focal_len_mm": 2.7,
+    "height_px": 480,
+    "lens_model": "2.7mm",
+    "make": "GoPro",
+    "model": "Hero_Sesson",
+    "width_px": 848
+}

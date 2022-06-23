@@ -1,0 +1,28 @@
+{
+    "K": [
+        2520.5834683954618,
+        0.0,
+        2592.0,
+        0.0,
+        2520.5834683954618,
+        1944.0,
+        0.0,
+        0.0,
+        1.0
+    ],
+    "ccd_height_mm": 4.6275,
+    "ccd_width_mm": 6.17,
+    "dist_coeffs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+    ],
+    "focal_len_mm": 3.0,
+    "height_px": 3888,
+    "lens_model": "None",
+    "make": "GoPro",
+    "model": "HERO9 Black",
+    "width_px": 5184
+}
