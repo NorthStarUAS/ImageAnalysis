@@ -2,6 +2,26 @@
 
 Aerial imagery analysis, processing, and presentation scripts.
 
+# Important Notice:
+
+*March 5, 2022*
+
+I love the University of Minnesota, but my funding ran out and we
+weren't able to get anything new lined up in time.  So March 18 is my
+last day at the University of Minnesota, Dept. of Aerospace
+Engineering, UAV lab. :-(
+
+At the same time I'm super excited to be transition to a new position
+at Cirrus Aircraft in Duluth.  This will change many things, including
+my time available and my focus relative to working on this project.
+For a couple years this code was integral to my daily work, and that
+probably will no longer be true once I transition to my new position.
+
+My hope is to keep this project going long term, to be available
+(within reason) to answer questions, and t9 guide people getting up to
+speed for the first time.  I am sincerly hopeful I can continue to
+improve and add features as time permits.
+
 # Screen shots
 
 - A mosaic of 2812 images from a Phantom 4 Pro v2 mission
