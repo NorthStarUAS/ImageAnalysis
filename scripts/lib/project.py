@@ -142,6 +142,10 @@ class ProjectMgr():
                 camera, make, model, lens_model = \
                     exif.get_camera_info(image_file)
                 break
+        camera = camera.replace("/", "-")
+        make = make.replace("/", "-")
+        model = model.replace("/", "-")
+        lens_model = lens_model.replace("/", "-")
         return camera, make, model, lens_model
         
     def load_images_info(self):
