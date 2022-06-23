@@ -18,7 +18,7 @@ For a couple years this code was integral to my daily work, and that
 probably will no longer be true once I transition to my new position.
 
 My hope is to keep this project going long term, to be available
-(within reason) to answer questions, and t9 guide people getting up to
+(within reason) to answer questions, and to guide people getting up to
 speed for the first time.  I am sincerly hopeful I can continue to
 improve and add features as time permits.
 
