@@ -97,6 +97,7 @@ class MyApp(ShowBase):
 
         # we would like an orthographic lens
         self.lens = OrthographicLens()
+        self.lens.setFar(10000)
         self.lens.setFilmSize(20, 15)
         base.camNode.setLens(self.lens)
 
