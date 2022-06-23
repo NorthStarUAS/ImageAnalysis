@@ -131,6 +131,7 @@ else:
     # auto detect camera from image meta data
     camera_name, make, model, lens_model = proj.detect_camera()
     camera_file = os.path.join("..", "cameras", camera_name + ".json")
+    camera_file = camera_file.replace("/", "-")
     log("Camera auto-detected:", camera_name, make, model, lens_model)
 log("Camera file:", camera_file)
 
