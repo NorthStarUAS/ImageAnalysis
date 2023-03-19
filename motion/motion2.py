@@ -10,7 +10,6 @@ from tqdm import tqdm
 
 import sys
 sys.path.append('../scripts')
-from lib import transformations
 
 import camera
 
