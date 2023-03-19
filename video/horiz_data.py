@@ -1,4 +1,4 @@
-import math
+from math import pi
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
@@ -6,7 +6,7 @@ from scipy import interpolate  # strait up linear interpolation, nothing fancy
 import scipy.signal as signal
 
 # convenience
-d2r = math.pi / 180.0
+d2r = pi / 180.0
 
 class HorizonData():
     data = None
@@ -21,7 +21,7 @@ class HorizonData():
 
     def __init__(self):
         pass
-    
+
     # estimate roll/pitch rates from horizon data
     def make_rates(self):
         t_last = -1
@@ -50,7 +50,7 @@ class HorizonData():
             q_list.append(q)
         self.data['p (rad/sec)'] = p_list
         self.data['q (rad/sec)'] = q_list
-        
+
     def load(self, feature_file):
         self.data = pd.read_csv(feature_file)
         self.data.set_index('video time', inplace=True, drop=False)
@@ -87,10 +87,10 @@ class HorizonData():
         self.interp_q = interpolate.interp1d(self.data['video time'],
                                              self.data['pitch rate (rad/sec)'],
                                              bounds_error=False, fill_value=0.0)
-        
+
     def get_vals(self, x):
         return self.interp_phi(x), self.interp_the(x), self.interp_p(x), self.interp_q(x)
-    
+
     def resample(self, sample_hz):
         result = []
         print("video range = %.3f - %.3f (%.3f)" % (self.tmin, self.tmax, self.tmax-self.tmin))

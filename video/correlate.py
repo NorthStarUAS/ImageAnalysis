@@ -1,11 +1,11 @@
 import csv
-import math
-from matplotlib import pyplot as plt 
+from math import pi
+from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy import interpolate # strait up linear interpolation, nothing fancy
 
-r2d = 180.0 / math.pi
+r2d = 180.0 / pi
 
 # hz: resampling hz prior to correlation
 # cam_mount: set approximate camera orienation (forward, down, and
@@ -334,14 +334,14 @@ def sync_gyros(flight_interp, video_interp, video_len, hz=60,
         plt.plot(flight_interp[:,0], flight_interp[:,2],
                  label='imu q')
         plt.legend()
-        
+
         plt.figure()
         plt.plot(video_interp[:,0] + time_shift, video_interp[:,3],
                  label='video r')
         plt.plot(flight_interp[:,0], flight_interp[:,3],
                  label='imu r')
         plt.legend()
-        
+
         plt.figure()
         plt.plot(ycorr)
         plt.show()

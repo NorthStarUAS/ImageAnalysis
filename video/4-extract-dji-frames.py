@@ -13,16 +13,11 @@ import argparse
 import cv2
 import datetime
 import skvideo.io               # pip3 install scikit-video
-import math
+from math import atan2, modf, pi, sqrt
 import fractions
-import json
-from matplotlib import pyplot as plt 
 import numpy as np
 import os
 import pyexiv2
-import re
-import sys
-from scipy import interpolate # strait up linear interpolation, nothing fancy
 
 from rcUAS import wgs84
 from props import PropertyNode
@@ -45,7 +40,7 @@ parser.add_argument('--ground', type=float, help='ground altitude in meters')
 parser.add_argument('--djicsv', help='name of dji exported csv log file from the flight, see https://www.phantomhelp.com/logviewer/upload/')
 args = parser.parse_args()
 
-r2d = 180.0 / math.pi
+r2d = 180.0 / pi
 match_ratio = 0.75
 scale = 0.4
 filter_method = 'homography'
@@ -91,8 +86,8 @@ def decimal_to_dms(decimal):
     >>> decimal_to_dms(-125.976893)
     [Fraction(125, 1), Fraction(58, 1), Fraction(92037, 2500)]
     """
-    remainder, degrees = math.modf(abs(decimal))
-    remainder, minutes = math.modf(remainder * 60)
+    remainder, degrees = modf(abs(decimal))
+    remainder, minutes = modf(remainder * 60)
     return [Fraction(n) for n in (degrees, minutes, remainder * 60)]
 
 # find affine transform between matching keypoints in pixel
@@ -125,14 +120,14 @@ def decomposeAffine(affine):
     c = affine[1][0]
     d = affine[1][1]
 
-    sx = math.sqrt( a*a + b*b )
+    sx = sqrt( a*a + b*b )
     if a < 0.0:
         sx = -sx
-    sy = math.sqrt( c*c + d*d )
+    sy = sqrt( c*c + d*d )
     if d < 0.0:
         sy = -sy
 
-    rotate_deg = math.atan2(-b,a) * 180.0/math.pi
+    rotate_deg = atan2(-b,a) * 180.0/pi
     if rotate_deg < -180.0:
         rotate_deg += 360.0
     if rotate_deg > 180.0:
@@ -225,7 +220,7 @@ for i in range(5):
 if not os.path.isfile(args.video):
     print("%s doesn't exist, aborting ..." % args.video)
     quit()
-    
+
 if os.path.isfile(basename + ".srt"):
     srtname = basename + ".srt"
 elif os.path.isfile(basename + ".SRT"):
@@ -314,7 +309,7 @@ for frame in reader.nextFrame():
         if yaw < 0: yaw += 360.0
     if abs(lat_deg) < 0.001 and abs(lon_deg) < 0.001:
         continue
-    
+
     write_frame = False
 
     # by distance camera has moved
@@ -323,7 +318,7 @@ for frame in reader.nextFrame():
     #if time >= last_time + args.interval and dist_m >= args.distance:
     if args.distance and dist_m >= args.distance:
         write_frame = True
-        
+
     # by visual overlap
     method = cv2.INTER_AREA
     frame_scale = cv2.resize(frame, (0,0), fx=scale, fy=scale,
@@ -348,7 +343,7 @@ for frame in reader.nextFrame():
             (rot, tx, ty, sx, sy) = decomposeAffine(affine)
             xperc = abs(tx) / w
             yperc = abs(ty) / h
-            perc = math.sqrt(xperc*xperc + yperc*yperc)
+            perc = sqrt(xperc*xperc + yperc*yperc)
             print("pixel dist:", tx, ty, "%.1f%% %.1f%%" % (xperc*100, yperc*100))
             if perc >= overlap:
                 write_frame = True
@@ -356,7 +351,7 @@ for frame in reader.nextFrame():
         # first frame
         write_frame = True
     cv2.waitKey(1)
-    
+
     if write_frame:
         print("WRITE FRAME")
         file = os.path.join(dirname, "img_%04d" % img_counter + ".jpg")

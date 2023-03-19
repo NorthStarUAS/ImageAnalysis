@@ -5,7 +5,7 @@ import csv
 import cv2
 import skvideo.io               # pip3 install sk-video
 import json
-import math
+from math import atan2, cos, pi, sin, sqrt
 import numpy as np
 import os
 import sys
@@ -18,8 +18,8 @@ from lib import render4geotiff
 from lib import transformations
 r = render4geotiff.Render()
 
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
+d2r = pi / 180.0
+r2d = 180.0 / pi
 
 match_ratio = 0.75
 max_features = 500
@@ -63,7 +63,7 @@ if args.camera:
 elif os.path.exists(local_config):
     # load local config file if it exists
     props_json.load(local_config, config)
-    
+
 name = config.getString('name')
 cam_yaw = config.getFloatEnum('mount_ypr', 0)
 cam_pitch = config.getFloatEnum('mount_ypr', 1)
@@ -139,14 +139,14 @@ def decomposeAffine(affine):
     c = affine[1][0]
     d = affine[1][1]
 
-    sx = math.sqrt( a*a + b*b )
+    sx = sqrt( a*a + b*b )
     if a < 0.0:
         sx = -sx
-    sy = math.sqrt( c*c + d*d )
+    sy = sqrt( c*c + d*d )
     if d < 0.0:
         sy = -sy
 
-    rotate_deg = math.atan2(-b,a) * 180.0/math.pi
+    rotate_deg = atan2(-b,a) * 180.0/pi
     if rotate_deg < -180.0:
         rotate_deg += 360.0
     if rotate_deg > 180.0:
@@ -335,7 +335,7 @@ def motion5(frame, counter):
     factor = 0.96
     filt_frame = factor * filt_frame + (1 - factor) * np.float32(frame)
     cv2.imshow('motion5', np.uint8(filt_frame))
-    
+
 # low pass filter of frames
 filt1_frame = None
 filt2_frame = None
@@ -344,7 +344,7 @@ def motion6(frame, counter):
     global filt1_frame
     global filt2_frame
     global filt_mask
-    
+
     #gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     gray = frame
     if filt1_frame is None: filt1_frame = np.float32(gray)
@@ -353,13 +353,13 @@ def motion6(frame, counter):
     factor1 = 0.9
     factor2 = 0.995
     factor3 = 0.995
-    
+
     filt1_frame = factor1 * filt1_frame + (1 - factor1) * np.float32(gray)
     filt2_frame = factor2 * filt2_frame + (1 - factor2) * np.float32(gray)
     mask = np.absolute(filt1_frame - filt2_frame)
     if filt_mask is None: filt_mask = mask
     filt_mask = factor3 * filt_mask + (1 - factor3) * mask
-    
+
     cv2.imshow('motion6-1', np.uint8(filt1_frame))
     cv2.imshow('motion6-2', np.uint8(filt2_frame))
     cv2.imshow('motion6', np.uint8(filt_mask))
@@ -373,7 +373,7 @@ def motion7(frame, counter):
         fgbg = cv2.bgsegm.createBackgroundSubtractorMOG()
 
     fgmask = fgbg.apply(frame)
-    cv2.imshow('motion7', fgmask)    
+    cv2.imshow('motion7', fgmask)
 
 # uses Knuth's 'real-time' avg/var algorithm
 m = None
@@ -383,7 +383,7 @@ def motion8(frame, counter):
     global m
     global S
     global n
-    
+
     gray = np.float64(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
     if m is None: m = gray * 0
     if S is None: S = gray * 0
@@ -419,7 +419,7 @@ counter9 = None
 def motion9(frame, src, dst):
     global accum9
     global counter9
-    
+
     if accum9 is None or counter9 is None:
         print('creating accum/counter matrices')
         gray = np.float64(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
@@ -446,8 +446,8 @@ def motion9(frame, src, dst):
     print(min, max)
     var1 = mean / (max / 255.0)
     cv2.imshow('motion9', np.uint8(var1))
-    
-    
+
+
 # for ORB
 detector = cv2.ORB_create(max_features)
 extractor = detector
@@ -535,7 +535,7 @@ for frame in reader.nextFrame():
     if distort:
         frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
     else:
-        frame_undist = frame_scale    
+        frame_undist = frame_scale
     if not args.no_equalize:
         frame_undist = r.aeq_value(frame_undist)
 
@@ -544,7 +544,7 @@ for frame in reader.nextFrame():
 
     # average frames (experiement)
     # motion6(frame_undist, counter)
-    
+
     process_hsv = False
     if process_hsv:
         # Convert BGR to HSV
@@ -556,7 +556,7 @@ for frame in reader.nextFrame():
         gray = hue
     else:
         gray = cv2.cvtColor(frame_undist, cv2.COLOR_BGR2GRAY)
-        
+
     if not args.no_equalize:
         gray = clahe.apply(gray)
 
@@ -589,10 +589,10 @@ for frame in reader.nextFrame():
             filtered = mkp1
 
     # motion9(frame_scale, p2, p1)
-    
+
     affine = findAffine(p2, p1, fullAffine=False)
     (rot, tx, ty, sx, sy) = decomposeAffine(affine)
-    if abs(rot) > 6 or math.sqrt(tx*tx+ty*ty) > 10:
+    if abs(rot) > 6 or sqrt(tx*tx+ty*ty) > 10:
         (rot, tx, ty, sx, sy) = (0.0, 0.0, 0.0, 1.0, 1.0)
     #print affine
     #print (rot, tx, ty, sx, sy)
@@ -603,7 +603,7 @@ for frame in reader.nextFrame():
     abs_x *= 0.95
     abs_y += ty
     abs_y *= 0.95
-    
+
     print("motion: %d %.2f %.1f %.1f %.2f %.1f %.1f" % (counter, rot, tx, ty, abs_rot, abs_x, abs_y))
 
     translate_only = False
@@ -672,9 +672,9 @@ for frame in reader.nextFrame():
     sx_delta = (sx_avg + sx_catchup - sx_sum) + 1.0
     sy_delta = (sy_avg + sy_catchup - sy_sum) + 1.0
 
-    rot_rad = rot_delta * math.pi / 180.0
-    costhe = math.cos(rot_rad)
-    sinthe = math.sin(rot_rad)
+    rot_rad = rot_delta * pi / 180.0
+    costhe = cos(rot_rad)
+    sinthe = sin(rot_rad)
     row1 = [ sx_delta * costhe, -sx_delta * sinthe, tx_delta ]
     row2 = [ sy_delta * sinthe,  sy_delta * costhe, ty_delta ]
     affine_new = np.array( [ row1, row2 ] )
@@ -692,9 +692,9 @@ for frame in reader.nextFrame():
     sx_last = (sx_avg - 1.0 + sx_catchup) + 1.0
     sy_last = (sy_avg - 1.0 + sy_catchup) + 1.0
 
-    rot_rad = rot_last * math.pi / 180.0
-    costhe = math.cos(rot_rad)
-    sinthe = math.sin(rot_rad)
+    rot_rad = rot_last * pi / 180.0
+    costhe = cos(rot_rad)
+    sinthe = sin(rot_rad)
     row1 = [ sx_last * costhe, -sx_last * sinthe, tx_last ]
     row2 = [ sy_last * sinthe,  sy_last * costhe, ty_last ]
     affine_last = np.array( [ row1, row2 ] )
@@ -739,7 +739,7 @@ for frame in reader.nextFrame():
                 new_kp = cv2.KeyPoint(pt[0], pt[1], kp.size)
                 new_filtered.append(new_kp)
         final = cv2.drawKeypoints(accum, new_filtered, color=(0,255,0), flags=0)
-   
+
     cv2.imshow('bgr', res1)
     cv2.imshow('smooth', new_frame)
     cv2.imshow('final', final)

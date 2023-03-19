@@ -5,7 +5,7 @@ import csv
 import cv2
 import skvideo.io               # pip3 install sk-video
 import json
-import math
+from math import pi
 import numpy as np
 import os
 from tqdm import tqdm
@@ -21,8 +21,7 @@ import camera
 import horizon
 
 # constants
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
+d2r = pi / 180.0
 
 parser = argparse.ArgumentParser(description='Estimate gyro biases from movie.')
 parser.add_argument('video', help='video file')
@@ -120,7 +119,7 @@ pbar = tqdm(total=int(total_frames), smoothing=0.05)
 for frame in reader.nextFrame():
     frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
     counter += 1
-    
+
     if counter < skip_frames:
         if counter % 100 == 0:
             print("Skipping %d frames..." % counter)

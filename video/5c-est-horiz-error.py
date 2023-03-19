@@ -6,8 +6,8 @@
 
 import argparse
 import csv
-import math
-from matplotlib import pyplot as plt 
+from math import atan2, pi
+from matplotlib import pyplot as plt
 import numpy as np
 import os
 import pandas as pd
@@ -78,8 +78,8 @@ iter = flight_interp.IterateGroup(flight_data)
 
 # for convenience
 hz = args.resample_hz
-r2d = 180.0 / math.pi
-d2r = math.pi / 180.0
+r2d = 180.0 / pi
+d2r = pi / 180.0
 
 # load horizon log data (derived from video)
 horiz_data = HorizonData()
@@ -194,7 +194,7 @@ for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
     fthe = the_interp(x)
     psix = psix_interp(x)
     psiy = psiy_interp(x)
-    fpsi = math.atan2(psiy, psix)
+    fpsi = atan2(psiy, psix)
     alt = alt_interp(x)
     if alt >= alt_threshold:
         data.append( [x, hphi, hthe, fpsi, fthe, fphi] )

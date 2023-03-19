@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 
 import argparse
-import copy
 import cv2
 import skvideo.io               # pip3 install scikit-video
-import math
+from math import atan2, pi, sqrt
 import navpy
 import numpy as np
 import os
 import pandas as pd
-import re
 from scipy import interpolate  # strait up linear interpolation, nothing fancy
 from tqdm import tqdm
 
@@ -24,8 +22,8 @@ import hud
 import hud_glass
 
 # helpful constants
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
+d2r = pi / 180.0
+r2d = 180.0 / pi
 
 # default sizes of primatives
 render_w = 1920
@@ -67,8 +65,6 @@ smooth_cutoff_hz = 10
 
 # for convenience
 hz = args.resample_hz
-r2d = 180.0 / math.pi
-d2r = math.pi / 180.0
 
 counter = 0
 
@@ -100,7 +96,7 @@ print('dist:', dist)
 
 if os.path.exists(ekf_error):
     correction.load_horiz(ekf_error, args.plot)
-    
+
 data, flight_format = flight_loader.load(args.flight)
 print("imu records:", len(data['imu']))
 print("gps records:", len(data['gps']))
@@ -241,7 +237,7 @@ writer = skvideo.io.FFmpegWriter(tmp_video, inputdict=inputdict, outputdict=sane
 last_time = 0.0
 
 # set primative sizes based on rendered resolution.
-size = math.sqrt(h*h + w*w)
+size = sqrt(h*h + w*w)
 hud1.set_line_width( int(round(size/1000.0)) )
 hud1.set_font_size( size / 1400.0 )
 hud1.set_color( hud.green2 )
@@ -283,7 +279,7 @@ def next_frame():
     frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
     return frame
 
-        
+
 shift_mod_hack = False
 pbar = tqdm(total=int(total_frames), smoothing=0.05)
 while True:
@@ -294,10 +290,10 @@ while True:
     if args.rot180:
         frame = np.rot90(frame)
         frame = np.rot90(frame)
-        
+
     time = float(counter) / fps + time_shift
     #print("frame: ", counter, "%.3f" % time, 'time shift:', time_shift)
-    
+
     counter += 1
     if args.start_time and time < args.start_time:
         continue
@@ -312,7 +308,7 @@ while True:
     vd = filt['vd']
     psix = filt['psix']
     psiy = filt['psiy']
-    yaw_rad = math.atan2(psiy, psix)
+    yaw_rad = atan2(psiy, psix)
     pitch_rad = filt['the']
     roll_rad = filt['phi']
     if not correction.yaw_interp is None:
@@ -347,7 +343,7 @@ while True:
     if not ap is None and 'hdgx' in ap:
         ap_hdgx = ap['hdgx']
         ap_hdgy = ap['hdgy']
-        ap_hdg = math.atan2(ap_hdgy, ap_hdgx)*r2d
+        ap_hdg = atan2(ap_hdgy, ap_hdgx)*r2d
         ap_roll = ap['roll']
         if not correction.roll_interp is None:
             ap_roll += correction.roll_interp(time) * r2d
@@ -377,7 +373,7 @@ while True:
     elif args.auto_switch == 'on':
         flight_mode = 'auto'
     else:
-        flight_mode = 'auto'            
+        flight_mode = 'auto'
 
     if 'mission' in data:
         excite_mode = mission['excite']
@@ -466,7 +462,7 @@ while True:
         continue
 
     print('key:', key)
-    
+
     if key == 27:
         break
     elif key == ord('y'):
@@ -502,7 +498,7 @@ while True:
     elif key == 65505 or key == 65506:
         shift_mod_hack = True
 pbar.close()
-        
+
 writer.close()
 cv2.destroyAllWindows()
 

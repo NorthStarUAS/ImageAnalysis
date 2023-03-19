@@ -1,5 +1,5 @@
 import fileinput
-import math
+from math import pi
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
@@ -8,8 +8,7 @@ from scipy import interpolate # strait up linear interpolation, nothing fancy
 import scipy.signal as signal
 
 # helpful constants
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
+r2d = 180.0 / pi
 
 yaw_interp = None
 pitch_interp = None
@@ -21,7 +20,7 @@ down_interp = None
 def load_horiz(filename, plot=False):
     global roll_interp
     global pitch_interp
-    
+
     data = pd.read_csv(filename)
     data.set_index('flight time (sec)', inplace=True, drop=False)
 
@@ -41,13 +40,13 @@ def load_horiz(filename, plot=False):
         plt.ylabel("Rad")
         plt.legend()
         plt.show()
-        
+
     # sanitize?
     df = data['ekf roll error (rad)']
     df[abs(df) > 0.08] = 0.0
     df = data['ekf pitch error (rad)']
     df[abs(df) > 0.08] = 0.0
-                    
+
     if plot:
         plt.figure()
         plt.plot(data['ekf roll error (rad)'], label="roll error")
@@ -56,7 +55,7 @@ def load_horiz(filename, plot=False):
         plt.ylabel("Rad")
         plt.legend()
         plt.show()
-        
+
     # smooth
     cutoff_hz = 1
     b, a = signal.butter(2, cutoff_hz, fs=hz)
@@ -78,7 +77,7 @@ def load_horiz(filename, plot=False):
     roll_interp = interpolate.interp1d(data['flight time (sec)'], data['ekf roll error (rad)'], bounds_error=False, fill_value=0.0)
     pitch_interp = interpolate.interp1d(data['flight time (sec)'], data['ekf pitch error (rad)'], bounds_error=False, fill_value=0.0)
 
-    
+
 def load_old(filename):
     global yaw_interp
     global pitch_interp
@@ -86,7 +85,7 @@ def load_old(filename):
     global north_interp
     global east_interp
     global down_interp
-    
+
     f = fileinput.input(filename)
     table = []
     for line in f:
@@ -101,7 +100,7 @@ def load_old(filename):
         table.append( [ time,
                         yaw_error, pitch_error, roll_error,
                         n_error, e_error, d_error ] )
-        
+
     array = np.array(table)
     x = array[:,0]
     yaw_interp = interpolate.interp1d(x, array[:,1], bounds_error=False, fill_value=0.0)

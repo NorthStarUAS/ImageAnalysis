@@ -1,6 +1,6 @@
 import datetime
 import ephem                    # dnf install python3-pyephem
-import math
+from math import atan2, cos, pi, sin, sqrt
 import navpy
 import numpy as np
 
@@ -15,8 +15,8 @@ from lib import transformations
 import airports
 
 # helpful constants
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
+d2r = pi / 180.0
+r2d = 180.0 / pi
 mps2kt = 1.94384
 kt2mps = 1 / mps2kt
 ft2m = 0.3048
@@ -88,7 +88,7 @@ class HUD:
     def set_render_size(self, w, h):
         self.render_w = w
         self.render_h = h
-        
+
     def set_line_width(self, line_width):
         self.line_width = line_width
         if self.line_width < 1:
@@ -96,7 +96,7 @@ class HUD:
 
     def set_color(self, color):
         self.color = color
-        
+
     def set_font_size(self, font_size):
         self.font_size = font_size
         if self.font_size < 0.4:
@@ -105,10 +105,10 @@ class HUD:
     def set_units(self, airspeed_units, altitude_units):
         self.airspeed_units = airspeed_units
         self.altitude_units = altitude_units
-        
+
     def set_ned_ref(self, lat, lon):
         self.ref = [ lat, lon, 0.0]
-        
+
     def load_airports(self):
         if self.ref:
             self.airports = airports.load('apt.csv', self.ref, 30000)
@@ -117,7 +117,7 @@ class HUD:
 
     def set_ground_m(self, ground_m):
         self.ground_m = ground_m
-        
+
     def update_frame(self, frame):
         self.frame = frame
 
@@ -138,14 +138,14 @@ class HUD:
             self.ned_history.append(ned)
             while len(self.ned_history) > seconds:
                 self.ned_history.pop(0)
-        
+
     def update_ned(self, ned, seconds):
         self.ned = ned[:]
         self.update_ned_history(ned, seconds)
 
     def update_features(self, feature_list):
         self.features = feature_list
-        
+
     def update_proj(self, PROJ):
         self.PROJ = PROJ
 
@@ -153,12 +153,12 @@ class HUD:
         self.cam_yaw = cam_yaw
         self.cam_pitch = cam_pitch
         self.cam_roll = cam_roll
-        
+
     def update_vel(self, vn, ve, vd):
         self.vn = vn
         self.ve = ve
         self.vd = vd
-        
+
     def update_att_rad(self, phi_rad, the_rad, psi_rad):
         self.phi_rad = phi_rad
         self.the_rad = the_rad
@@ -184,13 +184,13 @@ class HUD:
         self.pilot_ele = elevator
         self.pilot_thr = throttle
         self.pilot_rud = rudder
-        
+
     def update_act(self, aileron, elevator, throttle, rudder):
         self.act_ail = aileron
         self.act_ele = elevator
         self.act_thr = throttle
         self.act_rud = rudder
-        
+
     def compute_sun_moon_ned(self, lon_deg, lat_deg, alt_m, timestamp):
         d = datetime.datetime.utcfromtimestamp(timestamp)
         #d = datetime.datetime.utcnow()
@@ -207,12 +207,12 @@ class HUD:
         sun = ephem.Sun(ownship)
         moon = ephem.Moon(ownship)
 
-        sun_ned = [ math.cos(sun.az) * math.cos(sun.alt),
-                    math.sin(sun.az) * math.cos(sun.alt),
-                    -math.sin(sun.alt) ]
-        moon_ned = [ math.cos(moon.az) * math.cos(moon.alt),
-                     math.sin(moon.az) * math.cos(moon.alt),
-                     -math.sin(moon.alt) ]
+        sun_ned = [ cos(sun.az) * cos(sun.alt),
+                    sin(sun.az) * cos(sun.alt),
+                    -sin(sun.alt) ]
+        moon_ned = [ cos(moon.az) * cos(moon.alt),
+                     sin(moon.az) * cos(moon.alt),
+                     -sin(moon.alt) ]
 
         return sun_ned, moon_ned
 
@@ -230,8 +230,8 @@ class HUD:
         pts = []
         for i in range(divs + 1):
             a = (float(i) * 360/float(divs)) * d2r
-            n = math.cos(a)
-            e = math.sin(a)
+            n = cos(a)
+            e = sin(a)
             d = 0.0
             pts.append( [n, e, d] )
 
@@ -374,9 +374,9 @@ class HUD:
 
     def rotate_pt(self, p, center, a):
         #print p, center
-        x = math.cos(a) * (p[0]-center[0]) - math.sin(a) * (p[1]-center[1]) + center[0]
+        x = cos(a) * (p[0]-center[0]) - sin(a) * (p[1]-center[1]) + center[0]
 
-        y = math.sin(a) * (p[0]-center[0]) + math.cos(a) * (p[1]-center[1]) + center[1]
+        y = sin(a) * (p[0]-center[0]) + cos(a) * (p[1]-center[1]) + center[1]
         return (int(x), int(y))
 
     def draw_vbars(self):
@@ -393,12 +393,12 @@ class HUD:
         rot = self.ladder_helper(q0, self.the_rad*r2d, 0.0)
         if rot == None:
             return
-        
+
         # center point
         tmp1 = self.ladder_helper(q0, a0, 0.0)
         if tmp1 == None:
             return
-        
+
         center = self.rotate_pt(tmp1, rot, self.ap_roll*d2r)
 
         # right vbar
@@ -433,7 +433,7 @@ class HUD:
     def draw_heading_bug(self):
         color = medium_orchid
         size = 2
-        a = math.atan2(self.ve, self.vn)
+        a = atan2(self.ve, self.vn)
         q0 = transformations.quaternion_about_axis(self.ap_hdg*d2r,
                                                    [0.0, 0.0, -1.0])
         center = self.ladder_helper(q0, 0, 0)
@@ -464,7 +464,7 @@ class HUD:
         q0 = transformations.quaternion_about_axis(self.psi_rad, [0.0, 0.0, -1.0])
         a0 = self.the_rad*r2d
         # print 'pitch:', a0, 'ap:', self.ap_pitch
-        
+
         # center point
         center = self.ladder_helper(q0, a0, 0.0)
         if center == None:
@@ -496,7 +496,7 @@ class HUD:
         size = 2
         self.filter_vn = (1.0 - self.tf_vel) * self.filter_vn + self.tf_vel * self.vn
         self.filter_ve = (1.0 - self.tf_vel) * self.filter_ve + self.tf_vel * self.ve
-        a = math.atan2(self.filter_ve, self.filter_vn)
+        a = atan2(self.filter_ve, self.filter_vn)
         q0 = transformations.quaternion_about_axis(a, [0.0, 0.0, -1.0])
         uv1 = self.ladder_helper(q0, 0, 0)
         uv2 = self.ladder_helper(q0, 1.5, 1.0)
@@ -543,8 +543,8 @@ class HUD:
         rel_ned = [ pt_ned[0] - self.ned[0],
                     pt_ned[1] - self.ned[1],
                     pt_ned[2] - self.ned[2] ]
-        hdist = math.sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1])
-        dist = math.sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1]
+        hdist = sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1])
+        dist = sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1]
                          + rel_ned[2]*rel_ned[2])
         m2sm = 0.000621371
         hdist_sm = hdist * m2sm
@@ -568,8 +568,8 @@ class HUD:
         pts = []
         for i in range(divs):
             a = (float(i) * 360/float(divs)) * d2r
-            n = math.cos(a)
-            e = math.sin(a)
+            n = cos(a)
+            e = sin(a)
             uv1 = self.project_point([self.ned[0] + n,
                                       self.ned[1] + e,
                                       self.ned[2] - 0.0])
@@ -766,7 +766,7 @@ class HUD:
             uv1 = (cx,                cy - offset)
             uv2 = (cx + int(ysize*3), cy - offset)
             cv2.line(self.frame, uv1, uv2, red2, self.line_width*2, cv2.LINE_AA)
-        
+
         # draw max altitude
         if self.altitude_units == 'm':
             offset = int((self.ground_m + 121.92 - altitude)/10.0 * spacing)
@@ -910,7 +910,7 @@ class HUD:
             dn = self.ned[0] - ned[0]
             de = self.ned[1] - ned[1]
             dd = self.ned[2] - ned[2]
-            dist = math.sqrt(dn*dn + de*de + dd*dd)
+            dist = sqrt(dn*dn + de*de + dd*dd)
             dist_list.append(dist)
             if dist > 5:
                 uv = self.project_point([ned[0], ned[1], ned[2]])
@@ -979,7 +979,7 @@ class HUD:
             dn = self.ned[0] - ned[0]
             de = self.ned[1] - ned[1]
             dd = self.ned[2] - ned[2]
-            dist = math.sqrt(dn*dn + de*de + dd*dd)
+            dist = sqrt(dn*dn + de*de + dd*dd)
             dist_list.append(dist)
             uv = self.project_point( ned )
             uv_list.append(uv)
@@ -990,7 +990,7 @@ class HUD:
             uv = uv_list[i]
             if uv != None:
                 cv2.circle(self.frame, uv, size, white, 1, cv2.LINE_AA)
-                    
+
     # draw the conformal components of the hud (those that should
     # 'stick' to the real world view.
     def draw_conformal(self):
@@ -1039,9 +1039,9 @@ class HUD:
             self.draw_heading_bug()
             self.draw_bird()
             self.draw_course()
-        
+
     def draw(self):
         self.draw_conformal()
         self.draw_fixed()
         self.draw_ap()
-        
+

@@ -1,7 +1,7 @@
 import cv2
 import datetime
 import ephem                    # dnf install python3-pyephem
-import math
+from math import atan2, cos, isnan, pi, sin, sqrt, tan
 import navpy
 import numpy as np
 import re
@@ -13,11 +13,10 @@ sys.path.append('../scripts')
 from lib import transformations
 
 import airports
-import camera
 
 # helpful constants
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
+d2r = pi / 180.0
+r2d = 180.0 / pi
 mps2kt = 1.94384
 kt2mps = 1 / mps2kt
 ft2m = 0.3048
@@ -105,11 +104,11 @@ class HUD:
         self.circle = {'lon': 0.0, 'lat': 0.0, 'radius': 100}
         self.land = {'heading_deg': 0, 'side': -1, 'turn_radius_m': 75,
                      'extend_final_leg_m': 150, 'glideslope_rad': 0.1 }
-        
+
     def set_render_size(self, w, h):
         self.render_w = w
         self.render_h = h
-        
+
     def set_line_width(self, line_width):
         self.line_width = line_width
         if self.line_width < 1:
@@ -117,7 +116,7 @@ class HUD:
 
     def set_color(self, color):
         self.color = color
-        
+
     def set_font_size(self, font_size):
         self.font_size = font_size
         if self.font_size < 0.4:
@@ -126,10 +125,10 @@ class HUD:
     def set_units(self, airspeed_units, altitude_units):
         self.airspeed_units = airspeed_units
         self.altitude_units = altitude_units
-        
+
     def set_ned_ref(self, lat, lon):
         self.ref = [ lat, lon, 0.0]
-        
+
     def load_airports(self):
         if self.ref:
             self.airports = airports.load('apt.csv', self.ref, 30000)
@@ -138,7 +137,7 @@ class HUD:
 
     def set_ground_m(self, ground_m):
         self.ground_m = ground_m
-        
+
     def update_frame(self, frame):
         self.frame = frame
 
@@ -160,14 +159,14 @@ class HUD:
             self.ned_history.append(ned)
             while len(self.ned_history) > seconds:
                 self.ned_history.pop(0)
-        
+
     def update_ned(self, ned, seconds):
         self.ned = ned[:]
         self.update_ned_history(ned, seconds)
 
     def update_features(self, feature_list):
         self.features = feature_list
-        
+
     def update_camera(self, camera):
         self.camera = camera
 
@@ -175,12 +174,12 @@ class HUD:
         self.cam_yaw = cam_yaw
         self.cam_pitch = cam_pitch
         self.cam_roll = cam_roll
-        
+
     def update_vel(self, vn, ve, vd):
         self.vn = vn
         self.ve = ve
         self.vd = vd
-        
+
     def update_att_rad(self, phi_rad, the_rad, psi_rad):
         self.phi_rad = phi_rad
         self.the_rad = the_rad
@@ -212,7 +211,7 @@ class HUD:
         self.pilot_ele = elevator
         self.pilot_thr = throttle
         self.pilot_rud = rudder
-        
+
     def update_act(self, aileron, elevator, throttle, rudder):
         self.act_ail = aileron
         self.act_ele = elevator
@@ -230,7 +229,7 @@ class HUD:
                 while route_size > len(self.route):
                     self.route.append({'lon': 0.0, 'lat': 0.0})
             #print(record['ap']['wpt_index'])
-            if not math.isnan(record['ap']['wpt_index']):
+            if not isnan(record['ap']['wpt_index']):
                 wp_index = int(record['ap']['wpt_index'])
             else:
                 wp_index = 0
@@ -253,7 +252,7 @@ class HUD:
                 self.task_id = record['ap']['current_task']
             else:
                 self.task_id = 0
-    
+
     def update_events(self, events):
         # expire active events
         event_timer = 15
@@ -278,7 +277,7 @@ class HUD:
                 events[i]['message'] = events[i]['message'][1:]
             if events[i]['message'][-1] == '"':
                 events[i]['message'] = events[i]['message'][:-1]
-            
+
             if re.match('camera:', events[i]['message']):
                 print('ignoring:', events[i]['message'])
             elif re.match('remote command: executed: \(\d+\) ',
@@ -310,10 +309,10 @@ class HUD:
                         elif tokens[0] == 'task' and tokens[1] == 'land':
                             print("received land:", float(tokens[2]))
                             self.land['heading_deg'] = float(tokens[2])
-                
+
                 else:
                     print('problem interpreting event:', events[i]['message'])
-            else:           
+            else:
                 self.active_events.append(events[i])
             i += 1
         self.next_event_index = i
@@ -321,7 +320,7 @@ class HUD:
             print('active events:')
             for e in self.active_events:
                 print(' ', e['time'], e['message'])
-            
+
     def compute_sun_moon_ned(self, lon_deg, lat_deg, alt_m, timestamp):
         d = datetime.datetime.utcfromtimestamp(timestamp)
         #d = datetime.datetime.utcnow()
@@ -338,12 +337,12 @@ class HUD:
         sun = ephem.Sun(ownship)
         moon = ephem.Moon(ownship)
 
-        sun_ned = [ math.cos(sun.az) * math.cos(sun.alt),
-                    math.sin(sun.az) * math.cos(sun.alt),
-                    -math.sin(sun.alt) ]
-        moon_ned = [ math.cos(moon.az) * math.cos(moon.alt),
-                     math.sin(moon.az) * math.cos(moon.alt),
-                     -math.sin(moon.alt) ]
+        sun_ned = [ cos(sun.az) * cos(sun.alt),
+                    sin(sun.az) * cos(sun.alt),
+                    -sin(sun.alt) ]
+        moon_ned = [ cos(moon.az) * cos(moon.alt),
+                     sin(moon.az) * cos(moon.alt),
+                     -sin(moon.alt) ]
 
         return sun_ned, moon_ned
 
@@ -384,8 +383,8 @@ class HUD:
         pts = []
         for i in range(divs + 1):
             a = (float(i) * 360/float(divs)) * d2r
-            n = math.cos(a)
-            e = math.sin(a)
+            n = cos(a)
+            e = sin(a)
             d = 0.0
             pts.append( [n, e, d] )
 
@@ -521,18 +520,18 @@ class HUD:
             result = []
             for v in p:
                 if v != None:
-                    x = math.cos(a) * (v[0]-center[0]) - math.sin(a) * (v[1]-center[1]) + center[0]
+                    x = cos(a) * (v[0]-center[0]) - sin(a) * (v[1]-center[1]) + center[0]
 
-                    y = math.sin(a) * (v[0]-center[0]) + math.cos(a) * (v[1]-center[1]) + center[1]
+                    y = sin(a) * (v[0]-center[0]) + cos(a) * (v[1]-center[1]) + center[1]
                     result.append( (int(round(x)), int(round(y))) )
                 else:
                     return None
-            return result                
+            return result
         else:
             if p != None:
-                x = math.cos(a) * (p[0]-center[0]) - math.sin(a) * (p[1]-center[1]) + center[0]
+                x = cos(a) * (p[0]-center[0]) - sin(a) * (p[1]-center[1]) + center[0]
 
-                y = math.sin(a) * (p[0]-center[0]) + math.cos(a) * (p[1]-center[1]) + center[1]
+                y = sin(a) * (p[0]-center[0]) + cos(a) * (p[1]-center[1]) + center[1]
                 return ( int(round(x)), int(round(y)) )
             else:
                 return None
@@ -540,8 +539,8 @@ class HUD:
     def draw_vbars(self):
         scale = 12.0
         angle = 20 * d2r
-        a1 = scale * math.cos(angle)
-        a3 = scale * math.sin(angle)
+        a1 = scale * cos(angle)
+        a3 = scale * sin(angle)
         a2 = a3 * 0.4
 
         a0 = -self.the_rad*r2d + self.ap_pitch
@@ -556,7 +555,7 @@ class HUD:
         # rot = self.ar_helper(self.the_rad*r2d, 0.0)
         # if rot == None:
         #     return
-        
+
         # center point
         tmp = self.cam_helper(a0, 0.0)
         center = self.rotate_pt(tmp, nose, -self.phi_rad + self.ap_roll*d2r)
@@ -564,7 +563,7 @@ class HUD:
             return
         half_width = int(self.line_width*0.5)
         if half_width < 1: half_width = 1
-        
+
         # right vbar
         tmp = [ self.cam_helper(a0-a3, a1),
                 self.cam_helper(a0-a3, a1+a2),
@@ -621,14 +620,14 @@ class HUD:
 
         # transparent dg face
         self.shaded_areas['dg-face'] = ['circle', center, int(round(hdg_cols * 0.5)) ]
-        
+
         # heading bug
         if self.flight_mode != 'manual':
             bug_rot = self.ap_hdg * d2r - self.psi_rad
-            if bug_rot < -math.pi:
-                bug_rot += 2*math.pi
-            if bug_rot > math.pi:
-                bug_rot -= 2*math.pi
+            if bug_rot < -pi:
+                bug_rot += 2*pi
+            if bug_rot > pi:
+                bug_rot -= 2*pi
             ref1 = (center_col, row_start)
             ref2 = (center_col, row_start + size2)
             uv0 = self.rotate_pt([ref1, ref2], center, bug_rot)
@@ -666,14 +665,14 @@ class HUD:
         cv2.fillPoly(self.frame, np.array([[top, arrow1, arrow2]]), white)
 
         # ground course indicator
-        gs_mps = math.sqrt(self.filter_vn*self.filter_vn + self.filter_ve*self.filter_ve)
+        gs_mps = sqrt(self.filter_vn*self.filter_vn + self.filter_ve*self.filter_ve)
         if gs_mps > 0.5:
-            self.gc_rad = math.atan2(self.filter_ve, self.filter_vn)
+            self.gc_rad = atan2(self.filter_ve, self.filter_vn)
         self.gc_rot = self.gc_rad - self.psi_rad
-        if self.gc_rot < -math.pi:
-            self.gc_rot += 2*math.pi
-        if self.gc_rot > math.pi:
-             self.gc_rot -= 2*math.pi
+        if self.gc_rot < -pi:
+            self.gc_rot += 2*pi
+        if self.gc_rot > pi:
+             self.gc_rot -= 2*pi
         nose = (center_col, row_start + 1)
         nose1 = (center_col, row_start + size1)
         #end = (self.nose_uv[0], center[1] + size2)
@@ -696,10 +695,10 @@ class HUD:
                 max_wind = 30
             if wind_kt > max_wind: wind_kt = max_wind
             wc_rot = wind_rad - self.psi_rad
-            if wc_rot < -math.pi:
-                wc_rot += 2*math.pi
-            if wc_rot > math.pi:
-                wc_rot -= 2*math.pi
+            if wc_rot < -pi:
+                wc_rot += 2*pi
+            if wc_rot > pi:
+                wc_rot -= 2*pi
             size1 = int(round(hdg_rows*0.05))
             size2 = int(round(hdg_rows*0.1))
             size3 = int(round((rows*0.5) * (wind_kt/max_wind)))
@@ -720,7 +719,7 @@ class HUD:
     def draw_heading_bug(self):
         color = medium_orchid
         size = 2
-        a = math.atan2(self.ve, self.vn)
+        a = atan2(self.ve, self.vn)
         q0 = transformations.quaternion_about_axis(self.ap_hdg*d2r,
                                                    [0.0, 0.0, -1.0])
         center = self.ar_helper(q0, 0, 0)
@@ -746,8 +745,8 @@ class HUD:
     def draw_bird(self):
         scale = 12.0
         angle = 20 * d2r
-        a1 = scale * math.cos(angle)
-        a3 = scale * math.sin(angle)
+        a1 = scale * cos(angle)
+        a3 = scale * sin(angle)
         a2 = a3 * 0.5
         a4 = scale * 1.15
         a5 = scale * 0.036
@@ -766,7 +765,7 @@ class HUD:
             cv2.fillPoly(self.frame, pts1, yellow)
             cv2.fillPoly(self.frame, pts2, dark_yellow)
             cv2.polylines(self.frame, pts1, True, black, int(self.line_width*0.5), cv2.LINE_AA)
-                
+
         # left bird
         tmp = [ self.cam_helper(-a3, -a1),
                 self.cam_helper(-a3, -a1+a2),
@@ -817,10 +816,10 @@ class HUD:
         return nose
 
     def draw_roll_indicator_tic(self, nose, a1, angle, length):
-        v1x = math.sin(angle*d2r) * a1
-        v1y = math.cos(angle*d2r) * a1
-        v2x = math.sin(angle*d2r) * (a1 + length)
-        v2y = math.cos(angle*d2r) * (a1 + length)
+        v1x = sin(angle*d2r) * a1
+        v1y = cos(angle*d2r) * a1
+        v2x = sin(angle*d2r) * (a1 + length)
+        v2y = cos(angle*d2r) * (a1 + length)
         tmp = [ self.cam_helper(v1y, v1x),
                 self.cam_helper(v2y, v2x) ]
         uv = self.rotate_pt(tmp, nose, -self.phi_rad)
@@ -841,8 +840,8 @@ class HUD:
         # background arc
         tmp = []
         for a in range(-60, 60+1, 5):
-            vx = math.sin(a*d2r) * a1
-            vy = math.cos(a*d2r) * a1
+            vx = sin(a*d2r) * a1
+            vy = cos(a*d2r) * a1
             tmp.append( self.cam_helper(vy, vx) )
         uv = self.rotate_pt(tmp, nose, -self.phi_rad)
         if uv != None:
@@ -875,11 +874,11 @@ class HUD:
         if uv != None:
             cv2.fillPoly(self.frame, np.array([uv]), white)
 
-            
+
     def draw_course(self):
         color = yellow
         size = 2
-        a = math.atan2(self.filter_ve, self.filter_vn)
+        a = atan2(self.filter_ve, self.filter_vn)
         q0 = transformations.quaternion_about_axis(a, [0.0, 0.0, -1.0])
         uv1 = self.ar_helper(q0, 0, 0)
         uv2 = self.ar_helper(q0, 1.5, 1.0)
@@ -926,8 +925,8 @@ class HUD:
         rel_ned = [ pt_ned[0] - self.ned[0],
                     pt_ned[1] - self.ned[1],
                     pt_ned[2] - self.ned[2] ]
-        hdist = math.sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1])
-        dist = math.sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1]
+        hdist = sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1])
+        dist = sqrt(rel_ned[0]*rel_ned[0] + rel_ned[1]*rel_ned[1]
                          + rel_ned[2]*rel_ned[2])
         m2sm = 0.000621371
         hdist_sm = hdist * m2sm
@@ -954,8 +953,8 @@ class HUD:
         pts = []
         for i in range(divs):
             a = (float(i) * 360/float(divs)) * d2r
-            n = math.cos(a)
-            e = math.sin(a)
+            n = cos(a)
+            e = sin(a)
             uv1 = self.camera.project_ned([self.ned[0] + n,
                                            self.ned[1] + e,
                                            self.ned[2] - 0.0])
@@ -995,7 +994,7 @@ class HUD:
         if self.unixtime < 100000.0:
             # bail if it's clear we don't have real world unix time
             return
-        
+
         sun_ned, moon_ned = self.compute_sun_moon_ned(self.lla[1],
                                                       self.lla[0],
                                                       self.lla[2],
@@ -1038,7 +1037,7 @@ class HUD:
                      cv2.LINE_AA)
             cv2.line(self.frame, uv4, uv1, white, self.line_width,
                      cv2.LINE_AA)
-        
+
     def draw_task(self):
         # home
         self.draw_lla_point([ self.home['lat'], self.home['lon'], self.ground_m ], "Home", draw_dist='')
@@ -1049,13 +1048,13 @@ class HUD:
                                         alt,
                                         self.ref[0], self.ref[1], self.ref[2] )
             r = self.circle['radius']
-            perim = r * math.pi
-            step = int(round(2 * r * math.pi / 30))
-            for a in np.linspace(0, 2*math.pi, step, endpoint=False):
-                in_e = center_ned[1] + math.cos(a)*(r-size)
-                in_n = center_ned[0] + math.sin(a)*(r-size)
-                out_e = center_ned[1] + math.cos(a)*(r+size)
-                out_n = center_ned[0] + math.sin(a)*(r+size)
+            perim = r * pi
+            step = int(round(2 * r * pi / 30))
+            for a in np.linspace(0, 2*pi, step, endpoint=False):
+                in_e = center_ned[1] + cos(a)*(r-size)
+                in_n = center_ned[0] + sin(a)*(r-size)
+                out_e = center_ned[1] + cos(a)*(r+size)
+                out_n = center_ned[0] + sin(a)*(r+size)
                 self.draw_gate( [in_n, in_e, center_ned[2]-size],
                                 [out_n, out_e, center_ned[2]-size],
                                 [out_n, out_e, center_ned[2]+size],
@@ -1076,7 +1075,7 @@ class HUD:
                                       self.ref[0], self.ref[1], self.ref[2] )
             distn = next_ned[0] - prev_ned[0]
             diste = next_ned[1] - prev_ned[1]
-            dist = math.sqrt(distn*distn + diste*diste)
+            dist = sqrt(distn*distn + diste*diste)
             if abs(dist) < 0.0001 or dist > 10000:
                 return
             vn = distn / dist
@@ -1105,15 +1104,15 @@ class HUD:
             final_leg_m = 2.0 * self.land['turn_radius_m'] + self.land['extend_final_leg_m']
             (tan_lat, tan_lon, az2) = \
                 wgs84.geo_direct( self.home['lat'], self.home['lon'], hdg, final_leg_m )
-            tan_alt = self.ground_m + final_leg_m * math.tan(self.land['glideslope_rad'])
+            tan_alt = self.ground_m + final_leg_m * tan(self.land['glideslope_rad'])
             tan_ned = navpy.lla2ned( tan_lat, tan_lon, tan_alt,
                                      self.ref[0], self.ref[1], self.ref[2] )
-                        
+
             # final approach gates
             distn = tgt_ned[0] - tan_ned[0]
             diste = tgt_ned[1] - tan_ned[1]
             distd = tgt_ned[2] - tan_ned[2]
-            dist = math.sqrt(distn*distn + diste*diste + distd*distd)
+            dist = sqrt(distn*distn + diste*diste + distd*distd)
             if abs(dist) < 0.0001:
                 return
             vn = distn / dist
@@ -1145,12 +1144,12 @@ class HUD:
 
             # circle gates
             r = self.land['turn_radius_m']
-            perim = 2 * r * math.pi
+            perim = 2 * r * pi
             ha = (90 - self.land['heading_deg']) * d2r
-            sa = ha + 0.5 * math.pi * self.land['side']
-            aa = sa + 1.0 * math.pi * self.land['side']
-            ea = sa + 1.25 * math.pi * self.land['side']
-            step = round(r * math.pi / 30)
+            sa = ha + 0.5 * pi * self.land['side']
+            aa = sa + 1.0 * pi * self.land['side']
+            ea = sa + 1.25 * pi * self.land['side']
+            step = round(r * pi / 30)
             for a in np.linspace(sa, ea, int(round(-self.land['side'] * step)),
                                  endpoint=True):
                 d = abs(a - sa)
@@ -1158,12 +1157,12 @@ class HUD:
                     # glide slope only extends up for the first half
                     # of the circle
                     d = abs(aa - sa)
-                alt = self.ground_m + (final_leg_m + d*r) * math.tan(self.land['glideslope_rad'])
+                alt = self.ground_m + (final_leg_m + d*r) * tan(self.land['glideslope_rad'])
                 #print('d:', d*r, tan_alt, alt)
-                in_e = center_ned[1] + math.cos(a)*(r-size)
-                in_n = center_ned[0] + math.sin(a)*(r-size)
-                out_e = center_ned[1] + math.cos(a)*(r+size)
-                out_n = center_ned[0] + math.sin(a)*(r+size)
+                in_e = center_ned[1] + cos(a)*(r-size)
+                in_n = center_ned[0] + sin(a)*(r-size)
+                out_e = center_ned[1] + cos(a)*(r+size)
+                out_n = center_ned[0] + sin(a)*(r+size)
                 self.draw_gate( [in_n, in_e, -alt-size],
                                 [out_n, out_e, -alt-size],
                                 [out_n, out_e, -alt+size],
@@ -1266,7 +1265,7 @@ class HUD:
         #uv = ( int(cx + ysize*0.7), int(cy + lsize[0][1] / 2))
         uv = ( int(cx - ysize*0.7 - asi_size[0][0]), int(cy + asi_size[0][1] / 2))
         cv2.putText(self.frame, asi_label, uv, self.font, self.font_size, white, self.line_width, cv2.LINE_AA)
-        
+
         # units
         lsize = cv2.getTextSize(units_label, self.font, self.font_size, self.line_width)
         uv = ( cx - int((ysize + xsize)*0.5 + lsize[0][1]*0.5), maxy + lsize[0][1] + self.line_width*2)
@@ -1295,7 +1294,7 @@ class HUD:
 
         # transparent background
         self.shaded_areas['altitude-tape'] = ['rectangle', (cx+ysize+xsize, miny-int(ysize*0.5)), (cx, maxy+ysize) ]
-        
+
         # altitude bug
         offset = int((ap_alt - altitude)/10.0 * spacing)
         if self.flight_mode == 'auto' and cy - offset >= miny and cy - offset <= maxy:
@@ -1308,7 +1307,7 @@ class HUD:
             uv7 = (cx + int(ysize*0.7), cy - offset + int(ysize / 2) )
             pts = np.array([[uv1, uv2,  uv3, uv4, uv5, uv6, uv7]])
             cv2.fillPoly(self.frame, pts, medium_orchid)
-            
+
         # draw ground
         if self.altitude_units == 'm':
             offset = cy - int((self.ground_m - altitude)/10.0 * spacing)
@@ -1321,7 +1320,7 @@ class HUD:
             uv1 = (cx+2, offset)
             uv2 = (cx+2, bottom)
             cv2.line(self.frame, uv1, uv2, red2, self.line_width*4, cv2.LINE_AA)
-        
+
         # draw max altitude
         if self.altitude_units == 'm':
             offset = cy - int((self.ground_m + 121.92 - altitude)/10.0 * spacing)
@@ -1466,7 +1465,7 @@ class HUD:
             dn = self.ned[0] - ned[0]
             de = self.ned[1] - ned[1]
             dd = self.ned[2] - ned[2]
-            dist = math.sqrt(dn*dn + de*de + dd*dd)
+            dist = sqrt(dn*dn + de*de + dd*dd)
             dist_list.append(dist)
             if dist > 5:
                 uv = self.camera.project_ned([ned[0], ned[1], ned[2]])
@@ -1535,7 +1534,7 @@ class HUD:
             dn = self.ned[0] - ned[0]
             de = self.ned[1] - ned[1]
             dd = self.ned[2] - ned[2]
-            dist = math.sqrt(dn*dn + de*de + dd*dd)
+            dist = sqrt(dn*dn + de*de + dd*dd)
             dist_list.append(dist)
             uv = self.camera.project_ned( ned )
             uv_list.append(uv)
@@ -1546,7 +1545,7 @@ class HUD:
             uv = uv_list[i]
             if uv != None:
                 cv2.circle(self.frame, uv, size, white, 1, cv2.LINE_AA)
-                    
+
     # draw the conformal components of the hud (those that should
     # 'stick' to the real world view.
     def draw_conformal(self):
@@ -1604,7 +1603,7 @@ class HUD:
     def draw_ap(self):
         if not self.nose_uv:
             return
-        
+
         if self.flight_mode == 'manual':
             self.draw_nose()
         else:
@@ -1628,4 +1627,4 @@ class HUD:
         self.draw_shaded_areas()
         self.draw_fixed()
         self.draw_ap()
-        
+

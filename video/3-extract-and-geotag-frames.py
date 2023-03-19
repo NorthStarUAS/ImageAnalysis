@@ -5,14 +5,10 @@
 import argparse
 import cv2
 import skvideo.io               # pip3 install scikit-video
-import math
+from math import atan2, modf, pi
 import fractions
-from matplotlib import pyplot as plt 
-import numpy as np
 import os
 import pyexiv2
-import re
-import sys
 
 from aurauas.flightdata import flight_loader, flight_interp
 
@@ -32,7 +28,7 @@ parser.add_argument('--ground', type=float, help='ground altitude in meters')
 parser.add_argument('--plot', action='store_true', help='Plot stuff at the end of the run')
 args = parser.parse_args()
 
-r2d = 180.0 / math.pi
+r2d = 180.0 / pi
 counter = 0
 
 class Fraction(fractions.Fraction):
@@ -71,14 +67,14 @@ def decimal_to_dms(decimal):
     >>> decimal_to_dms(-125.976893)
     [Fraction(125, 1), Fraction(58, 1), Fraction(92037, 2500)]
     """
-    remainder, degrees = math.modf(abs(decimal))
-    remainder, minutes = math.modf(remainder * 60)
+    remainder, degrees = modf(abs(decimal))
+    remainder, minutes = modf(remainder * 60)
     return [Fraction(n) for n in (degrees, minutes, remainder * 60)]
 
 if args.resample_hz <= 0.001:
     print("Resample rate (hz) needs to be greater than zero.")
     quit()
-    
+
 # pathname work
 abspath = os.path.abspath(args.movie)
 filename, ext = os.path.splitext(abspath)
@@ -106,7 +102,7 @@ if len(data['imu']) == 0 and len(data['gps']) == 0:
 
 interp = flight_interp.FlightInterpolate()
 interp.build(data)
-    
+
 time_shift, flight_min, flight_max = \
     correlate.sync_clocks(data, interp, movie_log, hz=args.resample_hz,
                           cam_mount=args.cam_mount,
@@ -150,7 +146,7 @@ if args.movie:
     meta = dirname + "/image-metadata.txt"
     f = open(meta, 'w')
     print("writing meta data to", meta)
-    
+
     for frame in reader.nextFrame():
         frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
         time = float(counter) / fps + time_shift
@@ -166,7 +162,7 @@ if args.movie:
         pitch_deg = interp.filter_the(time) * r2d
         psix = interp.filter_psix(time)
         psiy = interp.filter_psiy(time)
-        yaw_deg = math.atan2(psiy, psix) * r2d
+        yaw_deg = atan2(psiy, psix) * r2d
         while yaw_deg < 0:
             yaw_deg += 360
         while yaw_deg > 360:

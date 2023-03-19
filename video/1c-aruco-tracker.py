@@ -11,7 +11,7 @@ import argparse
 import csv
 import cv2
 import cv2.aruco as aruco
-import math
+from math import atan2, pi, sqrt
 import numpy as np
 import os
 import time
@@ -21,8 +21,8 @@ import props_json
 
 import cam_calib
 
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
+d2r = pi / 180.0
+r2d = 180.0 / pi
 
 affine_minpts = 7
 
@@ -80,7 +80,7 @@ else:
     K[1][2] = config.getFloat("cv")
     K[2][2] = 1.0
     print 'Camera:', name
-    
+
 K = K * args.scale
 K[2,2] = 1.0
 
@@ -171,14 +171,14 @@ def decomposeAffine(affine):
     c = affine[1][0]
     d = affine[1][1]
 
-    sx = math.sqrt( a*a + b*b )
+    sx = sqrt( a*a + b*b )
     if a < 0.0:
         sx = -sx
-    sy = math.sqrt( c*c + d*d )
+    sy = sqrt( c*c + d*d )
     if d < 0.0:
         sy = -sy
 
-    rotate_deg = math.atan2(-b,a) * 180.0/math.pi
+    rotate_deg = atan2(-b,a) * 180.0/pi
     if rotate_deg < -180.0:
         rotate_deg += 360.0
     if rotate_deg > 180.0:
@@ -212,7 +212,7 @@ while True:
         if stop_count > args.stop_count:
             break
     else:
-        stop_count = 0    
+        stop_count = 0
 
     if points_ref != None and counter < skip_frames:
         if counter % 1000 == 0:
@@ -233,8 +233,8 @@ while True:
     if distort:
         frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
     else:
-        frame_undist = frame_scale    
-        
+        frame_undist = frame_scale
+
     gray = cv2.cvtColor(frame_undist, cv2.COLOR_BGR2GRAY)
 
     # aruco stuff

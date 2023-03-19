@@ -5,7 +5,7 @@ import csv
 import cv2
 import skvideo.io               # pip3 install sk-video
 import json
-import math
+from math import atan2, pi, sqrt
 import numpy as np
 import os
 from tqdm import tqdm
@@ -20,8 +20,8 @@ from lib import transformations
 import camera
 
 # constants
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
+d2r = pi / 180.0
+r2d = 180.0 / pi
 
 match_ratio = 0.75
 max_features = 500
@@ -135,18 +135,18 @@ def decomposeAffine(affine):
     c = affine[1][0]
     d = affine[1][1]
 
-    sx = math.sqrt( a*a + b*b )
+    sx = sqrt( a*a + b*b )
     if a < 0.0:
         sx = -sx
-    sy = math.sqrt( c*c + d*d )
+    sy = sqrt( c*c + d*d )
     if d < 0.0:
         sy = -sy
 
-    rotate_rad = math.atan2(-b,a)
-    if rotate_rad < -math.pi:
-        rotate_rad += 2*math.pi
-    if rotate_rad > math.pi:
-        rotate_rad -= 2*math.pi
+    rotate_rad = atan2(-b,a)
+    if rotate_rad < -pi:
+        rotate_rad += 2*pi
+    if rotate_rad > pi:
+        rotate_rad -= 2*pi
     return (rotate_rad, tx, ty, sx, sy)
 
 def filterMatches(kp1, kp2, matches):
@@ -291,7 +291,7 @@ pbar = tqdm(total=int(total_frames), smoothing=0.05)
 for frame in reader.nextFrame():
     frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
     counter += 1
-    
+
     if counter < skip_frames:
         if counter % 100 == 0:
             print("Skipping %d frames..." % counter)
@@ -312,13 +312,13 @@ for frame in reader.nextFrame():
     frame_undist = cv2.undistort(frame_scale, K, np.array(dist))
 
     gray = cv2.cvtColor(frame_undist, cv2.COLOR_BGR2GRAY)
-        
+
     if not args.no_equalize:
         gray = clahe.apply(gray)
         cv2.imshow("gray equalized", gray)
 
     edge_mask = make_edge_mask(gray)
-    
+
     kp_list = detector.detect(gray)
     kp_list = apply_edge_mask(edge_mask, kp_list)
     kp_list, des_list = extractor.compute(gray, kp_list)
@@ -331,7 +331,7 @@ for frame in reader.nextFrame():
         kp_list_last = kp_list
         des_list_last = des_list
         continue
-    
+
     #print(len(des_list_last), len(des_list))
     matches = matcher.knnMatch(des_list, trainDescriptors=des_list_last, k=2)
     p1, p2, kp_pairs, idx_pairs = filterMatches(kp_list, kp_list_last, matches)
@@ -341,14 +341,14 @@ for frame in reader.nextFrame():
     M, status, newp1, newp2 = filterFeatures(p1, p2, K, filter_method)
     if len(newp1) < 1:
         continue
-    
+
     affine, aff_status = findAffine(newp2 - np.array([cu,cv]),
                                     newp1 - np.array([cu,cv]),
                                     fullAffine=False)
     if affine is None:
         continue
     (rot, tx, ty, sx, sy) = decomposeAffine(affine)
-    if abs(rot) > 0.1 or math.sqrt(tx*tx+ty*ty) > 20:
+    if abs(rot) > 0.1 or sqrt(tx*tx+ty*ty) > 20:
         print("sanity limit:", rot, tx, ty)
         (rot, tx, ty, sx, sy) = (0.0, 0.0, 0.0, 1.0, 1.0)
     #print affine
@@ -377,7 +377,7 @@ for frame in reader.nextFrame():
     xoff = np.mean(np.abs(diff[:,0]))
     yoff = np.mean(np.abs(diff[:,1]))
     print("avg xoff: %.2f" % xoff, "avg yoff: %.2f" % yoff)
-    
+
     #print(cu, cv)
     #print("IK:", IK)
     uv0 = np.array([cu+xoff,    cv+yoff,    1.0])
@@ -466,7 +466,7 @@ for frame in reader.nextFrame():
         #print("R:", R)
         #(yaw, pitch, roll) = transformations.euler_from_matrix(R, 'rzyx')
         #print("ypr: %.2f %.2f %.2f" % (yaw*r2d, pitch*r2d, roll*r2d))
-    
+
     # divide tx, ty by args.scale to get a translation value
     # relative to the original movie size.
     row = { 'frame': counter,
@@ -532,7 +532,7 @@ for frame in reader.nextFrame():
         print(fit)
         func = np.poly1d(fit)
         print("val at cu:", func(cu))
-        
+
     cv2.imshow('bgr', frame_undist)
     if args.write:
         video_writer.writeFrame(frame_undist[:,:,::-1])

@@ -1,5 +1,5 @@
 import cv2
-import math
+from math import atan2, cos, sin
 import numpy as np
 import os
 
@@ -11,8 +11,8 @@ sys.path.append('../scripts')
 from lib import transformations
 
 # helpful constants
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
+d2r = pi / 180.0
+r2d = 180.0 / pi
 
 # these are fixed tranforms between ned and camera reference systems
 proj2ned = np.array( [[0, 0, 1], [1, 0, 0], [0, 1, 0]],
@@ -25,7 +25,7 @@ class VirtualCamera:
     IK = None
     dist = None
     PROJ = None
-    
+
     def __init__(self):
         pass
 
@@ -56,7 +56,7 @@ class VirtualCamera:
 
     def save(self, local_config):
         props_json.save(local_config, self.config)
-        
+
     def get_name(self):
         return self.config.getString('name')
 
@@ -82,7 +82,7 @@ class VirtualCamera:
 
     def get_shape(self):
         return self.config.getFloat("width_px"), self.config.getFloat("height_px")
-    
+
     def get_ypr(self):
         cam_yaw = self.config.getFloatEnum('mount_ypr', 0)
         cam_pitch = self.config.getFloatEnum('mount_ypr', 1)
@@ -93,13 +93,13 @@ class VirtualCamera:
         self.config.setFloatEnum('mount_ypr', 0, cam_yaw)
         self.config.setFloatEnum('mount_ypr', 1, cam_pitch)
         self.config.setFloatEnum('mount_ypr', 2, cam_roll)
-        
+
     def set_yaw(self, cam_yaw):
         self.config.setFloatEnum('mount_ypr', 0, cam_yaw)
-        
+
     def set_pitch(self, cam_pitch):
         self.config.setFloatEnum('mount_ypr', 1, cam_pitch)
-        
+
     def set_roll(self, cam_roll):
         self.config.setFloatEnum('mount_ypr', 2, cam_roll)
 
@@ -115,7 +115,7 @@ class VirtualCamera:
         # (a = b, wasn't sufficient, but a = float(b) forced a copy.
         tmp_yaw = float(yaw_rad)
         tmp_pitch = float(pitch_rad)
-        tmp_roll = float(roll_rad)    
+        tmp_roll = float(roll_rad)
         ned2body = transformations.quaternion_from_euler(tmp_yaw,
                                                          tmp_pitch,
                                                          tmp_roll,
@@ -135,7 +135,7 @@ class VirtualCamera:
         #print 'PROJ:', PROJ
         #print lat_deg, lon_deg, altitude, ref[0], ref[1], ref[2]
         #print ned
-        
+
         return self.PROJ
 
     # project from ned coordinates to image uv coordinates using
@@ -173,8 +173,8 @@ class VirtualCamera:
     horiz_pts = []
     for i in range(horiz_divs + 1):
         a = (float(i) * 360/float(horiz_divs)) * d2r
-        n = math.cos(a) + horiz_ned[0]
-        e = math.sin(a) + horiz_ned[1]
+        n = cos(a) + horiz_ned[0]
+        e = sin(a) + horiz_ned[1]
         d = 0.0 + horiz_ned[2]
         horiz_pts.append( [n, e, d] )
 
@@ -200,7 +200,7 @@ class VirtualCamera:
             return answers[index]
         else:
             return None, None
-            
+
     # a, b are line end points, p is some other point
     # returns the closest point on ab to p (orthogonal projection)
     def ClosestPointOnLine(self, a, b, p):
@@ -214,7 +214,7 @@ class VirtualCamera:
         # print('line:', line)
         du = uv2[0] - uv1[0]
         dv = uv1[1] - uv2[1]        # account for (0,0) at top left corner in image space
-        roll = math.atan2(dv, du)
+        roll = atan2(dv, du)
 
         if False:
             # temp test
