@@ -1,2 +1,4 @@
 *~
 *.pyc
+scripts/mavic*
+scripts/tmp-*
