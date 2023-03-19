@@ -5,7 +5,7 @@
 import csv
 import fileinput
 import fnmatch
-import math
+from math import atan2, cos, pi, sin
 import os
 import re
 
@@ -28,8 +28,8 @@ import props_json
 # horizon.)
 
 # a helpful constant
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
+d2r = pi / 180.0
+r2d = 180.0 / pi
 
 # quaternions represent a rotation from one coordinate system to
 # another (i.e. from NED space to aircraft body space).  You can
@@ -54,13 +54,13 @@ def gen_image_list(image_dir):
 # define the image aircraft poses from Sentera meta data file
 def set_aircraft_poses(proj, posefile="", order='ypr', max_angle=25.0):
     log("Setting aircraft poses")
-    
+
     #analysis_dir = os.path.join(proj.project_dir, 'ImageAnalysis')
     meta_dir = os.path.join(proj.analysis_dir, 'meta')
     images_node = getNode("/images", True)
 
     by_index = False
-    
+
     f = fileinput.input(posefile)
     for line in f:
         line.strip()
@@ -119,14 +119,14 @@ def set_aircraft_poses(proj, posefile="", order='ypr', max_angle=25.0):
         image_node = images_node.getChild(base, True)
         image_path = os.path.join(meta_dir, base + '.json')
         props_json.save(image_path, image_node)
-  
+
         log("pose:", name, "yaw=%.1f pitch=%.1f roll=%.1f" % (yaw_deg, pitch_deg, roll_deg))
 
 # for each image, compute the estimated camera pose in NED space from
 # the aircraft body pose and the relative camera orientation
 def compute_camera_poses(proj):
     log("Setting camera poses (offset from aircraft pose.)")
-    
+
     images_node = getNode("/images", True)
     ref_node = getNode("/config/ned_reference", True)
     ref_lat = ref_node.getFloat("lat_deg")
@@ -138,7 +138,7 @@ def compute_camera_poses(proj):
         print("camera pose:", image.name)
         ac_pose_node = image.node.getChild("aircraft_pose", True)
         #cam_pose_node = images_node.getChild(name + "/camera_pose", True)
-        
+
         aircraft_lat = ac_pose_node.getFloat("lat_deg")
         aircraft_lon = ac_pose_node.getFloat("lon_deg")
         aircraft_alt = ac_pose_node.getFloat("alt_m")
@@ -163,7 +163,7 @@ def make_pix4d(image_dir, force_altitude=None, force_heading=None, yaw_from_grou
         log("true gps altitude of the flight altitude (in meters).")
         log("Sorry for the inconvenience!")
         quit()
-        
+
     # load list of images
     files = []
     for file in os.listdir(image_dir):
@@ -203,7 +203,7 @@ def make_pix4d(image_dir, force_altitude=None, force_heading=None, yaw_from_grou
         else:
             # no yaw info found in metadata
             line.append(0)
-            
+
         images.append(line)
 
     if (not force_heading and not images_have_yaw) or yaw_from_groundtrack:
@@ -234,25 +234,25 @@ def make_pix4d(image_dir, force_altitude=None, force_heading=None, yaw_from_grou
                 next_hdg = 0.0
                 next_dist = 0.0
 
-            prev_hdgx = math.cos(prev_hdg*d2r)
-            prev_hdgy = math.sin(prev_hdg*d2r)
-            next_hdgx = math.cos(next_hdg*d2r)
-            next_hdgy = math.sin(next_hdg*d2r)
+            prev_hdgx = cos(prev_hdg*d2r)
+            prev_hdgy = sin(prev_hdg*d2r)
+            next_hdgx = cos(next_hdg*d2r)
+            next_hdgy = sin(next_hdg*d2r)
             avg_hdgx = (prev_hdgx*prev_dist + next_hdgx*next_dist) / (prev_dist + next_dist)
             avg_hdgy = (prev_hdgy*prev_dist + next_hdgy*next_dist) / (prev_dist + next_dist)
-            avg_hdg = math.atan2(avg_hdgy, avg_hdgx)*r2d
+            avg_hdg = atan2(avg_hdgy, avg_hdgx)*r2d
             if avg_hdg < 0:
                 avg_hdg += 360.0
             #print("%d %.2f %.1f %.2f %.1f %.2f" % (i, prev_hdg, prev_dist, next_hdg, next_dist, avg_hdg))
             images[i][6] = avg_hdg
-    
+
     # sanity check
     output_file = os.path.join(image_dir, "pix4d.csv")
     if os.path.exists(output_file):
         log(output_file, "exists, please rename it and rerun this script.")
         quit()
     log("Creating pix4d image pose file:", output_file, "images:", len(files))
-    
+
     # traverse the image list and create output csv file
     with open(output_file, 'w') as csvfile:
         writer = csv.DictWriter( csvfile,

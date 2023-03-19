@@ -1,7 +1,7 @@
 # a collection of non-class routines that perform operations on a list
 # of images
 
-import math
+from math import cos, pi
 
 # return the bounds of the rectangle spanned by the provided list of
 # images
@@ -65,7 +65,7 @@ def getImagesCoveringPoint(image_list, x=0.0, y=0.0, pad=20.0, only_placed=False
 def x2lon(self, x):
     nm2m = 1852.0
     x_nm = x / nm2m
-    factor = math.cos(self.ref_lat*math.pi/180.0)
+    factor = cos(self.ref_lat*pi/180.0)
     x_deg = (x_nm / 60.0) / factor
     return x_deg + self.ref_lon
 
@@ -80,7 +80,7 @@ def cart2wgs84( x, y, ref_lon, ref_lat ):
     nm2m = 1852.0
     x_nm = x / nm2m
     y_nm = y / nm2m
-    factor = math.cos(ref_lat*math.pi/180.0)
+    factor = cos(ref_lat*pi/180.0)
     x_deg = (x_nm / 60.0) / factor + ref_lon
     y_deg = y_nm / 60.0 + ref_lat
     return (x_deg, y_deg)
@@ -90,7 +90,7 @@ def wgs842cart( lon_deg, lat_deg, ref_lon, ref_lat ):
     nm2m = 1852.0
     x_deg = lon_deg - ref_lon
     y_deg = lat_deg - ref_lat
-    factor = math.cos(ref_lat*math.pi/180.0)
+    factor = cos(ref_lat*pi/180.0)
     x_nm = x_deg * 60.0 * factor
     y_nm = y_deg * 60.0
     x_m = x_nm * nm2m

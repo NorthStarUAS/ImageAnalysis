@@ -1,5 +1,5 @@
 import cv2
-import math
+from math import sqrt
 
 # Draw a match entry.  Creates a window for each image referenced by
 # the match.  A cropped portion of the image is drawn with the match
@@ -15,7 +15,7 @@ def draw_match(i, index, matches, image_list):
         if j > 20:
             # try to be sane and not open 100's of windows
             break
-        
+
         print(' ', m, image_list[m[0]])
         img = image_list[m[0]]
         #kp = img.kp_list[m[1]].pt # distorted
@@ -75,7 +75,7 @@ def show_outliers(result_list, matches, image_list):
     # biggest to smallest)
     for line in reversed(result_list):
         sum += line[0]
-        
+
     # stats on error values
     print(" computing stats...")
     mre = sum / count
@@ -83,7 +83,7 @@ def show_outliers(result_list, matches, image_list):
     for line in result_list:
         error = line[0]
         stddev_sum += (mre-error)*(mre-error)
-    stddev = math.sqrt(stddev_sum / count)
+    stddev = sqrt(stddev_sum / count)
     print("avg error = %.4f stddev = %.4f" % (mre, stddev))
 
     mark_list = []
@@ -110,7 +110,7 @@ def mark_feature(matches, match_index, feat_index, error):
 def mark_using_list(mark_list, matches):
     for mark in mark_list:
         mark_feature( matches, mark[0], mark[1], "-" )
-        
+
 # delete marked matches
 def delete_marked_features(matches, min_chain_len, strong=False):
     print(" deleting marked items...")

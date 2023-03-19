@@ -2,7 +2,7 @@
 
 import subprocess
 import cv2
-import math
+from math import acos, pi, sqrt
 import numpy as np
 import os
 import scipy.spatial
@@ -20,7 +20,7 @@ def make_textures(src_dir, analysis_dir, image_list, resolution=512):
         dst = os.path.join(dst_dir, image.name)
         if not os.path.exists(dst):
             subprocess.run(['convert', '-resize', '%dx%d!' % (resolution, resolution), src, dst])
-        
+
 def make_textures_opencv(src_dir, analysis_dir, image_list, resolution=512):
     dst_dir = os.path.join(analysis_dir, 'models')
     if not os.path.exists(dst_dir):
@@ -72,13 +72,13 @@ def make_textures_opencv(src_dir, analysis_dir, image_list, resolution=512):
                            interpolation=method)
         cv2.imwrite(dst, dummy)
         qlog("Texture %dx%d %s" % (resolution, resolution, dst))
-    
-            
+
+
 def generate_from_grid(proj, group, ref_image=False, src_dir=".",
                        analysis_dir=".", resolution=512 ):
     # make the textures if needed
     make_textures_opencv(src_dir, analysis_dir, proj.image_list, resolution)
-    
+
     for name in group:
         image = proj.findImageByName(name)
         if len(image.grid_list) == 0:
@@ -98,7 +98,7 @@ def generate_from_grid(proj, group, ref_image=False, src_dir=".",
         # iteration in the same order that the original grid_list was
         # constucted so it works.
         width, height = camera.get_image_params()
-        steps = int(math.sqrt(len(image.grid_list))) - 1
+        steps = int(sqrt(len(image.grid_list))) - 1
         n = 1
         nan_list = []
         for j in range(steps+1):
@@ -152,7 +152,7 @@ def share_edge(label, uv1, uv2, h, w):
             return True
     else:
         return False
-    
+
 # use law of cosines and edge point data to determine if a side of the
 # triangle lies on the edge and also has a skinny edge angle.
 def is_skinny(tri, pts, uvs, h, w, thresh=0.2):
@@ -168,16 +168,16 @@ def is_skinny(tri, pts, uvs, h, w, thresh=0.2):
     a2 = va[0]*va[0] + va[1]*va[1]
     b2 = vb[0]*vb[0] + vb[1]*vb[1]
     c2 = vc[0]*vc[0] + vc[1]*vc[1]
-    a = math.sqrt(a2)
-    b = math.sqrt(b2)
-    c = math.sqrt(c2)
+    a = sqrt(a2)
+    b = sqrt(b2)
+    c = sqrt(c2)
     print("pts:", A, B, C)
     print("sides:", a, b, c)
     tmp1 = np.clip((a2 + c2 - b2)/(2*a*c), -1.0, 1.0)
     tmp2 = np.clip((a2 + b2 - c2)/(2*a*b), -1.0, 1.0)
-    alpha = math.acos(tmp1)
-    beta = math.acos(tmp2)
-    gamma = math.pi - (alpha + beta)
+    alpha = acos(tmp1)
+    beta = acos(tmp2)
+    gamma = pi - (alpha + beta)
     print("angles:", alpha, beta, gamma)
     skinny = False
     if share_edge("c", uvA, uvB, h, w) and (alpha < thresh or gamma < thresh):
@@ -188,7 +188,7 @@ def is_skinny(tri, pts, uvs, h, w, thresh=0.2):
         skinny = True
     if skinny: print("skinny")
     return skinny
-    
+
 def generate_from_fit(proj, group, ref_image=False, src_dir=".",
                       analysis_dir=".", resolution=512 ):
     # make the textures if needed
@@ -226,7 +226,7 @@ def generate_from_fit(proj, group, ref_image=False, src_dir=".",
             f.write("  }\n")
             n += 1
         f.write("}\n\n")
-        
+
         f.write("<Group> surface {\n")
 
         tris = scipy.spatial.Delaunay(np.array(image.fit_xy))

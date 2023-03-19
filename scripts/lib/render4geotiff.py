@@ -1,5 +1,5 @@
 import cv2
-import math
+from math import cos, pi
 import numpy as np
 
 from . import image_list
@@ -29,7 +29,7 @@ class Render():
         # convert back to rgb
         result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
         return result
- 
+
     def drawImage(self, image, K, dist_coeffs, source_dir=None,
                   cm_per_pixel=15.0, keypoints=False, bounds=None):
         if not len(image.corner_list_xy):
@@ -46,7 +46,7 @@ class Render():
         full_image = image.load_source_rgb(source_dir)
         h, w, d = full_image.shape
         equalized = self.aeq_value(full_image)
-        
+
         corners = np.array([[0,0],[w,0],[0,h],[w,h]], dtype=np.float32)
         target = np.array([image.corner_list_xy], dtype=np.float32)
         for i, pt in enumerate(target[0]):
@@ -88,7 +88,7 @@ class Render():
         # image data will always be at least a little non-zero
 
         # create an inverse mask of the new region to be added
-        newgray = cv2.cvtColor(new, cv2.COLOR_BGR2GRAY)  
+        newgray = cv2.cvtColor(new, cv2.COLOR_BGR2GRAY)
         ret, new_mask = cv2.threshold(newgray, 1, 255, cv2.THRESH_BINARY_INV)
         #cv2.imshow('new_mask', new_mask)
 
@@ -123,7 +123,7 @@ class Render():
         #cv2.waitKey()
 
         return base
-        
+
     def compositeOverlayTopdown(self, base, new, blend_px=21):
         h, w, d = base.shape
         #print "h=%d w=%d d=%d" % ( h, w, d)
@@ -132,13 +132,13 @@ class Render():
         # image data will always be at least a little non-zero
 
         # create an inverse mask of the current accumulated imagery
-        basegray = cv2.cvtColor(base, cv2.COLOR_BGR2GRAY)  
+        basegray = cv2.cvtColor(base, cv2.COLOR_BGR2GRAY)
         ret, base_mask_inv = cv2.threshold(basegray, 1, 255,
                                            cv2.THRESH_BINARY_INV)
         #cv2.imshow('base_mask_inv', base_mask_inv)
 
         # create an inverse mask of the new region to be added
-        newgray = cv2.cvtColor(new, cv2.COLOR_BGR2GRAY)  
+        newgray = cv2.cvtColor(new, cv2.COLOR_BGR2GRAY)
         ret, new_mask = cv2.threshold(newgray, 1, 255, cv2.THRESH_BINARY_INV)
         #cv2.imshow('new_mask', new_mask)
 
@@ -181,7 +181,7 @@ class Render():
                 for j in xrange(w):
                     #(r0, g0, b0) = base[i][j]
                     #(r1, g1, b1) = new[i][j]
-                    #a = mask_blur[i][j] / 255.0 
+                    #a = mask_blur[i][j] / 255.0
                     #r = r0*(1.0-a) + r1*a
                     #g = g0*(1.0-a) + g1*a
                     #b = b0*(1.0-a) + b1*a
@@ -198,7 +198,7 @@ class Render():
         #cv2.waitKey()
 
         return base
-        
+
     def drawImages(self, draw_list=[], source_dir=None,
                    cm_per_pixel=15.0, blend_cm=200,
                    bounds=None, file=None, keypoints=False):
@@ -236,7 +236,7 @@ class Render():
         xcenter = (xmin + xmax) * 0.5
         ycenter = (ymin + ymax) * 0.5
         pad = (xmax - xmin) * 0.5
-        draw_list = image_list.getImagesCoveringPoint(placed_list, 
+        draw_list = image_list.getImagesCoveringPoint(placed_list,
                                                      xcenter, ycenter, pad,
                                                      only_placed=True)
         if len(draw_list):
@@ -248,7 +248,7 @@ class Render():
     def x2lon(self, x):
         nm2m = 1852.0
         x_nm = x / nm2m
-        factor = math.cos(self.ref_lat*math.pi/180.0)
+        factor = cos(self.ref_lat*pi/180.0)
         x_deg = (x_nm / 60.0) / factor
         return x_deg + self.ref_lon
 
@@ -257,8 +257,8 @@ class Render():
         y_nm = y / nm2m
         y_deg = y_nm / 60.0
         return y_deg + self.ref_lat
-        
-        
+
+
     def drawGrid(self, placed_list, source_dir=None,
                  cm_per_pixel=15.0, blend_cm=200,
                  dim=4096):

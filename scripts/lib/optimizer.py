@@ -10,7 +10,7 @@ import os
 import time
 
 import cv2
-import math
+from math import ceil, floor, pi
 # import matplotlib.pyplot as plt
 # from matplotlib import cm
 import numpy as np
@@ -21,8 +21,8 @@ from . import camera
 from .logger import log, qlog
 from . import transformations
 
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
+d2r = pi / 180.0
+r2d = 180.0 / pi
 
 # return a 3d affine tranformation between current camera locations
 # and original camera locations.
@@ -101,11 +101,11 @@ class Optimizer():
         if stats:
             avg = np.mean(data)
             std = np.std(data)
-            min = math.floor((avg-3*std) / 10) * 10
-            max = math.ceil((avg+3*std) / 10) * 10
+            min = floor((avg-3*std) / 10) * 10
+            max = ceil((avg+3*std) / 10) * 10
         else:
-            min = math.floor(np.amin(data) / 10) * 10
-            max = math.ceil(np.amax(data) / 10) * 10
+            min = floor(np.amin(data) / 10) * 10
+            max = ceil(np.amax(data) / 10) * 10
         return min, max
 
     # for lack of a better function name, input rvec, tvec, and return

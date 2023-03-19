@@ -1,18 +1,16 @@
 #!/usr/bin/python
 
-import math
+from math import pi
 import numpy as np
 
 from props import getNode
 
-from .logger import log
 from . import transformations
 
 # camera parameters are stored in the global property tree, but this
 # class provides convenient getter/setter functions
 
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
+d2r = pi / 180.0
 
 camera_node = getNode('/config/camera', True)
 
@@ -54,13 +52,13 @@ def set_lens_params(ccd_width_mm, ccd_height_mm, focal_len_mm):
     camera_node.setFloat('focal_len_mm', focal_len_mm)
 
 def get_lens_params():
-    return ( camera_node.getFloat('ccd_width_mm'), 
+    return ( camera_node.getFloat('ccd_width_mm'),
              camera_node.getFloat('ccd_height_mm'),
              camera_node.getFloat('focal_len_mm') )
 
 def get_K(optimized=False):
     """
-    Form the camera calibration matrix K using 5 parameters of 
+    Form the camera calibration matrix K using 5 parameters of
     Finite Projective Camera model.  (Note skew parameter is 0)
 
     See Eqn (6.10) in:

@@ -3,9 +3,8 @@
 # put most of our eggs in the gms matching basket:
 # https://github.com/JiawangBian/GMS-Feature-Matcher/blob/master/python/gms_matcher.py
 
-import copy
 import cv2
-import math
+from math import atan2, pi, pow, sqrt
 from matplotlib import pyplot as plt
 import numpy as np
 import time
@@ -31,7 +30,7 @@ the_matcher = None
 max_distance = None
 min_pairs = 25
 
-d2r = math.pi / 180.0
+d2r = pi / 180.0
 
 # the flann based matcher uses random starting points so some
 # borderline matching results may change from one run to the next.
@@ -92,10 +91,10 @@ def filter_by_transform(K, i1, i2, transform):
     clean = True
 
     # tol = float(i1.width) / 200.0 # rejection range in pixels
-    tol = math.pow(i1.width, 0.25)
+    tol = pow(i1.width, 0.25)
     if tol < 1.0:
         tol = 1.0
-    # print "tol = %.4f" % tol 
+    # print "tol = %.4f" % tol
     matches = i1.match_list[i2.name]
     if len(matches) < min_pairs:
         i1.match_list[i2.name] = []
@@ -150,7 +149,7 @@ def count_unique(i1, i2, matches_fit):
     idx_pairs = filter_duplicates(i1, i2, idx_pairs)
     return len(idx_pairs)
 
-    
+
 # Filter duplicate features.  SIFT (for example) can detect the same
 # feature at different scales/orientations which can lead to duplicate
 # match pairs, or possibly one feature in image1 matching two or more
@@ -198,7 +197,7 @@ def filter_cross_check(idx_pairs1, idx_pairs2):
                 break
     if len(idx_pairs1) != len(new1) or len(idx_pairs2) != len(new2):
         qlog("  cross check: (%d, %d) => (%d, %d)" % (len(idx_pairs1), len(idx_pairs2), len(new1), len(new2)))
-    return new1, new2                                               
+    return new1, new2
 
 # run the knn matcher for the two sets of keypoints
 def raw_matches(i1, i2, k=2):
@@ -362,14 +361,14 @@ def smart_pair_matches(i1, i2, review=False, est_rotation=False):
     IK = np.linalg.inv(K)
     dist_coeffs = camera.get_dist_coeffs()
     w, h = camera.get_image_params()
-    diag = int(math.sqrt(h*h + w*w))
+    diag = int(sqrt(h*h + w*w))
     print("h:", h, "w:", w, "diag:", diag)
     grid_steps = 8
     grid_list = gen_grid(w, h, grid_steps)
 
     # consider estimated yaw error and estimated surface elevation
     # from previous successful matches.
-    
+
     if matcher_node.hasChild("ground_m"):
         ground_m = matcher_node.getFloat("ground_m")
         log("Forced ground:", ground_m)
@@ -382,7 +381,7 @@ def smart_pair_matches(i1, i2, review=False, est_rotation=False):
         #     qlog("  SRTM ground (no triangulation yet): %.1f" % ground_m)
         # else:
         log("  Ground estimate: %.1f" % ground_m)
-        
+
     i1_yaw_error = smart.get_yaw_error_estimate(i1)
     i2_yaw_error = smart.get_yaw_error_estimate(i2)
     # inherit partner yaw error if none computed yet.
@@ -393,9 +392,9 @@ def smart_pair_matches(i1, i2, review=False, est_rotation=False):
     print("smart yaw errors:", i1_yaw_error, i2_yaw_error)
     R2 = transformations.rotation_matrix(i2_yaw_error*d2r, [1, 0, 0])[:3,:3]
     print("R2:\n", R2)
-    
+
     match_ratio = matcher_node.getFloat("match_ratio")
-    
+
     if review:
         rgb1 = i1.load_rgb()
         rgb2 = i2.load_rgb()
@@ -429,7 +428,7 @@ def smart_pair_matches(i1, i2, review=False, est_rotation=False):
         plt.figure()
         plt.plot(plot_list[:,0], plot_list[:,1], 'ro')
         plt.show()
-                            
+
     if est_rotation:
         rvec1, tvec1 = i1.get_proj(opt=False, yaw_error_est=i1_yaw_error)
     else:
@@ -468,10 +467,10 @@ def smart_pair_matches(i1, i2, review=False, est_rotation=False):
 
     best_fitted_matches = 20    # don't proceed if we can't beat this value
     matches_best = []
-    
+
     src_pts = np.float32([i1.kp_list[i].pt for i in range(len(i1.kp_list))]).reshape(-1, 1, 2)
     dst_pts = np.float32([i2.kp_list[i].pt for i in range(len(i2.kp_list))]).reshape(-1, 1, 2)
-    
+
     while True:
         # print('H:', H)
         trans_pts = cv2.perspectiveTransform(src_pts, H)
@@ -576,10 +575,10 @@ def smart_pair_matches(i1, i2, review=False, est_rotation=False):
         if review:
             print("Press a key:")
             cv2.waitKey()
-            
+
         if done:
             break
-        
+
     if len(matches_best) >= min_pairs:
         idx_pairs = []
         for m in matches_best:
@@ -603,17 +602,17 @@ def ratio_pair_matches(i1, i2, review=False, est_rotation=False):
 
     best_fitted_matches = 20    # don't proceed if we can't beat this value
     matches_best = []
-    
+
     w, h = camera.get_image_params()
-    diag = int(math.sqrt(h*h + w*w))
+    diag = int(sqrt(h*h + w*w))
     print("h:", h, "w:", w, "diag:", diag)
-    
+
     tol = int(round(diag*0.005))
     if tol < 5: tol = 5
- 
+
     src_pts = np.float32([i1.kp_list[i].pt for i in range(len(i1.kp_list))]).reshape(-1, 1, 2)
     dst_pts = np.float32([i2.kp_list[i].pt for i in range(len(i2.kp_list))]).reshape(-1, 1, 2)
-    
+
     print("collect stats...")
     match_stats = []
     for i, m in enumerate(matches):
@@ -697,7 +696,7 @@ def ratio_pair_matches(i1, i2, review=False, est_rotation=False):
 def bruteforce_pair_matches(i1, i2, review=False):
     match_ratio = matcher_node.getFloat('match_ratio')
     w, h = camera.get_image_params()
-    diag = int(math.sqrt(h*h + w*w))
+    diag = int(sqrt(h*h + w*w))
     print("h:", h, "w:", w)
     print("scaled diag:", diag)
 
@@ -706,7 +705,7 @@ def bruteforce_pair_matches(i1, i2, review=False):
         rgb2 = i2.load_rgb()
 
     matches = raw_matches(i1, i2, k=3)
-    
+
     qlog("  collect stats...")
     match_stats = []
     for i, m in enumerate(matches):
@@ -726,8 +725,8 @@ def bruteforce_pair_matches(i1, i2, review=False):
             p2 = np.float32(i2.kp_list[m[j].trainIdx].pt)
             v = p2 - p1
             raw_dist = np.linalg.norm(v)
-            vangle = math.atan2(v[1], v[0])
-            if vangle < 0: vangle += 2*math.pi
+            vangle = atan2(v[1], v[0])
+            if vangle < 0: vangle += 2*pi
             # angle difference mapped to +/- 90
             a1 = np.array(i1.kp_list[m[j].queryIdx].angle)
             a2 = np.array(i2.kp_list[m[j].trainIdx].angle)
@@ -772,13 +771,13 @@ def bruteforce_pair_matches(i1, i2, review=False):
                 dist_bins[bin-1].append(line)
             if bin < len(dist_bins) - 1:
                 dist_bins[bin+1].append(line)
-        
+
     matches_fit = []
     for i, dist_matches in enumerate(dist_bins):
         print("bin:", i, "len:", len(dist_matches))
         best_of_bin = 0
         divs = 20
-        step = 2*math.pi / divs
+        step = 2*pi / divs
         angle_bins = [[] for i in range(divs + 1)]
         for line in dist_matches:
             match = line[0]
@@ -827,7 +826,7 @@ def bruteforce_pair_matches(i1, i2, review=False):
                         blend = cv2.resize(blend, (int(w*detect_scale), int(h*detect_scale)))
                         cv2.imshow('blend', blend)
                         #draw_inlier(rgb1, rgb2, i1.kp_list, i2.kp_list, matches_fit, 'ONLY_LINES', detect_scale)
-                       
+
         # check for diminishing returns and bail early
         print("bin:", i, "len:", len(dist_matches),
               best_fitted_matches, best_of_bin)
@@ -849,7 +848,7 @@ def bruteforce_pair_matches(i1, i2, review=False):
             qlog("  initial matches =", len(idx_pairs))
             return idx_pairs, rev_pairs
     return [], []
-    
+
 def find_matches(proj, K, strategy="smart", transform="homography",
                  sort=False, review=False):
     n = len(proj.image_list) - 1
@@ -994,7 +993,7 @@ def find_matches(proj, K, strategy="smart", transform="homography",
             #showMatchOrient(i1, i2, i1.match_list[i2.name])
             i1.match_list[i2.name] = []
             i2.match_list[i1.name] = []
-            
+
         # save our work so far, and flush descriptor cache
         if time.time() >= save_time + save_interval:
             saveMatches(proj.image_list, check_if_dirty=True)
@@ -1007,7 +1006,7 @@ def find_matches(proj, K, strategy="smart", transform="homography",
             time_list = sorted(time_list, key=lambda fields: fields[0],
                                reverse=True)
             # may wish to monitor and update cache_size formula
-            cache_size = 20 + 5 * (int(math.sqrt(len(proj.image_list))) + 1)
+            cache_size = 20 + 5 * (int(sqrt(len(proj.image_list))) + 1)
             flush_list = time_list[cache_size:]
             qlog("flushing keypoint/descriptor cache - size: %d (over by: %d)" % (cache_size, len(flush_list)) )
             for line in flush_list:
@@ -1040,14 +1039,14 @@ def decomposeAffine(affine):
     c = affine[1][0]
     d = affine[1][1]
 
-    sx = math.sqrt( a*a + b*b )
+    sx = sqrt( a*a + b*b )
     if a < 0.0:
         sx = -sx
-    sy = math.sqrt( c*c + d*d )
+    sy = sqrt( c*c + d*d )
     if d < 0.0:
         sy = -sy
 
-    rotate_deg = math.atan2(-b,a) * 180.0/math.pi
+    rotate_deg = atan2(-b,a) * 180.0/pi
     if rotate_deg < -180.0:
         rotate_deg += 360.0
     if rotate_deg > 180.0:
@@ -1088,7 +1087,7 @@ def copyKeyPoint(k):
                         _size=k.size, _angle=k.angle,
                         _response=k.response, _octave=k.octave,
                         _class_id=k.class_id)
-    
+
 def showMatchOrient(i1, i2, idx_pairs, status=None, orient='relative'):
     #print " -- idx_pairs = " + str(idx_pairs)
     img1 = i1.load_gray()
@@ -1214,7 +1213,7 @@ class Matcher():
             f.write("%.3f %.3f %.3f %.3f %.3f %.3f\n" % ( c2[1], c2[0], -c2[2], c1[1], c1[0], -c1[2] ))
         f.close()
         # a = raw_input("Press Enter to continue...")
-        
+
     def showMatch(self, i1, i2, idx_pairs, status=None):
         #print " -- idx_pairs = " + str(idx_pairs)
         kp_pairs = []
@@ -1272,13 +1271,13 @@ class Matcher():
             dy = c2[1] - c1[1]
             dist2 = dx*dx + dy*dy
             dist2_sum += dist2
-            error = math.sqrt(dist2)
+            error = sqrt(dist2)
             if emax_value < error:
                 emax_value = error
         if emax:
             return emax_value
         else:
-            return math.sqrt(dist2_sum / len(match))
+            return sqrt(dist2_sum / len(match))
 
     # considers only total distance between points (thanks to Knuth
     # and Welford)
@@ -1297,14 +1296,14 @@ class Matcher():
             dx = c2[0] - c1[0]
             dy = c2[1] - c1[1]
             n += 1
-            x = math.sqrt(dx*dx + dy*dy)
+            x = sqrt(dx*dx + dy*dy)
             delta = x - mean
             mean += delta/n
             M2 = M2 + delta*(x - mean)
 
         if n < 2:
             return 0.0
- 
+
         variance = M2/(n - 1)
         return variance
 
@@ -1340,8 +1339,8 @@ class Matcher():
             ey = ymean - dy
             xsum2 += ex * ex
             ysum2 += ey * ey
-        xerror = math.sqrt( xsum2 / len(match) )
-        yerror = math.sqrt( ysum2 / len(match) )
+        xerror = sqrt( xsum2 / len(match) )
+        yerror = sqrt( ysum2 / len(match) )
         return xerror*xerror + yerror*yerror
 
     # Compute an error metric related to image placement among the
@@ -1389,9 +1388,9 @@ class Matcher():
             return emax_value
         elif variance:
             #print "  var_sum = %.2f  weight_sum = %.2f" % (var_sum, weight_sum)
-            return math.sqrt(var_sum / weight_sum)
+            return sqrt(var_sum / weight_sum)
         else:
-            return math.sqrt(dist2_sum / weight_sum)
+            return sqrt(dist2_sum / weight_sum)
 
     # delete the pair (and it's reciprocal if it can be found)
     # i = image1 index, j = image2 index
@@ -1428,19 +1427,19 @@ class Matcher():
             dy = c2[1] - c1[1]
             dist2 = dx*dx + dy*dy
             dist2_sum += dist2
-            error = math.sqrt(dist2)
+            error = sqrt(dist2)
             report_list.append( (error, k) )
         report_list = sorted(report_list,
                              key=lambda fields: fields[0],
                              reverse=True)
 
         # meta stats on error values
-        error_avg = math.sqrt(dist2_sum / len(match))
+        error_avg = sqrt(dist2_sum / len(match))
         stddev_sum = 0.0
         for line in report_list:
             error = line[0]
             stddev_sum += (error_avg-error)*(error_avg-error)
-        stddev = math.sqrt(stddev_sum / len(match))
+        stddev = sqrt(stddev_sum / len(match))
         print("   error avg = %.2f stddev = %.2f" % (error_avg, stddev))
 
         # compute best estimation of valid vs. suspect pairs
@@ -1566,13 +1565,13 @@ class Matcher():
         for pt in points:
             x.append(pt[0])
             y.append(pt[1])
-        z = np.polyfit(x, y, 1) 
+        z = np.polyfit(x, y, 1)
         p = np.poly1d(z)
         sum = 0.0
         for pt in points:
             e = pt[1] - p(pt[0])
             sum += e*e
-        return math.sqrt(sum) <= threshold
+        return sqrt(sum) <= threshold
 
     # look for linear/degenerate match sets
     def reviewLinearSets(self, threshold=20.0):
@@ -1596,7 +1595,7 @@ class Matcher():
                 # pretty close to a straight line
                 if self.isLinear(pts, threshold):
                     print("%s vs %s is a linear match, probably should discard" % (i1.name, i2.name))
-                    
+
                     status = self.showMatch(i1, i2, matches, status)
 
                     delete_list = []
@@ -1722,7 +1721,7 @@ class Matcher():
                 p_names.append(i.name)
             print("      possible matches: %d" % len(p_names))
 
-            
+
 # collect and group match chains that refer to the same keypoint
 def group_matches(matches_direct):
     # this match grouping function appears to product more entries
@@ -1771,11 +1770,11 @@ def group_matches(matches_direct):
                         existing.append(list(p)) # shallow copy
                         matches_lookup[key] = index
                         # print "new:", existing
-                        # print 
+                        # print
         if len(matches_new) == len(matches_group):
             done = True
         else:
             matches_group = list(matches_new) # shallow copy
     print("Unique features (after grouping):", len(matches_group))
     return matches_group
-            
+

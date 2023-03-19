@@ -1,6 +1,6 @@
 import subprocess
 import cv2
-import math
+from math import sqrt
 import os.path
 
 def make_textures(src_dir, project_dir, image_list, resolution=256):
@@ -13,7 +13,7 @@ def make_textures(src_dir, project_dir, image_list, resolution=256):
         dst = os.path.join(dst_dir, image.name + '.JPG')
         if not os.path.exists(dst):
             subprocess.run(['convert', '-resize', '%dx%d!' % (resolution, resolution), src, dst])
-        
+
 def make_textures_opencv(src_dir, project_dir, image_list, resolution=256):
     dst_dir = os.path.join(project_dir, 'models')
     if not os.path.exists(dst_dir):
@@ -44,11 +44,11 @@ def make_textures_opencv(src_dir, project_dir, image_list, resolution=256):
             result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
             cv2.imwrite(dst, result)
             print("Texture %dx%d %s" % (resolution, resolution, dst))
-            
+
 def generate(image_list, group, ref_image=False, src_dir=".", project_dir=".", base_name="quick", version=1.0, trans=0.0, resolution=512 ):
     # make the textures if needed
     make_textures_opencv(src_dir, project_dir, image_list, resolution)
-    
+
     max_roll = 30.0
     max_pitch = 30.0
     min_agl = 50.0
@@ -82,7 +82,7 @@ def generate(image_list, group, ref_image=False, src_dir=".", project_dir=".", b
         image = image_list[g]
         if len(image.grid_list) == 0:
             continue
-        
+
         # compute a priority function (higher priority tiles are raised up)
         #priority = (1.0-image.weight) - agl/400.0
 
@@ -99,7 +99,7 @@ def generate(image_list, group, ref_image=False, src_dir=".", project_dir=".", b
         for v in image.grid_list:
             f.write( "%.3f %.3f %.3f\n" % (v[0], v[1], v[2]) )
 
-        steps = int(math.sqrt(len(image.grid_list))) - 1
+        steps = int(sqrt(len(image.grid_list))) - 1
         f.write("numsurf %d\n" % steps**2)
         dx = 1.0 / float(steps)
         dy = 1.0 / float(steps)

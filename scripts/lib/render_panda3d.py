@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import math
+from math import atan2, pi, sqrt
 import numpy as np
 import os
 import pickle
@@ -14,7 +14,7 @@ from . import panda3d
 from . import project
 #from . import objmtl            # temporary?
 
-r2d = 180 / math.pi
+r2d = 180 / pi
 
 grid_steps = 8
 texture_resolution = 512
@@ -63,14 +63,14 @@ def intersect2d(interp, ned, v, avg_ground):
     dy = ned[0] - p[0]
     dx = ned[1] - p[1]
     dz = ned[2] - p[2]
-    dist = math.sqrt(dx*dx+dy*dy)
-    angle = math.atan2(-dz, dist) * r2d # relative to horizon
+    dist = sqrt(dx*dx+dy*dy)
+    angle = atan2(-dz, dist) * r2d # relative to horizon
     if angle < 30:
         print(" returning high angle nans:", angle)
         return [np.nan, np.nan, np.nan]
     else:
         return p
-    
+
 def intersect_vectors(interp, ned, v_list, avg_ground):
     pt_list = []
     for v in v_list:
@@ -238,7 +238,7 @@ def build_map(proj, group_list, group_index):
     #                           src_dir=img_src_dir,
     #                           analysis_dir=proj.analysis_dir,
     #                           resolution=texture_resolution)
-    
+
     # call the ac3d generator
     # AC3D.generate(proj.image_list, group_list[0], src_dir=img_src_dir,
     #               analysis_dir=proj.analysis_dir, base_name='direct',

@@ -5,8 +5,7 @@
 import pickle
 import cv2
 import gzip
-import json
-import math
+from math import pi
 #from matplotlib import pyplot as plt
 import navpy                    # https://github.com/NavPy/NavPy.git
 import numpy as np
@@ -19,8 +18,8 @@ from . import camera
 from .logger import log, qlog
 from . import transformations
 
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
+d2r = pi / 180.0
+r2d = 180.0 / pi
 
 detector = None
 
@@ -40,7 +39,7 @@ class Image():
         self.matches_clean = True
 
         self.uv_list = []       # the 'undistorted' uv coordinates of all kp's
-        
+
         # cam2body/body2cam are transforms to map between the standard
         # lens coordinate system (at zero roll/pitch/yaw and the
         # standard ned coordinate system at zero roll/pitch/yaw).
@@ -97,7 +96,7 @@ class Image():
             self.features_file = os.path.join(cache_dir, image_base + ".feat")
             self.desc_file = os.path.join(cache_dir, image_base + ".desc")
             self.match_file = os.path.join(meta_dir, image_base + ".match")
-            
+
     def load_rgb(self, equalize=False):
         # print("Loading:", self.image_file)
         try:
@@ -138,7 +137,7 @@ class Image():
 
     def get_size(self):
         return self.node.getInt('width'), self.node.getInt('height')
-    
+
     def load_features(self):
         if os.path.exists(self.features_file):
             #print "Loading " + self.features_file
@@ -180,7 +179,7 @@ class Image():
         #else:
         #    print("no file:", self.desc_file)
         return False
-    
+
     def load_matches(self):
         try:
             self.match_list = pickle.load( open( self.match_file, "rb" ) )
@@ -231,7 +230,7 @@ class Image():
 
     def make_detector(self):
         global detector
-        
+
         detector_node = getNode('/config/detector', True)
         if detector_node.getString('detector') == 'SIFT':
             max_features = detector_node.getInt('sift_max_features')
@@ -284,7 +283,7 @@ class Image():
         image.uv_list = []
         for i, uv in enumerate(uv_new):
             image.uv_list.append(uv_new[i][0])
-            # print("  orig = %s  undistort = %s" % (uv_raw[i][0], uv_new[i]     
+            # print("  orig = %s  undistort = %s" % (uv_raw[i][0], uv_new[i]
     def detect_features(self, scale, use_cache=True):
         if use_cache:
             success = True
@@ -312,7 +311,7 @@ class Image():
         # detector/matcher gets lots in the microscopic details and
         # sees more noise than valid features.
         scaled = cv2.resize(rgb, (0,0), fx=scale, fy=scale)
-        
+
         if not detector:
             self.make_detector()
         #detector_node = getNode('/config/detector', True)
@@ -324,7 +323,7 @@ class Image():
 
         self.kp_list, self.des_list = detector.detectAndCompute(scaled, None)
         self.num_features = len(self.kp_list)
-        
+
         if False:
             # [pasted code from project.py needs to be fixed before
             # using uv_list for filtering features]
@@ -346,7 +345,7 @@ class Image():
             #print('scaled:', kp.pt, ' ', end='')
             kp.pt = (kp.pt[0]/scale, kp.pt[1]/scale)
             #print('full:', kp.pt)
-            
+
         self.save_features()
         self.save_descriptors()
 
@@ -376,7 +375,7 @@ class Image():
         #                        color=(0,255,0), flags=flags)
         for kp in kp_list:
             cv2.circle(scaled_image, (int(kp.pt[0]), int(kp.pt[1])), 3, (0,255,0), 1, cv2.LINE_AA)
-            
+
         cv2.imshow(self.name, scaled_image)
         print('waiting for keyboard input...')
         key = cv2.waitKey() & 0xff
@@ -402,7 +401,7 @@ class Image():
         #print "%s coverage: (%.2f %.2f) (%.2f %.2f)" \
         #    % (self.name, xmin, ymin, xmax, ymax)
         return (xmin, ymin, xmax, ymax)
-    
+
     def coverage_lla(self, ref):
         xmin, ymin, xmax, ymax = self.coverage_xy()
         minlla = navpy.ned2lla([ymin, xmin, 0.0], ref[0], ref[1], ref[2])
@@ -480,7 +479,7 @@ class Image():
         for i in range(4):
             cam_pose_node.setFloatEnum('quat', i, ned2cam[i])
         #cam_pose_node.pretty_print('  ')
-        
+
     # set the camera pose using rvec, tvec (rodrigues) which is the
     # output of certain cv2 functions like solvePnP()
     def rvec_to_body2ned(self, rvec):
@@ -535,7 +534,7 @@ class Image():
     # ned2body (R) rotation matrix
     def get_ned2body(self, opt=False):
         return np.matrix(self.get_body2ned(opt)).T
-    
+
    # body2ned (IR) rotation matrix
     def get_body2ned(self, opt=False):
         ned, ypr, quat = self.get_camera_pose(opt)

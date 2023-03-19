@@ -1,9 +1,8 @@
 # construct groups of connected images.  The inclusion order favors
 # images with the most connections (features matches) to neighbors.
 
-import cv2
 import json
-import math
+from math import sqrt
 import numpy as np
 import os
 import sys
@@ -22,12 +21,12 @@ def my_add(placed_matches, matches, group_level, i):
     for m in matches[i][2:]:
         placed_matches[m[0]] += 1
     matches[i][1] = group_level
-        
+
 # NEW GROUPING TEST
 def compute(image_list, matches):
     # notice: we assume that matches have been previously sorted by
     # longest chain first!
-    
+
     log("Start of grouping algorithm...")
 
     matcher_node = getNode('/config/matcher', True)
@@ -37,16 +36,16 @@ def compute(image_list, matches):
     log("/config/matcher/min_chain_len:", min_chain_len)
     use_single_pairs = (min_chain_len == 2)
 
-    max_wanted = int(8000 / math.sqrt(len(image_list)))
+    max_wanted = int(8000 / sqrt(len(image_list)))
     if max_wanted < 200:
         max_wanted = 200
     log("max features desired per image:", max_wanted)
     print("Notice: I should really work on this formula ...")
-    
+
     # mark all features as unaffiliated
     for match in matches:
         match[1] = -1
-        
+
     # start with no placed images or features
     placed_images = set()
     groups = []
@@ -55,9 +54,9 @@ def compute(image_list, matches):
     while not done:
         group_level = len(groups)
         log("Start of new group level:", group_level)
-        
+
         placed_matches = [0] * len(image_list)
-        
+
         # find the unused feature with the most connections to
         # unplaced images
         max_connections = 2
@@ -117,7 +116,7 @@ def compute(image_list, matches):
                             my_add(placed_matches, matches, group_level, i)
                             still_working = True
             iteration += 1
-            
+
         # count up the placed images in this group
         group_images = set()
         for i in range(len(image_list)):

@@ -1,21 +1,12 @@
 #!/usr/bin/python
 
 import cv2
-import fileinput
-import fnmatch
-import fractions
-import json
-import math
+from fnmatch import fnmatch
 import numpy as np
 import os.path
-import pickle
 import scipy.interpolate
-import subprocess
-import sys
 import time
 from tqdm import tqdm
-
-import geojson
 
 from props import getNode
 import props_json
@@ -86,7 +77,7 @@ class ProjectMgr():
             else:
                 log("Notice: state dir doesn't exist:", state_dir)
         state.init(state_dir)
-       
+
         # all is good
         return True
 
@@ -137,7 +128,7 @@ class ProjectMgr():
         from . import exif      # only import if we call this fucntion
         image_dir = self.project_dir
         for file in os.listdir(image_dir):
-            if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG') or fnmatch.fnmatch(file, '*.tif') or fnmatch.fnmatch(file, '*.TIF'):
+            if fnmatch(file, '*.jpg') or fnmatch(file, '*.JPG') or fnmatch(file, '*.tif') or fnmatch(file, '*.TIF'):
                 image_file = os.path.join(image_dir, file)
                 camera, make, model, lens_model = \
                     exif.get_camera_info(image_file)
@@ -147,16 +138,16 @@ class ProjectMgr():
         model = model.replace("/", "-")
         lens_model = lens_model.replace("/", "-")
         return camera, make, model, lens_model
-        
+
     def load_images_info(self):
         # wipe image list (so we don't double load)
         self.image_list = []
-        
+
         # load image meta info
         meta_dir = os.path.join(self.analysis_dir, "meta")
         images_node = getNode("/images", True)
         for file in sorted(os.listdir(meta_dir)):
-            if fnmatch.fnmatch(file, '*.json'):
+            if fnmatch(file, '*.json'):
                 name, ext = os.path.splitext(file)
                 image_node = images_node.getChild(name, True)
                 props_json.load(os.path.join(meta_dir, file), image_node)
@@ -167,7 +158,7 @@ class ProjectMgr():
         # scan project directory for images and build the master
         # images list
         # for file in sorted(os.listdir(self.project_dir)):
-        #     if fnmatch.fnmatch(file, '*.jpg') or fnmatch.fnmatch(file, '*.JPG'):
+        #     if fnmatch(file, '*.jpg') or fnmatch(file, '*.JPG'):
         #         name, ext = os.path.splitext(file)
         #         i = image.Image(self.analysis_dir, name)
         #         self.image_list.append( i )
@@ -213,26 +204,26 @@ class ProjectMgr():
             image_node = images_node.getChild(name, True)
             image_path = os.path.join(meta_dir, name + '.json')
             props_json.save(image_path, image_node)
-            
+
     def set_matcher_params(self, mparams):
         self.matcher_params = mparams
-        
+
     def show_features_image(self, image):
         result = image.show_features()
         return result
-        
+
     def show_features_images(self, name=None):
         for image in self.image_list:
             result = self.show_features_image(image)
             if result == 27 or result == ord('q'):
                 break
-                
+
     def findImageByName(self, name):
         for i in self.image_list:
             if i.name == name:
                 return i
         return None
-    
+
     def findIndexByName(self, name):
         for i, img in enumerate(self.image_list):
             if img.name == name:
@@ -277,7 +268,7 @@ class ProjectMgr():
             result.append(uv_new[i][0])
             #print "  orig = %s  undistort = %s" % (uv_raw[i][0], uv_new[i][0]
         return result
-        
+
     # for each feature in each image, compute the undistorted pixel
     # location (from the calibrated distortion parameters)
     def undistort_image_keypoints(self, image, optimized=False):
@@ -292,14 +283,14 @@ class ProjectMgr():
         image.uv_list = []
         for i, uv in enumerate(uv_new):
             image.uv_list.append(uv_new[i][0])
-            # print("  orig = %s  undistort = %s" % (uv_raw[i][0], uv_new[i]        
+            # print("  orig = %s  undistort = %s" % (uv_raw[i][0], uv_new[i]
     # for each feature in each image, compute the undistorted pixel
     # location (from the calibrated distortion parameters)
     def undistort_keypoints(self, optimized=False):
         log("Undistorting keypoints:")
         for image in tqdm(self.image_list):
             self.undistort_image_keypoints(image, optimized)
-                
+
     # for each uv in the provided uv list, apply the distortion
     # formula to compute the original distorted value.
     def redistort(self, uv_list, optimized=False):
@@ -310,7 +301,7 @@ class ProjectMgr():
         cx = K[0,2]
         cy = K[1,2]
         k1, k2, p1, p2, k3 = dist_coeffs
-        
+
         uv_distorted = []
         for pt in uv_list:
             x = (pt[0] - cx) / fx
@@ -330,9 +321,9 @@ class ProjectMgr():
             ud = Lr*x + dx
             vd = Lr*y + dy
             uv_distorted.append( [ud * fx + cx, vd * fy + cy] )
-            
+
         return uv_distorted
-    
+
     def compute_kp_usage(self, all=False):
         log("[orig] Determining feature usage in matching pairs...")
         # but they may have different scaling or other attributes important
@@ -353,7 +344,7 @@ class ProjectMgr():
                         for k, pair in enumerate(matches):
                             i1.kp_used[ pair[0] ] = True
                             i2.kp_used[ pair[1] ] = True
-                    
+
     def compute_kp_usage_new(self, matches_direct):
         log("[new] Determining feature usage in matching pairs...")
         for image in self.image_list:
@@ -362,7 +353,7 @@ class ProjectMgr():
             for p in match[1:]:
                 image = self.image_list[ p[0] ]
                 image.kp_used[ p[1] ] = True
-                    
+
     # project the (u, v) pixels for the specified image using the current
     # sba pose and write them to image.vec_list
     def projectVectorsImageSBA(self, IK, image):
@@ -386,7 +377,7 @@ class ProjectMgr():
 
     def intersectVectorWithPoly(self, pose_ned, v, m):
         pass
-    
+
     # given a set of vectors in the ned frame, and a starting point.
     # Find the intersection points with the given 2d polynomial.  For
     # any vectors which point into the sky, return just the original
@@ -448,7 +439,7 @@ class ProjectMgr():
             else:
                 # no filtering by default if the grid begins undistored
                 uv_filt = uv_raw
-                
+
             # project the grid out into vectors
             body2ned = image.get_body2ned() # IR
 
@@ -458,7 +449,7 @@ class ProjectMgr():
             # by +90 roll (or equivalently a +90 yaw followed by +90
             # pitch.)
             cam2body = image.get_cam2body()
-            
+
             vec_list = projectVectors(IK, body2ned, cam2body, uv_filt)
 
             # intersect the vectors with the surface to find the 3d points
@@ -503,26 +494,26 @@ class ProjectMgr():
                         image.coord_list.append(np.zeros(3))
                 else:
                     image.coord_list.append(np.zeros(3)*np.nan)
-        
+
     def fastProjectKeypointsToGround(self, ground_m, cam_dict=None):
         print("Projecting keypoints to 3d:")
         for image in tqdm(self.image_list):
             K = camera.get_K()
             IK = np.linalg.inv(K)
-            
+
             # project the grid out into vectors
             if cam_dict == None:
                 body2ned = image.get_body2ned() # IR
             else:
                 body2ned = image.rvec_to_body2ned(cam_dict[image.name]['rvec'])
-                
+
             # M is a transform to map the lens coordinate system (at
             # zero roll/pitch/yaw to the ned coordinate system at zero
             # roll/pitch/yaw).  It is essentially a +90 pitch followed
             # by +90 roll (or equivalently a +90 yaw followed by +90
             # pitch.)
             cam2body = image.get_cam2body()
-            
+
             vec_list = projectVectors(IK, body2ned, cam2body, image.uv_list)
 
             # intersect the vectors with the surface to find the 3d points

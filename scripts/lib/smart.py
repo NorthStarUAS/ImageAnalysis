@@ -6,7 +6,7 @@
 # - use affine transformation + camera pose to estimate yaw error
 
 import cv2
-import math
+from math import atan2, pi, sqrt
 import numpy as np
 import os
 
@@ -19,8 +19,8 @@ from .logger import log, qlog
 from . import project
 from . import srtm
 
-r2d = 180 / math.pi
-d2r = math.pi / 180
+r2d = 180 / pi
+d2r = pi / 180
 
 smart_node = getNode("/smart", True)
 
@@ -101,14 +101,14 @@ def decompose_affine(affine):
     c = affine[1][0]
     d = affine[1][1]
 
-    sx = math.sqrt( a*a + b*b )
+    sx = sqrt( a*a + b*b )
     if a < 0.0:
         sx = -sx
-    sy = math.sqrt( c*c + d*d )
+    sy = sqrt( c*c + d*d )
     if d < 0.0:
         sy = -sy
 
-    angle_deg = math.atan2(-b,a) * 180.0/math.pi
+    angle_deg = atan2(-b,a) * 180.0/pi
     if angle_deg < -180.0:
         angle_deg += 360.0
     if angle_deg > 180.0:
@@ -159,7 +159,7 @@ def estimate_yaw_error(i1, i2):
     dist = np.linalg.norm( diff )
     dir = diff / dist
     print(" dist:", dist, 'ned dir:', dir[0], dir[1], dir[2])
-    crs_gps = 90 - math.atan2(dir[0], dir[1]) * r2d
+    crs_gps = 90 - atan2(dir[0], dir[1]) * r2d
     if crs_gps < 0: crs_gps += 360
     if crs_gps > 360: crs_gps -= 360
 
@@ -175,20 +175,20 @@ def estimate_yaw_error(i1, i2):
 
     # estimated course based on i1 pose and [local uv coordinate
     # system] affine transform
-    crs_aff = 90 - math.atan2(cdiff[1], cdiff[0]) * r2d
+    crs_aff = 90 - atan2(cdiff[1], cdiff[0]) * r2d
     (_, air_ypr1, _) = i1.get_aircraft_pose()
     #print(" aircraft yaw: %.1f" % air_ypr1[0])
     #print(" affine course: %.1f" % crs_aff)
     #print(" ground course: %.1f" % crs_gps)
     crs_fit = air_ypr1[0] + crs_aff
-    
+
     yaw_error = crs_gps - crs_fit
     if yaw_error < -180: yaw_error += 360
     if yaw_error > 180: yaw_error -= 360
     print(" estimated yaw error: %.1f" % yaw_error)
 
     # aircraft yaw (est) + affine course + yaw error = ground course
-    
+
     return yaw_error, dist, crs_aff, weight
 
 # compute the pairwise surface estimate and then update the property
@@ -202,7 +202,7 @@ def update_surface_estimate(i1, i2):
     i2_node = smart_node.getChild(i2.name, True)
     tri1_node = i1_node.getChild("tri_surface_pairs", True)
     tri2_node = i2_node.getChild("tri_surface_pairs", True)
-    
+
     # update pairwise info in the property tree
     #weight = len(i1.match_list[i2.name])
     weight = dist_m * dist_m
@@ -257,7 +257,7 @@ def update_yaw_error_estimate(i1, i2):
 
     i1_node = smart_node.getChild(i1.name, True)
     yaw_node = i1_node.getChild("yaw_pairs", True)
-    
+
     # update pairwise info in the property tree
     pair_node = yaw_node.getChild(i2.name, True)
     pair_node.setFloat("yaw_error", "%.1f" % yaw_error)
@@ -290,7 +290,7 @@ def get_yaw_error_estimate(i1):
         return i1_node.getFloat("yaw_error")
     else:
         return 0.0
-    
+
 # return the average of estimated surfaces below the image pair
 def get_surface_estimate(i1, i2):
     i1_node = smart_node.getChild(i1.name, True)
@@ -306,7 +306,7 @@ def get_surface_estimate(i1, i2):
     if i2_node.hasChild("tri_surface_m"):
         sum += i2_node.getFloat("tri_surface_m")
         count += 1
-        
+
     if count > 0:
         return sum / count
 
@@ -331,7 +331,7 @@ def set_yaw_error_estimates(proj):
         yaw_node = image_node.getChild("yaw_pairs", True)
         yaw_error_deg = yaw_node.getFloat("yaw_error")
         image.set_aircraft_yaw_error_estimate(yaw_error_deg)
-        
+
 def load(analysis_dir):
     surface_file = os.path.join(analysis_dir, "smart.json")
     props_json.load(surface_file, smart_node)
@@ -339,4 +339,4 @@ def load(analysis_dir):
 def save(analysis_dir):
     surface_file = os.path.join(analysis_dir, "smart.json")
     props_json.save(surface_file, smart_node)
-    
+
