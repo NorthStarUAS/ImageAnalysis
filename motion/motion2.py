@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
-import csv
 import cv2
 import skvideo.io               # pip3 install sk-video
 import json
-import math
 import numpy as np
 import os
 from tqdm import tqdm
@@ -20,9 +18,6 @@ from lib import transformations
 import camera
 
 # constants
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
-
 match_ratio = 0.75
 max_features = 500
 catchup = 0.02
@@ -185,7 +180,7 @@ for frame in reader.nextFrame():
     counter += 1
     #if counter % 8 != 0:
     #    continue
-    
+
     if counter < skip_frames:
         if counter % 100 == 0:
             print("Skipping %d frames..." % counter)
@@ -207,7 +202,7 @@ for frame in reader.nextFrame():
     cv2.imshow("frame undist", frame_undist)
 
     gray = cv2.cvtColor(frame_undist, cv2.COLOR_BGR2GRAY)
-        
+
     if True or args.equalize:
         gray = clahe.apply(gray)
         cv2.imshow("gray equalized", gray)
@@ -223,7 +218,7 @@ for frame in reader.nextFrame():
         kp_list_last = kp_list
         des_list_last = des_list
         continue
-    
+
     #print(len(des_list_last), len(des_list))
     matches = matcher.knnMatch(des_list, trainDescriptors=des_list_last, k=2)
     p1, p2, kp_pairs, idx_pairs = filterMatches(kp_list, kp_list_last, matches)
@@ -235,7 +230,7 @@ for frame in reader.nextFrame():
         continue
 
     print("M:\n", M)
-    
+
     if slow.shape[0] == 0:
         slow = frame_undist.copy()
     else:
@@ -259,7 +254,7 @@ for frame in reader.nextFrame():
         slow = cv2.addWeighted(slow_comp, 0.95, frame_undist, 0.05, 0)
         #blend = cv2.resize(blend, (int(w*args.scale), int(h*args.scale)))
     cv2.imshow("zero frequency background", slow)
-        
+
     if True:
         for pt in newp1:
             cv2.circle(frame_undist, (int(pt[0]), int(pt[1])), 3, (0,255,0), 1, cv2.LINE_AA)

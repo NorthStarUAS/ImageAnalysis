@@ -8,7 +8,7 @@ from scipy.signal import square
 
 from scipy.integrate import quad
 
-from math import* # import all function from math
+from math import * # import all function from math
 
 # x axis has been chosen from –π to +π, value of 1 smallest square
 # along x axis is 0.001

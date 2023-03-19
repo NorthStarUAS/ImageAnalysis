@@ -3,12 +3,11 @@
 # explore using dmd on a small set of inputs, but a high number of samples
 
 import argparse
-import math
+from math import sin
 import matplotlib.pyplot as plt
 import numpy as np
 import random
 from tqdm import tqdm
-import time
 
 from pydmd import DMD
 
@@ -26,9 +25,9 @@ for i in range(samples):
     for j in range(sensors):
         # try one
         if j < sensors - 1:
-            val = math.sin(i / (8*j+1) + random.uniform(-1,1)) + random.uniform(j*0.5,j*0.55)
+            val = sin(i / (8*j+1) + random.uniform(-1,1)) + random.uniform(j*0.5,j*0.55)
         else:
-            val = v[0] * math.sin(v[1]) + v[2] * v[3] * v[4]
+            val = v[0] * sin(v[1]) + v[2] * v[3] * v[4]
             print(val)
         # try two
         val = i*j + i
@@ -82,7 +81,7 @@ for j in range(sensors):
     plt.plot(Ypred[j,:], label="pred %d" % j)
     plt.legend()
     plt.show()
- 
+
 # dmd options and structures
 max_rank = int(samples * 0.1)
 dmd = DMD(svd_rank=max_rank)
@@ -118,11 +117,11 @@ for frame in reader.nextFrame():
     counter += 1
     if counter < args.skip_frames:
         continue
-    
+
     frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
     #if counter % 2 != 0:
     #    continue
-    
+
     frame_scale = cv2.resize(frame, (0,0), fx=scale, fy=scale,
                              interpolation=cv2.INTER_AREA)
     cv2.imshow('scaled orig', frame_scale)
@@ -132,9 +131,9 @@ for frame in reader.nextFrame():
     # update the flow estimate
     M, prev_pts, curr_pts = flow.update(frame_undist)
     print("M:\n", M)
-    
+
     #farneback.update(frame_undist)
-    
+
     if M is None or prev_filt.shape[0] == 0 or curr_filt.shape[0] == 0:
         prev_filt = frame_undist.copy().astype('float32')
         curr_filt = frame_undist.copy().astype('float32')
@@ -189,7 +188,7 @@ for frame in reader.nextFrame():
         big = cv2.resize(np.flipud(big.reshape((dmd_size,dmd_size)).astype('uint8')), (frame_undist.shape[1], frame_undist.shape[0]), interpolation=cv2.INTER_AREA)
         big = 255 * ( big / np.max(big) )
         cv2.imshow("reconstructed", big.astype('uint8'))
-        
+
         def draw_text_delete_me(img, label, x, y, subscale=1.0, just="center"):
             font_scale = subscale * h / 700
             size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX,

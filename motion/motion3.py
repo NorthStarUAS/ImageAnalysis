@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
-import csv
 import cv2
 import skvideo.io               # pip3 install sk-video
 import json
-import math
 import numpy as np
 import os
 from tqdm import tqdm
@@ -21,9 +19,6 @@ from lib import transformations
 import camera
 
 # constants
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
-
 match_ratio = 0.75
 max_features = 500
 tol = 1.0
@@ -181,7 +176,7 @@ for frame in reader.nextFrame():
     counter += 1
     #if counter % 2 != 0:
     #    continue
-    
+
     if counter < skip_frames:
         if counter % 100 == 0:
             print("Skipping %d frames..." % counter)
@@ -204,7 +199,7 @@ for frame in reader.nextFrame():
 
     gray = cv2.cvtColor(frame_undist, cv2.COLOR_BGR2GRAY)
     frame_undist = gray
-    
+
     kp_list = detector.detect(gray)
     kp_list, des_list = extractor.compute(gray, kp_list)
 
@@ -216,7 +211,7 @@ for frame in reader.nextFrame():
         kp_list_last = kp_list
         des_list_last = des_list
         continue
-    
+
     #print(len(des_list_last), len(des_list))
     matches = matcher.knnMatch(des_list, trainDescriptors=des_list_last, k=2)
     p1, p2, kp_pairs, idx_pairs = filterMatches(kp_list, kp_list_last, matches)
@@ -228,7 +223,7 @@ for frame in reader.nextFrame():
         continue
 
     print("M:\n", M)
-    
+
     if slow.shape[0] == 0 or fast.shape[0] == 0:
         slow = frame_undist.copy()
         fast = frame_undist.copy()
@@ -266,7 +261,7 @@ for frame in reader.nextFrame():
     print("diff_factor:", diff_factor)
     diff_img = (255*diff.astype('float32')/diff_factor).astype('uint8')
     cv2.imshow("diff", diff_img)
-        
+
     if True:
         for pt in newp1:
             cv2.circle(frame_scale, (int(pt[0]), int(pt[1])), 3, (0,255,0), 1, cv2.LINE_AA)
@@ -277,7 +272,7 @@ for frame in reader.nextFrame():
 
     # highlight = frame_scale.astype('float32') + 2*cv2.merge((diff, diff, diff))
     # cv2.imshow("highlight", (255*highlight.astype('float32')/np.max(highlight)).astype('uint8'))
-    
+
     if args.write:
         #video_writer.writeFrame(diff_img[:,:,::-1])
         video_writer.writeFrame(diff_img)

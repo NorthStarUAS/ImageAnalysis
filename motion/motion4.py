@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
-import csv
 import cv2
 import skvideo.io               # pip3 install sk-video
 import json
-import math
 import numpy as np
 import os
 from tqdm import tqdm
-import time
 
 from props import PropertyNode
 import props_json
@@ -109,7 +106,7 @@ for frame in reader.nextFrame():
     counter += 1
     #if counter % 2 != 0:
     #    continue
-    
+
     if counter < skip_frames:
         if counter % 100 == 0:
             print("Skipping %d frames..." % counter)
@@ -128,7 +125,7 @@ for frame in reader.nextFrame():
     cv2.imshow("frame undist", frame_undist)
 
     M, newp1, newp2 = flow.update(frame_undist)
-    
+
     if slow.shape[0] == 0 or fast.shape[0] == 0:
         slow = frame_undist.copy()
         fast = frame_undist.copy()
@@ -166,7 +163,7 @@ for frame in reader.nextFrame():
     print("diff_factor:", diff_factor)
     diff_img = (255*diff.astype('float32')/diff_factor).astype('uint8')
     cv2.imshow("diff", diff_img)
-        
+
     if True:
         for pt in newp1:
             cv2.circle(frame_scale, (int(pt[0]), int(pt[1])), 3, (0,255,0), 1, cv2.LINE_AA)
@@ -177,7 +174,7 @@ for frame in reader.nextFrame():
 
     # highlight = frame_scale.astype('float32') + 2*cv2.merge((diff, diff, diff))
     # cv2.imshow("highlight", (255*highlight.astype('float32')/np.max(highlight)).astype('uint8'))
-    
+
     if args.write:
         # if rgb
         motion_writer.writeFrame(diff_img[:,:,::-1])
@@ -185,7 +182,7 @@ for frame in reader.nextFrame():
         # if gray
         #motion_writer.writeFrame(diff_img)
         #bg_writer.writeFrame(slow)
-    
+
     if 0xFF & cv2.waitKey(1) == 27:
         break
     pbar.update(1)

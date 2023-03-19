@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
-import csv
 import cv2
 import skvideo.io               # pip3 install sk-video
 import json
-import math
 import numpy as np
 import os
 from tqdm import tqdm
-import time
 
 from props import PropertyNode
 import props_json
@@ -84,7 +81,7 @@ else:
     dist = np.array([ 0.2822,  0.01164,  0.0,  0.0, -0.000965])
     print("K:\n", K)
     print("dist:", dist)
-    
+
 print("Opening ", args.video)
 reader = skvideo.io.FFmpegReader(args.video, inputdict={}, outputdict={})
 
@@ -128,11 +125,11 @@ for frame in reader.nextFrame():
     counter += 1
     if counter < args.skip_frames:
         continue
-    
+
     frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
     #if counter % 2 != 0:
     #    continue
-    
+
     frame_scale = cv2.resize(frame, (0,0), fx=scale, fy=scale,
                              interpolation=cv2.INTER_AREA)
     cv2.imshow('scaled orig', frame_scale)
@@ -142,9 +139,9 @@ for frame in reader.nextFrame():
     # update the flow estimate
     M, prev_pts, curr_pts = flow.update(frame_undist)
     print("M:\n", M)
-    
+
     #farneback.update(frame_undist)
-    
+
     if M is None or slow.shape[0] == 0 or fast.shape[0] == 0:
         slow = frame_undist.copy().astype('float32')
         fast = frame_undist.copy().astype('float32')
@@ -181,7 +178,7 @@ for frame in reader.nextFrame():
         # if gray
         #motion_writer.writeFrame(diff_img)
         #bg_writer.writeFrame(slow)
-    
+
     if 0xFF & cv2.waitKey(1) == 27:
         break
     pbar.update(1)

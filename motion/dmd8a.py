@@ -7,15 +7,12 @@
 # apply dmd (pydmd w/ sliding window) to the motion diff.
 
 import argparse
-import csv
 import cv2
 import skvideo.io               # pip3 install sk-video
 import json
-import math
 import numpy as np
 import os
 from tqdm import tqdm
-import time
 
 from streaming_dmd import StreamingDMD
 #from streaming_dmd_orig import StreamingDMD
@@ -182,7 +179,7 @@ def draw_bar(img, min, max):
         img[i+th,(w-8):(w-2)] = 255 - int(i * 255 / span)
     draw_text(img, min_str, w-12, h-th, subscale=0.8, just="lower-right")
     draw_text(img, max_str, w-12, th, subscale=0.8, just="upper-right")
-        
+
 
 def draw_mode(label, mode, shape, factor=2):
     real = factor * np.abs(mode.real)
@@ -201,11 +198,11 @@ for frame in reader.nextFrame():
     counter += 1
     if counter < args.skip_frames:
         continue
-    
+
     frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
     #if counter % 2 != 0:
     #    continue
-    
+
     frame_scale = cv2.resize(frame, (0,0), fx=scale, fy=scale,
                              interpolation=cv2.INTER_AREA)
     cv2.imshow('scaled orig', frame_scale)
@@ -215,9 +212,9 @@ for frame in reader.nextFrame():
     # update the flow estimate
     M, prev_pts, curr_pts = flow.update(frame_undist)
     print("M:\n", M)
-    
+
     #farneback.update(frame_undist)
-    
+
     if M is None or prev_filt.shape[0] == 0 or curr_filt.shape[0] == 0:
         prev_filt = frame_undist.copy().astype('float32')
         curr_filt = frame_undist.copy().astype('float32')
@@ -329,11 +326,11 @@ for frame in reader.nextFrame():
             elif just == "lower-right":
                 locx = int(x - size[0][0])
                 locy = int(y - size[0][1])
-                
+
             cv2.putText(img, label, (locx, locy),
                         cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255),
                         1, cv2.LINE_AA)
-            
+
         quad = np.zeros( (h*2, w*2, 3) ).astype('uint8')
         quad[0:h,0:w,:] = frame_undist
         quad[h:,0:w,:] = frame_feat
