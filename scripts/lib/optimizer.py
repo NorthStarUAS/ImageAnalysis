@@ -107,7 +107,7 @@ class Optimizer():
             min = math.floor(np.amin(data) / 10) * 10
             max = math.ceil(np.amax(data) / 10) * 10
         return min, max
-    
+
     # for lack of a better function name, input rvec, tvec, and return
     # corresponding ypr and ned values
     def rvectvec2yprned(self, rvec, tvec):
@@ -126,7 +126,7 @@ class Optimizer():
         rvec, jac = cv2.Rodrigues(R)
         tvec = -np.matrix(R) * np.matrix(ned).T
         return rvec, tvec
-    
+
     def nedyaw2rvectvec(self, ned, v):
         # fixme
         body2ned = transformations.quaternion_matrix(np.array(quat))[:3,:3]
@@ -135,7 +135,7 @@ class Optimizer():
         rvec, jac = cv2.Rodrigues(R)
         tvec = -np.matrix(R) * np.matrix(ned).T
         return rvec, tvec
-    
+
     # compute the sparsity matrix (dependency relationships between
     # observations and parameters the optimizer can manipulate.)
     # Because of the extreme number of parameters and observations, a
@@ -177,9 +177,9 @@ class Optimizer():
         error = None
         # extract the parameters
         camera_params = params[:n_cameras * self.ncp].reshape((n_cameras, self.ncp))
-        
+
         points_3d = params[n_cameras * self.ncp:n_cameras * self.ncp + n_points * 3].reshape((n_points, 3))
-        
+
         if self.optimize_calib == 'global':
             # assemble K and distCoeffs from the optimizer param list
             camera_calib = params[n_cameras * self.ncp + n_points * 3:]
@@ -246,7 +246,7 @@ class Optimizer():
         # for line in by_cam:
         #     if line[0] > mre + 2*std:
         #         print("  %s -- mean: %.3f max: %.3f" % (line[2], line[0], line[1]))
-        
+
         # provide some runtime feedback for the operator
         if self.last_mre is None or 1.0 - mre/self.last_mre > 0.001:
             # mre has improved by more than 0.1%
@@ -298,9 +298,9 @@ class Optimizer():
         placed_images = set()
         for name in groups[group_index]:
             i = proj.findIndexByName(name)
-            placed_images.add(i)            
+            placed_images.add(i)
         log('Number of placed images:', len(placed_images))
-        
+
         # construct the camera index remapping
         self.camera_map_fwd = {}
         self.camera_map_rev = {}
@@ -309,14 +309,14 @@ class Optimizer():
             self.camera_map_rev[index] = i
         #print(self.camera_map_fwd)
         #print(self.camera_map_rev)
-        
+
         # initialize the feature index remapping
         self.feat_map_fwd = {}
         self.feat_map_rev = {}
 
         self.K = camera.get_K(optimized)
         self.distCoeffs = np.array(camera.get_dist_coeffs(optimized))
-        
+
         # assemble the initial camera estimates
         self.n_cameras = len(placed_images)
         self.camera_params = np.empty(self.n_cameras * self.ncp)
@@ -364,7 +364,7 @@ class Optimizer():
                     self.points_3d[point_idx+1] = ned[1]
                     self.points_3d[point_idx+2] = ned[2]
                     point_idx += 3
-                
+
         # assemble observations (image index, feature index, u, v)
         self.by_camera_point_indices = [ [] for i in range(self.n_cameras) ]
         self.by_camera_points_2d = [ [] for i in range(self.n_cameras) ]
@@ -487,7 +487,7 @@ class Optimizer():
         # plt.colorbar()
         # plt.draw()
         # plt.pause(0.01)
-        
+
         t0 = time.time()
         # bounds=bounds,
         res = least_squares(self.fun, x0,
@@ -505,7 +505,7 @@ class Optimizer():
         log("Optimization took %.1f seconds" % (t1 - t0))
         # print(res['x'])
         log("res:", res)
-        
+
         self.camera_params = res.x[:self.n_cameras * self.ncp].reshape((self.n_cameras, self.ncp))
         self.points_3d = res.x[self.n_cameras * self.ncp:self.n_cameras * self.ncp + self.n_points * 3].reshape((self.n_points, 3))
         if self.optimize_calib == 'global':
@@ -521,7 +521,7 @@ class Optimizer():
             cu = self.K[0,2]
             cv = self.K[1,2]
             distCoeffs_opt = self.distCoeffs
-        
+
         mre_final = np.mean(np.abs(res.fun))
         iterations = res.njev
         time_sec = t1 - t0
@@ -544,7 +544,7 @@ class Optimizer():
 
     def update_camera_poses(self, proj):
         log('Updated the optimized camera poses.')
-        
+
         # mark all the optimized poses as invalid
         for image in proj.image_list:
             opt_cam_node = image.node.getChild('camera_pose_opt', True)
