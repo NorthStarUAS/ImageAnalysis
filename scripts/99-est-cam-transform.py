@@ -7,18 +7,17 @@
 # to camera frame of reference.
 
 import argparse
-import math
+from math import pi
 import numpy as np
 import numpy.matlib as npm
-import os
 from props import getNode
 
 from lib import groups
 from lib import project
 from lib import transformations
 
-r2d = 180.0 / math.pi
-d2r = math.pi / 180.0
+r2d = 180.0 / pi
+d2r = pi / 180.0
 
 parser = argparse.ArgumentParser(description='Set the aircraft poses from flight data.')
 parser.add_argument('project', help='project directory')
@@ -109,10 +108,10 @@ print('euler (ypr):', yaw_rad*r2d, pitch_rad*r2d, roll_rad*r2d)
 tot_inv = transformations.quaternion_inverse(tot)
 
 def wrap_pi(val):
-    while val < math.pi:
-        val += 2*math.pi
-    while val > math.pi:
-        val -= 2*math.pi
+    while val < pi:
+        val += 2*pi
+    while val > pi:
+        val -= 2*pi
     return val
 
 # test correcting the original aircraft attitude from optimized camera attitude
@@ -134,5 +133,5 @@ for i, image in enumerate(proj.image_list):
         e_error_m = ned_opt[1] - ned_init[1]
         d_error_m = ned_opt[2] - ned_init[2]
         print(timestamp, yaw_error_rad, pitch_error_rad, roll_error_rad, n_error_m, e_error_m, d_error_m)
- 
+
 

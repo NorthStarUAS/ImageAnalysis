@@ -26,16 +26,11 @@
 # had to deal with multiple copies of the same uv coordinates.
 
 import argparse
-import commands
 import cPickle as pickle
 import cv2
-import fnmatch
-import itertools
-#import json
-import math
+from math import sqrt
 import matplotlib.pyplot as plt
 import numpy as np
-import os.path
 import scipy.spatial
 import sys
 
@@ -57,7 +52,7 @@ def meta_stats(report):
         value = line[0]
         diff = average - value
         sum += diff**2
-    stddev = math.sqrt(sum / count)
+    stddev = sqrt(sum / count)
     print "standard deviation = %.2f" % (stddev)
     return average, stddev
 
@@ -89,7 +84,7 @@ def compute_surface_outliers():
         image.kdtree = None
     matches_fit_sum = np.zeros(len(matches_sba))
     matches_fit_count = np.zeros(len(matches_sba))
-    
+
     # iterate through the sba match dictionary and build a per-image
     # list of 3d feature points with corresponding 2d uv coordinates
     print "Sorting matches into per-image structures..."
@@ -112,7 +107,7 @@ def compute_surface_outliers():
     for image in proj.image_list:
         if len(image.feat_uv):
             image.kdtree = scipy.spatial.KDTree(image.feat_uv)
-            
+
     print "Processing images..."
     report = []
     for image in proj.image_list:
@@ -162,7 +157,7 @@ def compute_surface_outliers():
                 match_idx = image.match_sba_idx[index3d]
                 matches_fit_sum[match_idx] += abs(est_d3d - d3d)
                 matches_fit_count[match_idx] += 1
-                
+
             # Do a least squares fit of neighbor 2d dist vs neighbor
             # 3d distance.  In a well behaved system, we would expect
             # a fairly linear relationship and significant outliers

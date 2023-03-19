@@ -6,8 +6,6 @@
 
 import argparse
 import pickle
-import cv2
-import math
 import numpy as np
 import os
 
@@ -15,10 +13,6 @@ from lib import camera
 from lib import groups
 from lib import optimizer
 from lib import project
-from lib import transformations
-
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('project', help='project directory')

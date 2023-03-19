@@ -2,18 +2,12 @@
 
 import argparse
 import pickle
-import cv2
-import fnmatch
-import itertools
-import math
-import matplotlib.pyplot as plt
 import numpy as np
 import os.path
 import scipy.spatial
 
 from lib import groups
 from lib import project
-from lib import transformations
 
 parser = argparse.ArgumentParser(description='Compute Delauney triangulation of matches.')
 parser.add_argument('project', help='project directory')
@@ -48,7 +42,7 @@ def gen_ac3d_surface(name, points_group, values_group, tris_group):
             for t in tri:
                 f.write("%d 0 0\n" % (t))
         f.write("kids 0\n")
-                
+
 proj = project.ProjectMgr(args.project)
 proj.load_images_info()
 

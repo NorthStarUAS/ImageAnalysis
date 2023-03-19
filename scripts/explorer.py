@@ -7,7 +7,6 @@ import fnmatch
 import os.path
 import pathlib
 from tqdm import tqdm
-import sys
 import time
 
 import tkinter as tk            # python3-tkinter
@@ -15,7 +14,7 @@ from tkinter import filedialog
 
 from props import getNode       # aura-props
 
-import math
+from math import floor, log, sqrt
 import numpy as np
 
 # pip3 install --pre --extra-index-url https://archive.panda3d.org/ panda3d
@@ -83,10 +82,10 @@ do_histogram = histogram.load(proj.analysis_dir)
 clahe = cv2.createCLAHE(clipLimit=1.0, tileGridSize=(8,8))
 
 class MyApp(ShowBase):
- 
+
     def __init__(self):
         ShowBase.__init__(self)
- 
+
         self.models = []
         self.base_textures = []
 
@@ -106,7 +105,7 @@ class MyApp(ShowBase):
         self.camera.setHpr(0, -90.0, 0)
         self.view_size = 100.0
         self.last_ysize = 0
-        
+
         self.top_image = 0
 
         # modules
@@ -151,26 +150,26 @@ class MyApp(ShowBase):
         # mouse state
         self.last_mpos = [0, 0]
         self.mouse = [0, 0, 0]
-        self.last_mouse = [0, 0, 0] 
-       
+        self.last_mouse = [0, 0, 0]
+
         # Add the tasks to the task manager.
         self.taskMgr.add(self.updateCameraTask, "updateCameraTask")
 
         # Shader (aka filter?)
         self.filter = 'none'
-        
+
         # Set default view mode
         self.view_mode = 'best'
         # self.view_mode = 'sequential'
         self.sequential_num = 0
-        
+
         # dump a summary of supposed card capabilities
         self.query_capabilities(display=True)
 
         # test shader
         # self.shader = Shader.load(Shader.SL_GLSL, vertex="explore/myshader.vert", fragment="explore/myshader.frag", geometry="explore/myshader.geom")
         self.shader = Shader.load(Shader.SL_GLSL, vertex="explore/myshader.vert", fragment="explore/myshader.frag")
-        
+
     def query_capabilities(self, display=True):
         gsg=base.win.getGsg()
         print("driver vendor", gsg.getDriverVendor())
@@ -216,17 +215,17 @@ class MyApp(ShowBase):
     def tmpItemSel(self, arg):
         self.dialog.cleanup()
         print('result:', arg)
-        
+
     def dialog_test(self, tmp):
         self.dialog = YesNoDialog(dialogName="YesNoCancelDialog", text="Please choose:", command=self.tmpItemSel)
-        
+
     def mouse_state(self, index, state):
         self.mouse[index] = state
-    
+
     def pretty_print(self, node, indent=''):
         for child in node.getChildren():
             print(indent, child)
-                
+
     def load(self, path):
         # vignette mask
         self.vignette_mask = None
@@ -250,7 +249,7 @@ class MyApp(ShowBase):
 
             # print(file)
             # self.pretty_print(model, '  ')
-            
+
             model.reparentTo(self.render)
             self.models.append(model)
             tex = model.findTexture('*')
@@ -314,7 +313,7 @@ class MyApp(ShowBase):
         if self.view_mode == 'best' and sort:
             self.image_select(0)
             self.sortImages()
-        
+
     def cam_zoom(self, f):
         self.view_size /= f
         self.annotations.rebuild(self.view_size)
@@ -342,7 +341,7 @@ class MyApp(ShowBase):
 
     def toggle_reticle(self):
         self.draw_reticle = not self.draw_reticle
-        
+
     def toggle_filter(self):
         if self.filter == 'shader':
             self.filter = 'none'
@@ -371,7 +370,7 @@ class MyApp(ShowBase):
                 self.sequential_num = 0
             print("Sequential image number:", self.sequential_num)
             self.sortImages()
- 
+
     def quit(self):
         raise SystemExit
 
@@ -382,7 +381,7 @@ class MyApp(ShowBase):
             max = len(self.models) - 1
             self.sequential_num = int(round(float(level) * float(max) / 9.0))
         self.sortImages()
-            
+
     # Define a procedure to move the camera.
     def updateCameraTask(self, task):
         self.camera.setPos(self.cam_pos[0], self.cam_pos[1], self.cam_pos[2])
@@ -391,7 +390,7 @@ class MyApp(ShowBase):
                               self.view_size)
         # reticle
         self.reticle.update(self.cam_pos, self.view_size, self.draw_reticle)
-        
+
         # annotations
         props = base.win.getProperties()
         y = props.getYSize()
@@ -420,7 +419,7 @@ class MyApp(ShowBase):
             return False
         else:
             return True
-        
+
     def sortImages(self):
         # sort images by (hopefully) best covering view center
         result_list = []
@@ -434,10 +433,10 @@ class MyApp(ShowBase):
                 vol = [ b[1][0] - b[0][0],
                         b[1][1] - b[0][1],
                         b[1][2] - b[0][2] ]
-                span = math.sqrt(vol[0]*vol[0] + vol[1]*vol[1] + vol[2]*vol[2])
+                span = sqrt(vol[0]*vol[0] + vol[1]*vol[1] + vol[2]*vol[2])
                 dx = center[0] - self.cam_pos[0]
                 dy = center[1] - self.cam_pos[1]
-                dist = math.sqrt(dx*dx + dy*dy)
+                dist = sqrt(dx*dx + dy*dy)
                 #print('center:', center, 'span:', span, 'dist:', dist)
                 if self.view_mode == 'best':
                     metric = dist + (span * 0.1)
@@ -457,7 +456,7 @@ class MyApp(ShowBase):
         self.updateTexture(top)
         if self.view_mode == 'sequential':
             self.cam_fit(top)
-        
+
         for i, line in enumerate(result_list):
             m = line[1]
             if m == top:
@@ -475,7 +474,7 @@ class MyApp(ShowBase):
 
     def updateTexture(self, main):
         dir_node = getNode('/config/directories', True)
-        
+
         # reset base textures
         for i, m in enumerate(self.models):
             if m != main:
@@ -529,8 +528,8 @@ class MyApp(ShowBase):
                             w = self.max_texture_dimension
                             rescale = True
                         if self.needs_pow2:
-                            h2 = 2**math.floor(math.log(h,2))
-                            w2 = 2**math.floor(math.log(w,2))
+                            h2 = 2**floor(log(h,2))
+                            w2 = 2**floor(log(w,2))
                             if h2 != h:
                                 h = h2
                                 rescale = True
@@ -573,7 +572,7 @@ class MyApp(ShowBase):
                             hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
                             hue, sat, val = cv2.split(hsv)
                             # blue hue = 120
-                            
+
                             # slide 120 -> 90 (center of 0-180 range
                             # with mod() roll over)
                             diff = np.mod(hue.astype('float64') - 30, 180)
@@ -600,7 +599,7 @@ class MyApp(ShowBase):
                             hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
                             hue, sat, val = cv2.split(hsv)
                             # green hue = 60
-                            
+
                             # slide 60 -> 90 (center of 0-180 range
                             # with mod() roll over)
                             diff = np.mod(hue.astype('float64') + 30, 180)
@@ -626,7 +625,7 @@ class MyApp(ShowBase):
                             hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
                             hue, sat, val = cv2.split(hsv)
                             # red hue = 0
-                            
+
                             # slide 0 -> 90 (center of 0-180 range
                             # with mod() roll over)
                             diff = np.mod(hue.astype('float64') + 90, 180)
@@ -661,7 +660,7 @@ class MyApp(ShowBase):
                             r = (ratio * (255/max)).astype('uint8')
                             result = cv2.merge((b,g,r))
                             print(result.shape, result.dtype)
-                            
+
                         fulltex = Texture(base)
                         fulltex.setCompression(Texture.CMOff)
                         fulltex.setup2dTexture(w, h, Texture.TUnsignedByte, Texture.FRgb)
@@ -688,7 +687,7 @@ class MyApp(ShowBase):
                     oldest_time = tcache[name][2]
                     oldest_name = name
             del tcache[oldest_name]
-    
+
 app = MyApp()
 app.load( os.path.join(proj.analysis_dir, "models") )
 app.run()

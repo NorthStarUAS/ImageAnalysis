@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-import math
+from math import pi
 import numpy as np
 import os.path
 from tqdm import tqdm
@@ -13,7 +13,7 @@ from lib import groups
 from lib import project
 from lib import match_culling as cull
 
-r2d = 180.0 / math.pi
+r2d = 180.0 / pi
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('project', help='project directory')

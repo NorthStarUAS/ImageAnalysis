@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-import math
+from math import acos, atan2, pi
 import numpy as np
 import os.path
 import pickle
@@ -13,7 +13,7 @@ import project
 
 import match_culling as cull
 
-r2d = 180.0 / math.pi
+r2d = 180.0 / pi
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('project', help='project directory')
@@ -50,14 +50,14 @@ def compute_angle(ned1, ned2, ned3):
         try:
             tmp = np.dot(vec1, vec2) / denom
             if tmp > 1.0: tmp = 1.0
-            return math.acos(tmp)
+            return acos(tmp)
         except:
             print('vec1:', vec1, 'vec2', vec2, 'dot:', np.dot(vec1, vec2))
             print('denom:', denom)
             return 0
     else:
         return 0
-    
+
 print("Computing match pair angles...")
 for match in matches_opt:
     for m1 in match[1:]:
@@ -75,7 +75,7 @@ for match in matches_opt:
                     avg = (np.array(ned1) + np.array(ned2)) * 0.5
                     y = np.linalg.norm(np.array(ned2) - np.array(ned1))
                     x = np.linalg.norm(avg - np.array(match[0]))
-                    angle_deg = math.atan2(y, x) * r2d
+                    angle_deg = atan2(y, x) * r2d
                 else:
                     angle_deg = compute_angle(ned1, ned2, match[0]) * r2d
                 pair_angles[m1[0]][m2[0]].append(angle_deg)

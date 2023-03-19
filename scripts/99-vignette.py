@@ -2,7 +2,7 @@
 
 import argparse
 import cv2
-import math
+from math import sqrt
 import numpy as np
 import os.path
 from tqdm import tqdm
@@ -89,7 +89,7 @@ if not args.nofit:
         for y in range(h):
             dx = x - cx
             dy = y - cy
-            rad = math.sqrt(dx*dx + dy*dy) / scale
+            rad = sqrt(dx*dx + dy*dy) / scale
             b = vmask[y,x,0]
             g = vmask[y,x,1]
             r = vmask[y,x,2]
@@ -136,7 +136,7 @@ if not args.nofit:
         for y in range(h):
             dx = x - cu
             dy = y - cv
-            rad = math.sqrt(dx*dx + dy*dy)
+            rad = sqrt(dx*dx + dy*dy)
             vmask[y,x,0] = dither(f4(rad, *bopt))
             vmask[y,x,1] = dither(f4(rad, *gopt))
             vmask[y,x,2] = dither(f4(rad, *ropt))

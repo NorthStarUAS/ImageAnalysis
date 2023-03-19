@@ -12,11 +12,8 @@
 # elevation plane.
 
 import argparse
-import pickle
-import math
+from math import atan2, pi, sqrt
 import numpy as np
-import os.path
-import scipy.spatial
 
 from props import getNode
 
@@ -26,10 +23,9 @@ from lib import panda3d
 from lib import project
 from lib import smart
 from lib import srtm
-from lib import transformations
 
 ac3d_steps = 8
-r2d = 180 / math.pi
+r2d = 180 / pi
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
 parser.add_argument('project', help='project directory')
@@ -49,7 +45,7 @@ ref_node = getNode("/config/ned_reference", True)
 ref = [ ref_node.getFloat('lat_deg'),
         ref_node.getFloat('lon_deg'),
         ref_node.getFloat('alt_m') ]
-  
+
 # setup SRTM ground interpolator
 srtm.initialize( ref, 6000, 6000, 30 )
 
@@ -160,14 +156,14 @@ def intersect2d(ned, v, avg_ground):
     dy = ned[0] - p[0]
     dx = ned[1] - p[1]
     dz = ned[2] - p[2]
-    dist = math.sqrt(dx*dx+dy*dy)
-    angle = math.atan2(-dz, dist) * r2d # relative to horizon
+    dist = sqrt(dx*dx+dy*dy)
+    angle = atan2(-dz, dist) * r2d # relative to horizon
     if angle < 30:
         print(" returning high angle nans:", angle)
         return [np.nan, np.nan, np.nan]
     else:
         return p
-    
+
 def intersect_vectors(ned, v_list, avg_ground):
     pt_list = []
     for v in v_list:
@@ -181,7 +177,7 @@ def intersect_vectors(ned, v_list, avg_ground):
 #         print(image.name, 'avg elev:', image.z_avg)
 #     else:
 #         image.z_avg = 0
-    
+
 # compute the uv grid for each image and project each point out into
 # ned space, then intersect each vector with the srtm / ground /
 # delauney surface.
@@ -205,7 +201,7 @@ for image in proj.image_list:
             grid_list.append( [u, v] )
     #print 'grid_list:', grid_list
     image.distorted_uv = proj.redistort(grid_list, optimized=True)
-    
+
     image_node = smart.smart_node.getChild(image.name, True)
     surface_m = image_node.getFloat("tri_surface_m")
     if surface_m < 0.1:

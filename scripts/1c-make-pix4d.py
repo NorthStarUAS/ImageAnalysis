@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
-import math
-import os
 
 from props import getNode
 
 from lib import pose
 from lib import project
-
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
 
 parser = argparse.ArgumentParser(description='Create a pix4d.csv file for a folder of geotagged images.')
 parser.add_argument('project', help='project directory')

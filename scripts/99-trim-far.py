@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-import cv2
-import math
+from math import sqrt
 import os.path
 import sys
 
@@ -37,7 +36,7 @@ for image in proj.image_list:
     print(image.name, image.camera_pose)
     if not image.camera_pose == None:
         ned = image.camera_pose['ned']
-        dist = math.sqrt(ned[0]*ned[0] + ned[1]*ned[1])
+        dist = sqrt(ned[0]*ned[0] + ned[1]*ned[1])
     else:
         dist = 99999999
     dist_list.append( [ dist, image.name ] )
@@ -75,4 +74,4 @@ else:
             robust_delete(os.path.join(path, base + '.info'))
             robust_delete(os.path.join(path, base + '.match'))
             robust_delete(os.path.join(path, name))
-   
+

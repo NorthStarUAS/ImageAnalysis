@@ -1,16 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
-import commands
 import cPickle as pickle
-import cv2
-import fnmatch
-import itertools
-#import json
-import math
+from math import sqrt
 import matplotlib.pyplot as plt
 import numpy as np
-import os.path
 import scipy.spatial
 import sys
 
@@ -33,7 +27,7 @@ def meta_stats(report):
         value = line[0]
         diff = average - value
         sum += diff**2
-    stddev = math.sqrt(sum / count)
+    stddev = sqrt(sum / count)
     print "standard deviation = %.2f" % (stddev)
     return average, stddev
 
@@ -44,7 +38,7 @@ args = parser.parse_args()
 
 proj = project.ProjectMgr(args.project)
 proj.load_image_info()
-        
+
 print "Loading original (direct) matches ..."
 matches_direct = pickle.load( open( args.project + "/matches_direct", "rb" ) )
 
@@ -56,7 +50,7 @@ def my_slope(p1, p2, z1, z2):
     dx = p2[0] - p1[0]
     dy = p2[1] - p1[1]
     dz = z2 - z1
-    hdist = math.sqrt(dx**2 + dy**2)
+    hdist = sqrt(dx**2 + dy**2)
     if hdist > 0.00001:
         slope = dz / hdist
     else:

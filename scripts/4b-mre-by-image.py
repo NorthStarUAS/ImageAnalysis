@@ -5,7 +5,7 @@
 
 import argparse
 import pickle
-import math
+from math import sqrt
 import numpy as np
 import os
 
@@ -98,7 +98,7 @@ for i, cam in enumerate(opt.camera_params.reshape((opt.n_cameras, opt.ncp))):
     else:
         results_by_cam.append( [9999.0, 9999.0,
                                 proj.image_list[orig_cam_index].name ] )
-        
+
     #print(proj.image_list[orig_cam_index].name, ':',
     #      np.mean(np.abs(np.array(cam_errors))))
 
@@ -111,7 +111,7 @@ for line in results_by_cam:
     if line[0] > mre + 3*std:
         print(line[2], end=" ")
 print()
-    
+
 error_list = sorted(results, key=lambda fields: fields[0], reverse=True)
 
 def mark_outliers(error_list, trim_stddev):
@@ -124,7 +124,7 @@ def mark_outliers(error_list, trim_stddev):
     # biggest to smallest)
     for line in reversed(error_list):
         sum += line[0]
-        
+
     # stats on error values
     print(" computing stats...")
     mre = sum / count
@@ -132,7 +132,7 @@ def mark_outliers(error_list, trim_stddev):
     for line in error_list:
         error = line[0]
         stddev_sum += (mre-error)*(mre-error)
-    stddev = math.sqrt(stddev_sum / count)
+    stddev = sqrt(stddev_sum / count)
     print("mre = %.4f stddev = %.4f" % (mre, stddev))
 
     # mark match items to delete
@@ -146,7 +146,7 @@ def mark_outliers(error_list, trim_stddev):
         elif args.max and line[0] > args.max:
             cull.mark_feature(matches, line[1], line[2], line[0])
             mark_count += 1
-            
+
     return mark_count
 
 if args.interactive:

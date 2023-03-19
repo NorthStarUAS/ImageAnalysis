@@ -5,8 +5,7 @@
 
 import argparse
 import pickle
-import cv2
-import math
+from math import atan2, sqrt
 import numpy as np
 import os
 
@@ -45,12 +44,12 @@ print('Main group size:', len(group_list[0]))
 def compute_shakers(matches):
     by_feature = []
     by_pair = []
-    
+
     pair_angles = []
     for i in range(len(proj.image_list)):
         p = [ [] for j in range(len(proj.image_list)) ]
         pair_angles.append(p)
-        
+
     for k, match in enumerate(matches):
         # compute avg of camera locations
         sum = np.zeros(3)
@@ -67,7 +66,7 @@ def compute_shakers(matches):
                 avg = (np.array(ned1) + np.array(ned2)) * 0.5
                 y = np.linalg.norm(np.array(ned2) - np.array(ned1))
                 x = np.linalg.norm(avg - np.array(match[0]))
-                angle = math.atan2(y, x)
+                angle = atan2(y, x)
                 pair_angles[p0[0]][p1[0]].append(angle)
                 by_feature.append( [angle, k, j] )
                 # print( [angle, k, j] )
@@ -81,7 +80,7 @@ def compute_shakers(matches):
                 min = np.amin(angles)
                 #print(i, j, 'avg:', avg, 'std:', std, 'min:', min)
                 by_pair.append( [i, j, avg, std, min] )
-    
+
     # smallest angle is worst (do a forward sort)
     by_feature = sorted(by_feature, key=lambda fields: fields[0])
     by_pair = sorted(by_pair, key=lambda fields: fields[2]) # by avg
@@ -111,7 +110,7 @@ def mark_outliers(error_list, trim_stddev):
     # biggest to smallest)
     for line in reversed(error_list):
         sum += line[0]
-        
+
     # stats on error values
     print(" computing stats...")
     mre = sum / count
@@ -119,7 +118,7 @@ def mark_outliers(error_list, trim_stddev):
     for line in error_list:
         error = line[0]
         stddev_sum += (mre-error)*(mre-error)
-    stddev = math.sqrt(stddev_sum / count)
+    stddev = sqrt(stddev_sum / count)
     print("mre = %.4f stddev = %.4f" % (mre, stddev))
 
     # mark match items to delete
@@ -130,7 +129,7 @@ def mark_outliers(error_list, trim_stddev):
         if line[0] > mre + stddev * trim_stddev:
             cull.mark_feature(matches_sba, line[1], line[2], line[0])
             mark_count += 1
-            
+
     return mark_count
 
 # delete marked matches
@@ -179,7 +178,7 @@ elif mode == 'by_pair':
         if line[2] < 0.087:
             print(line)
             mark_list += find_image_pairs( line[0], line[1] )
-            
+
 # mark selection
 cull.mark_using_list(mark_list, matches_grouped)
 cull.mark_using_list(mark_list, matches_sba)

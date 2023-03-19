@@ -16,7 +16,6 @@ texture_and_color = False
 parser = argparse.ArgumentParser(description='local binary patterns test.')
 parser.add_argument('--image', required=True, help='image name')
 parser.add_argument('--scale', type=float, default=0.4, help='scale image before processing')
-# parser.add_argument('--model', help='saved learning model name')
 args = parser.parse_args()
 
 rgb = cv2.imread(args.image, flags=cv2.IMREAD_ANYCOLOR|cv2.IMREAD_ANYDEPTH|cv2.IMREAD_IGNORE_ORIENTATION)

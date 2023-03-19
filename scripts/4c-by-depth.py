@@ -26,9 +26,8 @@
 
 import argparse
 import pickle
-import cv2
 #import json
-import math
+from math import sqrt
 import numpy as np
 import os
 import sys
@@ -70,7 +69,7 @@ def compute_feature_depths(image_list, group, matches):
     # init structures
     for image in image_list:
         image.z_list = []
-        
+
     # make a list of distances for each feature of each image
     for match in matches:
         feat_ned = match[0]
@@ -135,7 +134,7 @@ def mark_outliers(error_list, trim_stddev):
     # biggest to smallest)
     for line in reversed(error_list):
         sum += line[0]
-        
+
     # stats on error values
     print(" computing stats...")
     mean = sum / count
@@ -143,7 +142,7 @@ def mark_outliers(error_list, trim_stddev):
     for line in error_list:
         error = line[0]
         stddev_sum += (mean-error)*(mean-error)
-    stddev = math.sqrt(stddev_sum / count)
+    stddev = sqrt(stddev_sum / count)
     print("mean = %.4f stddev = %.4f" % (mean, stddev))
 
     # mark match items to delete
@@ -155,7 +154,7 @@ def mark_outliers(error_list, trim_stddev):
             cull.mark_feature(matches_orig, line[1], line[2], line[0])
             cull.mark_feature(matches_opt, line[1], line[2], line[0])
             mark_count += 1
-            
+
     return mark_count
 
 error_list = compute_feature_depths(proj.image_list, group_list[0], matches_opt)
@@ -205,7 +204,7 @@ if mark_sum > 0:
     if result == 'y' or result == 'Y':
         cull.delete_marked_features(matches_orig)
         cull.delete_marked_features(matches_opt)
-        
+
         # write out the updated match dictionaries
         print("Writing original matches...")
         pickle.dump(matches_orig, open(os.path.join(args.project, source), "wb"))

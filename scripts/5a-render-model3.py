@@ -17,7 +17,7 @@
 import argparse
 import cv2
 import pickle
-import math
+from math import atan2, pi, sqrt
 import numpy as np
 import os.path
 import scipy.spatial
@@ -28,10 +28,9 @@ from lib import groups
 from lib import panda3d
 from lib import project
 from lib import srtm
-from lib import transformations
 
 mesh_steps = 8                  # 1 = corners only
-r2d = 180 / math.pi
+r2d = 180 / pi
 tolerance = 0.5
 
 parser = argparse.ArgumentParser(description='Set the initial camera poses.')
@@ -52,7 +51,7 @@ ref_node = getNode("/config/ned_reference", True)
 ref = [ ref_node.getFloat('lat_deg'),
         ref_node.getFloat('lon_deg'),
         ref_node.getFloat('alt_m') ]
-  
+
 # setup SRTM ground interpolator
 srtm.initialize( ref, 6000, 6000, 30 )
 
@@ -122,7 +121,7 @@ for image in proj.image_list:
         uv_new = undistort(image.pool_uv[i])
         if uv_new[0] < 0 or uv_new[0] >= width or uv_new[1] < 0 or uv_new[1] >= height:
             print("out of range")
-    
+
 print('Generating Delaunay mesh and interpolator ...')
 print(len(raw_points))
 global_tri_list = scipy.spatial.Delaunay(np.array(raw_points))
@@ -169,14 +168,14 @@ def intersect2d(ned, v, avg_ground):
     dy = ned[0] - p[0]
     dx = ned[1] - p[1]
     dz = ned[2] - p[2]
-    dist = math.sqrt(dx*dx+dy*dy)
-    angle = math.atan2(-dz, dist) * r2d # relative to horizon
+    dist = sqrt(dx*dx+dy*dy)
+    angle = atan2(-dz, dist) * r2d # relative to horizon
     if angle < 30:
         print(" returning high angle nans:", angle)
         return [np.nan, np.nan, np.nan]
     else:
         return p
-    
+
 def intersect_vectors(ned, v_list, avg_ground):
     pt_list = []
     for v in v_list:
@@ -190,7 +189,7 @@ for image in proj.image_list:
         # print(image.name, 'avg elev:', image.z_avg)
     else:
         image.z_avg = 0
-    
+
 # compute the uv grid for each image and project each point out into
 # ned space, then intersect each vector with the srtm / ground /
 # delauney surface.
@@ -219,7 +218,7 @@ if True:
             grid_list.append( [0, v] )
             grid_list.append( [width, v] )
         #print('grid_list:', grid_list)
-        
+
         distorted_uv = proj.redistort(grid_list, optimized=True)
         distorted_uv = grid_list
 
@@ -249,7 +248,7 @@ if True:
         else:
             # intersect with our polygon surface approximation
             pts_ned = intersect_vectors(ned, proj_list, -image.z_avg)
-            
+
         #print(image.name, "pts_3d (ned):\n", pts_ned)
 
         # convert ned to xyz and stash the result for each image
@@ -296,7 +295,7 @@ for name in group:
             print("finished")
             done = True
     image.fit_uv.extend(proj.undistort_uvlist(image, dist_uv))
-    
+
     print(name, 'len:', len(image.fit_xy), len(image.fit_z), len(image.fit_uv))
 
 

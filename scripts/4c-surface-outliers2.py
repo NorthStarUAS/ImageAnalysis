@@ -6,16 +6,10 @@
 # size.
 
 import argparse
-import commands
 import cPickle as pickle
-import cv2
-import fnmatch
-import itertools
-#import json
-import math
+from math import sqrt
 import matplotlib.pyplot as plt
 import numpy as np
-import os.path
 import scipy.spatial
 import sys
 
@@ -38,7 +32,7 @@ def meta_stats(report):
         value = line[0]
         diff = average - value
         sum += diff**2
-    stddev = math.sqrt(sum / count)
+    stddev = sqrt(sum / count)
     print "standard deviation = %.2f" % (stddev)
     return average, stddev
 
@@ -66,7 +60,7 @@ def compute_surface_outliers():
         image.feat_uv = []
         image.feat_match_idx = []
         image.feat_map = {}
-    
+
     # iterate through the sba match dictionary and build a per-image
     # list of 3d feature points with corresponding 2d uv coordinates
     print "Building per-image structures..."
@@ -88,7 +82,7 @@ def compute_surface_outliers():
                 # print " ", image.kp_list[p[1]].pt
                 image.feat_match_idx.append( i )
                 image.feat_map[key] = i
-   
+
     print "Processing images..."
     report = []
     for index, image in enumerate(proj.image_list):
@@ -112,7 +106,7 @@ def compute_surface_outliers():
                         min_dist = dist
             print "minimum feature dist =", min_dist, "count =", count
         tri = scipy.spatial.Delaunay(np.array(image.feat_uv))
-        
+
         # look for outliers by computing the 3d world shape of the
         # pseudo-cone formed by a point with it's neighbors found in
         # uv space.  This assumes photos were taken from a mostly top
