@@ -12,7 +12,6 @@ import numpy as np
 import re
 from scipy import interpolate
 
-import time
 import datetime
 
 class djicsv:
@@ -100,7 +99,7 @@ class djisrt:
         self.lats = []
         self.lons = []
         self.heights = []
-    
+
     def load(self, srt_name):
         # read and parse srt file, setup data interpolator
         self.need_interpolate = False

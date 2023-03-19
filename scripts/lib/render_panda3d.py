@@ -9,10 +9,9 @@ import scipy.spatial
 from props import getNode
 
 from . import camera
-from .logger import log, qlog
+from .logger import log
 from . import panda3d
 from . import project
-#from . import objmtl            # temporary?
 
 r2d = 180 / pi
 

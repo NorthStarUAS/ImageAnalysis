@@ -18,7 +18,6 @@ import numpy as np
 from props import getNode
 
 from lib import camera
-from lib import groups
 from lib import panda3d
 from lib import project
 from lib import smart

@@ -10,12 +10,8 @@ import sys
 sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
 
 import argparse
-import commands
 import cv2
-import cv
-import fnmatch
 import numpy as np
-import os.path
 import random
 
 sys.path.append('../lib')
@@ -90,21 +86,21 @@ def redistort(u, v, dist_coeffs, K):
     y = (v - cy) / fy
     print [x, y]
     k1, k2, p1, p2, k3 = dist_coeffs
-    
+
     # Compute radius^2
     r2 = x**2 + y**2
     r4, r6 = r2**2, r2**3
-  
+
     # Compute tangential distortion
     dx = 2*p1*x*y + p2*(r2 + 2*x*x)
     dy = p1*(r2 + 2*y*y) + 2*p2*x*y
-    
+
     # Compute radial factor
     Lr = 1.0 + k1*r2 + k2*r4 + k3*r6
-  
+
     ud = Lr*x + dx
     vd = Lr*y + dy
-    
+
     return ud * fx + cx, vd * fy + cy
 
 for i in range(0, num_points):

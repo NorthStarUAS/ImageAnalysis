@@ -7,7 +7,6 @@ import datetime
 import fnmatch
 import os
 import piexif
-from libxmp.utils import file_to_dict
 
 from lib import srtm
 
@@ -35,7 +34,7 @@ keyfile = os.path.join(home, '.forecastio')
 if not os.path.isfile(keyfile):
     print("you must sign up for a free apikey at forecast.io and insert it as a single line inside a file called ~/.forecastio (with no other text in the file)")
     quit()
-    
+
 fio = open(home + '/.forecastio')
 apikey = fio.read().rstrip()
 fio.close()
@@ -72,7 +71,7 @@ def get_image_info(file):
         hour, minute, second = strtime.split(':')
         #d = datetime.date(int(year), int(month), int(day))
         #t = datetime.time(int(hour), int(minute), int(second))
-        #dt = datetime.datetime.combine(d, t) 
+        #dt = datetime.datetime.combine(d, t)
         dt = datetime.datetime(int(year), int(month), int(day),
                                int(hour), int(minute), int(second))
         unix_sec = float(dt.strftime('%s'))
@@ -81,7 +80,7 @@ def get_image_info(file):
 if len(files) == 0:
     print("No image files found at:", args.project)
     quit()
-    
+
 lat1, lon1, alt1,  unix_sec1 = get_image_info(files[0]) # first
 if abs(lat1) < 0.01 and abs(lon1) < 0.01:
     print("first image in list geotag fail")

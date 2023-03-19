@@ -10,7 +10,6 @@ import numpy as np
 import os
 import pickle
 import scipy.spatial
-from tqdm import tqdm
 
 from props import getNode
 

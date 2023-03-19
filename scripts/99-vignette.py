@@ -8,8 +8,6 @@ import os.path
 from tqdm import tqdm
 import random
 
-from props import getNode
-
 from lib import camera
 from lib import project
 

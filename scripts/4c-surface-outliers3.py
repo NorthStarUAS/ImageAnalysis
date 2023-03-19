@@ -29,14 +29,12 @@ import argparse
 import cPickle as pickle
 import cv2
 from math import sqrt
-import matplotlib.pyplot as plt
 import numpy as np
 import scipy.spatial
 import sys
 
 sys.path.append('../lib')
 import project
-import transformations
 
 def meta_stats(report):
     sum = 0.0

@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
-import commands
 import cv2
-import fnmatch
 import numpy as np
 import os.path
-import random
 import navpy
 
 from lib import project
 from lib import Render
 from lib import srtm
-from lib import transformations
 
 # for all the images in the project image_dir, compute the camera
 # poses from the aircraft pose (and camera mounting transform).
@@ -47,7 +43,7 @@ for image in proj.image_list:
     corner_list.append( [image.width, 0] )
     corner_list.append( [0, image.height] )
     corner_list.append( [image.width, image.height] )
-    
+
     proj_list = project.projectVectors( IK, image, corner_list,
                                         pose=args.pose )
     #print "proj_list:\n", proj_list
@@ -56,7 +52,7 @@ for image in proj.image_list:
     elif args.pose == 'sba':
         pts_ned = srtm.interpolate_vectors(image.camera_pose_sba, proj_list)
     # print "pts (ned):\n", pts_ned
-    
+
     image.corner_list_ned = []
     image.corner_list_lla = []
     image.corner_list_xy = []

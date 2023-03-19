@@ -5,7 +5,6 @@ import cv2
 import numpy as np
 import os
 import pickle
-from tqdm import tqdm
 
 from props import getNode
 
@@ -55,7 +54,7 @@ def undistort(uv_orig):
     uv_new = cv2.undistortPoints(uv_raw, K, dist_coeffs, P=K)
     # print(uv_orig, type(uv_new), uv_new)
     return uv_new[0][0]
-    
+
 if args.method == 'srtm':
     ref_node = getNode('/config/ned_reference', True)
     ref = [ ref_node.getFloat('lat_deg'),
@@ -161,6 +160,6 @@ elif args.method == 'triangulate':
                 if p[2][0] > 0:
                     print("WHOA!")
                 print(match[0])
-    
+
 print("Writing:", source)
 pickle.dump(matches, open(os.path.join(proj.analysis_dir, source), "wb"))

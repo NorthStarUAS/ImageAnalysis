@@ -2,8 +2,6 @@
 
 import argparse
 
-from props import getNode
-
 from lib import pose
 from lib import project
 

@@ -1,4 +1,4 @@
-# Notes ...
+# Notes
 
 ## Optimizer
 
@@ -16,6 +16,6 @@
    globally optimize for a single camera calibration matrix and single
    set of distortion parameters.  This seems to be more productive
    than solving for individual calibrations.
-   
+
    Keeping focal length bounded to +/- 5% of original estimate also
    seems productive.

@@ -1,20 +1,13 @@
 #!/usr/bin/env python3
 
 import argparse
-#import commands
-import cv2
-import fnmatch
 import numpy as np
-import os.path
-import random
-import navpy
-import sys
 
+import sys
 sys.path.append('../lib')
 import ac3d
 import project
 import srtm
-import transformations
 
 # for all the images in the project image_dir, compute the camera
 # poses from the aircraft pose (and camera mounting transform).
@@ -53,7 +46,7 @@ else:
         if image.camera_pose_sba != None:
             #print image.camera_pose_sba
             image_list.append(image)
-            
+
 depth = 0.0
 camw, camh = proj.cam.get_image_params()
 for image in image_list:
@@ -72,7 +65,7 @@ for image in image_list:
         for u in u_list:
             grid_list.append( [u, v] )
     print('grid_list:', grid_list)
-    
+
     if not args.sba:
         proj_list = project.projectVectors( IK, image.get_body2ned(),
                                             image.get_cam2body(), grid_list )
@@ -81,7 +74,7 @@ for image in image_list:
         proj_list = project.projectVectors( IK, image.get_body2ned_sba(),
                                             image.get_cam2body(), grid_list )
     print('proj_list:', proj_list)
-        
+
     if not args.sba:
         ned = image.camera_pose['ned']
     else:
@@ -101,7 +94,7 @@ for image in image_list:
         image.grid_list.append( [p[1], p[0], -(p[2]+depth)] )
         ground_sum += -p[2]
     depth -= 0.01                # favor last pictures above earlier ones
-    
+
 # call the ac3d generator
 ac3d.generate(image_list, src_dir=proj.source_dir,
               project_dir=args.project, base_name='direct',

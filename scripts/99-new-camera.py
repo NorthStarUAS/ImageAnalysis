@@ -5,7 +5,6 @@ import cv2
 import fnmatch
 import os
 import pyexiv2                  # dnf install python3-exiv2 (py3exiv2)
-import sys
 
 from props import getNode       # from aura-props package
 import props_json               # from aura-props package
@@ -75,7 +74,7 @@ if height != img.shape[0] or width != img.shape[1]:
     print("disagreement between exif size and actual image size")
     print("Using actual image size")
     (height, width) = img.shape[:2]
-    
+
 #base_name.replace(' ', '_')
 #print('base:', base_name)
 

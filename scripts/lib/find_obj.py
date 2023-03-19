@@ -14,7 +14,7 @@ USAGE
 
 import numpy as np
 import cv2
-from .common import anorm, getsize
+from .common import anorm
 
 FLANN_INDEX_KDTREE = 1  # bug: flann enums are missing
 FLANN_INDEX_LSH    = 6

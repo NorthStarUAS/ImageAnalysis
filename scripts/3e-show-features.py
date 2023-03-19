@@ -1,11 +1,6 @@
 #!/usr/bin/env python3
 
-import sys
-
 import argparse
-import cv2
-import fnmatch
-import os.path
 
 from lib import project
 

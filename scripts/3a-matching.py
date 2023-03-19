@@ -3,7 +3,6 @@
 import argparse
 import pickle
 import numpy as np
-import os
 
 from props import getNode
 

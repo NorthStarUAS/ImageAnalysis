@@ -1,12 +1,7 @@
 #!/usr/bin/python3
 
-import argparse
-import pickle
 import numpy as np
-import os.path
 from tqdm import tqdm
-
-from props import getNode
 
 from . import camera
 from .logger import log, qlog
@@ -148,7 +143,7 @@ def check_for_pair_dups(proj):
             if count > 0:
                 print('Match:', i1.name, 'vs', i2.name, 'matches:', len(matches), 'dups:', count)
             i1.match_list[key] = new_matches
-        
+
 # enable the following code to visualize the matches after eliminating
 # duplicates (duplicates can happen after collapsing uv coordinates.)
 if False:
@@ -308,7 +303,7 @@ def link_matches(proj, matches_direct):
 def triangulate_smart(proj, matches):
     K = camera.get_K(optimized=False)
     IK = np.linalg.inv(K)
-    
+
     # for each image lookup the SRTM elevation under the camera
     log("Looking up [smart] base elevation for each image location...")
     smart.load(proj.analysis_dir)

@@ -10,9 +10,6 @@ import numpy as np
 import os
 from tqdm import tqdm
 
-from props import PropertyNode
-import props_json
-
 import sys
 sys.path.append('../scripts')
 from lib import transformations

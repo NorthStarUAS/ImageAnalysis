@@ -6,13 +6,10 @@
 # This optimizer explores using cv2 native functions to do per-image
 # reprojection, and then extract out the errors from that.
 
-import os
 import time
 
 import cv2
 from math import ceil, floor, pi
-# import matplotlib.pyplot as plt
-# from matplotlib import cm
 import numpy as np
 from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix

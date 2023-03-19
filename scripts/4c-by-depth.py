@@ -26,7 +26,6 @@
 
 import argparse
 import pickle
-#import json
 from math import sqrt
 import numpy as np
 import os

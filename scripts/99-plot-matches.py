@@ -11,8 +11,6 @@ import numpy as np
 from scipy.interpolate import interp1d
 from tqdm import tqdm
 
-from props import getNode
-
 from lib import groups
 from lib import project
 from lib import smart
@@ -43,7 +41,7 @@ for i, i1 in enumerate(tqdm(proj.image_list)):
         dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
         dist_stats.append( [ dist, len(i1.match_list[i2.name]) ] )
         segments.append( [(ned1[1], ned1[0]), (ned2[1], ned2[0])] )
-        
+
 dist_stats = np.array(dist_stats)
 plt.figure()
 plt.plot(dist_stats[:,0], dist_stats[:,1], 'ro')
@@ -57,7 +55,7 @@ ax.axis('equal')
 remain_list = {}
 for i1 in proj.image_list:
     remain_list[i1.name] = True
-    
+
 group_list = groups.load(proj.analysis_dir)
 for group in group_list:
     points = []
@@ -96,7 +94,7 @@ for i1 in proj.image_list:
     srtm_list.append( i1_node.getFloat("srtm_surface_m") )
     tri_list.append( i1_node.getFloat("tri_surface_m") )
     yaw_list.append( i1_node.getFloat("yaw_error") )
-    
+
 y = np.array(tri_list)
 idx = np.flatnonzero(y)
 x = np.arange(len(tri_list))

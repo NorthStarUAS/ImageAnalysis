@@ -14,9 +14,7 @@ from props import getNode
 import props_json
 
 from . import camera
-from . import image
-from .logger import log, qlog
-from . import project
+from .logger import qlog
 from . import srtm
 
 r2d = 180 / pi

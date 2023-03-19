@@ -14,7 +14,7 @@ import props_json
 from . import camera
 from . import image
 from . import logger
-from .logger import log, qlog
+from .logger import log
 # from . import Render
 from . import state
 from . import transformations

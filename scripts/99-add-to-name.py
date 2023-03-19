@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
 import argparse
-import fnmatch
 import os
 import re
-import shutil
 
 parser = argparse.ArgumentParser(description='Add a value to the file name for numbered files (renames the file with a new number).')
 parser.add_argument('--add', required=True, type=int,

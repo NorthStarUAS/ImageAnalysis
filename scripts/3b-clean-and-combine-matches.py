@@ -2,11 +2,7 @@
 
 import argparse
 import pickle
-import numpy as np
 import os.path
-from tqdm import tqdm
-
-from props import getNode
 
 from lib import matcher
 from lib import match_cleanup
@@ -43,7 +39,7 @@ if False:
                 status = m.showMatchOrient(i1, i2, i1.match_list[j])
 
 match_cleanup.check_for_pair_dups(proj)
-        
+
 # enable the following code to visualize the matches after eliminating
 # duplicates (duplicates can happen after collapsing uv coordinates.)
 if False:

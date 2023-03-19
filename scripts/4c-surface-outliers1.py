@@ -10,8 +10,6 @@ import sys
 
 sys.path.append('../lib')
 import project
-import transformations
-
 
 def meta_stats(report):
     sum = 0.0

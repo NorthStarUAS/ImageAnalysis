@@ -4,8 +4,6 @@ import sys
 sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
 
 import argparse
-import numpy as np
-from progress.bar import Bar
 
 sys.path.append('../lib')
 import Matcher

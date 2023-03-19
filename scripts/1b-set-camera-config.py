@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import fnmatch
 import os.path
 
 # from the aura-props package

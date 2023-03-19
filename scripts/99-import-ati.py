@@ -12,7 +12,7 @@ import fnmatch
 import os
 
 # from the aura-props package
-from props import getNode, PropertyNode
+from props import PropertyNode
 import props_json
 
 source_dir = "/home/curt/Projects/ImageAnalysis/scripts/avon-park2/Images"

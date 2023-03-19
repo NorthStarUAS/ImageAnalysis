@@ -22,7 +22,6 @@ import numpy as np
 import os
 import pickle
 import socket                   # gethostname()
-import time
 
 from lib import camera
 from lib import groups
@@ -181,7 +180,7 @@ elif os.path.exists(meta_file):
     log("Found a pose file:", meta_file)
 else:
     pose.make_pix4d(args.project, args.force_altitude)
-    
+
 pix4d_file = os.path.join(args.project, 'pix4d.csv')
 meta_file = os.path.join(args.project, 'image-metadata.txt')
 if os.path.exists(pix4d_file):
@@ -237,7 +236,7 @@ if not state.check("STEP3a"):
     proj.load_match_pairs()
     smart.load(proj.analysis_dir)
     smart.set_yaw_error_estimates(proj)
-    
+
     # setup project detector parameters
     detector_node = getNode('/config/detector', True)
     detector_node.setString('detector', args.detector)
@@ -275,7 +274,7 @@ if not state.check("STEP3a"):
     matcher_node.setInt('min_chain_len', args.min_chain_length)
     if args.ground:
         matcher_node.setFloat('ground_m', args.ground)
-    
+
     # save any config changes
     proj.save()
 
@@ -284,7 +283,7 @@ if not state.check("STEP3a"):
     # print("K:", K)
 
     log("Matching features")
-    
+
     # fire up the matcher
     matcher.configure()
     matcher.find_matches(proj, K, strategy=args.match_strategy,
@@ -305,7 +304,7 @@ if not state.check("STEP3b"):
     proj.load_images_info()
     proj.load_features(descriptors=False)
     proj.load_match_pairs()
-    
+
     match_cleanup.merge_duplicates(proj)
     match_cleanup.check_for_pair_dups(proj)
     match_cleanup.check_for_1vn_dups(proj)
@@ -319,7 +318,7 @@ if not state.check("STEP3b"):
 
 if not state.check("STEP3c"):
     proj.load_images_info()
-    
+
     K = camera.get_K(optimized=False)
     IK = np.linalg.inv(K)
 
@@ -355,7 +354,7 @@ if not state.check("STEP3d"):
             count += 1
 
     print("Features: %d/%d" % (count, len(matches)))
-    
+
     log("Writing grouped tagged matches:", matches_name)
     pickle.dump(matches, open(matches_name, "wb"))
 
@@ -415,5 +414,5 @@ if not state.check("STEP6"):
     group_list = groups.load(proj.analysis_dir)
 
     render_panda3d.build_map(proj, group_list, args.group)
-    
+
     #state.update("STEP6")

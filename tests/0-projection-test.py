@@ -4,10 +4,6 @@ import sys
 sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
 
 import argparse
-import commands
-import cv2
-import fnmatch
-import os.path
 
 sys.path.append('../lib')
 import Image

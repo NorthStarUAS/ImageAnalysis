@@ -6,7 +6,6 @@
 
 import argparse
 import pickle
-import numpy as np
 import os
 
 from lib import camera
