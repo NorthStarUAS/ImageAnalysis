@@ -16,7 +16,7 @@ from props import getNode
 from lib import histogram
 from lib import project
 
-parser = argparse.ArgumentParser(description='Preprocessing for simple weighted histogram equalization.')
+parser = argparse.ArgumentParser(description='Preprocessing for simple weighted histogram equalizationr.')
 parser.add_argument('project', help='project directory')
 args = parser.parse_args()
 
@@ -53,7 +53,7 @@ def hist_match(source, template):
 if not histogram.load(proj.analysis_dir):
     histogram.make_histograms(proj.image_list)
     
-histogram.make_templates(proj.image_list, dist_cutoff=50, self_weight=0.1)
+histogram.make_templates(proj.image_list, dist_cutoff=50, self_weight=1.0)
 histogram.save(proj.analysis_dir)
     
 histograms = histogram.histograms
