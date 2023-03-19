@@ -4,7 +4,7 @@ import argparse
 import csv
 import cv2
 import json
-import math
+from math import atan2, isnan, pi, sqrt
 import navpy
 import numpy as np
 import os
@@ -19,7 +19,7 @@ from lib import groups
 from lib import project
 
 # constants
-r2d = 180 / math.pi
+r2d = 180 / pi
 
 parser = argparse.ArgumentParser(description='Chop up an image for zooniverse.')
 parser.add_argument("subjectsets", help="subject set id to local project path lookup")
@@ -51,7 +51,7 @@ def find_image(path, filename):
             print("ERROR, cannot determine original file name for:",
                   path, filename)
     return None, -1, -1
-    
+
 no_extrapolate = False
 def intersect2d(ned, v, avg_ground):
     p = ned[:] # copy
@@ -93,19 +93,19 @@ def intersect2d(ned, v, avg_ground):
     dy = ned[0] - p[0]
     dx = ned[1] - p[1]
     dz = ned[2] - p[2]
-    dist = math.sqrt(dx*dx+dy*dy)
-    angle = math.atan2(-dz, dist) * r2d # relative to horizon
+    dist = sqrt(dx*dx+dy*dy)
+    angle = atan2(-dz, dist) * r2d # relative to horizon
     if abs(angle) < 30:
         print(" returning high angle nans:", angle)
         return [np.nan, np.nan, np.nan]
     else:
         return p
-    
+
 def intersect_vectors(ned, v_list, avg_ground):
     pt_list = []
     for v in v_list:
         p = intersect2d(ned, v.flatten(), avg_ground)
-        if not math.isnan(p[0]):
+        if not isnan(p[0]):
             pt_list.append(p)
     return pt_list
 
@@ -116,7 +116,7 @@ with open(args.subjectsets, 'r') as fsubjset:
     for row in reader:
         id = int(row["subject_set_id"])
         subject_sets[id] = row["project_path"]
-                
+
 # build a map of subject id -> subject details
 subjects = {}
 with open(args.subjects, 'r') as fsubj:
@@ -205,12 +205,12 @@ with open(args.classifications, 'r') as fclass:
             u = base_w + x
             v = base_h + y
             by_image[srcname].append( [u, v] )
-            
+
 for project_path in by_project:
     print("project:", project_path)
     proj = project.ProjectMgr(project_path)
     proj.load_images_info()
-    
+
     # lookup ned reference
     ref_node = getNode("/config/ned_reference", True)
     ref = [ ref_node.getFloat('lat_deg'),
@@ -218,7 +218,7 @@ for project_path in by_project:
             ref_node.getFloat('alt_m') ]
 
     ned_list = []
-    
+
     print("Loading optimized match points ...")
     matches = pickle.load( open( os.path.join(proj.analysis_dir, "matches_grouped"), "rb" ) )
 
@@ -275,14 +275,14 @@ for project_path in by_project:
     print('Generating Delaunay mesh and interpolator ...')
     global_tri_list = scipy.spatial.Delaunay(np.array(raw_points))
     interp = scipy.interpolate.LinearNDInterpolator(global_tri_list, raw_values)
-    
+
     for image in proj.image_list:
         if image.sum_count > 0:
             image.z_avg = image.sum_values / float(image.sum_count)
             print(image.name, 'avg elev:', image.z_avg)
         else:
             image.z_avg = 0
- 
+
     K = camera.get_K(optimized=True)
     IK = np.linalg.inv(K)
 
@@ -300,18 +300,18 @@ for project_path in by_project:
         if not image:
             continue
         print(srcname, image)
-        
+
         distorted_uv = proj.redistort(pt_list, optimized=True)
         print("distorted:", distorted_uv)
-        
+
         proj_list = project.projectVectors( IK,
                                             image.get_body2ned(opt=True),
                                             image.get_cam2body(),
                                             distorted_uv )
         print("proj_list:", proj_list)
-        
+
         ned, ypr, quat = image.get_camera_pose(opt=True)
-        
+
         # intersect with our polygon surface approximation
         pts_ned = intersect_vectors(ned, proj_list, -image.z_avg)
         print("pts_ned:", pts_ned)
@@ -352,7 +352,7 @@ for project_path in by_project:
             sum += p
         avg = sum / len(bins[index])
         print(index, len(bins[index]), avg)
-        
+
     # write out simple csv version
     filename = os.path.join(project_path, "ImageAnalysis", "zooniverse.csv")
     with open(filename, 'w') as f:
