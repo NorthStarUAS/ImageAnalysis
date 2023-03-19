@@ -6,18 +6,17 @@ from datetime import datetime, timedelta
 import dateutil.parser
 import ephem
 import fileinput
-import math
+from math import cos, pi, sin
 import numpy as np
 import os.path
 import re
 import sys
-import time
 
 sys.path.append('../lib')
 import transformations
 
-d2r = math.pi / 180.0
-r2d = 180.0 / math.pi
+d2r = pi / 180.0
+r2d = 180.0 / pi
 
 def norm(v):
     return v / np.linalg.norm(v)
@@ -26,7 +25,7 @@ def norm(v):
 def compute_sun_ned(lon_deg, lat_deg, alt_m, timestamp):
     d = datetime.utcfromtimestamp(timestamp)
     #d = datetime.datetime.utcnow()
-    
+
     ed = ephem.Date(d)
     #print 'ephem time utc:', ed
     #print 'localtime:', ephem.localtime(ed)
@@ -38,7 +37,7 @@ def compute_sun_ned(lon_deg, lat_deg, alt_m, timestamp):
     ownship.date = ed
 
     sun = ephem.Sun(ownship)
-    sun_ned = [ math.cos(sun.az), math.sin(sun.az), -math.sin(sun.alt) ]
+    sun_ned = [ cos(sun.az), sin(sun.az), -sin(sun.alt) ]
 
     return norm(np.array(sun_ned))
 
@@ -79,10 +78,10 @@ for line in fmeta:
                                                  roll_deg * d2r,
                                                  'rzyx')
     #print quat
-    
+
     body2ned = transformations.quaternion_matrix(quat)[:3,:3]
     #print body2ned
- 
+
     up = np.matrix( [0, 0, -1] ).T
     up_ned = norm((body2ned * up).A1)
     #print 'up:', up_ned

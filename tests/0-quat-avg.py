@@ -3,7 +3,7 @@
 # test of averaging several rotations together (using a quaternion
 # representation)
 
-import math
+from math import sqrt
 import numpy as np
 import random
 import sys
@@ -21,7 +21,7 @@ for i in range(0,1000):
     quat = transformations.quaternion_about_axis(rot, [1, 0, 0])
     print "quat =", quat
     count += 1
- 
+
     sum[0] += quat[0]
     sum[1] += quat[1]
     sum[2] += quat[2]
@@ -33,9 +33,9 @@ for i in range(0,1000):
     z = sum[3] / float(count)
     new_quat = np.array( [ w, x, y, z] )
     print "new_quat (raw) =", new_quat
-    
+
     # normalize ...
-    new_quat = new_quat / math.sqrt(np.dot(new_quat, new_quat))
+    new_quat = new_quat / sqrt(np.dot(new_quat, new_quat))
 
     print "  avg =", new_quat
     print "  eulers =", transformations.euler_from_quaternion(new_quat, 'sxyz')
