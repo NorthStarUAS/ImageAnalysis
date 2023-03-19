@@ -3,15 +3,12 @@
 print("FYI: so far, this script does /not/ work as intended.")
 
 import argparse
-import csv
 import cv2
 import skvideo.io               # pip3 install sk-video
 import json
-import math
 import numpy as np
 import os
 from tqdm import tqdm
-import time
 
 from props import PropertyNode
 import props_json
@@ -126,17 +123,17 @@ for frame in reader.nextFrame():
 
     if counter % 5 != 0:
         continue
-    
+
     if args.collect_frames:
         if coll_num > args.collect_frames:
             break
 
     coll_num += 1
-    
+
     frame = frame[:,:,::-1]     # convert from RGB to BGR (to make opencv happy)
     #if counter % 2 != 0:
     #    continue
-    
+
     frame_scale = cv2.resize(frame, (0,0), fx=scale, fy=scale,
                              interpolation=cv2.INTER_AREA)
     cv2.imshow('scaled orig', frame_scale)
@@ -146,7 +143,7 @@ for frame in reader.nextFrame():
     print("M:\n", M)
 
     pairs.append( [prev_pts, curr_pts] )
-    
+
     if True:
         for pt in curr_pts:
             cv2.circle(frame_scale, (int(pt[0][0]), int(pt[0][1])), 3, (0,255,0), 1, cv2.LINE_AA)
@@ -157,7 +154,7 @@ for frame in reader.nextFrame():
 
     # highlight = frame_scale.astype('float32') + 2*cv2.merge((diff, diff, diff))
     # cv2.imshow("highlight", (255*highlight.astype('float32')/np.max(highlight)).astype('uint8'))
-    
+
     if 0xFF & cv2.waitKey(1) == 27:
         break
     pbar.update(1)
