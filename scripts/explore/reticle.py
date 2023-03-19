@@ -1,7 +1,7 @@
 # draw a reticle on screen as a 3d object that is kept in line with
 # camera center
 
-import math
+from math import log2, pow
 
 from panda3d.core import LineSegs, NodePath, TextNode
 from direct.gui.OnscreenText import OnscreenText
@@ -46,7 +46,7 @@ class Reticle():
 
         # measurement marker
         h_size = view_size * base.getAspectRatio()
-        h = math.pow(2, int(round(math.log2(h_size/10.0))))
+        h = pow(2, int(round(log2(h_size/10.0))))
         # print("h_size:", h_size, h)
         ls = LineSegs()
         ls.setThickness(2)
@@ -86,7 +86,7 @@ class Reticle():
                                   fg=(0.0, 1.0, 0.0, 1.0),
                                   shadow=(0.1, 0.1, 0.1, 0.8),
                                   align=TextNode.ARight)
-        
+
     def delete(self):
         if hasattr(self, 'node'):
             self.node.removeNode()
@@ -96,7 +96,7 @@ class Reticle():
             self.text1.destroy()
         if hasattr(self, 'text2'):
             self.text2.destroy()
-     
+
     def update(self, cam_pos, view_size, draw):
         self.delete()
         if draw:
