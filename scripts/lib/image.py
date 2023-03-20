@@ -6,17 +6,16 @@ import pickle
 import cv2
 import gzip
 from math import pi
-#from matplotlib import pyplot as plt
 import navpy                    # https://github.com/NavPy/NavPy.git
 import numpy as np
 import os.path
 import sys
 
 from props import getNode
+import transformations
 
 from . import camera
 from .logger import log, qlog
-from . import transformations
 
 d2r = pi / 180.0
 r2d = 180.0 / pi

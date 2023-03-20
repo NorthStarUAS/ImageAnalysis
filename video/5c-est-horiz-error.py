@@ -14,9 +14,7 @@ import pandas as pd
 from scipy import interpolate  # strait up linear interpolation, nothing fancy
 import scipy.signal as signal
 
-import sys
-sys.path.append('../scripts')
-from lib import transformations
+import transformations
 
 from aurauas_flightdata import flight_loader, flight_interp
 

@@ -15,7 +15,6 @@ import props_json
 
 sys.path.append('../scripts')
 from lib import render4geotiff
-from lib import transformations
 r = render4geotiff.Render()
 
 d2r = pi / 180.0

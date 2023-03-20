@@ -12,13 +12,14 @@ import os.path
 import random
 from vpython import *
 from PIL import Image
+
 import navpy
+import transformations
 
 sys.path.append('../lib')
 import Pose
 import ProjectMgr
 import SRTM
-import transformations
 
 # for all the images in the project image_dir, compute the camera
 # poses from the aircraft pose (and camera mounting transform).
@@ -100,14 +101,14 @@ for image in proj.image_list:
     corner_list.append( [image.width, 0] )
     corner_list.append( [image.width, image.height] )
     corner_list.append( [0, image.height] )
-    
+
     proj_list = proj.projectVectors( IK, image.get_body2ned(), image.get_cam2body(), corner_list )
     #print "proj_list:\n", proj_list
     #pts = proj.intersectVectorsWithGroundPlane(image.camera_pose['ned'],
     #                                           g, proj_list)
     pts = sss.interpolate_vectors(image.camera_pose['ned'], proj_list)
     #print "pts (ned):\n", pts
-    
+
     cart = []
     for ned in pts:
         cart.append( [ned[1], ned[0], -ned[2]-g] )
@@ -117,7 +118,7 @@ for image in proj.image_list:
     # doesn't appear that there is any support for this at all. :-(
     #im = Image.open(image.image_file)
     #im = im.resize((128,128), Image.ANTIALIAS)
-    
+
     # two faces makes a quad
     mycolor=(random.random()*0.5, random.random()*0.3+0.7, random.random()*0.5)
     vertices = [ cart[0], cart[2], cart[1] ]

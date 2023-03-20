@@ -18,12 +18,12 @@ import math
 import numpy as np
 
 from props import getNode
+import transformations
 
 from lib import camera
 from lib import project
 from lib import smart
 from lib import srtm
-from lib import transformations
 
 parser = argparse.ArgumentParser(description='Keypoint projection.')
 parser.add_argument('project', help='project directory')
@@ -87,7 +87,7 @@ def find_essential(i1, i2):
     print('  inliers:', n, 'of', len(uv1))
     print('  R:', R)
     print('  tvec:', tvec)
-    
+
     # convert R to homogeonous
     #Rh = np.concatenate((R, np.zeros((3,1))), axis=1)
     #Rh = np.concatenate((Rh, np.zeros((1,4))), axis=0)
@@ -136,6 +136,6 @@ for i, i1 in enumerate(proj.image_list):
     i1_node = smart.smart_node.getChild(i1.name, True)
     for j, i2 in enumerate(proj.image_list):
         yaw_error = smart.update_yaw_error_estimate(i1, i2)
-            
+
 smart.save(proj.analysis_dir)
 

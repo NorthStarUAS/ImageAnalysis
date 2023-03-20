@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 from props import getNode
 import props_json
+import transformations
 
 from . import camera
 from . import image
@@ -17,7 +18,6 @@ from . import logger
 from .logger import log
 # from . import Render
 from . import state
-from . import transformations
 
 
 class ProjectMgr():

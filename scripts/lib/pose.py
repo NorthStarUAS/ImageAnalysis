@@ -11,12 +11,12 @@ import re
 
 import navpy
 from props import getNode
+import transformations
 
 from . import camera
 from . import exif
 from . import image
 from .logger import log
-from . import transformations
 
 from props import getNode
 import props_json

@@ -4,8 +4,7 @@ from math import pi
 import numpy as np
 
 from props import getNode
-
-from . import transformations
+import transformations
 
 # camera parameters are stored in the global property tree, but this
 # class provides convenient getter/setter functions

@@ -5,11 +5,12 @@ sys.path.insert(0, "/usr/local/opencv-2.4.11/lib/python2.7/site-packages/")
 
 from math import pi
 
+import transformations
+
 sys.path.append('../lib')
 import Image
 import Pose
 import ProjectMgr
-import transformations
 
 d2r = pi / 180.0
 

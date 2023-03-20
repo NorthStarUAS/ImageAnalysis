@@ -7,16 +7,14 @@
 import argparse
 import csv
 import math
-from matplotlib import pyplot as plt 
+from matplotlib import pyplot as plt
 import numpy as np
 import os
 import pandas as pd
 from scipy import interpolate  # strait up linear interpolation, nothing fancy
 import scipy.signal as signal
 
-import sys
-sys.path.append('../scripts')
-from lib import transformations
+import transformations
 
 from rcUAS_flightdata import flight_loader, flight_interp
 

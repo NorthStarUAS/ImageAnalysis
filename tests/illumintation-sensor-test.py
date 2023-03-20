@@ -10,9 +10,7 @@ from math import cos, pi, sin
 import numpy as np
 import os.path
 import re
-import sys
 
-sys.path.append('../lib')
 import transformations
 
 d2r = pi / 180.0

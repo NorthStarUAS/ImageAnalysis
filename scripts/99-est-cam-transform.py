@@ -10,11 +10,12 @@ import argparse
 from math import pi
 import numpy as np
 import numpy.matlib as npm
+
 from props import getNode
+import transformations
 
 from lib import groups
 from lib import project
-from lib import transformations
 
 r2d = 180.0 / pi
 d2r = pi / 180.0

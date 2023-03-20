@@ -6,15 +6,13 @@
 
 import argparse
 import math
-from matplotlib import pyplot as plt 
+from matplotlib import pyplot as plt
 import numpy as np
 import os
 import pandas as pd
 from scipy import interpolate  # strait up linear interpolation, nothing fancy
 
-import sys
-sys.path.append('../scripts')
-from lib import transformations
+import transformations
 
 from aurauas_flightdata import flight_loader, flight_interp
 
@@ -245,7 +243,7 @@ for x in np.linspace(tmin, tmax, int(round(tlen*hz))):
     alt = alt_interp(x)
     if alt >= alt_threshold:
         data.append( [x, vp, vq, vr, fp, fq, fr] )
-    
+
 initial = [0.0,  0.0, 0.0]
 print("starting est:", initial)
 
@@ -327,5 +325,5 @@ print("Hunting for optimal yaw offset ...")
 spread = 25*d2r
 est = list(initial)
 result = myopt(errorFunc, est, spread)
-        
+
 print("Best result:", np.array(result)*r2d)

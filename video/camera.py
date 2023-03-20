@@ -5,10 +5,7 @@ import os
 
 from props import PropertyNode
 import props_json
-
-import sys
-sys.path.append('../scripts')
-from lib import transformations
+import transformations
 
 # helpful constants
 d2r = pi / 180.0

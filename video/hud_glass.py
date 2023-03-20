@@ -7,10 +7,7 @@ import numpy as np
 import re
 
 from rcUAS import wgs84
-
-import sys
-sys.path.append('../scripts')
-from lib import transformations
+import transformations
 
 import airports
 

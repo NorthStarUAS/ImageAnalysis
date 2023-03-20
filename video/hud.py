@@ -1,16 +1,11 @@
+import cv2
 import datetime
 import ephem                    # dnf install python3-pyephem
 from math import atan2, cos, pi, sin, sqrt
 import navpy
 import numpy as np
 
-# find our custom built opencv first
-import sys
-sys.path.insert(0, "/usr/local/opencv3/lib/python2.7/site-packages/")
-import cv2
-
-sys.path.append('../scripts')
-from lib import transformations
+import transformations
 
 import airports
 
