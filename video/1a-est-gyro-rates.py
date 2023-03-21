@@ -11,7 +11,7 @@ import os
 
 from props import PropertyNode
 import props_json
-import transformations
+from transformations import euler_from_matrix
 
 d2r = pi / 180.0
 r2d = 180.0 / pi
@@ -606,7 +606,7 @@ for frame in reader.nextFrame():
                                                  points1=p1, points2=p2,
                                                  cameraMatrix=K)
             print("R:", R)
-            (yaw, pitch, roll) = transformations.euler_from_matrix(R, 'rzyx')
+            (yaw, pitch, roll) = euler_from_matrix(R, 'rzyx')
             print("ypr: %.2f %.2f %.2f" % (yaw*r2d, pitch*r2d, roll*r2d))
 
     # motion9(frame_scale, p2, p1)

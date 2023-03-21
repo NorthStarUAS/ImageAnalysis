@@ -12,7 +12,7 @@ import numpy as np
 import numpy.matlib as npm
 
 from props import getNode
-import transformations
+from transformations import euler_from_quaternion, quaternion_conjugate, quaternion_from_euler, quaternion_inverse, quaternion_multiply, vector_norm
 
 from lib import groups
 from lib import project
@@ -41,11 +41,11 @@ for i, image in enumerate(proj.image_list):
         ned, ypr, q0 = image.get_camera_pose(opt=False)
         ned, ypr, q1 = image.get_camera_pose(opt=True)
         # rx = q1 * conj(q0)
-        conj_q0 = transformations.quaternion_conjugate(q0)
-        rx = transformations.quaternion_multiply(q1, conj_q0)
-        rx /= transformations.vector_norm(rx)
+        conj_q0 = quaternion_conjugate(q0)
+        rx = quaternion_multiply(q1, conj_q0)
+        rx /= vector_norm(rx)
         print(' ', rx)
-        (yaw_rad, pitch_rad, roll_rad) = transformations.euler_from_quaternion(rx, 'rzyx')
+        (yaw_rad, pitch_rad, roll_rad) = euler_from_quaternion(rx, 'rzyx')
         print('euler (ypr):', yaw_rad*r2d, pitch_rad*r2d, roll_rad*r2d)
         quats.append(rx)
 
@@ -78,9 +78,9 @@ def averageQuaternions(Q):
 
 
 q = averageQuaternions(np.array(quats))
-q /= transformations.vector_norm(q)
+q /= vector_norm(q)
 print('average transform:', q)
-(yaw_rad, pitch_rad, roll_rad) = transformations.euler_from_quaternion(q, 'rzyx')
+(yaw_rad, pitch_rad, roll_rad) = euler_from_quaternion(q, 'rzyx')
 print('euler transform (ypr):', yaw_rad*r2d, pitch_rad*r2d, roll_rad*r2d)
 
 mount_node = getNode('/config/camera/mount', True)
@@ -88,25 +88,25 @@ camera_yaw = mount_node.getFloat('yaw_deg')
 camera_pitch = mount_node.getFloat('pitch_deg')
 camera_roll = mount_node.getFloat('roll_deg')
 print('camera:', camera_yaw, camera_pitch, camera_roll)
-body2cam = transformations.quaternion_from_euler(camera_yaw * d2r,
+body2cam = quaternion_from_euler(camera_yaw * d2r,
                                                  camera_pitch * d2r,
                                                  camera_roll * d2r,
                                                  'rzyx')
 print('body2cam:', body2cam)
-(yaw_rad, pitch_rad, roll_rad) = transformations.euler_from_quaternion(body2cam, 'rzyx')
+(yaw_rad, pitch_rad, roll_rad) = euler_from_quaternion(body2cam, 'rzyx')
 print('euler body2cam (ypr):', yaw_rad*r2d, pitch_rad*r2d, roll_rad*r2d)
 
-cam2body = transformations.quaternion_inverse(body2cam)
+cam2body = quaternion_inverse(body2cam)
 print('cam2body:', cam2body)
-(yaw_rad, pitch_rad, roll_rad) = transformations.euler_from_quaternion(cam2body, 'rzyx')
+(yaw_rad, pitch_rad, roll_rad) = euler_from_quaternion(cam2body, 'rzyx')
 print('euler cam2body (ypr):', yaw_rad*r2d, pitch_rad*r2d, roll_rad*r2d)
 
-tot = transformations.quaternion_multiply(q, body2cam)
-(yaw_rad, pitch_rad, roll_rad) = transformations.euler_from_quaternion(tot, 'rzyx')
+tot = quaternion_multiply(q, body2cam)
+(yaw_rad, pitch_rad, roll_rad) = euler_from_quaternion(tot, 'rzyx')
 print(tot)
 print('euler (ypr):', yaw_rad*r2d, pitch_rad*r2d, roll_rad*r2d)
 
-tot_inv = transformations.quaternion_inverse(tot)
+tot_inv = quaternion_inverse(tot)
 
 def wrap_pi(val):
     while val < pi:
@@ -121,10 +121,10 @@ for i, image in enumerate(proj.image_list):
         lla, ypr, q_aircraft = image.get_aircraft_pose()
         ned_init, ypr, q_cam_initial = image.get_camera_pose(opt=False)
         ned_opt, ypr, q_cam_opt = image.get_camera_pose(opt=True)
-        q_aircraft_corrected = transformations.quaternion_multiply(q_cam_opt, tot_inv)
-        (orig_yaw_rad, orig_pitch_rad, orig_roll_rad) = transformations.euler_from_quaternion(q_aircraft, 'rzyx')
+        q_aircraft_corrected = quaternion_multiply(q_cam_opt, tot_inv)
+        (orig_yaw_rad, orig_pitch_rad, orig_roll_rad) = euler_from_quaternion(q_aircraft, 'rzyx')
         #print('  euler aircraft (ypr):', orig_yaw_rad*r2d, orig_pitch_rad*r2d, orig_roll_rad*r2d)
-        (corr_yaw_rad, corr_pitch_rad, corr_roll_rad) = transformations.euler_from_quaternion(q_aircraft_corrected, 'rzyx')
+        (corr_yaw_rad, corr_pitch_rad, corr_roll_rad) = euler_from_quaternion(q_aircraft_corrected, 'rzyx')
         #print('  euler correctd (ypr):', corr_yaw_rad*r2d, corr_pitch_rad*r2d, corr_roll_rad*r2d)
         timestamp = image.node.getFloat('flight_time')
         yaw_error_rad = wrap_pi(corr_yaw_rad - orig_yaw_rad)

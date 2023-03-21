@@ -12,7 +12,7 @@ import os
 import pandas as pd
 from scipy import interpolate  # strait up linear interpolation, nothing fancy
 
-import transformations
+from transformations import euler_matrix
 
 from aurauas_flightdata import flight_loader, flight_interp
 
@@ -257,7 +257,7 @@ print("starting est:", initial)
 def errorFunc(xk):
     print("    Trying:", xk)
     # order is yaw, pitch, roll
-    R = transformations.euler_matrix(xk[0], xk[1], xk[2], 'rzyx')[:3,:3]
+    R = euler_matrix(xk[0], xk[1], xk[2], 'rzyx')[:3,:3]
     #print("R:\n", R)
     # compute error function using global data structures
     result = []

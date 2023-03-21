@@ -5,7 +5,7 @@ from math import atan2, cos, pi, sin, sqrt
 import navpy
 import numpy as np
 
-import transformations
+from transformations import quaternion_about_axis, quaternion_from_euler, quaternion_inverse, quaternion_multiply, quaternion_transform
 
 import airports
 
@@ -244,10 +244,9 @@ class HUD:
                          cv2.LINE_AA)
 
     def ladder_helper(self, q0, a0, a1):
-        q1 = transformations.quaternion_from_euler(-a1*d2r, -a0*d2r, 0.0,
-                                                   'rzyx')
-        q = transformations.quaternion_multiply(q1, q0)
-        v = transformations.quaternion_transform(q, [1.0, 0.0, 0.0])
+        q1 = quaternion_from_euler(-a1*d2r, -a0*d2r, 0.0, 'rzyx')
+        q = quaternion_multiply(q1, q0)
+        v = quaternion_transform(q, [1.0, 0.0, 0.0])
         uv = self.project_point( [self.ned[0] + v[0],
                                   self.ned[1] + v[1],
                                   self.ned[2] + v[2]] )
@@ -258,7 +257,7 @@ class HUD:
         a2 = 8.0
         #slide_rad = self.psi_rad - beta_rad
         slide_rad = self.psi_rad
-        q0 = transformations.quaternion_about_axis(slide_rad, [0.0, 0.0, -1.0])
+        q0 = quaternion_about_axis(slide_rad, [0.0, 0.0, -1.0])
         for a0 in range(5,35,5):
             # above horizon
 
@@ -341,7 +340,7 @@ class HUD:
         if self.alpha_rad == None or self.beta_rad == None:
             return
 
-        q0 = transformations.quaternion_about_axis(self.psi_rad, [0.0, 0.0, -1.0])
+        q0 = quaternion_about_axis(self.psi_rad, [0.0, 0.0, -1.0])
         a0 = self.the_rad * r2d
         center = self.ladder_helper(q0, a0, 0.0)
         alpha = self.alpha_rad * r2d
@@ -380,7 +379,7 @@ class HUD:
         a1 = 10.0
         a2 = 1.5
         a3 = 3.0
-        q0 = transformations.quaternion_about_axis(self.psi_rad,
+        q0 = quaternion_about_axis(self.psi_rad,
                                                    [0.0, 0.0, -1.0])
         a0 = self.ap_pitch
 
@@ -429,7 +428,7 @@ class HUD:
         color = medium_orchid
         size = 2
         a = atan2(self.ve, self.vn)
-        q0 = transformations.quaternion_about_axis(self.ap_hdg*d2r,
+        q0 = quaternion_about_axis(self.ap_hdg*d2r,
                                                    [0.0, 0.0, -1.0])
         center = self.ladder_helper(q0, 0, 0)
         pts = []
@@ -456,7 +455,7 @@ class HUD:
         size = 2
         a1 = 10.0
         a2 = 3.0
-        q0 = transformations.quaternion_about_axis(self.psi_rad, [0.0, 0.0, -1.0])
+        q0 = quaternion_about_axis(self.psi_rad, [0.0, 0.0, -1.0])
         a0 = self.the_rad*r2d
         # print 'pitch:', a0, 'ap:', self.ap_pitch
 
@@ -492,7 +491,7 @@ class HUD:
         self.filter_vn = (1.0 - self.tf_vel) * self.filter_vn + self.tf_vel * self.vn
         self.filter_ve = (1.0 - self.tf_vel) * self.filter_ve + self.tf_vel * self.ve
         a = atan2(self.filter_ve, self.filter_vn)
-        q0 = transformations.quaternion_about_axis(a, [0.0, 0.0, -1.0])
+        q0 = quaternion_about_axis(a, [0.0, 0.0, -1.0])
         uv1 = self.ladder_helper(q0, 0, 0)
         uv2 = self.ladder_helper(q0, 1.5, 1.0)
         uv3 = self.ladder_helper(q0, 1.5, -1.0)
@@ -622,12 +621,9 @@ class HUD:
             self.draw_lla_point([ apt[1], apt[2], apt[3] ], apt[0])
 
     def draw_nose(self):
-        ned2body = transformations.quaternion_from_euler(self.psi_rad,
-                                                         self.the_rad,
-                                                         self.phi_rad,
-                                                         'rzyx')
-        body2ned = transformations.quaternion_inverse(ned2body)
-        vec = transformations.quaternion_transform(body2ned, [1.0, 0.0, 0.0])
+        ned2body = quaternion_from_euler(self.psi_rad, self.the_rad, self.phi_rad, 'rzyx')
+        body2ned = quaternion_inverse(ned2body)
+        vec = quaternion_transform(body2ned, [1.0, 0.0, 0.0])
         uv = self.project_point([self.ned[0] + vec[0],
                                  self.ned[1] + vec[1],
                                  self.ned[2]+ vec[2]])

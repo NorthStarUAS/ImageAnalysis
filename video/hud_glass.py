@@ -7,7 +7,7 @@ import numpy as np
 import re
 
 from rcUAS import wgs84
-import transformations
+from transformations import quaternion_about_axis, quaternion_from_euler, quaternion_multiply, quaternion_transform
 
 import airports
 
@@ -346,10 +346,9 @@ class HUD:
     # transform roll, pitch offset angles into world coordinates and
     # the project back into image uv coordinates
     def ar_helper(self, q0, a0, a1):
-        q1 = transformations.quaternion_from_euler(-a1*d2r, -a0*d2r, 0.0,
-                                                   'rzyx')
-        q = transformations.quaternion_multiply(q1, q0)
-        v = transformations.quaternion_transform(q, [1.0, 0.0, 0.0])
+        q1 = quaternion_from_euler(-a1*d2r, -a0*d2r, 0.0, 'rzyx')
+        q = quaternion_multiply(q1, q0)
+        v = quaternion_transform(q, [1.0, 0.0, 0.0])
         uv = self.camera.project_ned( [self.ned[0] + v[0],
                                        self.ned[1] + v[1],
                                        self.ned[2] + v[2]] )
@@ -365,13 +364,11 @@ class HUD:
         yaw = self.cam_yaw * d2r
         pitch = self.cam_pitch * d2r
         roll = self.cam_roll * d2r
-        body2cam = transformations.quaternion_from_euler( roll, yaw, pitch,
-                                                          'rzyx' )
+        body2cam = quaternion_from_euler( roll, yaw, pitch, 'rzyx' )
         #print(a0, a1)
-        q1 = transformations.quaternion_from_euler( 0.0, -a1*d2r, -a0*d2r,
-                                                    'rzyx' )
-        q = transformations.quaternion_multiply(q1, body2cam)
-        v = transformations.quaternion_transform(q, [0.0, 0.0, 1.0])
+        q1 = quaternion_from_euler( 0.0, -a1*d2r, -a0*d2r, 'rzyx' )
+        q = quaternion_multiply(q1, body2cam)
+        v = quaternion_transform(q, [0.0, 0.0, 1.0])
         uv = self.camera.project_xyz( v )
         return uv
 
@@ -403,7 +400,7 @@ class HUD:
         a2 = 8.0
         #slide_rad = self.psi_rad - beta_rad
         slide_rad = self.psi_rad
-        q0 = transformations.quaternion_about_axis(slide_rad, [0.0, 0.0, -1.0])
+        q0 = quaternion_about_axis(slide_rad, [0.0, 0.0, -1.0])
         for a0 in range(5,35,5):
             # above horizon
 
@@ -486,7 +483,7 @@ class HUD:
         if True or self.alpha_rad == None or self.beta_rad == None:
             return
 
-        q0 = transformations.quaternion_about_axis(self.psi_rad, [0.0, 0.0, -1.0])
+        q0 = quaternion_about_axis(self.psi_rad, [0.0, 0.0, -1.0])
         a0 = self.the_rad * r2d
         center = self.ar_helper(q0, a0, 0.0)
         alpha = self.alpha_rad * r2d
@@ -717,7 +714,7 @@ class HUD:
         color = medium_orchid
         size = 2
         a = atan2(self.ve, self.vn)
-        q0 = transformations.quaternion_about_axis(self.ap_hdg*d2r,
+        q0 = quaternion_about_axis(self.ap_hdg*d2r,
                                                    [0.0, 0.0, -1.0])
         center = self.ar_helper(q0, 0, 0)
         pts = []
@@ -876,7 +873,7 @@ class HUD:
         color = yellow
         size = 2
         a = atan2(self.filter_ve, self.filter_vn)
-        q0 = transformations.quaternion_about_axis(a, [0.0, 0.0, -1.0])
+        q0 = quaternion_about_axis(a, [0.0, 0.0, -1.0])
         uv1 = self.ar_helper(q0, 0, 0)
         uv2 = self.ar_helper(q0, 1.5, 1.0)
         uv3 = self.ar_helper(q0, 1.5, -1.0)

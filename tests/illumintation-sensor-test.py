@@ -11,7 +11,7 @@ import numpy as np
 import os.path
 import re
 
-import transformations
+from transformations import quaternion_from_euler, quaternion_matrix
 
 d2r = pi / 180.0
 r2d = 180.0 / pi
@@ -51,7 +51,7 @@ args = parser.parse_args()
 
 dt = dateutil.parser.parse(args.tof)
 unixtime = calendar.timegm(dt.timetuple()) + 18000
-print 'time of flight (unix):', unixtime
+print('time of flight (unix):', unixtime)
 
 metafile = os.path.join(args.path, 'image-metadata.txt')
 fmeta = fileinput.input(metafile)
@@ -71,13 +71,10 @@ for line in fmeta:
     sun_ned = compute_sun_ned(lon_deg, lat_deg, alt_m, unixtime)
     #print sun_ned
 
-    quat = transformations.quaternion_from_euler(yaw_deg * d2r,
-                                                 pitch_deg * d2r,
-                                                 roll_deg * d2r,
-                                                 'rzyx')
+    quat = quaternion_from_euler(yaw_deg * d2r, pitch_deg * d2r, roll_deg * d2r, 'rzyx')
     #print quat
 
-    body2ned = transformations.quaternion_matrix(quat)[:3,:3]
+    body2ned = quaternion_matrix(quat)[:3,:3]
     #print body2ned
 
     up = np.matrix( [0, 0, -1] ).T
@@ -90,4 +87,4 @@ for line in fmeta:
 
     rel_sun_angle = angle_between(sun_ned, up_ned) * r2d
 
-    print '%s,%.2f,%.2f' % (tokens[0], rel_sun_angle, ils)
+    print('%s,%.2f,%.2f' % (tokens[0], rel_sun_angle, ils))

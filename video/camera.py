@@ -5,7 +5,7 @@ import os
 
 from props import PropertyNode
 import props_json
-import transformations
+from transformations import quaternion_from_euler, quaternion_inverse, quaternion_matrix, quaternion_multiply
 
 # helpful constants
 d2r = pi / 180.0
@@ -102,10 +102,7 @@ class VirtualCamera:
 
     def update_PROJ(self, ned, yaw_rad, pitch_rad, roll_rad):
         cam_yaw, cam_pitch, cam_roll = self.get_ypr()
-        body2cam = transformations.quaternion_from_euler( cam_yaw * d2r,
-                                                          cam_pitch * d2r,
-                                                          cam_roll * d2r,
-                                                          'rzyx')
+        body2cam = quaternion_from_euler( cam_yaw * d2r, cam_pitch * d2r, cam_roll * d2r, 'rzyx')
 
         # this function modifies the parameters you pass in so, avoid
         # getting our data changed out from under us, by forcing copies
@@ -113,15 +110,12 @@ class VirtualCamera:
         tmp_yaw = float(yaw_rad)
         tmp_pitch = float(pitch_rad)
         tmp_roll = float(roll_rad)
-        ned2body = transformations.quaternion_from_euler(tmp_yaw,
-                                                         tmp_pitch,
-                                                         tmp_roll,
-                                                         'rzyx')
-        #body2ned = transformations.quaternion_inverse(ned2body)
+        ned2body = quaternion_from_euler(tmp_yaw, tmp_pitch, tmp_roll, 'rzyx')
+        #body2ned = quaternion_inverse(ned2body)
 
         #print 'ned2body(q):', ned2body
-        ned2cam_q = transformations.quaternion_multiply(ned2body, body2cam)
-        ned2cam = np.matrix(transformations.quaternion_matrix(np.array(ned2cam_q))[:3,:3]).T
+        ned2cam_q = quaternion_multiply(ned2body, body2cam)
+        ned2cam = np.matrix(quaternion_matrix(np.array(ned2cam_q))[:3,:3]).T
         #print 'ned2cam:', ned2cam
         R = ned2proj.dot( ned2cam )
         rvec, jac = cv2.Rodrigues(R)

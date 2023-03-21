@@ -7,17 +7,17 @@ from math import sqrt
 import numpy as np
 import random
 
-import transformations
+from transformations import euler_from_quaternion, quaternion_about_axis
 
 # start with the identity
-#sum = transformations.quaternion_from_euler(0.0, 0.0, 0.0, axes='sxyz')
+#sum = quaternion_from_euler(0.0, 0.0, 0.0, axes='sxyz')
 sum = np.zeros(4)
 count = 0
 for i in range(0,1000):
     rot = random.random()*0.25-0.125
-    print "rotation =", rot
-    quat = transformations.quaternion_about_axis(rot, [1, 0, 0])
-    print "quat =", quat
+    print("rotation =", rot)
+    quat = quaternion_about_axis(rot, [1, 0, 0])
+    print("quat =", quat)
     count += 1
 
     sum[0] += quat[0]
@@ -30,10 +30,10 @@ for i in range(0,1000):
     y = sum[2] / float(count)
     z = sum[3] / float(count)
     new_quat = np.array( [ w, x, y, z] )
-    print "new_quat (raw) =", new_quat
+    print("new_quat (raw) =", new_quat)
 
     # normalize ...
     new_quat = new_quat / sqrt(np.dot(new_quat, new_quat))
 
-    print "  avg =", new_quat
-    print "  eulers =", transformations.euler_from_quaternion(new_quat, 'sxyz')
+    print("  avg =", new_quat)
+    print("  eulers =", euler_from_quaternion(new_quat, 'sxyz'))

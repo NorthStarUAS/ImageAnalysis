@@ -10,8 +10,6 @@ import numpy as np
 import os
 from tqdm import tqdm
 
-import transformations
-
 import camera
 import horizon
 

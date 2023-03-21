@@ -10,7 +10,7 @@ import numpy as np
 import os
 from tqdm import tqdm
 
-import transformations
+from transformations import euler_from_matrix
 
 import camera
 
@@ -413,7 +413,7 @@ for frame in reader.nextFrame():
         best_index = None
         best_val = None
         for i, R in enumerate(Rs):
-            (Hpsi, Hthe, Hphi) = transformations.euler_from_matrix(R, 'rzyx')
+            (Hpsi, Hthe, Hphi) = euler_from_matrix(R, 'rzyx')
             hp = Hpsi * fps
             hq = Hphi * fps
             hr = Hthe * fps
@@ -431,8 +431,8 @@ for frame in reader.nextFrame():
         R1, R2, t = cv2.decomposeEssentialMat(M)
         #print("R1:\n", R1)
         #print("R2:\n", R2)
-        (psi1, the1, phi1) = transformations.euler_from_matrix(R1, 'rzyx')
-        (psi2, the2, phi2) = transformations.euler_from_matrix(R2, 'rzyx')
+        (psi1, the1, phi1) = euler_from_matrix(R1, 'rzyx')
+        (psi2, the2, phi2) = euler_from_matrix(R2, 'rzyx')
         #print("ypr1: %.2f %.2f %.2f" % (psi1*r2d, the1*r2d, phi1*r2d))
         #print("ypr2: %.2f %.2f %.2f" % (psi2*r2d, the2*r2d, phi2*r2d))
         # we are expecting very small pose changes
@@ -459,7 +459,7 @@ for frame in reader.nextFrame():
         #                                     points1=p1, points2=p2,
         #                                     cameraMatrix=K)
         #print("R:", R)
-        #(yaw, pitch, roll) = transformations.euler_from_matrix(R, 'rzyx')
+        #(yaw, pitch, roll) = euler_from_matrix(R, 'rzyx')
         #print("ypr: %.2f %.2f %.2f" % (yaw*r2d, pitch*r2d, roll*r2d))
 
     # divide tx, ty by args.scale to get a translation value
