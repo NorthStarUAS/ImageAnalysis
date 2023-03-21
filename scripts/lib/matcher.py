@@ -20,7 +20,7 @@ from . import image_list
 from .logger import log, qlog
 from . import project
 from . import smart
-from . import transformations
+from transformations import rotation_matrix
 
 detector_node = getNode('/config/detector', True)
 matcher_node = getNode('/config/matcher', True)
@@ -390,7 +390,7 @@ def smart_pair_matches(i1, i2, review=False, est_rotation=False):
     if abs(i1_yaw_error) > 0.0001 and abs(i2_yaw_error) < 0.0001:
         i2_yaw_error = i1_yaw_error
     print("smart yaw errors:", i1_yaw_error, i2_yaw_error)
-    R2 = transformations.rotation_matrix(i2_yaw_error*d2r, [1, 0, 0])[:3,:3]
+    R2 = rotation_matrix(i2_yaw_error*d2r, [1, 0, 0])[:3,:3]
     print("R2:\n", R2)
 
     match_ratio = matcher_node.getFloat("match_ratio")

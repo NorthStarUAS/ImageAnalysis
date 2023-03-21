@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from props import getNode
 import props_json
-import transformations
+from transformations import unit_vector
 
 from . import camera
 from . import image
@@ -363,7 +363,7 @@ class ProjectMgr():
         for uv in image.uv_list:
             uvh = np.array([uv[0], uv[1], 1.0])
             proj = body2ned.dot(cam2body).dot(IK).dot(uvh)
-            proj_norm = transformations.unit_vector(proj)
+            proj_norm = unit_vector(proj)
             vec_list.append(proj_norm)
         return vec_list
 
@@ -534,13 +534,13 @@ def projectVectors(IK, body2ned, cam2body, uv_list):
     for uv in uv_list:
         uvh = np.array([uv[0], uv[1], 1.0])
         proj = body2ned.dot(cam2body).dot(IK).dot(uvh)
-        proj_norm = transformations.unit_vector(proj)
+        proj_norm = unit_vector(proj)
         proj_list.append(proj_norm)
 
     #for uv in uv_list:
     #    print "uv:", uv
     #    uvh = np.array([uv[0], uv[1], 1.0])
-    #    print "cam vec=", transformations.unit_vector(IR.dot(IK).dot(uvh))
+    #    print "cam vec=", unit_vector(IR.dot(IK).dot(uvh))
     return proj_list
 
 # given a set of vectors in the ned frame, and a starting point.

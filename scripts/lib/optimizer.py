@@ -14,7 +14,7 @@ import numpy as np
 from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix
 
-import transformations
+from transformations import decompose_matrix, euler_from_matrix, euler_from_quaternion, euler_matrix, quaternion_matrix, superimposition_matrix
 
 from . import camera
 from .logger import log, qlog
@@ -40,7 +40,7 @@ def get_recenter_affine(src_list, dst_list):
         dst[2].append(dst_ned[2])
         dst[3].append(1.0)
         # print("{} <-- {}".format(dst_ned, src_ned))
-    A = transformations.superimposition_matrix(src, dst, scale=True)
+    A = superimposition_matrix(src, dst, scale=True)
     log("A:\n", A)
     return A
 
@@ -112,13 +112,13 @@ class Optimizer():
         Rned2cam, jac = cv2.Rodrigues(rvec)
         Rned2body = self.cam2body.dot(Rned2cam)
         Rbody2ned = np.matrix(Rned2body).T
-        ypr = transformations.euler_from_matrix(Rbody2ned, 'rzyx')
+        ypr = euler_from_matrix(Rbody2ned, 'rzyx')
         pos = -np.matrix(Rned2cam).T * np.matrix(tvec).T
         ned = np.squeeze(np.asarray(pos.T[0]))
         return ypr, ned
 
     def nedquat2rvectvec(self, ned, quat):
-        body2ned = transformations.quaternion_matrix(np.array(quat))[:3,:3]
+        body2ned = quaternion_matrix(np.array(quat))[:3,:3]
         ned2body = body2ned.T
         R = self.body2cam.dot( ned2body )
         rvec, jac = cv2.Rodrigues(R)
@@ -127,7 +127,7 @@ class Optimizer():
 
     def nedyaw2rvectvec(self, ned, v):
         # fixme
-        body2ned = transformations.quaternion_matrix(np.array(quat))[:3,:3]
+        body2ned = quaternion_matrix(np.array(quat))[:3,:3]
         ned2body = body2ned.T
         R = self.body2cam.dot( ned2body )
         rvec, jac = cv2.Rodrigues(R)
@@ -560,7 +560,7 @@ class Optimizer():
                 cam2body = image.get_cam2body()
                 Rned2body = cam2body.dot(Rned2cam)
                 Rbody2ned = np.matrix(Rned2body).T
-                (yaw_rad, pitch_rad, roll_rad) = transformations.euler_from_matrix(Rbody2ned, 'rzyx')
+                (yaw_rad, pitch_rad, roll_rad) = euler_from_matrix(Rbody2ned, 'rzyx')
                 #print "orig ypr =", image.camera_pose['ypr']
                 #print "new ypr =", [yaw/d2r, pitch/d2r, roll/d2r]
                 pos = -np.matrix(Rned2cam).T * np.matrix(tvec).T
@@ -568,7 +568,7 @@ class Optimizer():
             elif self.cam_method == 'ned_quat':
                 ned = cam[0:3]
                 quat = cam[3:7]
-                (yaw_rad, pitch_rad, roll_rad) = transformations.euler_from_quaternion(quat, "rzyx")
+                (yaw_rad, pitch_rad, roll_rad) = euler_from_quaternion(quat, "rzyx")
             log(image.name, ned_orig, '->', ned, 'dist:', np.linalg.norm(np.array(ned_orig) - np.array(ned)))
             image.set_camera_pose( ned, yaw_rad*r2d, pitch_rad*r2d, roll_rad*r2d, opt=True )
             image.placed = True
@@ -596,13 +596,13 @@ class Optimizer():
         A = get_recenter_affine(src_list, dst_list)
 
         # extract the rotation matrix (R) from the affine transform
-        scale, shear, angles, trans, persp = transformations.decompose_matrix(A)
+        scale, shear, angles, trans, persp = decompose_matrix(A)
         log('  scale:', scale)
         log('  shear:', shear)
         log('  angles:', angles)
         log('  translate:', trans)
         log('  perspective:', persp)
-        R = transformations.euler_matrix(*angles)
+        R = euler_matrix(*angles)
         log("R:\n{}".format(R))
 
         # fixme (just group):
@@ -642,7 +642,7 @@ class Optimizer():
                 # everything in proper consistent alignment
 
                 newRbody2ned = R[:3,:3].dot(Rbody2ned)
-                (yaw, pitch, roll) = transformations.euler_from_matrix(newRbody2ned, 'rzyx')
+                (yaw, pitch, roll) = euler_from_matrix(newRbody2ned, 'rzyx')
                 image.set_camera_pose(new_cams[i], yaw*r2d, pitch*r2d, roll*r2d,
                                       opt=True)
                 dist = np.linalg.norm( np.array(ned_orig) - np.array(new_cams[i]))

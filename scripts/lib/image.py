@@ -12,7 +12,7 @@ import os.path
 import sys
 
 from props import getNode
-import transformations
+from transformations import euler_from_quaternion, quaternion_from_euler, quaternion_matrix, quaternion_multiply, rotation_matrix
 
 from . import camera
 from .logger import log, qlog
@@ -283,6 +283,7 @@ class Image():
         for i, uv in enumerate(uv_new):
             image.uv_list.append(uv_new[i][0])
             # print("  orig = %s  undistort = %s" % (uv_raw[i][0], uv_new[i]
+
     def detect_features(self, scale, use_cache=True):
         if use_cache:
             success = True
@@ -408,10 +409,7 @@ class Image():
         return(minlla[1], minlla[0], maxlla[1], maxlla[0])
 
     def ypr_to_quat(self, yaw_deg, pitch_deg, roll_deg):
-        quat = transformations.quaternion_from_euler(yaw_deg * d2r,
-                                                     pitch_deg * d2r,
-                                                     roll_deg * d2r,
-                                                     'rzyx')
+        quat = quaternion_from_euler(yaw_deg * d2r, pitch_deg * d2r, roll_deg * d2r, 'rzyx')
         return quat
 
     def set_aircraft_pose(self, lat_deg, lon_deg, alt_m,
@@ -448,8 +446,8 @@ class Image():
 
         # update the camera pose
         body2cam = camera.get_body2cam()
-        ned2cam = transformations.quaternion_multiply(ned2body, body2cam)
-        (yaw_rad, pitch_rad, roll_rad) = transformations.euler_from_quaternion(ned2cam, "rzyx")
+        ned2cam = quaternion_multiply(ned2body, body2cam)
+        (yaw_rad, pitch_rad, roll_rad) = euler_from_quaternion(ned2cam, "rzyx")
         cam_pose_node = self.node.getChild('camera_pose', True)
         cam_pose_node.setFloat('yaw_deg', yaw_rad * r2d)
         cam_pose_node.setFloat('pitch_deg', pitch_rad * r2d)
@@ -537,7 +535,7 @@ class Image():
    # body2ned (IR) rotation matrix
     def get_body2ned(self, opt=False):
         ned, ypr, quat = self.get_camera_pose(opt)
-        return transformations.quaternion_matrix(np.array(quat))[:3,:3]
+        return quaternion_matrix(np.array(quat))[:3,:3]
 
     # compute rvec and tvec (used to build the camera projection
     # matrix for things like cv2.triangulatePoints) from camera pose
@@ -545,7 +543,7 @@ class Image():
         body2cam = self.get_body2cam()
         ned2body = self.get_ned2body(opt)
         if abs(yaw_error_est) > 0.001 and not opt:
-           R1 = transformations.rotation_matrix(yaw_error_est*d2r, [1, 0, 0])[:3,:3]
+           R1 = rotation_matrix(yaw_error_est*d2r, [1, 0, 0])[:3,:3]
            est_body2ned = np.dot(self.get_body2ned(), R1)
            ned2body = est_body2ned.T
         R = body2cam.dot( ned2body )

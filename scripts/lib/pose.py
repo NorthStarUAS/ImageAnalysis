@@ -11,15 +11,13 @@ import re
 
 import navpy
 from props import getNode
-import transformations
+import props_json
+from transformations import euler_from_quaternion, quaternion_multiply
 
 from . import camera
 from . import exif
 from . import image
 from .logger import log
-
-from props import getNode
-import props_json
 
 # this should really be a parameter.  Any aircraft poses that exceed
 # this value for either roll or pitch will be ignored.  Oblique photos
@@ -146,8 +144,8 @@ def compute_camera_poses(proj):
         for i in range(4):
             ned2body.append( ac_pose_node.getFloatEnum("quat", i) )
 
-        ned2cam = transformations.quaternion_multiply(ned2body, body2cam)
-        (yaw_rad, pitch_rad, roll_rad) = transformations.euler_from_quaternion(ned2cam, "rzyx")
+        ned2cam = quaternion_multiply(ned2body, body2cam)
+        (yaw_rad, pitch_rad, roll_rad) = euler_from_quaternion(ned2cam, "rzyx")
         ned = navpy.lla2ned( aircraft_lat, aircraft_lon, aircraft_alt,
                              ref_lat, ref_lon, ref_alt )
 

@@ -14,7 +14,7 @@ from vpython import *
 from PIL import Image
 
 import navpy
-import transformations
+from transformations import quaternion_backTransform
 
 sys.path.append('../lib')
 import Pose
@@ -62,9 +62,9 @@ for image in proj.image_list:
     ned = navpy.lla2ned( lla[0], lla[1], lla[2], ref[0], ref[1], ref[2] )
     quat = image.aircraft_pose['quat']
     # forward vector in ned
-    f = transformations.quaternion_backTransform(quat, [7.0, 0.0, 0.0])
+    f = quaternion_backTransform(quat, [7.0, 0.0, 0.0])
     # up vector in ned
-    up = transformations.quaternion_backTransform(quat, [0.0, 0.0, -5.0])
+    up = quaternion_backTransform(quat, [0.0, 0.0, -5.0])
     p = arrow(pos=(ned[1],ned[0],-ned[2]-g), axis=(f[1], f[0], -f[2]),
               up=(up[1], up[0], -up[2]), shaftwidth=1, color=color.yellow)
     p = arrow(pos=(ned[1],ned[0],-ned[2]-g), axis=(up[1], up[0], -up[2]),
@@ -78,11 +78,11 @@ for image in proj.image_list:
     quat = image.camera_pose['quat']
     lens = proj.cam.get_lens_params()
     # position vector in ned
-    pos = transformations.quaternion_backTransform(quat, [lens[2], 0.0, 0.0])
+    pos = quaternion_backTransform(quat, [lens[2], 0.0, 0.0])
     # forward vector in ned
-    f = transformations.quaternion_backTransform(quat, [-1.0, 0.0, 0.0])
+    f = quaternion_backTransform(quat, [-1.0, 0.0, 0.0])
     # up vector in ned
-    up = transformations.quaternion_backTransform(quat, [0.0, 0.0, -1.0])
+    up = quaternion_backTransform(quat, [0.0, 0.0, -1.0])
     p = pyramid(pos=(ned[1]+pos[1],ned[0]+pos[0],-(ned[2]+pos[2])-g),
                 size=(lens[2], lens[1], lens[0]),
                 axis=(f[1], f[0], -f[2]), up=(up[1], up[0], -up[2]),

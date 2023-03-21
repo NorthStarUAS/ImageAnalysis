@@ -18,7 +18,7 @@ import math
 import numpy as np
 
 from props import getNode
-import transformations
+from transformations import quaternion_from_matrix, quaternion_inverse
 
 from lib import camera
 from lib import project
@@ -93,8 +93,8 @@ def find_essential(i1, i2):
     #Rh = np.concatenate((Rh, np.zeros((1,4))), axis=0)
     #Rh[3,3] = 1
     # extract the equivalent quaternion, and invert
-    q = transformations.quaternion_from_matrix(R)
-    q_inv = transformations.quaternion_inverse(q)
+    q = quaternion_from_matrix(R)
+    q_inv = quaternion_inverse(q)
 
     (ned1, ypr1, quat1) = i1.get_camera_pose()
     (ned2, ypr2, quat2) = i2.get_camera_pose()

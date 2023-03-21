@@ -4,7 +4,7 @@ from math import pi
 import numpy as np
 
 from props import getNode
-import transformations
+from transformations import quaternion_from_euler
 
 # camera parameters are stored in the global property tree, but this
 # class provides convenient getter/setter functions
@@ -135,10 +135,7 @@ def get_mount_params():
 
 def get_body2cam():
     yaw_deg, pitch_deg, roll_deg = get_mount_params()
-    body2cam = transformations.quaternion_from_euler(yaw_deg * d2r,
-                                                     pitch_deg * d2r,
-                                                     roll_deg * d2r,
-                                                     "rzyx")
+    body2cam = quaternion_from_euler(yaw_deg * d2r, pitch_deg * d2r, roll_deg * d2r, "rzyx")
     return body2cam
 
 # def derive_other_params():
