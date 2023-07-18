@@ -14,9 +14,11 @@ args = parser.parse_args()
 
 # print("Image names: ", args.files)
 
-#pattern_size = (9, 7)
-#pattern_size = (8, 6)
+# one less that number of grid cells in each direction
+# pattern_size = (9, 7)
+# pattern_size = (8, 6)
 pattern_size = (11, 8)
+
 pattern_points = np.zeros( (np.prod(pattern_size), 3), np.float32 )
 pattern_points[:,:2] = np.indices(pattern_size).T.reshape(-1, 2)
 pattern_points *= args.square_size
@@ -53,7 +55,7 @@ for fn in tqdm(args.files, smoothing=0.05):
     obj_points.append(pattern_points)
 
 print("")
-print("Running optimizer ...")
+print("Running optimizer on %d images ..." % len(img_points))
 rms, camera_matrix, dist_coefs, rvecs, tvecs = cv2.calibrateCamera(obj_points, img_points, (w, h), None, None)
 
 np.set_printoptions(suppress=True)
