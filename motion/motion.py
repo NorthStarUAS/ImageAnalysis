@@ -34,7 +34,7 @@ class myOpticalFlow():
         if mind < 30: mind = 30
         bsize = int(diag / 300)
         if bsize < 3: bsize = 3
-        
+
         # Detect feature points in previous frame
         #print(mask)
         #print(mask.shape)
@@ -42,7 +42,7 @@ class myOpticalFlow():
         prev_pts = cv2.goodFeaturesToTrack(self.prev_gray,
                                            maxCorners=maxc,
                                            qualityLevel=0.01,
-	                                   minDistance=mind,
+	                                       minDistance=mind,
                                            blockSize=bsize,
                                            mask=mask)
 
@@ -55,7 +55,7 @@ class myOpticalFlow():
             status = np.zeros(0)
 
         self.prev_gray = curr_gray.copy()
-        
+
         # Sanity check
         if prev_pts.shape != curr_pts.shape:
             prev_pts = curr_pts
@@ -105,7 +105,7 @@ class myFeatureFlow():
             flann_params = { 'algorithm': FLANN_INDEX_KDTREE,
                              'trees': 5 }
             self.matcher = cv2.FlannBasedMatcher(flann_params, {}) # bug : need to pass empty dict (#1329)
-            
+
     def filterMatches(self, kp1, kp2, matches):
         mkp1, mkp2 = [], []
         idx_pairs = []
@@ -160,13 +160,13 @@ class myFeatureFlow():
     def update(self, frame):
         # convert to gray scale
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        
+
         self.tol = gray.shape[1] / 300.0
         if self.tol < 1.0: self.tol = 1.0
 
         kp_list = self.detector.detect(gray)
         kp_list, des_list = self.extractor.compute(gray, kp_list)
-        
+
         # Fixme: make configurable?
         # possible values are "homography", "fundamental", "essential", "none"
         filter_method = "homography"
@@ -194,7 +194,7 @@ class myFarnebackFlow():
         self.prev_gray = np.zeros(0)
         self.hsv_mask = np.zeros(0)
         self.avg = np.zeros(0)
-        
+
     def update(self, frame):
         # convert to gray scale
         curr_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
