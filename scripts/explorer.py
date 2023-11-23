@@ -12,7 +12,7 @@ import time
 import tkinter as tk            # python3-tkinter
 from tkinter import filedialog
 
-from props import getNode       # aura-props
+from props import getNode       # NorthStarUAS/props-legacy
 
 from math import floor, log, sqrt
 import numpy as np
