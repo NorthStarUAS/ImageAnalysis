@@ -133,9 +133,13 @@ class ProjectMgr():
                 camera, make, model, lens_model = \
                     exif.get_camera_info(image_file)
                 break
+        # print("found camera:", camera, make, model, lens_model)
         camera = camera.replace("/", "-")
         make = make.replace("/", "-")
         model = model.replace("/", "-")
+        if lens_model is None:
+            lens_model = ""
+        # print("lens_model:", lens_model)
         lens_model = lens_model.replace("/", "-")
         return camera, make, model, lens_model
 
