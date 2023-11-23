@@ -15,7 +15,7 @@ count = 0
 lat_sum = 0
 lon_sum = 0
 
-print 'Ident,Lat,Lon,Alt'
+print('Ident,Lat,Lon,Alt')
 with gzip.open(args.file, 'rb') as f:
     for line in f:
         tokens = line.split()
@@ -24,8 +24,7 @@ with gzip.open(args.file, 'rb') as f:
             # start of apt record
             if count > 0:
                 # output last record
-                print '%s,%.8f,%.8f,%.0f' % (ident, lat_sum / count,
-                                             lon_sum / count, alt)
+                print('%s,%.8f,%.8f,%.0f' % (ident, lat_sum / count, lon_sum / count, alt))
             ident = tokens[4]
             alt = float(tokens[1]) * ft2m
             count = 0
@@ -40,5 +39,4 @@ with gzip.open(args.file, 'rb') as f:
             count += 2
 if count > 0:
     # output last record
-    print '%s,%.8f,%.8f,%.0f' % (ident, lat_sum / count,
-                                 lon_sum / count, alt)
+    print('%s,%.8f,%.8f,%.0f' % (ident, lat_sum / count, lon_sum / count, alt))
