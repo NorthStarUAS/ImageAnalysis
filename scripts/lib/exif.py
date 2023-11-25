@@ -44,7 +44,7 @@ def dms_to_decimal(degrees, minutes, seconds, sign=' '):
 def get_pose(image_file):
     # exif data
     exif_dict = piexif.load(image_file)
-    
+
     # extended xmp tags (hack)
     fd = open(image_file, "rb")
     d = str(fd.read())
@@ -61,9 +61,9 @@ def get_pose(image_file):
             continue
         token, val = line.split("=")
         val = val.strip('"')
-        #print(token, val)
+        # print(token, val)
         xmp[token] = val
-        
+
     #for key in xmp:
     #    print(key, xmp[key])
 
@@ -81,14 +81,14 @@ def get_pose(image_file):
         elat = exif_dict['GPS'][piexif.GPSIFD.GPSLatitude]
         lat_deg = dms_to_decimal(elat[0], elat[1], elat[2],
                                  exif_dict['GPS'][piexif.GPSIFD.GPSLatitudeRef].decode('utf-8'))
-        
+
     if 'drone-dji:GpsLongitude' in xmp:
         lon_deg = float(xmp['drone-dji:GpsLongitude'])
     else:
         elon = exif_dict['GPS'][piexif.GPSIFD.GPSLongitude]
         lon_deg = dms_to_decimal(elon[0], elon[1], elon[2],
                                  exif_dict['GPS'][piexif.GPSIFD.GPSLongitudeRef].decode('utf-8'))
-        
+
     if 'drone-dji:AbsoluteAltitude' in xmp:
         alt_m = float(xmp['drone-dji:AbsoluteAltitude'])
         if alt_m < 0:
@@ -96,7 +96,7 @@ def get_pose(image_file):
     else:
         ealt = exif_dict['GPS'][piexif.GPSIFD.GPSAltitude]
         alt_m = ealt[0] / ealt[1]
-        
+
     #exif_dict[GPS + 'MapDatum'])
     #print('lon ref', exif_dict['GPS'][piexif.GPSIFD.GPSLongitudeRef])
 
@@ -107,13 +107,18 @@ def get_pose(image_file):
         hour, minute, second = strtime.split(':')
         d = datetime.date(int(year), int(month), int(day))
         t = datetime.time(int(hour), int(minute), int(second))
-        dt = datetime.datetime.combine(d, t) 
+        dt = datetime.datetime.combine(d, t)
         unixtime = float(dt.strftime('%s'))
     else:
         unixtime = None
     #print('pos:', lat, lon, alt, heading)
-    
-    if 'drone-dji:GimbalYawDegree' in xmp:
+
+    if "tiff:Model" in xmp and xmp["tiff:Model"] == "FC7303" and 'drone-dji:FlightYawDegree' in xmp:
+        # mavic mini 2 doesn't report gimbal yaw, just flight yaw
+        yaw_deg = float(xmp['drone-dji:FlightYawDegree'])
+        while yaw_deg < 0:
+            yaw_deg += 360
+    elif 'drone-dji:GimbalYawDegree' in xmp:
         yaw_deg = float(xmp['drone-dji:GimbalYawDegree'])
         while yaw_deg < 0:
             yaw_deg += 360
@@ -123,6 +128,7 @@ def get_pose(image_file):
             yaw_deg += 360
     else:
         yaw_deg = None
+    print("yaw_deg:", yaw_deg)
 
     if 'drone-dji:GimbalPitchDegree' in xmp:
         pitch_deg = float(xmp['drone-dji:GimbalPitchDegree'])
@@ -137,5 +143,5 @@ def get_pose(image_file):
         roll_deg = float(xmp['Camera:Roll'])
     else:
         roll_deg = None
-        
+
     return lon_deg, lat_deg, alt_m, unixtime, yaw_deg, pitch_deg, roll_deg
