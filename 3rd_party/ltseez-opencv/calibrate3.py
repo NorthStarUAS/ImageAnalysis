@@ -12,9 +12,9 @@ parser.add_argument('--square_size', default=1.0, type=float, help='square size'
 parser.add_argument('files', metavar='file', nargs='+', help="list of images with chessboard pattern.")
 args = parser.parse_args()
 
-# print("Image names: ", args.files)
+# number of interior corners (i.e. one less that number of grid cells in each
+# direction)
 
-# one less that number of grid cells in each direction
 # pattern_size = (9, 7)
 # pattern_size = (8, 6)
 pattern_size = (11, 8)
@@ -38,7 +38,7 @@ for fn in tqdm(args.files, smoothing=0.05):
     # print(w, h)
     found, corners = cv2.findChessboardCorners(img, pattern_size)
     if not found:
-        print('  ...chessboard not found')
+        print(" ", fn, "...chessboard not found")
         continue
     term = ( cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_COUNT, 30, 0.1 )
     cv2.cornerSubPix(img, corners, (5, 5), (-1, -1), term)
