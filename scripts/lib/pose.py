@@ -189,6 +189,9 @@ def make_pix4d(image_dir, force_altitude=None, force_heading=None, yaw_from_grou
             line.append(0)      # assume zero roll
         else:
             line.append(roll_deg)
+        if camera.camera_node.getString("make") == "DJI" and camera.camera_node.getString("model") in ["FC7303"]:
+            # mavic mini 2 assume -90 pitch
+            pitch_deg = -90
         if pitch_deg is None:
             line.append(0)      # assume zero pitch
         else:
