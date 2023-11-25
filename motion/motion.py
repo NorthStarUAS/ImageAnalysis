@@ -1,4 +1,8 @@
-# python module to package my favorite motion tracking tricks
+"""
+@author: clolson / curt@flightgear.org
+"""
+
+# python module to package several optical flow tracking strategies.
 # compute the homography matrix representing the best fit motion from
 # the previous frame to the current frame.  The H matrix can further
 # be decomposed into camera rotation and translation (requires the
@@ -7,12 +11,148 @@
 import cv2
 import numpy as np
 
-
 # a fast optical flow based method, generally is the best choice for
 # unobstructed views. Tracked featurs are distributed well across the
 # entire image for a best homography fit.
 #
 # Based on this tutorial: https://learnopencv.com/video-stabilization-using-point-feature-matching-in-opencv/
+
+class SparseLK():
+    def __init__(self, use_mask=True, winSize=None, add_feature_interval=1):
+        print("init winsize:", winSize)
+        print("use mask:", use_mask)
+        if winSize is not None:
+            self.winSize = (winSize, winSize)
+        else:
+            self.winSize = None
+        self.use_mask = use_mask
+        self.add_feature_interval = int(round(add_feature_interval))
+        if self.add_feature_interval < 1:
+            self.add_feature_interval = 1
+        self.prev_gray = None
+        self.frame_count = 0
+        self.num_new_pts = 0
+
+    def make_mask(self, pts, shape, radius):
+        mask = 255 * np.ones( shape ).astype('uint8')
+        # print(radius, mask.shape
+        # print(type(pts), pts.shape, pts)
+        if len(pts):
+            for i in range(len(pts)):
+                # print("mask point:", pts[i][0])
+                cv2.circle(mask, tuple( pts[i].reshape(2).astype('int') ),
+                           radius, (0,0,0), -1, cv2.LINE_AA)
+        # cv2.imshow("mask", mask)
+        return mask
+
+    def update(self, frame, mask_pts=None):
+        if len(frame.shape) == 3:
+            curr_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        else:
+            curr_gray = frame
+
+        # prime the pump if needed
+        if self.prev_gray is None:
+            self.prev_gray = curr_gray.copy()
+
+        if False:
+            kernel = cv2.getGaussianKernel(15,1)
+            # kernel = np.ones((5,5), np.uint8)
+            closing = cv2.morphologyEx(curr, cv2.MORPH_CLOSE, kernel)
+            cv2.imshow("closing", closing)
+            opening = cv2.morphologyEx(curr, cv2.MORPH_OPEN, kernel)
+            cv2.imshow("opening", opening)
+            cmo = closing - opening
+            cv2.imshow("CMO", cmo)
+            curr = cmo.astype("uint8")
+
+        # scale parameters with frame size
+        diag = np.linalg.norm(frame.shape[:2])
+        maxc = int(diag / 5)
+        if maxc < 200: maxc = 200
+        mind = int(diag / 30)
+        if mind < 20: mind = 20
+        bsize = int(diag / 100)
+        if bsize < 5: bsize = 5
+        # print("maxc:", maxc, "mask_pts:", mask_pts.shape)
+
+        # draw.show_points(self.prev_gray, "self.prev_gray", mask_pts)
+        if self.frame_count % self.add_feature_interval == 0 or len(mask_pts) < int(maxc/10):
+            # draw.show_points(self.prev_gray, "mask points", mask_pts)
+            # cv2.waitKey()
+            if self.use_mask:
+                # Detect feature points in previous frame
+                # print(mask)
+                # print(mask.shape)
+                mask = self.make_mask(mask_pts, curr_gray.shape[:2], int(mind*0.75))
+                # cv2.imshow("mask", mask)
+                # cv2.waitKey()
+            else:
+                mask = None
+
+            # print("self.prev_gray:", self.prev_gray)
+            # if self.prev_gray is not None:
+                # print("self.prev_gray:", self.prev_gray.shape)
+            # print("mask:", mask.shape)
+            # print("minDistance:", mind)
+            new_prev_pts = cv2.goodFeaturesToTrack( self.prev_gray,
+                                                    maxCorners=maxc,
+                                                    qualityLevel=0.01,
+                                                    minDistance=mind,
+                                                    blockSize=bsize,
+                                                    mask=mask )
+            # draw.show_points(self.prev_gray, "new_prev_pts", new_prev_pts)
+        else:
+            new_prev_pts = None
+            mask = None
+
+        if self.use_mask and len(mask_pts):
+            if new_prev_pts is None:
+                prev_pts = mask_pts
+                self.num_new_pts = 0
+            else:
+                num_new = maxc - len(mask_pts)
+                prev_pts = np.concatenate( ( mask_pts.reshape(-1,1,2), new_prev_pts[:num_new,:,:]) )
+                self.num_new_pts = len(new_prev_pts[:num_new,:,:])
+        else:
+            prev_pts = new_prev_pts
+            self.num_new_pts = 0
+        # print("prev_pts:", prev_pts)
+
+        # compute the optical flow
+        if prev_pts is not None:
+            if True:
+                # print("self.prev_gray:", self.prev_gray.shape, "curr_frame:", curr_frame.shape)
+                if self.winSize is None:
+                    curr_pts, status, err = cv2.calcOpticalFlowPyrLK(self.prev_gray, curr_gray, prev_pts.astype("float32"), None)
+                else:
+                    curr_pts, status, err = cv2.calcOpticalFlowPyrLK(self.prev_gray, curr_gray, prev_pts, None, winSize=self.winSize)
+            else:
+                print("ERROR: calcOpticalFlowPyrLK failed!!!")
+                prev_pts = np.zeros(0)
+                curr_pts = np.zeros(0)
+                status = np.zeros(0)
+        else:
+            prev_pts = np.zeros(0)
+            curr_pts = np.zeros(0)
+            status = np.zeros(0)
+
+        self.prev_gray = curr_gray.copy()
+
+        # draw.show_points(curr_frame, "raw flow", curr_pts)
+        # cv2.waitKey()
+        # print(prev_pts)
+        # print(self.prev_gray.shape, curr_frame.shape)
+        self.frame_count += 1
+
+        # Sanity check
+        if prev_pts.shape != curr_pts.shape:
+            prev_pts = curr_pts
+
+        # return only the points where the algorithm found flow
+        idx = np.where(status==1)[0]
+        print("flow:", "%.1f%%" % (100*len(idx)/maxc), len(idx), maxc)
+        return prev_pts[idx].reshape(-1,1,2), curr_pts[idx].reshape(-1,1,2), mask
 
 class myOpticalFlow():
     def __init__(self):
@@ -79,7 +219,7 @@ class myOpticalFlow():
 # but tracked feature distribution can be poor depending on the scene
 # composition.
 
-class myFeatureFlow():
+class SparseSIFT():
     def __init__(self, K):
         self.K = K
         self.match_ratio = 0.75
@@ -189,11 +329,44 @@ class myFeatureFlow():
         return np.linalg.inv(M), newp1, newp2, status
 
 
-class myFarnebackFlow():
-    def __init__(self):
+
+class DenseFarneback():
+    def __init__(self, steps=20):
+        self.steps = steps
         self.prev_gray = np.zeros(0)
         self.hsv_mask = np.zeros(0)
         self.avg = np.zeros(0)
+        self.fm = np.zeros( (steps*steps, 2) )
+
+    def sample_flow(self, array):
+        rows, cols = array.shape[:2]
+        rstep = rows // self.steps + 1
+        cstep = cols // self.steps + 1
+        result = []
+        prev_pts = []
+        curr_pts = []
+        status = []
+        count = 0
+        for i in range(0, rows, rstep):
+            for j in range(0, cols, cstep):
+                #print(i,j, rstep, cstep)
+                A = array[i:i+rstep, j:j+cstep, :]
+                #print(A.shape)
+                p = np.array([j+cstep//2, i+rstep//2])
+                delta = np.array( [ np.median(A[:,:,0]), np.median(A[:,:,1]) ] )
+                if np.linalg.norm(delta) > 1.0:
+                    # build faster
+                    self.fm[count] = 0.9 * self.fm[count] + 0.1 * delta
+                else:
+                    # decay slower
+                    self.fm[count] = 0.98 * self.fm[count] + 0.02 * delta
+                if np.linalg.norm(self.fm[count]) > 1.0:
+                    curr_pts.append( p )
+                    prev_pts.append( p - self.fm[count])
+                    status.append( True )
+                count += 1
+        #print("sample:", prev_pts, curr_pts, status)
+        return np.array(prev_pts).reshape(-1,1,2), np.array(curr_pts).reshape(-1,1,2), np.array(status)
 
     def update(self, frame):
         # convert to gray scale
@@ -212,22 +385,61 @@ class myFarnebackFlow():
         # calculate optical flow
         flow = cv2.calcOpticalFlowFarneback(self.prev_gray, curr_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
 
-        # Compute magnite and angle of 2D vector
+        # Compute magnitude and angle of 2D vector
         mag, ang = cv2.cartToPolar(flow[..., 0], flow[..., 1])
 
         # Set image hue value according to the angle of optical flow
         self.hsv_mask[..., 0] = ang * 180 / np.pi / 2
 
         # Set value as per the normalized magnitude of optical flow
-        self.hsv_mask[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
-
-        if self.avg.shape[0] == 0:
-            self.avg = self.hsv_mask.copy().astype('float32')
+        #print(np.min(mag), np.max(mag), np.mean(mag))
+        if True:
+            norm = mag * (255 / 40)
+            norm[norm>255] = 255
         else:
-            self.avg = 0.9*self.avg + 0.1*self.hsv_mask
+            norm = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
+        self.hsv_mask[..., 2] = norm
 
-        # Convert to rgb
-        rgb = cv2.cvtColor(self.avg.astype('uint8'), cv2.COLOR_HSV2BGR)
-        cv2.imshow('Farneback motion', rgb)
+        if True:
+            rgb = cv2.cvtColor(self.hsv_mask.astype('uint8'), cv2.COLOR_HSV2BGR)
+        else:
+            if self.avg.shape[0] == 0:
+                self.avg = self.hsv_mask.copy().astype('float32')
+            else:
+                self.avg = 0.9*self.avg + 0.1*self.hsv_mask
+
+            # Convert to rgb
+            rgb = cv2.cvtColor(self.avg.astype('uint8'), cv2.COLOR_HSV2BGR)
+            #cv2.imshow('Farneback motion', rgb)
 
         self.prev_gray = curr_gray.copy()
+
+        prev_pts, curr_pts, status = self.sample_flow(flow)
+        return prev_pts, curr_pts, status, rgb
+
+# project prev points onto the normal vector and the curr points onto
+# the rotated normal vector.  if any lead to a negative projection,
+# they are behind the plane and that solution is not the one want.
+def filterHomographyByPoints(Rs, Ns, prev_pts, curr_pts, status):
+    # fixme: look for better optimizations (numpy block ops)
+    # fixme: this code is not 100% validated, use with caution
+    result = []
+    for num in range(len(Rs)):
+        valid = True
+        for i in range(len(prev_pts)):
+            if not status[i]:
+                continue
+            p1 = np.append(prev_pts[i], 1.0)
+            p2 = np.append(curr_pts[i], 1.0)
+            pnd = np.dot(p1, Ns[num])           # prev dot norm
+            cnd = np.dot(p2, Rs[num] @ Ns[num]) # curr dot rot(norm)
+            #print(num, p1, pnd, " | ", p2, cnd)
+            if pnd <= 0 or cnd <= 0:
+            #   if pnd >= 0:
+                print(pnd)
+                valid = False
+                break
+        result.append(valid)
+    return result
+
+
