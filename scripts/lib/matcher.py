@@ -13,6 +13,7 @@ import random
 import time
 
 from props import getNode
+from transformations import rotation_matrix
 
 from . import camera
 from .find_obj import explore_match
@@ -20,7 +21,6 @@ from . import image_list
 from .logger import log, qlog
 from . import project
 from . import smart
-from transformations import rotation_matrix
 
 detector_node = getNode('/config/detector', True)
 matcher_node = getNode('/config/matcher', True)
@@ -863,7 +863,12 @@ def find_matches(proj, K, strategy="smart", transform="homography",
         intervals.append(dist)
         print(i, dist)
     median = np.median(intervals)
+    average = np.average(intervals)
     log("Median pair interval: %.1f m" % median)
+    log("Average pair interval: %.1f m" % average)
+    log("Max adjacent interval: %.1f m" % np.max(intervals))
+    if median < average:
+        median = average
     median_int = int(round(median))
     if median_int == 0:
         median_int = 1
@@ -888,7 +893,12 @@ def find_matches(proj, K, strategy="smart", transform="homography",
             ned2, ypr2, q2 = i2.get_camera_pose()
             dist = np.linalg.norm(np.array(ned2) - np.array(ned1))
             interval = median_int * 1.3
-            if dist >= min_dist and dist <= max_dist:
+            if False and dist >= min_dist and dist <= max_dist:
+                ddist = int(round(dist/interval))*interval # discretized sorting/cache friendlier
+                work_list.append( [ddist, i, j] )
+            elif abs(i-j) <= 4:
+                print("adding neighbors:", i, j)
+                # include n closest neighbors in sequential order
                 ddist = int(round(dist/interval))*interval # discretized sorting/cache friendlier
                 work_list.append( [ddist, i, j] )
 
