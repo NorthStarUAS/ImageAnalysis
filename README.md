@@ -1,5 +1,7 @@
 # Image Analysis
 
+NOTICE: This project has moved to Codeberg.org <https://codeberg.org/NorthStarUAS>
+
 Aerial imagery analysis, processing, and presentation scripts.
 
 ## Important Notice: March 5, 2022
